@@ -17,6 +17,36 @@ chat call over the request body, no agent, no workspace, no container), a real
 aux-injecting `template` builder, and a mock upstream. No GPU, no Docker, no
 dataset.
 
+### General shape
+
+```
+ CALLER SIDE                    FORESIGHT                      MODEL ENDPOINTS
+┌──────────────────┐        ┌───────────────────────┐
+│  target agent    │──(1)──▶│ server                │        ┌──────────────┐
+│  (harness)       │        │   │                   │──(7)──▶│ target model │
+│  owns tools,     │◀─(8)───│   ▼                   │◀───────│              │
+│  edits workspace │        │ CallerAdapter         │        └──────────────┘
+└────────┬─────────┘        │   (2) session start?  │
+         │                  │   (3) run_aux ────┐   │        ┌──────────────┐
+         │ reads/writes     │   (6) builder     │   │──(5)──▶│  aux model   │
+         ▼                  └───────────────────┼───┘◀───────│              │
+   ┌──────────────┐                             │            └──────────────┘
+   │  workspace   │◀────(4) read-only──── ┌─────▼──────┐
+   └──────────────┘                       │ aux agent  │
+                                          └────────────┘
+```
+
+1. harness sends a request
+2. adapter: is this a session start?
+3. if yes, `run_aux` spawns an aux agent over the workspace
+4. aux explores, read-only
+5. aux's model calls return to foresight as `aux-model`, bypass the pipeline, exit via `Backend`
+6. builder rewrites the task prompt, on **every** request of the session, using the cached result
+7. forward to target model
+8. relay reply.
+
+See `foresight-design-plan.md` for the per-caller flow diagrams (SWE-CI, mini-SWE-agent, local use).
+
 ## Setup
 
 ```bash
