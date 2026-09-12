@@ -11,7 +11,7 @@ work, rewrites the task prompt to carry that context, and forwards it to the
 target model. The control arm is the same pipeline with a `passthrough`
 builder, so both arms traverse identical code and differ only in the prompt.
 
-The full design lives at `~/claude-config/plans/vast-frolicking-rabbit.md`.
+The full design lives at `foresight-design-plan.md`.
 This milestone (M1) is the naive vertical slice: `GenericAdapter` (aux = one
 chat call over the request body, no agent, no workspace, no container), a real
 aux-injecting `template` builder, and a mock upstream. No GPU, no Docker, no
@@ -25,20 +25,23 @@ conda activate foresight
 pip install -r requirements.txt
 ```
 
-The env lives under `$WORK/miniconda3/envs/foresight` -- never `$HOME`, which
-is quota-limited and config-only.
+## Run it (local test setup)
 
-## Run it
+The commands below stand up foresight against `fake_upstream.py`, a mock
+model server, purely so you can exercise the pipeline locally. This is for
+testing only -- for a real run, point foresight at an actual benchmark or
+agent harness on one side and a real model endpoint on the other, instead of
+`fake_upstream.py`.
 
-Two processes: the mock upstream (standing in for both models) and foresight
-itself.
+Two processes: foresight itself, and the mock upstream standing in for both
+models.
 
 ```bash
 # terminal 1
-python tools/fake_upstream.py --port 8001 --record /tmp/upstream.jsonl
+python -m foresight.server --config configs/naive.yaml
 
 # terminal 2
-python -m foresight.server --config configs/naive.yaml
+python tools/fake_upstream.py --port 8001 --record /tmp/upstream.jsonl
 ```
 
 Then, from a third terminal:
@@ -84,8 +87,7 @@ validation, `AuxFailure` handling, and an in-process end-to-end run against
 
 ## Design decisions specific to this milestone
 
-See `~/claude-config/plans/we-are-implementing-milestone-iterative-pebble.md`
-for the full reasoning. In short:
+See `foresight-design-plan.md` for the full reasoning. In short:
 
 - **The proxied request body is never parsed into a Pydantic model.** Doing so
   would silently drop any field we did not declare, which breaks the
@@ -103,6 +105,10 @@ for the full reasoning. In short:
   `foresight.pipeline.SessionStore` for the full argument.
 
 ## What's next (not in this milestone)
+
+Milestone 1 has been implemented. See `foresight-design-plan.md` for more
+info on the milestones.
+> note: Update this section as further milestones are implemented.
 
 - **M2 -- `LocalAdapter`.** A real aux agent exploring a real repo, with
   `WorkspaceGuard` implemented and the future-task `template` builder doing real
