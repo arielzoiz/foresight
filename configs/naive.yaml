@@ -1,0 +1,67 @@
+# Milestone 1 -- the naive vertical slice.
+#
+# GenericAdapter (aux = one chat call over the request body, no agent, no
+# workspace), the real aux-injecting `template` builder. Run alongside
+# tools/fake_upstream.py, which serves both fake-target and fake-aux.
+#
+# This is the TREATMENT arm. control.yaml is the same file with
+# builder.name: passthrough -- the only difference between the two arms.
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8001/v1
+    model: fake-target
+    api_key_env: TARGET_API_KEY
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8001/v1
+    model: fake-aux
+    api_key_env: AUX_API_KEY
+    timeout_s: 600
+
+adapter:
+  name: generic
+
+# Jinja, variable available: {{ prompt }}.
+# Asks aux to quote one distinctive detail of the task, so the check is
+# meaningful rather than merely agreeable (M1 step 2). Drop the quote
+# requirement before milestone 2 -- see adapters/generic.py.
+aux_prompt: |
+  You will be shown a software task. First, quote one distinctive detail from
+  it verbatim (a function name, file path, or specific behaviour mentioned) so
+  it is clear you read it. Then list 3 to 5 plausible FUTURE tasks that could
+  reasonably follow this one in the same codebase.
+
+  Task:
+  {{ prompt }}
+
+stages: [aux]
+
+builder:
+  name: template
+  # Jinja, variables available: {{ aux }}, {{ prompt }}.
+  # Aux block first, then the prompt -- the task the agent must actually
+  # perform is the last thing it reads.
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+guard: null

@@ -1,0 +1,46 @@
+# The control arm. Identical to naive.yaml in every respect except the
+# builder -- passthrough forwards messages unchanged, byte for byte. Both
+# arms traverse the same adapter, pipeline and backend, so any difference in
+# results is attributable to the prompt alone.
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8001/v1
+    model: fake-target
+    api_key_env: TARGET_API_KEY
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8001/v1
+    model: fake-aux
+    api_key_env: AUX_API_KEY
+    timeout_s: 600
+
+adapter:
+  name: generic
+
+aux_prompt: |
+  You will be shown a software task. First, quote one distinctive detail from
+  it verbatim (a function name, file path, or specific behaviour mentioned) so
+  it is clear you read it. Then list 3 to 5 plausible FUTURE tasks that could
+  reasonably follow this one in the same codebase.
+
+  Task:
+  {{ prompt }}
+
+stages: [aux]
+
+builder:
+  name: passthrough
+
+session:
+  ttl_s: 3600
+
+guard: null

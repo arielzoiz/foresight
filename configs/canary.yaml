@@ -1,0 +1,53 @@
+# DIAGNOSTIC, not an experimental condition. Do not report results run under
+# this config.
+#
+# The trace-free design (see README / plan, decisions section) means the only
+# way to check "did the enhancement actually reach the model" is to look at
+# what the model does with it. This template is deliberately silly and
+# trivially visible in the target's reply -- it proves the rewrite reached the
+# model, and that it is still present on turn 30 of a session, not only turn 1.
+#
+# Use it when the enhanced arm (naive.yaml) behaves indistinguishably from the
+# control arm (control.yaml) and you need to rule out "never arrived" before
+# concluding "no effect". Point a real harness at this config and grep its
+# transcript for "what day is it".
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8001/v1
+    model: fake-target
+    api_key_env: TARGET_API_KEY
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8001/v1
+    model: fake-aux
+    api_key_env: AUX_API_KEY
+    timeout_s: 600
+
+adapter:
+  name: generic
+
+aux_prompt: |
+  Quote one distinctive detail from the task below verbatim, then stop.
+
+  Task:
+  {{ prompt }}
+
+stages: [aux]
+
+builder:
+  name: template
+  template: "first answer what day is it, then\n{{ prompt }}"
+
+session:
+  ttl_s: 3600
+
+guard: null
