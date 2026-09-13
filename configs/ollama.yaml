@@ -1,0 +1,78 @@
+# naive.yaml pointed at a REAL model instead of tools/fake_upstream.py.
+#
+# Identical to the treatment arm in every way that matters -- same adapter,
+# same aux_prompt, same template, same stages -- so the only difference from a
+# naive.yaml run is that aux's answer is now a model's, not a canned echo.
+# That is the point: fake_upstream proves the plumbing, this proves the prompt.
+#
+# Requires Ollama running (it starts as a background service on install):
+#     ollama pull qwen2.5-coder:7b
+#     curl http://127.0.0.1:11434/api/version
+#
+# Ollama serves an OpenAI-compatible API at /v1, so openai_compat needs no
+# translation and no api_key_env -- there is no key to send.
+#
+# This is still MILESTONE 1: aux is one chat call over the request body and
+# never sees a codebase. A real aux agent exploring a repo is milestone 2
+# (LocalAdapter).
+
+server:
+  host: 127.0.0.1
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:11434/v1
+    model: qwen2.5-coder:7b
+    timeout_s: 3600
+  aux:
+    # Same model in both roles for now. Splitting them is a one-line change and
+    # a legitimate axis later (a stronger aux, a cheaper target); keeping them
+    # identical means any difference we see comes from the prompt, not the model.
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:11434/v1
+    model: qwen2.5-coder:7b
+    timeout_s: 600
+
+adapter:
+  name: generic
+
+# Verbatim from naive.yaml. The "quote one distinctive detail" requirement is
+# what makes a real model's reply checkable rather than merely agreeable -- with
+# a real model it finally means something, since a model that ignored the task
+# cannot quote it.
+aux_prompt: |
+  You will be shown a software task. First, quote one distinctive detail from
+  it verbatim (a function name, file path, or specific behaviour mentioned) so
+  it is clear you read it. Then list 3 to 5 plausible FUTURE tasks that could
+  reasonably follow this one in the same codebase.
+
+  Task:
+  {{ prompt }}
+
+stages: [aux]
+
+builder:
+  name: template
+  # Verbatim from naive.yaml: aux block first, the real task last.
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+trace:
+  path: traces/ollama.jsonl
+
+guard: null

@@ -55,6 +55,7 @@ from typing import Any
 # as InboundRequest applies to prompt_in, or the two are not comparable.
 from .context import InboundRequest, RequestContext, _as_text
 from .errors import TraceFailure
+from .stages import assess_aux
 
 #: How much of the end of a stream to keep while looking for a usage object.
 #: The usage chunk is emitted immediately before ``data: [DONE]``, so this only
@@ -265,9 +266,23 @@ def _prompt_out(ctx: RequestContext) -> str:
 
 
 def _aux_block(aux: Any) -> dict | None:
+    """The aux result, plus a verdict on whether it is usable.
+
+    ``items``/``usable`` come from ``stages.assess_aux``, recomputed here rather
+    than read off the result. It is a pure function of the text, and computing
+    it per row is what puts the verdict on CONTINUATION rows too -- those reuse
+    a stored AuxResult and never re-enter AuxStage. Filtering an experiment on
+    ``aux.usable`` therefore works on every row of a session, not just its
+    first.
+    """
     if aux is None:
         return None
-    return {"source": aux.source, "text": aux.text, "provenance": aux.provenance}
+    return {
+        "source": aux.source,
+        "text": aux.text,
+        "provenance": aux.provenance,
+        **assess_aux(aux.text),
+    }
 
 
 def _aux_usage(aux: Any) -> dict | None:

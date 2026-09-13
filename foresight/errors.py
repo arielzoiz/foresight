@@ -56,6 +56,31 @@ class TraceFailure(ForesightError):
     error_type = "trace_failure"
 
 
+class GuardViolation(ForesightError):
+    """The aux agent modified the target's workspace.
+
+    Aux is read-only by prompt instruction only; WorkspaceGuard detects
+    violations rather than preventing them. When one is detected the measured
+    artefact is already corrupt, so the request fails -- guards.py argues the
+    policy at length. The changed paths are named in the message, because a
+    manifest diff can name them and a hash could not.
+
+    Distinct from AuxFailure: aux did its job, and then did more than its job.
+    """
+
+    status_code = 500
+    error_type = "workspace_contaminated"
+
+    def __init__(self, changed: list[str], root: str) -> None:
+        self.changed = changed
+        self.root = root
+        shown = ", ".join(changed[:5])
+        more = f" (+{len(changed) - 5} more)" if len(changed) > 5 else ""
+        super().__init__(
+            f"aux modified {len(changed)} path(s) under {root}: {shown}{more}"
+        )
+
+
 class ConfigError(ForesightError):
     """The configuration is unusable. Raised at startup, never per request."""
 

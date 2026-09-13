@@ -12,10 +12,15 @@ target model. The control arm is the same pipeline with a `passthrough`
 builder, so both arms traverse identical code and differ only in the prompt.
 
 The full design lives at `foresight-design-plan.md`.
-This milestone (M1) is the naive vertical slice: `GenericAdapter` (aux = one
-chat call over the request body, no agent, no workspace, no container), a real
-aux-injecting `template` builder, and a mock upstream. No GPU, no Docker, no
-dataset.
+
+**M1** was the naive vertical slice: `GenericAdapter` (aux = one chat call over
+the request body, no agent, no workspace, no container), a real aux-injecting
+`template` builder, and a mock upstream.
+
+**M2** makes aux a real agent. `LocalAdapter` spawns a harness as a subprocess
+with `cwd` set to a configured repo, lets it explore the actual code, and reads
+back what it wrote -- with `ManifestGuard` failing the request if aux modified
+anything. Still no GPU, no Docker, no dataset.
 
 ### General shape
 
@@ -128,6 +133,8 @@ caller does ask, the counts are recovered by watching the bytes go past.
 | `configs/naive.yaml` | treatment | `template` -- injects aux's future-task context |
 | `configs/control.yaml` | control | `passthrough` -- forwards unchanged |
 | `configs/canary.yaml` | diagnostic, not a condition | a trivially visible silly prefix |
+| `configs/ollama.yaml` | treatment, real model | `naive.yaml` pointed at a local Ollama instead of the mock |
+| `configs/local.yaml` | treatment, **M2** | aux is a real agent over a real repo, `guard: manifest` |
 
 `canary.yaml` answers a question no upstream inspection can, once a real
 harness sits between us and the visible output: *did the enhancement reach the
@@ -143,11 +150,16 @@ re-application logic mid-session.
 pytest tests/ -q
 ```
 
-Needs neither GPU nor Docker. Covers builder rewriting (both arms), session
-keying, the aux-fires-once-per-session invariant, the `aux-model` bypass, config
-validation, `AuxFailure` handling, trace record shape and its failure policy,
-and an in-process end-to-end run against `fake_upstream` (including
-`stream: true`, streaming token-usage recovery, and tool-call passthrough).
+Needs neither GPU nor Docker, and no agent harness -- `tools/fake_agent.py`
+stands in for one, the same way `fake_upstream.py` stands in for a model.
+
+Covers builder rewriting (both arms), session keying, the
+aux-fires-once-per-session invariant, the `aux-model` bypass, config validation,
+`AuxFailure` handling, trace record shape and its failure policy, the aux quality
+gate, `LocalAdapter`'s subprocess contract (argv substitution, cwd, timeouts,
+stale answers), `ManifestGuard` against real directories, and an in-process
+end-to-end run against `fake_upstream` (including `stream: true`, streaming
+token-usage recovery, and tool-call passthrough).
 
 ## Design decisions specific to this milestone
 
@@ -173,21 +185,19 @@ See `foresight-design-plan.md` for the full reasoning. In short:
   later request of the same target session. See the docstring on
   `foresight.pipeline.SessionStore` for the full argument.
 
-## What's next (not in this milestone)
+## What's next
 
-Milestone 1 has been implemented. See `foresight-design-plan.md` for more
-info on the milestones.
+Milestones 1 and 2 have been implemented. See `foresight-design-plan.md` for
+more info on the milestones.
 > note: Update this section as further milestones are implemented.
 
-- **M2 -- `LocalAdapter`.** A real aux agent exploring a real repo, with
-  `WorkspaceGuard` implemented and the future-task `template` builder doing real
-  work. No Docker, no Slurm, no dataset -- the fastest path to the whole
-  hypothesis working end to end.
 - **M3 -- `SweCiAdapter`.** Container resolution, `docker exec` aux,
-  container-ID session keying.
+  container-ID session keying. Gated on a container runtime being reachable --
+  test `udocker` first, since that decides whether M3 and M4 are possible at all.
 - **M4 -- mini-SWE-agent.** A config file pointing mini at foresight, then
   `MiniAdapter` (option B: aux explores a throwaway container from the
-  per-instance image).
+  per-instance image). Independent of M3, not sequenced after it.
 
-`foresight/guards.py` documents why `WorkspaceGuard` ships as a Protocol with no
-implementation in M1, and why M2/M3 cannot skip it.
+`ManifestGuard` is implemented and required from M2 on. It is not a security
+boundary -- nothing prevents a write, and a determined agent could restore an
+mtime. It exists so contamination is loud instead of silent.

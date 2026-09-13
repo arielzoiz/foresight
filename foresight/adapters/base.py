@@ -47,17 +47,77 @@ class AuxResult(BaseModel):
     assert on it, and it is what a trace would serialise if one is added."""
 
 
+class AdapterOptions(BaseModel):
+    """The ``adapter:`` config block.
+
+    Lives here rather than in config.py so that adapters own the shape of their
+    own configuration, and config.py can use it directly instead of maintaining
+    a parallel model. Fields past ``name`` are used only by adapters that launch
+    a harness; GenericAdapter ignores all of them.
+    """
+
+    name: str = "generic"
+
+    workspace: str | None = None
+    """Directory the aux agent explores. Required by LocalAdapter."""
+
+    agent_cmd: list[str] = Field(default_factory=list)
+    """The harness invocation, as argv. We define no tools and invent no
+    protocol -- aux reaches the codebase through a real harness, so this is a
+    command, not a plugin. Placeholders ``{prompt}``, ``{answer_file}`` and
+    ``{workspace}`` are substituted per element."""
+
+    answer_file: str | None = None
+    """Where the agent is told to write its answer. Reading a file is more
+    reliable than scraping stdout, which carries the harness's own chatter --
+    the same pattern SWE-CI uses for requirement.xml. Omit for a fresh temp file
+    per run, which is what concurrent sessions need."""
+
+    answer_from: Literal["file", "stdout"] = "file"
+    """Which stream carries aux's answer.
+
+    Declared, never guessed. A harness told to write a file and then failing to
+    prints only its own progress chatter, and silently accepting that as the
+    future-task list would inject text carrying no future tasks -- the same
+    "instance in neither arm" contamination the aux gate exists to catch. Set
+    "stdout" for a harness that answers on stdout (opencode does)."""
+
+    timeout_s: float = 900.0
+    """Wall clock for the whole agent run."""
+
+    env: dict[str, str] = Field(default_factory=dict)
+    """Added to the subprocess environment. Set HOME here: opencode keeps its
+    session DB under $HOME, and sharing it would corrupt both the user's own
+    state and (in SWE-CI) the benchmark's token accounting."""
+
+
 class CallerAdapter(ABC):
     """One caller's idiosyncrasies, and how aux reaches its codebase."""
 
     name: ClassVar[str] = "adapter"
 
-    def __init__(self, *, aux_backend: Backend, aux_spec: ModelSpec, aux_prompt: str) -> None:
+    aux_prompt_vars: ClassVar[set[str]] = {"prompt", "system"}
+    """Variables this adapter renders ``aux_prompt`` with. config._check_template
+    validates against exactly this set at startup, so a template referencing a
+    variable its adapter does not supply fails before the port is bound rather
+    than on the first request."""
+
+    def __init__(
+        self,
+        *,
+        aux_backend: Backend,
+        aux_spec: ModelSpec,
+        aux_prompt: str,
+        options: AdapterOptions | None = None,
+        guard_name: str | None = None,
+    ) -> None:
         # Collaborators are injected at construction rather than passed per
         # call, so run_aux keeps the signature the design specifies.
         self._aux_backend = aux_backend
         self._aux_spec = aux_spec
         self._aux_prompt = aux_prompt
+        self._options = options or AdapterOptions(name=self.name)
+        self._guard_name = guard_name
 
     # -- concrete defaults ------------------------------------------------
 

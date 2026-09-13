@@ -1,0 +1,124 @@
+# MILESTONE 2 -- aux is a real agent exploring a real repo.
+#
+# The difference from ollama.yaml is one line of adapter config: aux stops being
+# a single chat call over the request body and becomes a harness subprocess with
+# cwd set to `adapter.workspace`. It reads the actual code before answering.
+#
+# No Docker, no Slurm, no dataset. The design calls this the fastest path to
+# seeing the whole hypothesis work end to end.
+#
+#     python -m foresight.server --config configs/local.yaml
+#
+# EDIT adapter.workspace BEFORE USING THIS. It points at a repo aux will read,
+# and `guard: manifest` will fail the request if aux writes to it.
+
+server:
+  host: 127.0.0.1
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:11434/v1
+    model: qwen2.5-coder:7b
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:11434/v1
+    model: qwen2.5-coder:7b
+    # A whole agent run now holds the target's request open. See risk 7: the
+    # caller's own HTTP timeout is not under our control.
+    timeout_s: 1800
+
+adapter:
+  name: local
+
+  # The repo aux explores. Point this at a scratch clone, not at work you care
+  # about -- the guard detects writes, it does not prevent them.
+  workspace: /tmp/foresight-scratch
+
+  # The harness, as argv. Placeholders {prompt}, {answer_file} and {workspace}
+  # are substituted per element (by replace, not format, so braces in prompts
+  # and code survive).
+  #
+  # NOTE the command runs with cwd = workspace, which is how the harness finds
+  # the code. So a script must be named by ABSOLUTE path; only something already
+  # on PATH (like opencode) can be named bare.
+  #
+  # EDIT THIS PATH. The mock harness, so this config runs with no harness
+  # installed:
+  agent_cmd: ["python", "/ABSOLUTE/PATH/TO/foresight/tools/fake_agent.py", "--answer-file", "{answer_file}", "{prompt}"]
+  #
+  # Real opencode, once `npm install -g opencode-ai` has been run. On PATH, so
+  # no path needed. Note it is pointed back at foresight as aux-model, so aux's
+  # own model calls bypass the pipeline and land in the same trace file:
+  # agent_cmd: ["opencode", "run", "--model", "custom/aux-model", "{prompt}"]
+  # answer_from: stdout          # opencode answers on stdout, not to a file
+
+  # Which stream carries the answer. Declared rather than guessed: a harness
+  # that ignores the write instruction still prints progress chatter, and
+  # accepting that as the future-task list would enhance the prompt with a
+  # banner -- an instance in neither experimental arm.
+  answer_from: file
+
+  # Where the agent is told to write. Must be OUTSIDE the workspace, or the
+  # guard will correctly flag it as contamination. Omit for a fresh temp file
+  # per run, which is what overlapping sessions need.
+  answer_file: /tmp/foresight-aux/answer.md
+
+  timeout_s: 900
+
+  env:
+    # Mandatory with opencode: it keeps its session DB under $HOME, and sharing
+    # it would pollute your own history (and, under SWE-CI, the benchmark's own
+    # token accounting).
+    HOME: /tmp/foresight-aux-home
+
+# Jinja. Variables under the local adapter: {{ prompt }}, {{ system }},
+# {{ workspace }}, {{ answer_file }}.
+#
+# Note what changed from milestone 1: the "quote a detail to prove you read the
+# task" trick is gone. Aux can now read the code, so it is asked to ground its
+# answer in real files instead -- which is a check the task text cannot fake.
+aux_prompt: |
+  You are inspecting a code repository at {{ workspace }}.
+
+  READ ONLY. Do not create, modify or delete any file inside {{ workspace }}.
+  Any write there invalidates this run.
+
+  The developer is about to work on this task:
+
+  {{ prompt }}
+
+  Explore the repository enough to answer concretely, then name 3 to 5 plausible
+  FUTURE tasks that could reasonably follow this one in THIS codebase. Refer to
+  real files, functions or modules you actually read.
+
+  Write your answer to {{ answer_file }} and nothing else to disk.
+
+stages: [aux]
+
+builder:
+  name: template
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+trace:
+  path: traces/local.jsonl
+
+# Required from milestone 2 on: aux runs directly on the filesystem the target
+# agent will edit, and is read-only by prompt instruction only.
+guard: manifest

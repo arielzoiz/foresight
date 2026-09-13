@@ -13,14 +13,14 @@ Two principles:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import httpx
 import yaml
 from jinja2 import StrictUndefined, Template, TemplateSyntaxError
 from pydantic import BaseModel, Field, ValidationError
 
-from .adapters import ADAPTERS, CallerAdapter
+from .adapters import ADAPTERS, AdapterOptions, CallerAdapter
 from .backends import BACKENDS, Backend
 from .builders import BUILDERS, Builder
 from .errors import ConfigError
@@ -33,10 +33,6 @@ from .trace import TraceWriter
 class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8000
-
-
-class AdapterConfig(BaseModel):
-    name: str = "generic"
 
 
 class BuilderConfig(BaseModel):
@@ -63,13 +59,17 @@ class ForesightConfig(BaseModel):
 
     server: ServerConfig = Field(default_factory=ServerConfig)
     models: dict[str, ModelSpec]
-    adapter: AdapterConfig = Field(default_factory=AdapterConfig)
+    adapter: AdapterOptions = Field(default_factory=AdapterOptions)
     aux_prompt: str = "{{ prompt }}"
     builder: BuilderConfig = Field(default_factory=BuilderConfig)
     stages: list[Literal["aux"]] = Field(default_factory=lambda: ["aux"])
     session: SessionConfig = Field(default_factory=SessionConfig)
     trace: TraceConfig = Field(default_factory=TraceConfig)
-    guard: Any = None  # milestone 1 ships no implementation; see guards.py
+
+    guard: Literal["manifest"] | None = None
+    """Workspace contamination detector. ``null`` for any adapter that launches
+    no aux agent -- there is nothing to contaminate. The adapter builds it,
+    because only the adapter knows how to reach its workspace; see guards.py."""
 
 
 class Runtime:
@@ -157,8 +157,16 @@ def _build_adapter(
             f"unknown adapter {config.adapter.name!r}; known: {sorted(ADAPTERS)}"
         ) from None
 
-    _check_template(config.aux_prompt, "aux_prompt", {"prompt", "system"})
-    return cls(aux_backend=aux_backend, aux_spec=aux_spec, aux_prompt=config.aux_prompt)
+    # Validated against the variables THIS adapter supplies, so a template that
+    # asks for {{ workspace }} under the generic adapter fails here.
+    _check_template(config.aux_prompt, "aux_prompt", set(cls.aux_prompt_vars))
+    return cls(
+        aux_backend=aux_backend,
+        aux_spec=aux_spec,
+        aux_prompt=config.aux_prompt,
+        options=config.adapter,
+        guard_name=config.guard,
+    )
 
 
 def _build_builder(config: ForesightConfig) -> Builder:

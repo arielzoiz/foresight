@@ -104,6 +104,9 @@ async def test_target_record_has_exactly_the_expected_keys(tmp_path):
     assert "future: X, Y, Z" in row["prompt_out"]
     assert row["aux"]["source"] == "chat_call"
     assert row["aux"]["provenance"]["served_name"] == "aux-model"
+    # The quality verdict travels with every row; see stages.assess_aux.
+    assert row["aux"]["items"] == 0  # the stub reply is not a task list
+    assert row["aux"]["usable"] is False
 
 
 @pytest.mark.asyncio
@@ -235,7 +238,7 @@ async def test_streaming_relays_bytes_and_traces_after_the_stream_drains(tmp_pat
     # exposes the status, and this caller did not ask for usage.
     assert row["upstream_status"] is None
     assert row["usage"]["upstream"] is None
-    assert row["notes"] == []
+    assert "stream_incomplete" not in row["notes"]
 
 
 # -- failure paths --------------------------------------------------------
