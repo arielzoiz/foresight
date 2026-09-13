@@ -113,10 +113,42 @@ class ManifestGuard:
     the failure mode the design engineers against.
     """
 
-    def __init__(self, root: str, runner: Runner) -> None:
+    def __init__(
+        self, root: str, runner: Runner, ignore: "list[str] | None" = None
+    ) -> None:
         self.root = root
         self._runner = runner
         self._command: str | None = None
+        self._ignore = list(ignore or [])
+
+    def _ignored(self, path: str) -> bool:
+        """Is this path harness bookkeeping rather than the code under test?
+
+        Patterns are fnmatch globs relative to ``root``, because that is how a
+        person thinks about a repo (".git/opencode", not
+        "/scratch/run7/repo/.git/opencode").
+
+        This exists because a harness writes to the workspace as a matter of
+        course, and not every such write is contamination. Measured: opencode
+        snapshots the tree for its own undo feature and records the resulting
+        object id in ``.git/opencode`` on EVERY run against a git repo -- so
+        with no ignore list, aux over any git workspace fails 100% of the time
+        for a reason that has nothing to do with the experiment.
+
+        Kept deliberately narrow, and empty by default. The guard's job is to
+        catch aux touching the code the target agent is about to be measured on;
+        an ignore list wide enough to cover all of ``.git`` would also hide aux
+        rewriting refs or objects, which for a local user is real damage. So the
+        patterns are named one at a time, in config, next to the harness that
+        needs them.
+        """
+        if not self._ignore:
+            return False
+        from fnmatch import fnmatch
+
+        root = self.root.rstrip("/") + "/"
+        relative = path[len(root):] if path.startswith(root) else path
+        return any(fnmatch(relative, pattern) for pattern in self._ignore)
 
     def _manifest_command(self) -> str:
         """Pick GNU or BSD form once, by probing the workspace's own find."""
@@ -137,7 +169,14 @@ class ManifestGuard:
             raise RuntimeError(
                 f"workspace manifest failed for {self.root} (exit {code}): {out[:300]}"
             )
-        return sorted(line for line in out.splitlines() if line.strip())
+        # Filtered here rather than in verify() so before and after are built by
+        # the same rule; filtering one side only would report every ignored file
+        # as an addition or a deletion.
+        return sorted(
+            line
+            for line in out.splitlines()
+            if line.strip() and not self._ignored(_path_of(line))
+        )
 
     def verify(self, before: list[str]) -> list[str]:
         """Paths whose size/mtime changed, or that appeared or disappeared."""

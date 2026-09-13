@@ -132,3 +132,61 @@ def test_an_unusable_manifest_raises_rather_than_reading_as_intact(tmp_path):
     guard = ManifestGuard(str(tmp_path / "does-not-exist"), local_runner(tmp_path))
     with pytest.raises(RuntimeError, match="manifest failed"):
         guard.snapshot()
+
+
+# -- ignore patterns: harness bookkeeping is not contamination ------------
+
+
+def test_ignored_paths_are_not_reported_as_contamination(tmp_path):
+    """A harness writing its own bookkeeping must not fail the run.
+
+    Not hypothetical: opencode snapshots the tree for its undo feature and
+    records the object id in .git/opencode on every run against a git repo, so
+    an unfiltered guard fails 100% of aux runs over any git workspace for a
+    reason that has nothing to do with the experiment.
+    """
+    root = tmp_path / "repo"
+    (root / ".git").mkdir(parents=True)
+    (root / "pkg.py").write_text("x = 1\n")
+
+    guard = ManifestGuard(str(root), local_runner(root), [".git/opencode"])
+    before = guard.snapshot()
+
+    (root / ".git" / "opencode").write_text("1a7a06bfd9f2f79358f67985be5f40d2\n")
+    assert guard.verify(before) == []
+
+
+def test_ignoring_one_git_path_still_catches_the_rest_of_git(tmp_path):
+    """The narrowness is the point.
+
+    Ignoring all of .git would hide aux rewriting refs or objects, which for a
+    local user is real damage. Only the named path is exempt.
+    """
+    root = tmp_path / "repo"
+    (root / ".git").mkdir(parents=True)
+    (root / "pkg.py").write_text("x = 1\n")
+
+    guard = ManifestGuard(str(root), local_runner(root), [".git/opencode"])
+    before = guard.snapshot()
+
+    (root / ".git" / "opencode").write_text("bookkeeping\n")
+    (root / ".git" / "HEAD").write_text("ref: refs/heads/evil\n")
+
+    assert guard.verify(before) == [str(root / ".git" / "HEAD")]
+
+
+def test_ignored_file_deletion_is_also_invisible(tmp_path):
+    """Filtering happens in snapshot(), so both sides use the same rule.
+
+    Filtering only the "after" side would report every pre-existing ignored file
+    as a deletion.
+    """
+    root = tmp_path / "repo"
+    (root / ".git").mkdir(parents=True)
+    (root / ".git" / "opencode").write_text("stale\n")
+    (root / "pkg.py").write_text("x = 1\n")
+
+    guard = ManifestGuard(str(root), local_runner(root), [".git/opencode"])
+    before = guard.snapshot()
+    (root / ".git" / "opencode").unlink()
+    assert guard.verify(before) == []
