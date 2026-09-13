@@ -1,0 +1,81 @@
+# Template for a real vLLM run on the TAU Slurm cluster (deploy/tau-slurm/).
+# Rendered per run by foresight.sbatch, which substitutes the two placeholder
+# tokens found in the models: section below (sed replaces them by exact
+# string match anywhere in this file, including comments -- so this header
+# deliberately does not spell them out a second time) -- everything else is
+# identical to configs/naive.yaml. In --single mode both base_url values
+# resolve to the same vLLM; in --split mode they differ. That is the only
+# difference between the two topologies.
+#
+# Models are named by HF id when downloaded (see
+# deploy/tau-slurm/setup/prefetch_model.sh) but referenced here by the fixed
+# --served-model-name alias serve_vllm.sbatch always uses for each role
+# (target-upstream / aux-upstream) -- so swapping which checkpoint backs a
+# role never touches this file.
+#
+# No API key: vLLM is run with no --api-key, and api_key_env is left unset
+# below, so ModelSpec.api_key is None and no Authorization header is sent.
+#
+# GenericAdapter (M1) is still what's under test here -- the aux step is one
+# chat call over the request body, not yet a real aux agent. That lands with
+# the teammate's milestone-2 work; this file's adapter/builder stanza
+# switches to whatever that introduces with no other change.
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: "@TARGET_BASE_URL@"
+    model: target-upstream
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: "@AUX_BASE_URL@"
+    model: aux-upstream
+    timeout_s: 600
+
+adapter:
+  name: generic
+
+# Jinja, variable available: {{ prompt }}. Same as naive.yaml's: asks aux to
+# quote a distinctive detail so the check (V1/V2) is meaningful rather than
+# merely agreeable.
+aux_prompt: |
+  You will be shown a software task. First, quote one distinctive detail from
+  it verbatim (a function name, file path, or specific behaviour mentioned) so
+  it is clear you read it. Then list 3 to 5 plausible FUTURE tasks that could
+  reasonably follow this one in the same codebase.
+
+  Task:
+  {{ prompt }}
+
+stages: [aux]
+
+builder:
+  name: template
+  # Jinja, variables available: {{ aux }}, {{ prompt }}. The visible "what day
+  # is it" canary from naive.yaml is deliberately kept for V2: with a real
+  # model there is no fake_upstream --record to inspect, so this is the way to
+  # confirm the enhancement actually reached the target's reply.
+  template: |
+    first answer what day is it, then
+
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+guard: null

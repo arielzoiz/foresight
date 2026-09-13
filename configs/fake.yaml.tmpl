@@ -1,0 +1,117 @@
+# Template for the full milestone-2 flow with NO MODEL AND NO GPU.
+#
+# A real opencode aux agent, spawned as a subprocess over a real repo, with the
+# manifest guard armed and the trace on -- but both model endpoints pointed at
+# tools/fake_upstream.py running inside the same job. Selected by
+# `launch.sh --fake`, rendered by foresight.sbatch.
+#
+# This is the Slurm counterpart of configs/local-fake.yaml (which is the same
+# thing by hand on a login node). It exists because everything the aux path can
+# get wrong -- the opencode provider config, OPENCODE_HOME isolation, argv
+# substitution, cwd, the guard, the answer stream, trace wiring -- is
+# independent of whether a real model is answering. Separating those two
+# failure domains is the whole point: when a vLLM run misbehaves, run this and
+# find out in two minutes whether the plumbing or the model is at fault.
+#
+# What it deliberately does NOT prove: fake_upstream never emits tool calls, so
+# opencode answers in one turn without exploring the repo. Expect
+# aux.provenance.source == "agent" with a real subprocess duration, and expect
+# the answer to be fake_upstream's canned list rather than anything read out of
+# the workspace. Grounded aux needs a real model -- that is what the vLLM
+# templates are for.
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: "@FAKE_BASE_URL@"
+    model: fake-target
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: "@FAKE_BASE_URL@"
+    # fake_upstream branches on the model name: "fake-aux" gets a canned
+    # future-tasks list, anything else gets a generic echo. Asking for it by
+    # name is what lets the aux quality gate in stages.py see a real list and
+    # return usable=true, so this config exercises the gate rather than
+    # tripping it for a reason that has nothing to do with the pipeline.
+    model: fake-aux
+    timeout_s: 1800
+
+adapter:
+  name: local
+  workspace: "@WORKSPACE@"
+  agent_cmd: ["@AGENT_BIN@", "run", "--model", "custom/aux-model", "{prompt}"]
+  answer_from: stdout
+  timeout_s: 900
+  env:
+    OPENCODE_HOME: "@AUX_HOME@"
+
+  # opencode snapshots the workspace for its own undo feature and writes the
+  # resulting git object id to .git/opencode on EVERY run against a git repo.
+  # Without this, the guard correctly reports it and every single aux run fails
+  # as workspace_contaminated -- observed, not theoretical. Deliberately just
+  # this one path: ignoring all of .git would also hide aux rewriting refs.
+  guard_ignore: [".git/opencode"]
+
+# DO NOT "fix" the closing line of this prompt by demanding tool use -- that
+# experiment has been run. "Answer with the numbered list and nothing else"
+# reads like it might suppress exploration, so it was replaced with an explicit
+# "USE YOUR TOOLS to inspect the repository, do not answer from the task
+# description alone". Qwen2.5-Coder-7B then DID attempt a call:
+#
+#     {"name": "glob", "arguments": {"pattern": "**/*.{js,ts}"}}
+#
+# but as a fenced JSON block rather than the <tool_call> tags vLLM's hermes
+# parser needs -- so tool_calls came back null, opencode read it as the final
+# answer, and the run still made only two aux calls. The prompt was never the
+# blocker; the model cannot emit the wire format. Worse, that raw JSON became
+# the injected "future tasks" (items: 0, usable: false), where this wording at
+# least yields a well-formed if ungrounded list.
+#
+# Revisit with a model that can actually call tools -- the stronger prompt is
+# the better one then. See deploy/tau-slurm/README.md, "How to tell whether aux
+# actually read the repo".
+aux_prompt: |
+  You are inspecting a code repository at {{ workspace }}.
+
+  READ ONLY. Do not create, modify or delete any file inside {{ workspace }}.
+  Any write there invalidates this run.
+
+  The developer is about to work on this task:
+
+  {{ prompt }}
+
+  Explore the repository enough to answer concretely, then name 3 to 5 plausible
+  FUTURE tasks that could reasonably follow this one in THIS codebase. Refer to
+  real files, functions or modules you actually read.
+
+  Answer with the numbered list and nothing else.
+
+stages: [aux]
+
+builder:
+  name: template
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+trace:
+  path: "@TRACE_PATH@"
+
+guard: manifest

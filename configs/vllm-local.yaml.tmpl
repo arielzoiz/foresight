@@ -1,0 +1,165 @@
+# Template for a real vLLM run with a REAL AUX AGENT on the TAU Slurm cluster.
+#
+# The milestone-2 counterpart to vllm.yaml.tmpl. That one runs GenericAdapter --
+# aux is a single chat call over the request body, which is the cheap bring-up
+# rung (V1-V3) and sees no code at all. This one runs LocalAdapter: aux is a
+# real opencode subprocess with cwd set to a real repo, with the manifest guard
+# armed and the trace pointed into the run directory.
+#
+# Rendered per run by foresight.sbatch, which substitutes the placeholder tokens
+# by exact string match anywhere in the file (so this header deliberately does
+# not spell them out a second time). Selected by `launch.sh --adapter local`.
+#
+# Models are named by HF id when downloaded (prefetch_model.sh) but referenced
+# here by the fixed --served-model-name alias serve_vllm.sbatch gives each role
+# (target-upstream / aux-upstream), so swapping checkpoints never touches this
+# file. In --single mode both base_url values resolve to the same vLLM.
+#
+# No API key: vLLM runs without --api-key and api_key_env is unset, so
+# ModelSpec.api_key is None and no Authorization header is sent. That matters
+# here beyond convenience -- the working area is group-readable.
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: "@TARGET_BASE_URL@"
+    model: target-upstream
+    # The target's request stays open for the whole aux agent run. Design
+    # risk 7: the caller's own client timeout is not under our control, which
+    # is the thing V4 exists to measure.
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: "@AUX_BASE_URL@"
+    model: aux-upstream
+    # Per aux model CALL, not per aux agent run -- an agent makes many. The run
+    # as a whole is bounded by adapter.timeout_s below.
+    timeout_s: 600
+
+adapter:
+  name: local
+
+  # The repo aux explores, read-only. `launch.sh --workspace` sets this; the
+  # guard below DETECTS writes rather than preventing them, so it must be a
+  # scratch checkout, never work anyone cares about.
+  workspace: "@WORKSPACE@"
+
+  # The opencode wrapper from setup/install_opencode.sh, by absolute path:
+  # agent_cmd runs with cwd = workspace, so anything relative would resolve
+  # against the repo under test.
+  #
+  # `custom/aux-model` points aux back at foresight rather than at vLLM
+  # directly. One extra local hop, and in exchange aux's calls go through the
+  # same Backend layer and land in the same trace file as the target's.
+  # foresight.sbatch writes the provider config that makes `custom/` resolve,
+  # via tools/opencode_home.sh.
+  agent_cmd: ["@AGENT_BIN@", "run", "--model", "custom/aux-model", "{prompt}"]
+
+  # opencode's stdout under a pipe is the answer text alone (no banner -- that
+  # appears only on a TTY). See configs/local-fake.yaml for why stdout rather
+  # than a file: a small model calls its write tool unreliably, and a miss
+  # would abort the caller's whole session, while the failure mode file-mode
+  # guards against is caught by the aux quality gate in stages.py anyway.
+  answer_from: stdout
+
+  # One whole agent run over a real repo, on a possibly-preempted node. Must
+  # stay below models.target.timeout_s, or the target's own request expires
+  # while aux is still exploring.
+  timeout_s: 1800
+
+  env:
+    # Node-local, and NOT under the run directory. opencode materializes a
+    # node_modules tree on first use in a fresh home: measured at over 6
+    # minutes onto this cluster's NFS versus under 20 seconds on /tmp. It also
+    # keeps its session SQLite here, so aux must never share this with a target
+    # harness.
+    OPENCODE_HOME: "@AUX_HOME@"
+
+  # opencode snapshots the workspace for its own undo feature and writes the
+  # resulting git object id to .git/opencode on EVERY run against a git repo.
+  # Without this, the guard correctly reports it and every single aux run fails
+  # as workspace_contaminated -- observed, not theoretical. Deliberately just
+  # this one path: ignoring all of .git would also hide aux rewriting refs.
+  guard_ignore: [".git/opencode"]
+
+# Jinja. Variables under the local adapter: {{ prompt }}, {{ system }},
+# {{ workspace }}, {{ answer_file }}.
+#
+# No "quote a distinctive detail" trick here, unlike the GenericAdapter
+# templates: aux can read the code now, so it is asked to ground its answer in
+# real files instead -- a check the task text cannot fake.
+# DO NOT "fix" the closing line of this prompt by demanding tool use -- that
+# experiment has been run. "Answer with the numbered list and nothing else"
+# reads like it might suppress exploration, so it was replaced with an explicit
+# "USE YOUR TOOLS to inspect the repository, do not answer from the task
+# description alone". Qwen2.5-Coder-7B then DID attempt a call:
+#
+#     {"name": "glob", "arguments": {"pattern": "**/*.{js,ts}"}}
+#
+# but as a fenced JSON block rather than the <tool_call> tags vLLM's hermes
+# parser needs -- so tool_calls came back null, opencode read it as the final
+# answer, and the run still made only two aux calls. The prompt was never the
+# blocker; the model cannot emit the wire format. Worse, that raw JSON became
+# the injected "future tasks" (items: 0, usable: false), where this wording at
+# least yields a well-formed if ungrounded list.
+#
+# Revisit with a model that can actually call tools -- the stronger prompt is
+# the better one then. See deploy/tau-slurm/README.md, "How to tell whether aux
+# actually read the repo".
+aux_prompt: |
+  You are inspecting a code repository at {{ workspace }}.
+
+  READ ONLY. Do not create, modify or delete any file inside {{ workspace }}.
+  Any write there invalidates this run.
+
+  The developer is about to work on this task:
+
+  {{ prompt }}
+
+  Explore the repository enough to answer concretely, then name 3 to 5 plausible
+  FUTURE tasks that could reasonably follow this one in THIS codebase. Refer to
+  real files, functions or modules you actually read.
+
+  Answer with the numbered list and nothing else.
+
+stages: [aux]
+
+builder:
+  name: template
+  # Jinja, variables available: {{ aux }}, {{ prompt }}.
+  #
+  # The "what day is it" canary from vllm.yaml.tmpl is deliberately gone: it
+  # existed because V2 had no other way to see what the target received, and
+  # trace.path below is now that way. Keeping it would perturb every prompt in
+  # both arms for no remaining reason.
+  #
+  # Switch `name` to `passthrough` for the control arm. Both arms traverse
+  # identical code and both pay for aux; only the prompt differs.
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+# Into the run directory on shared storage, not a path relative to the proxy's
+# cwd -- that is a compute node's scratch and vanishes with the job.
+trace:
+  path: "@TRACE_PATH@"
+
+# Required from milestone 2 on: aux runs directly on the filesystem, read-only
+# by prompt instruction only.
+guard: manifest

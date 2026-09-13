@@ -85,6 +85,17 @@ class AdapterOptions(BaseModel):
     timeout_s: float = 900.0
     """Wall clock for the whole agent run."""
 
+    guard_ignore: list[str] = Field(default_factory=list)
+    """Paths the workspace guard should not treat as contamination, as fnmatch
+    globs relative to ``workspace``.
+
+    For harness bookkeeping only. opencode snapshots the tree for its own undo
+    feature and writes the object id to ``.git/opencode`` on every run against a
+    git repo, so without ``[".git/opencode"]`` here aux fails on any git
+    workspace, every time, for a reason unrelated to the experiment. Keep it
+    narrow: ignoring all of ``.git`` would also hide aux rewriting refs, which
+    is real damage to a local user's repo."""
+
     env: dict[str, str] = Field(default_factory=dict)
     """Added to the subprocess environment. Set HOME here: opencode keeps its
     session DB under $HOME, and sharing it would corrupt both the user's own

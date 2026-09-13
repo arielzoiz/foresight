@@ -92,6 +92,7 @@ class LocalAdapter(CallerAdapter):
         self._env_overrides = dict(options.env)
         self._answer_file = options.answer_file
         self._answer_from = options.answer_from
+        self._guard_ignore = list(options.guard_ignore)
         self._guard = self._build_guard(self._guard_name)
 
     def _build_guard(self, name: str | None):
@@ -109,7 +110,7 @@ class LocalAdapter(CallerAdapter):
             raise ConfigError(
                 f"unknown guard {name!r}; known: {sorted(GUARDS)}"
             ) from None
-        return cls(str(self._workspace), self._run_in_workspace)
+        return cls(str(self._workspace), self._run_in_workspace, self._guard_ignore)
 
     # -- caller-specific behaviour ----------------------------------------
 

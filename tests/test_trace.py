@@ -18,7 +18,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
 
 from conftest import user_only, with_history
 from foresight.config import ForesightConfig, Runtime
@@ -171,6 +172,65 @@ async def test_aux_runs_once_but_every_request_is_enhanced(tmp_path):
     assert start["enhanced"] is cont["enhanced"] is True
     assert start["prompt_out"] == cont["prompt_out"]
     assert cont["aux"]["text"] == start["aux"]["text"]
+
+
+@pytest.mark.asyncio
+async def test_guard_verdict_lands_on_every_row_of_the_session(tmp_path):
+    """The workspace verdict travels like the aux verdict does.
+
+    Milestone 2's guard runs once, inside run_aux, on the session-start request.
+    Every later request of that session reuses the stored AuxResult and never
+    re-enters the adapter -- so a verdict written only where the guard ran would
+    be absent from most rows of the very session it would invalidate. Filtering
+    an experiment on ``guard.workspace_intact`` has to work per row.
+    """
+    from conftest import StubBackend
+    from foresight.adapters.base import AdapterOptions
+    from foresight.adapters.local import LocalAdapter
+    from foresight.llm import ModelSpec
+
+    workspace = tmp_path / "repo"
+    workspace.mkdir()
+    (workspace / "parser.py").write_text("def parse_date(s):\n    return s\n")
+
+    aux_spec = ModelSpec(served_name="aux-model", model="fake-aux", base_url="http://x/v1")
+    adapter = LocalAdapter(
+        aux_backend=StubBackend(),
+        aux_spec=aux_spec,
+        aux_prompt="Repo {{ workspace }}, task {{ prompt }}, write {{ answer_file }}",
+        options=AdapterOptions(
+            name="local",
+            workspace=str(workspace),
+            agent_cmd=[sys.executable, str(REPO / "tools" / "fake_agent.py"),
+                       "--answer-file", "{answer_file}", "{prompt}"],
+            timeout_s=60.0,
+        ),
+        guard_name="manifest",
+    )
+
+    tracer = make_tracer(tmp_path)
+    runtime, _, _ = build_test_runtime(tracer=tracer, adapter=adapter)
+
+    task = "Make parse_date() reject malformed input"
+    async with client_for(create_app(runtime)) as client:
+        first = await client.post("/v1/chat/completions", json=user_only(task))
+        second = await client.post(
+            "/v1/chat/completions",
+            json=with_history(
+                task,
+                {"role": "assistant", "content": "reading parser.py"},
+                {"role": "tool", "content": "def parse_date(s): ..."},
+            ),
+        )
+    assert first.status_code == second.status_code == 200
+
+    start, cont = records(tracer)
+    assert start["aux"]["source"] == "agent"
+    assert start["is_session_start"] is True and cont["is_session_start"] is False
+
+    # The point of the test: identical on both, though only the first ran a guard.
+    for row in (start, cont):
+        assert row["guard"] == {"verdict": "intact", "workspace_intact": True}
 
 
 @pytest.mark.asyncio

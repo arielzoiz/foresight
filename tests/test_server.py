@@ -31,6 +31,7 @@ def build_test_runtime(
     builder_name: str = "template",
     tracer=None,
     target_status: int = 200,
+    adapter=None,
 ):
     target_spec = ModelSpec(served_name="target-model", model="fake-target", base_url="http://x/v1")
     aux_spec = ModelSpec(served_name="aux-model", model="fake-aux", base_url="http://x/v1")
@@ -38,7 +39,10 @@ def build_test_runtime(
     target_backend = StubBackend(reply_text="target reply", status=target_status)
     aux_backend = StubBackend(reply_text=aux_reply, status=aux_status)
 
-    adapter = make_adapter(aux_backend, aux_spec)
+    # Injectable so a caller can supply a real LocalAdapter -- the only way to
+    # exercise the paths (guard verdict, source: "agent") that GenericAdapter
+    # structurally cannot reach.
+    adapter = adapter or make_adapter(aux_backend, aux_spec)
     builder = BUILDERS[builder_name](TEMPLATE) if builder_name == "template" else BUILDERS[builder_name]()
     store = SessionStore()
     pipeline = Pipeline(

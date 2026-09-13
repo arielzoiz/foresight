@@ -1,0 +1,154 @@
+# MILESTONE 2, no GPU and no model -- the full pipeline against fake_upstream.
+#
+# The same LocalAdapter path as local.yaml (a REAL opencode aux agent, spawned
+# as a subprocess with cwd = adapter.workspace, with the manifest guard armed),
+# but with both model endpoints pointed at tools/fake_upstream.py. So this
+# exercises everything except the models: adapter, subprocess spawn, guard,
+# aux-model bypass, builder re-application, trace.
+#
+# It is the rung below configs/local.yaml (real model via ollama) and below
+# deploy/tau-slurm (real model via vLLM on a GPU node) -- when one of those
+# misbehaves, run this first to find out whether the plumbing or the model is
+# at fault.
+#
+# What it deliberately does NOT prove: fake_upstream never emits tool calls, so
+# opencode replies in one turn without exploring. Aux's answer is therefore
+# fake_upstream's canned future-task list, not something read out of the repo.
+# Expect the aux quality gate to pass on the canned list and the trace to show
+# source: "agent" with a ~4s duration.
+#
+#   1. python tools/fake_upstream.py --port 8011 --record /tmp/upstream.jsonl &
+#   2. tools/opencode_home.sh --home /tmp/foresight-aux-home \
+#          --model aux-model --base-url http://127.0.0.1:8000/v1
+#   3. python -m foresight.server --config configs/local-fake.yaml
+#
+# EDIT adapter.workspace and adapter.agent_cmd[0] before using this.
+
+server:
+  host: 127.0.0.1
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8011/v1
+    model: fake-target
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8011/v1
+    model: fake-aux
+    timeout_s: 1800
+
+adapter:
+  name: local
+
+  # A scratch repo aux will read. The guard DETECTS writes, it does not prevent
+  # them, so never point this at work you care about.
+  workspace: /tmp/foresight-scratch
+
+  # The opencode wrapper written by deploy/tau-slurm/setup/install_opencode.sh,
+  # by absolute path -- agent_cmd runs with cwd = workspace, so a relative path
+  # would resolve against the repo under test.
+  #
+  # Note the model is `custom/aux-model`: aux is pointed back at foresight, not
+  # at fake_upstream directly, so its calls bypass the pipeline and land in the
+  # same trace file. tools/opencode_home.sh writes the provider config that
+  # makes `custom/` resolve.
+  agent_cmd: ["/ABSOLUTE/PATH/TO/agent/bin/opencode", "run", "--model", "custom/aux-model", "{prompt}"]
+
+  # opencode prints its answer on stdout. Measured, not assumed: on a TTY it
+  # prefixes a two-line "> build · <model>" banner, but under a pipe -- which is
+  # what LocalAdapter gives it -- stdout is the answer text alone.
+  #
+  # Why stdout, given LocalAdapter argues file is the more reliable stream:
+  # writing the file needs opencode to actually call its write tool, which a
+  # small model does unreliably, and a miss is an AuxFailure that aborts the
+  # caller's entire session. The failure mode file-mode exists to prevent --
+  # harness chatter silently accepted as the future-task list -- is caught
+  # downstream anyway by the aux quality gate in stages.py, which counts
+  # enumerated items and flags an answer carrying fewer than three.
+  #
+  # Revisit per model: with one that calls the write tool reliably,
+  # `answer_from: file` is the stronger setting and needs only this line plus
+  # an answer_file changed.
+  answer_from: stdout
+
+  # A whole agent run, over a possibly large repo.
+  timeout_s: 900
+
+  env:
+    # Mandatory. opencode keeps its session SQLite under $HOME; the wrapper
+    # reads OPENCODE_HOME to override it, so aux never shares a home with the
+    # target harness or with your own opencode history. Must be on LOCAL disk:
+    # opencode materializes a node_modules tree on first use in a fresh home,
+    # which took >6 min on this cluster's NFS versus <20s on /tmp.
+    OPENCODE_HOME: /tmp/foresight-aux-home
+
+  # opencode snapshots the workspace for its own undo feature and writes the
+  # resulting git object id to .git/opencode on EVERY run against a git repo.
+  # Without this, the guard correctly reports it and every single aux run fails
+  # as workspace_contaminated -- observed, not theoretical. Deliberately just
+  # this one path: ignoring all of .git would also hide aux rewriting refs.
+  guard_ignore: [".git/opencode"]
+
+# Jinja. Variables under the local adapter: {{ prompt }}, {{ system }},
+# {{ workspace }}, {{ answer_file }}.
+# DO NOT "fix" the closing line of this prompt by demanding tool use -- that
+# experiment has been run. "Answer with the numbered list and nothing else"
+# reads like it might suppress exploration, so it was replaced with an explicit
+# "USE YOUR TOOLS to inspect the repository, do not answer from the task
+# description alone". Qwen2.5-Coder-7B then DID attempt a call:
+#
+#     {"name": "glob", "arguments": {"pattern": "**/*.{js,ts}"}}
+#
+# but as a fenced JSON block rather than the <tool_call> tags vLLM's hermes
+# parser needs -- so tool_calls came back null, opencode read it as the final
+# answer, and the run still made only two aux calls. The prompt was never the
+# blocker; the model cannot emit the wire format. Worse, that raw JSON became
+# the injected "future tasks" (items: 0, usable: false), where this wording at
+# least yields a well-formed if ungrounded list.
+#
+# Revisit with a model that can actually call tools -- the stronger prompt is
+# the better one then. See deploy/tau-slurm/README.md, "How to tell whether aux
+# actually read the repo".
+aux_prompt: |
+  You are inspecting a code repository at {{ workspace }}.
+
+  READ ONLY. Do not create, modify or delete any file inside {{ workspace }}.
+  Any write there invalidates this run.
+
+  The developer is about to work on this task:
+
+  {{ prompt }}
+
+  Explore the repository enough to answer concretely, then name 3 to 5 plausible
+  FUTURE tasks that could reasonably follow this one in THIS codebase. Refer to
+  real files, functions or modules you actually read.
+
+  Answer with the numbered list and nothing else.
+
+stages: [aux]
+
+builder:
+  name: template
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+trace:
+  path: traces/local-fake.jsonl
+
+guard: manifest
