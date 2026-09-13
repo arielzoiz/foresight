@@ -191,6 +191,18 @@ Milestones 1 and 2 have been implemented. See `foresight-design-plan.md` for
 more info on the milestones.
 > note: Update this section as further milestones are implemented.
 
+**The M2 flow runs on Slurm.** A real opencode aux agent over a real small repo, with
+both `target-model` and `aux-model` served by vLLM on a GPU node -- aux runs once
+per session, the enhanced prompt is re-applied to every request of that session,
+and the workspace guard comes back clean. See `deploy/tau-slurm/`.
+
+**Aux is not grounded yet.** The only model tried so far is `Qwen/Qwen2.5-Coder-7B-Instruct`.
+It does attempt tool calls, but emits them as a fenced JSON block instead of the `<tool_call>`
+form the server's parser expects, so nothing is recognised as a tool call and opencode treats the
+text as the agent's final answer. Aux therefore answers from the task text without ever
+reading the code, which makes its output weaker evidence than the design
+intends. Worth retrying with a larger model, or one fine-tuned for agentic use.
+
 - **M3 -- `SweCiAdapter`.** Container resolution, `docker exec` aux,
   container-ID session keying. Gated on a container runtime being reachable --
   test `udocker` first, since that decides whether M3 and M4 are possible at all.
