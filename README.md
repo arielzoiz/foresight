@@ -88,6 +88,39 @@ curl http://localhost:8000/v1/chat/completions \
 Diff `/tmp/upstream.jsonl` against a run with `configs/control.yaml` -- the
 only difference in what the target model receives should be the prompt.
 
+### Traces
+
+Each config writes one JSON record per request to `traces/<arm>.jsonl` (set
+`trace.path: null` to disable). This is the experiment's own record; the two
+files answer different questions:
+
+| | Records | Use it to |
+|---|---|---|
+| `traces/naive.jsonl` | foresight's view: prompt in/out, aux text and provenance, session key, timings, token counts | analyse a run |
+| `/tmp/upstream.jsonl` | the upstream's view: whole request bodies | confirm a body byte for byte |
+
+A record carries `prompt_in` and `prompt_out` -- the task prompt before and
+after the builder -- which is what makes the re-application invariant checkable:
+`aux` fires once per session (only the session-start row has `timings.aux_s`),
+yet every row of that session is `enhanced` with identical `prompt_out`.
+
+```bash
+python -c "
+import json
+for l in open('traces/naive.jsonl'):
+    r = json.loads(l)
+    print(r['session_key'], r['is_session_start'], r['enhanced'],
+          r['prompt_in_chars'], '->', r['prompt_out_chars'], r['timings'])
+"
+```
+
+Two fields are `null` on streamed requests, and neither is a shortcut:
+`upstream_status`, because `Backend.stream` yields bytes and never exposes the
+status; and `usage.upstream`, unless the caller set
+`stream_options: {"include_usage": true}`. foresight will not inject that option
+-- raw passthrough is the guarantee the whole design rests on -- so when the
+caller does ask, the counts are recovered by watching the bytes go past.
+
 ### Configs
 
 | Config | Arm | Builder |
@@ -112,8 +145,9 @@ pytest tests/ -q
 
 Needs neither GPU nor Docker. Covers builder rewriting (both arms), session
 keying, the aux-fires-once-per-session invariant, the `aux-model` bypass, config
-validation, `AuxFailure` handling, and an in-process end-to-end run against
-`fake_upstream` (including `stream: true` and tool-call passthrough).
+validation, `AuxFailure` handling, trace record shape and its failure policy,
+and an in-process end-to-end run against `fake_upstream` (including
+`stream: true`, streaming token-usage recovery, and tool-call passthrough).
 
 ## Design decisions specific to this milestone
 
@@ -126,9 +160,14 @@ See `foresight-design-plan.md` for the full reasoning. In short:
 - **Aux failure fails the request, loudly** (`AuxFailure` -> `502`). No fallback,
   no degraded path. Silently degrading to an unenhanced prompt would move an
   instance into the control arm while the config still says treatment.
-- **No tracing in M1.** `RequestContext` already holds everything a trace record
-  would; add a writer when debugging actually demands one. `fake_upstream.py
-  --record` fills that need for now.
+- **Every request that reached a model is traced, and a failed trace write fails
+  the request** (`TraceFailure` -> `500`). A run whose traces silently stopped
+  produces results nobody can interpret afterwards, which is the same failure
+  mode `AuxFailure` guards against one layer out. Most causes are caught at
+  startup instead: an unwritable `trace.path` is a `ConfigError` before the port
+  is bound. Two paths do not honour it -- a request that is already failing
+  (the 502 must not become a 500 and hide the cause), and a stream, whose status
+  is on the wire before the record is written.
 - **The session store is not a cache.** It holds the one thing that must outlive
   a request: aux's finished output, so the builder can re-inject it into every
   later request of the same target session. See the docstring on

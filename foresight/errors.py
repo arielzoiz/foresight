@@ -32,6 +32,30 @@ class AuxFailure(ForesightError):
     error_type = "aux_failure"
 
 
+class TraceFailure(ForesightError):
+    """A trace record could not be written.
+
+    Fatal by choice, not by necessity. A run whose traces silently stopped
+    produces results nobody can interpret afterwards -- the same failure mode
+    AuxFailure exists to prevent, one layer out. Most causes (an unwritable
+    path, a missing parent directory) are caught at startup instead; see
+    ``config._build_tracer``, which raises ConfigError there so this stays rare.
+
+    Two places deliberately do not honour it:
+
+    * The request is already failing. Converting a 502 aux_failure into a 500
+      trace_failure would hide the cause the operator needs; server.py logs the
+      trace failure and re-raises the original.
+    * The response is a stream. By the time the last chunk has been relayed the
+      status and body are already on the wire, and HTTP offers no way to
+      retract them. Raising there aborts the stream mid-flight, which is loud
+      but is not a 500.
+    """
+
+    status_code = 500
+    error_type = "trace_failure"
+
+
 class ConfigError(ForesightError):
     """The configuration is unusable. Raised at startup, never per request."""
 

@@ -27,6 +27,7 @@ from .errors import ConfigError
 from .llm import ModelSpec
 from .pipeline import Pipeline, SessionStore
 from .stages import AuxStage, Stage
+from .trace import TraceWriter
 
 
 class ServerConfig(BaseModel):
@@ -47,6 +48,16 @@ class SessionConfig(BaseModel):
     ttl_s: float = 3600.0
 
 
+class TraceConfig(BaseModel):
+    """Where to append trace records. ``path: null`` (the default) disables it.
+
+    Opting out is a config value rather than a NoopWriter class, same as
+    ``guard: null``.
+    """
+
+    path: str | None = None
+
+
 class ForesightConfig(BaseModel):
     """The whole configuration, validated before anything is constructed."""
 
@@ -57,6 +68,7 @@ class ForesightConfig(BaseModel):
     builder: BuilderConfig = Field(default_factory=BuilderConfig)
     stages: list[Literal["aux"]] = Field(default_factory=lambda: ["aux"])
     session: SessionConfig = Field(default_factory=SessionConfig)
+    trace: TraceConfig = Field(default_factory=TraceConfig)
     guard: Any = None  # milestone 1 ships no implementation; see guards.py
 
 
@@ -79,6 +91,7 @@ class Runtime:
 
         self.adapter = _build_adapter(config, self.aux_backend, self.aux_spec)
         self.builder = _build_builder(config)
+        self.tracer = _build_tracer(config)
         self.store = SessionStore(ttl_s=config.session.ttl_s)
         self.pipeline = Pipeline(
             adapter=self.adapter,
@@ -166,6 +179,26 @@ def _build_stages(
     config: ForesightConfig, adapter: CallerAdapter, aux_spec: ModelSpec
 ) -> list[Stage]:
     return [AuxStage(adapter, aux_spec) for name in config.stages if name == "aux"]
+
+
+def _build_tracer(config: ForesightConfig) -> TraceWriter | None:
+    """None when tracing is off, otherwise a writer proven to work.
+
+    The preflight matters: a failed trace write fails the request (see
+    errors.TraceFailure), so an unwritable path must surface here -- as a
+    five-second startup failure -- rather than killing the first request of a
+    six-hour run.
+    """
+    path = config.trace.path
+    if not path:
+        return None
+
+    writer = TraceWriter(path)
+    try:
+        writer.preflight()
+    except OSError as exc:
+        raise ConfigError(f"trace.path {path!r} is not writable: {exc}") from exc
+    return writer
 
 
 def _check_template(source: str, where: str, allowed: set[str]) -> None:

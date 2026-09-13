@@ -7,9 +7,15 @@ pattern-matching a real model's output.
 
 With --record <path>, every request body received is appended as one JSON line
 -- this is what lets a test (or a human) see exactly what the target model was
-sent, which is milestone 1's stand-in for a trace (see the plan's "On the
-deferred trace" section: tracing is a debugging convenience here, not a
-requirement, and this is the debugging instrument in its place).
+sent. Note this is the *upstream's* view: it records whole bodies, including
+every tool result of a session. foresight's own traces (foresight/trace.py) are
+the experiment's record; these two are complementary, and this one is the only
+way to see a body byte for byte as the model received it.
+
+Streaming replies carry a usage object only when the request asks for one via
+``stream_options: {"include_usage": true}``, which is what real OpenAI-compatible
+servers do. foresight never injects that option -- raw passthrough is the whole
+guarantee -- so this is what exercises the caller-opted-in path.
 
 Usage:
     python tools/fake_upstream.py --port 8001 --record /tmp/upstream.jsonl
@@ -50,6 +56,20 @@ def _reply_text(model: str, messages: list[dict]) -> str:
     return f"fake-target saw {len(content)} chars, last role={last.get('role')}"
 
 
+def _usage(messages: list[dict], text: str) -> dict[str, int]:
+    """A plausible usage object. Deterministic, so tests can assert on it."""
+    return {
+        "prompt_tokens": sum(len(str(m.get("content", ""))) for m in messages) // 4,
+        "completion_tokens": len(text) // 4,
+        "total_tokens": 0,
+    }
+
+
+def _wants_stream_usage(body: dict) -> bool:
+    options = body.get("stream_options")
+    return bool(isinstance(options, dict) and options.get("include_usage"))
+
+
 def create_app(record_path: Path | None) -> FastAPI:
     app = FastAPI(title="fake-upstream")
 
@@ -72,7 +92,13 @@ def create_app(record_path: Path | None) -> FastAPI:
 
         if body.get("stream"):
             return StreamingResponse(
-                _sse_chunks(completion_id, created, model, text),
+                _sse_chunks(
+                    completion_id,
+                    created,
+                    model,
+                    text,
+                    usage=_usage(messages, text) if _wants_stream_usage(body) else None,
+                ),
                 media_type="text/event-stream",
             )
 
@@ -89,18 +115,20 @@ def create_app(record_path: Path | None) -> FastAPI:
                         "finish_reason": "stop",
                     }
                 ],
-                "usage": {
-                    "prompt_tokens": sum(len(str(m.get("content", ""))) for m in messages) // 4,
-                    "completion_tokens": len(text) // 4,
-                    "total_tokens": 0,
-                },
+                "usage": _usage(messages, text),
             }
         )
 
     return app
 
 
-def _sse_chunks(completion_id: str, created: int, model: str, text: str):
+def _sse_chunks(
+    completion_id: str,
+    created: int,
+    model: str,
+    text: str,
+    usage: dict | None = None,
+):
     def chunk(delta: dict[str, Any], finish_reason: str | None = None) -> bytes:
         payload = {
             "id": completion_id,
@@ -119,6 +147,18 @@ def _sse_chunks(completion_id: str, created: int, model: str, text: str):
         for i in range(0, len(text), step):
             yield chunk({"content": text[i : i + step]})
         yield chunk({}, finish_reason="stop")
+        if usage is not None:
+            # The shape real servers use for include_usage: an extra event after
+            # the last delta, carrying no choices, immediately before [DONE].
+            payload = {
+                "id": completion_id,
+                "object": "chat.completion.chunk",
+                "created": created,
+                "model": model,
+                "choices": [],
+                "usage": usage,
+            }
+            yield f"data: {json.dumps(payload)}\n\n".encode()
         yield b"data: [DONE]\n\n"
 
     return gen()

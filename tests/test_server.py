@@ -1,9 +1,12 @@
 """Server routing: by served model name, decided before any pipeline logic.
 
 Uses a lightweight stand-in for Runtime -- create_app only reads a handful of
-attributes off it (adapter, builder, store, pipeline, by_served_name), so
-tests build those directly with StubBackend instead of going through
+attributes off it (adapter, builder, store, pipeline, tracer, by_served_name),
+so tests build those directly with StubBackend instead of going through
 config.Runtime's real httpx.AsyncClient.
+
+``build_test_runtime`` is shared with test_trace.py, which passes a real
+TraceWriter where these tests pass None.
 """
 
 from __future__ import annotations
@@ -26,11 +29,13 @@ def build_test_runtime(
     aux_status: int = 200,
     aux_reply: str = "future: X, Y, Z",
     builder_name: str = "template",
+    tracer=None,
+    target_status: int = 200,
 ):
     target_spec = ModelSpec(served_name="target-model", model="fake-target", base_url="http://x/v1")
     aux_spec = ModelSpec(served_name="aux-model", model="fake-aux", base_url="http://x/v1")
 
-    target_backend = StubBackend(reply_text="target reply")
+    target_backend = StubBackend(reply_text="target reply", status=target_status)
     aux_backend = StubBackend(reply_text=aux_reply, status=aux_status)
 
     adapter = make_adapter(aux_backend, aux_spec)
@@ -45,6 +50,7 @@ def build_test_runtime(
         builder=builder,
         store=store,
         pipeline=pipeline,
+        tracer=tracer,
         by_served_name={
             "target-model": ("target", target_spec, target_backend),
             "aux-model": ("aux", aux_spec, aux_backend),
