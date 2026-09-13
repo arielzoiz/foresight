@@ -24,8 +24,10 @@ enhanced prompt is present in *every* outbound request of the session).
 ``error`` is present on every record, ``None`` on success, so one key filters
 failed instances out at analysis time.
 
-``guard`` is a reserved ``None`` until milestone 2 implements WorkspaceGuard;
-see guards.py.
+``guard`` carries the workspace-contamination verdict from milestone 2 on:
+``{"verdict": ..., "workspace_intact": ...}``, or ``None`` where no guard is
+configured. Like the aux verdict it appears on every row of a session, not only
+the one where the guard ran -- see ``_guard_block``.
 
 Token counts
 ------------
@@ -168,7 +170,7 @@ def target_record(
         "prompt_in_chars": len(prompt_in),
         "prompt_out_chars": len(prompt_out),
         "aux": _aux_block(ctx.aux),
-        "guard": None,
+        "guard": _guard_block(ctx.aux),
         "message_count": len(req.messages),
         "tool_count": len(req.tools),
         "stream": req.stream,
@@ -283,6 +285,36 @@ def _aux_block(aux: Any) -> dict | None:
         "provenance": aux.provenance,
         **assess_aux(aux.text),
     }
+
+
+def _guard_block(aux: Any) -> dict | None:
+    """The workspace-contamination verdict, on every row of the session.
+
+    Same argument as ``_aux_block``: continuation rows reuse a stored AuxResult
+    and never re-enter the adapter, so a verdict recorded only where the guard
+    actually ran would be absent from most rows of the very session it
+    invalidates. Read off the provenance rather than recomputed, because unlike
+    ``assess_aux`` this is not a pure function of anything the row still holds --
+    the snapshot it compared against is gone.
+
+    ``None`` means no verdict: either no aux result yet, or ``guard: null`` in
+    config (a legitimate setting for any adapter that launches no aux agent).
+
+    ``workspace_intact`` is spelled out, per the design's "record a validity
+    flag, filter at analysis time" policy, so one key filters. In practice it is
+    only ever true here: a detected modification raises GuardViolation out of
+    AuxStage and lands in ``error_record`` with error type
+    "workspace_contaminated" instead. That is deliberate -- contamination fails
+    the request rather than producing a result that could be averaged in -- but
+    the field is written either way so that analysis code needs one rule, not
+    two.
+    """
+    if aux is None:
+        return None
+    verdict = aux.provenance.get("guard")
+    if verdict is None:
+        return None
+    return {"verdict": verdict, "workspace_intact": verdict == "intact"}
 
 
 def _aux_usage(aux: Any) -> dict | None:
