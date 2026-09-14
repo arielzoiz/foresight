@@ -9,10 +9,12 @@ from __future__ import annotations
 from .base import AdapterOptions, AuxResult, CallerAdapter
 from .generic import GenericAdapter
 from .local import LocalAdapter
+from .swe_ci import SweCiAdapter
 
 ADAPTERS: dict[str, type[CallerAdapter]] = {
     GenericAdapter.name: GenericAdapter,
     LocalAdapter.name: LocalAdapter,
+    SweCiAdapter.name: SweCiAdapter,
 }
 
 __all__ = [
@@ -22,4 +24,5 @@ __all__ = [
     "CallerAdapter",
     "GenericAdapter",
     "LocalAdapter",
+    "SweCiAdapter",
 ]

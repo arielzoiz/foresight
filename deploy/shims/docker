@@ -1,0 +1,317 @@
+#!/bin/bash
+# `docker` -> `udocker`, for a cluster with no daemon and no root.
+#
+# WHY THIS EXISTS
+# ---------------
+# SWE-CI hardcodes the literal string "docker" in
+# src/swe_ci/benchmark/utils/docker.py, and binding constraint 1 says its repo
+# stays unmodified. A `docker` earlier on PATH that forwards to udocker is an
+# ENVIRONMENT change, not a repo change, so the constraint holds.
+#
+# WHAT IS NOT KNOWN YET, AND WHY IT GATES MILESTONE 3
+# ---------------------------------------------------
+# udocker is daemonless: `udocker run` executes in the FOREGROUND and the
+# "container" only exists while that process lives. SWE-CI's pattern is the
+# opposite -- `docker run -d ... tail -f /dev/null`, then repeated `docker exec`
+# into the live container (run_container, then call_opencode and copy_*).
+# Nothing below makes that work by itself: `run -d` is translated into a
+# BACKGROUNDED `udocker run` so the process outlives the call, and whether a
+# later `udocker exec` then sees the same writable layer is EXACTLY the thing
+# to test first. Run deploy/shims/probe_udocker.sh before anything else.
+#
+# The second unknown is networking. udocker has no bridge, so containers
+# normally share the host's network namespace and have NO per-container IP. The
+# adapter's client-IP -> container-ID resolution therefore cannot work here; it
+# falls back to "the sole running container", which is exact only at
+# evolve.max_workers = 1. `inspect` below reports the host address for that
+# reason -- honestly, rather than inventing a 172.17.0.x that would make
+# resolution appear to succeed and silently pair the wrong container.
+#
+# CONFIGURATION
+#   UDOCKER            path to the udocker executable (default: from PATH)
+#   UDOCKER_DIR        udocker's own state; point at node-local scratch, not $HOME
+#   DOCKER_SHIM_STATE  where this shim tracks container PIDs
+#
+# Install:  cp deploy/shims/docker "$SHIM_DIR"/docker && export PATH="$SHIM_DIR:$PATH"
+# Verify:   docker ps -q      # must print nothing and exit 0, not "not found"
+
+set -o pipefail
+
+UDOCKER="${UDOCKER:-udocker}"
+command -v "$UDOCKER" >/dev/null 2>&1 || {
+  echo "docker-shim: $UDOCKER not found; set UDOCKER to its path" >&2
+  exit 127
+}
+
+# What udocker does not track and this shim must: which containers were
+# started here, and their PIDs. Shared by every invocation, so not a temp dir.
+SHIM_STATE="${DOCKER_SHIM_STATE:-${UDOCKER_DIR:-$HOME/.udocker}/shim}"
+mkdir -p "$SHIM_STATE/containers"
+
+log() { echo "docker-shim: $*" >&2; }
+
+# --- helpers ---------------------------------------------------------------
+
+# A name or id prefix -> the container name udocker knows.
+resolve() {
+  local ref="$1" candidate
+  if [ -f "$SHIM_STATE/containers/$ref" ]; then
+    echo "$ref"
+    return 0
+  fi
+  for candidate in "$SHIM_STATE"/containers/*; do
+    [ -e "$candidate" ] || continue
+    case "$(basename "$candidate")" in
+      "$ref"*) basename "$candidate"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
+is_running() {
+  local pid
+  pid=$(sed -n '1p' "$SHIM_STATE/containers/$1" 2>/dev/null)
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+host_ip() {
+  # The honest answer under udocker: a container shares the host namespace, so
+  # "its address" IS the host's. Emitted so `inspect` is well-formed JSON; it
+  # cannot disambiguate two containers, and the adapter's sole-container path
+  # is what covers that.
+  hostname -i 2>/dev/null | awk '{print $1; exit}' && return 0
+  hostname -I 2>/dev/null | awk '{print $1; exit}' && return 0
+  echo ""
+}
+
+json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+
+# --- verbs -----------------------------------------------------------------
+
+# docker run -d --init --name NAME --rm [opts] IMAGE CMD...
+#   -> udocker run, backgrounded, PID recorded. Flags Docker accepts and
+#      udocker does not (--init, --rm, resource limits) are DROPPED, not
+#      forwarded: forwarding them makes udocker exit 1 and SWE-CI then retries
+#      ten times and fails the task.
+cmd_run() {
+  local name="" image="" detach=0
+  local -a command=() passthrough=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -d|--detach)      detach=1; shift ;;
+      --name)           name="$2"; shift 2 ;;
+      --name=*)         name="${1#--name=}"; shift ;;
+      --init|--rm)      shift ;;
+      # Resource limits: SWE-CI passes cpus/memory/blkio (CONTAINER_EXTRA_ARGS).
+      # udocker cannot enforce them; the run is unconstrained, which matters for
+      # comparability against published numbers and is noted in the README.
+      --cpus*|--memory*|--memory-reservation*|--device-read-bps*|--device-write-bps*)
+        case "$1" in *=*) shift ;; *) shift 2 ;; esac ;;
+      -v|--volume)      passthrough+=(-v "$2"); shift 2 ;;
+      -e|--env)         passthrough+=(-e "$2"); shift 2 ;;
+      -w|--workdir)     passthrough+=(-w "$2"); shift 2 ;;
+      --network*)       log "ignoring $1 (udocker has no bridge)"; case "$1" in *=*) shift ;; *) shift 2 ;; esac ;;
+      -*)               log "dropping unsupported flag $1"; shift ;;
+      *)                image="$1"; shift; command=("$@"); break ;;
+    esac
+  done
+
+  [ -n "$image" ] || { log "run: no image given"; return 125; }
+  [ -n "$name" ] || name="shim-$$-$RANDOM"
+
+  if ! "$UDOCKER" create --name="$name" "$image" >/dev/null 2>&1; then
+    # Already created is fine; anything else is not.
+    "$UDOCKER" inspect "$name" >/dev/null 2>&1 || {
+      log "run: could not create container $name from $image"
+      return 1
+    }
+  fi
+
+  if [ "$detach" -eq 1 ]; then
+    # THE load-bearing translation, and the unverified one. `tail -f /dev/null`
+    # (what SWE-CI passes) keeps the process alive so that the container has a
+    # lifetime for later `exec`s to attach to.
+    nohup "$UDOCKER" run "${passthrough[@]}" "$name" "${command[@]}" \
+      >"$SHIM_STATE/containers/$name.log" 2>&1 &
+    local pid=$!
+    printf '%s\n%s\n' "$pid" "$image" >"$SHIM_STATE/containers/$name"
+    sleep 0.5
+    kill -0 "$pid" 2>/dev/null || {
+      log "run -d: container $name exited immediately; see $SHIM_STATE/containers/$name.log"
+      return 1
+    }
+    echo "$name"
+    return 0
+  fi
+
+  printf '%s\n%s\n' "$$" "$image" >"$SHIM_STATE/containers/$name"
+  "$UDOCKER" run "${passthrough[@]}" "$name" "${command[@]}"
+}
+
+# docker exec [-i] [-t] [-u USER] [-w DIR] [-e K=V]... NAME CMD...
+#   -> udocker exec. Both SWE-CI and SweCiAdapter depend on this working
+#      against a container started earlier by `run -d`.
+cmd_exec() {
+  local ref="" 
+  local -a flags=() command=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -i|--interactive|-t|--tty|-it|-ti) shift ;;
+      -u|--user)    flags+=(--user="$2"); shift 2 ;;
+      -w|--workdir) flags+=(--workdir="$2"); shift 2 ;;
+      -e|--env)     flags+=(--env="$2"); shift 2 ;;
+      --env=*|--user=*|--workdir=*) flags+=("$1"); shift ;;
+      -*)           log "exec: dropping unsupported flag $1"; shift ;;
+      *)            ref="$1"; shift; command=("$@"); break ;;
+    esac
+  done
+
+  [ -n "$ref" ] || { log "exec: no container given"; return 125; }
+  local name
+  name=$(resolve "$ref") || { echo "Error: No such container: $ref" >&2; return 1; }
+  is_running "$name" || log "exec: $name has no live process; udocker may still attach"
+
+  "$UDOCKER" exec "${flags[@]}" "$name" "${command[@]}"
+}
+
+# docker ps [-q] -> one container per line, IDs only with -q.
+#
+# The adapter parses `ps -q` as whitespace-separated IDs, so this must print
+# nothing at all when nothing is running -- not a header.
+cmd_ps() {
+  local quiet=0 entry name
+  for arg in "$@"; do
+    case "$arg" in -q|--quiet) quiet=1 ;; esac
+  done
+  for entry in "$SHIM_STATE"/containers/*; do
+    [ -f "$entry" ] || continue
+    name=$(basename "$entry")
+    case "$name" in *.log) continue ;; esac
+    is_running "$name" || continue
+    if [ "$quiet" -eq 1 ]; then
+      echo "$name"
+    else
+      printf '%s\t%s\n' "$name" "$(sed -n '2p' "$entry")"
+    fi
+  done
+}
+
+# docker inspect|container inspect NAME... -> a Docker-shaped JSON array.
+#
+# This is what makes SweCiAdapter's resolution parse at all: the previous draft
+# of this shim printed `udocker ps | grep` output, so json.loads raised and
+# every container resolved to None. NetworkSettings.IPAddress is the HOST
+# address (see host_ip), which is honest but will not disambiguate two
+# containers.
+#
+# Exits 1 if any reference is unknown, because that is how SWE-CI's
+# has_container() decides a container exists (docker.py:17-21).
+cmd_inspect() {
+  local first=1 missing=0 ref name image ip
+  ip=$(host_ip)
+  printf '['
+  for ref in "$@"; do
+    case "$ref" in -*) continue ;; esac
+    if ! name=$(resolve "$ref"); then
+      missing=1
+      echo "Error: No such object: $ref" >&2
+      continue
+    fi
+    image=$(sed -n '2p' "$SHIM_STATE/containers/$name")
+    [ "$first" -eq 1 ] || printf ','
+    first=0
+    printf '\n  {"Id": "%s", "Name": "/%s", "Config": {"Image": "%s"}, ' \
+      "$(json_escape "$name")" "$(json_escape "$name")" "$(json_escape "$image")"
+    printf '"State": {"Running": %s}, "NetworkSettings": {"IPAddress": "%s"}}' \
+      "$(is_running "$name" && echo true || echo false)" "$(json_escape "$ip")"
+  done
+  printf '\n]\n'
+  return "$missing"
+}
+
+# docker image inspect TAG -> exit status only, which is all SWE-CI reads
+# (has_image, docker.py:11-15). Output is NOT Docker-shaped and nothing here
+# needs it to be.
+cmd_image_inspect() {
+  local tag="$1"
+  "$UDOCKER" images 2>/dev/null | grep -Fq -- "$tag"
+}
+
+# docker rm [-f] NAME -> kill the recorded process, then let udocker clean up.
+cmd_rm() {
+  local status=0 ref name pid
+  for ref in "$@"; do
+    case "$ref" in -*) continue ;; esac
+    name=$(resolve "$ref") || { status=1; continue; }
+    pid=$(sed -n '1p' "$SHIM_STATE/containers/$name" 2>/dev/null)
+    [ -n "$pid" ] && kill "$pid" 2>/dev/null
+    "$UDOCKER" rm "$name" >/dev/null 2>&1 || status=1
+    rm -f "$SHIM_STATE/containers/$name" "$SHIM_STATE/containers/$name.log"
+  done
+  return "$status"
+}
+
+# --- dispatch --------------------------------------------------------------
+
+VERB="${1:-}"
+[ $# -gt 0 ] && shift
+
+case "$VERB" in
+  run)      cmd_run "$@" ;;
+  exec)     cmd_exec "$@" ;;
+  ps)       cmd_ps "$@" ;;
+  inspect)  cmd_inspect "$@" ;;
+  rm)       cmd_rm "$@" ;;
+
+  container)
+    sub="${1:-}"; shift 2>/dev/null || true
+    case "$sub" in
+      inspect) cmd_inspect "$@" ;;
+      rm)      cmd_rm "$@" ;;
+      ls|ps)   cmd_ps "$@" ;;
+      *)       log "unsupported: container $sub"; exit 125 ;;
+    esac
+    ;;
+
+  image)
+    sub="${1:-}"; shift 2>/dev/null || true
+    case "$sub" in
+      inspect) cmd_image_inspect "$@" ;;
+      ls)      "$UDOCKER" images "$@" ;;
+      rm)      "$UDOCKER" rmi "$@" ;;
+      *)       log "unsupported: image $sub"; exit 125 ;;
+    esac
+    ;;
+
+  # Forwarded unchanged: udocker's own verbs take the same shape.
+  build)    "$UDOCKER" build "$@" ;;
+  load)     "$UDOCKER" load "$@" ;;
+  save)     "$UDOCKER" save "$@" ;;
+  pull)     "$UDOCKER" pull "$@" ;;
+  images)   "$UDOCKER" images "$@" ;;
+  rmi)      "$UDOCKER" rmi "$@" ;;
+
+  cp)
+    # udocker has NO `cp`. SWE-CI relies on it heavily (copy_dir_to_container
+    # and friends), so this is the second thing to settle after `run -d`/`exec`:
+    # the likely route is `udocker inspect -p NAME` to get the container root
+    # and then a plain host-side copy, which needs the layout udocker actually
+    # produces. Deliberately not guessed here -- a wrong `cp` corrupts the task
+    # tree silently, which is worse than failing.
+    log "cp is NOT implemented: udocker has no equivalent, and guessing the"
+    log "container root layout risks silently corrupting the task tree."
+    log "See deploy/shims/README.md."
+    exit 125
+    ;;
+
+  version)  echo "docker-shim (udocker: $("$UDOCKER" --version 2>/dev/null | head -1))" ;;
+  "")       log "expected a docker command"; exit 125 ;;
+
+  *)
+    # No blind forwarding: udocker's argument shapes differ, and a verb that
+    # half-works is worse than one that fails, because SWE-CI retries ten times
+    # before giving up and the failure then looks like a task failure.
+    log "unsupported docker command '$VERB'"
+    exit 125
+    ;;
+esac
