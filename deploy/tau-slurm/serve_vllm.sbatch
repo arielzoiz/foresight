@@ -31,9 +31,19 @@
 #   FORESIGHT_PORT         port to bind
 # Optional:
 #   FORESIGHT_MAX_MODEL_LEN  passed to --max-model-len (default 32768)
-#   FORESIGHT_TOOL_CALL_PARSER  passed to --tool-call-parser (default hermes,
-#                                the format Qwen2.5-Instruct's chat template
-#                                uses; set "" to disable tool calling entirely)
+#   FORESIGHT_TENSOR_PARALLEL  passed to --tensor-parallel-size (default 1).
+#                                launch.sh defaults it to --gpus, which is almost
+#                                always what you want: without it, asking Slurm
+#                                for N GPUs gets you N GPUs and vLLM quietly uses
+#                                ONE of them, so a model that needs the combined
+#                                VRAM OOMs while N-1 cards sit idle. Must divide
+#                                the model's attention-head count -- powers of two
+#                                are the safe choice.
+#   FORESIGHT_TOOL_CALL_PARSER  passed to --tool-call-parser. Default "auto":
+#                                read the checkpoint's own chat template and pick
+#                                the matching parser (see detect_tool_call_parser
+#                                below). An explicit name overrides detection;
+#                                "" disables tool calling entirely.
 #   HF_HOME                  inherited if already set; else derived from FORESIGHT_ROOT
 
 set -eu
@@ -45,7 +55,8 @@ set -eu
 : "${FORESIGHT_ALIAS:?FORESIGHT_ALIAS must be set (the --served-model-name alias)}"
 : "${FORESIGHT_PORT:?FORESIGHT_PORT must be set}"
 FORESIGHT_MAX_MODEL_LEN="${FORESIGHT_MAX_MODEL_LEN:-32768}"
-FORESIGHT_TOOL_CALL_PARSER="${FORESIGHT_TOOL_CALL_PARSER-hermes}"
+FORESIGHT_TENSOR_PARALLEL="${FORESIGHT_TENSOR_PARALLEL:-1}"
+FORESIGHT_TOOL_CALL_PARSER="${FORESIGHT_TOOL_CALL_PARSER-auto}"
 HF_HOME="${HF_HOME:-$FORESIGHT_ROOT/.cache/huggingface}"
 export HF_HOME
 
@@ -79,9 +90,10 @@ export LD_LIBRARY_PATH="$env_prefix/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 # "python3.1" (an upstream bug, not fixable from here) and fails with "CUDA
 # compiler and CUDA toolkit headers are incompatible". Simplest fix: skip the
 # JIT path entirely -- it is a performance optimization, not a correctness
-# requirement, and moot for a single-GPU dense model with no tensor
-# parallelism (the flag only affects the sampler; MoE/allreduce kernels this
-# does not touch aren't relevant here either).
+# requirement. The flag only affects the SAMPLER, so it costs some throughput
+# and changes no output; it is orthogonal to the model's architecture (it
+# applies equally to the dense 7B and to the 30B-A3B MoE) and to whether
+# tensor parallelism is in use.
 export VLLM_USE_FLASHINFER_SAMPLER=0
 
 # Same story for nvcc: flashinfer JIT-compiles kernels at warm-up
@@ -100,6 +112,94 @@ if [ -n "$cuda_pkg_home" ]; then
     export LD_LIBRARY_PATH="$cuda_pkg_home/lib:$LD_LIBRARY_PATH"
 fi
 
+# GPU preflight. A node can sit in Slurm's `mix` state, with no drain reason,
+# while one of its GPUs has fallen off the bus -- and Slurm will happily
+# allocate you the dead one. Directly observed on n-102 (gpu-h100-killable):
+# all eight /dev/nvidia* present, cgroup fine, but bare `nvidia-smi -L` printed
+#
+#     Unable to determine the device handle for gpu 0000:18:00.0: Unknown Error
+#
+# for two of the eight, and the job was handed CUDA_VISIBLE_DEVICES=7, one of
+# them. vLLM then died with `NVMLError_Unknown` from inside `import vllm` --
+# CudaPlatform.log_warnings() enumerates EVERY physical device at import time,
+# so one sick GPU anywhere on the node aborts the job even if yours is healthy.
+#
+# That traceback points at pynvml and looks like a vLLM/driver version problem.
+# It is neither. Checking here turns 30+ minutes of queue and weight loading,
+# ending in a confusing stack trace, into a five-second failure that names the
+# node -- so you can resubmit elsewhere (or --exclude it) immediately.
+if command -v nvidia-smi >/dev/null 2>&1; then
+    smi_out="$(nvidia-smi -L 2>&1 || true)"
+    if echo "$smi_out" | grep -q "Unable to determine the device handle"; then
+        echo "foresight: [$FORESIGHT_ROLE] ABORT -- $(hostname) has an unhealthy GPU." >&2
+        echo "foresight: nvidia-smi -L cannot enumerate every device on this node:" >&2
+        echo "$smi_out" | sed 's/^/foresight:   /' >&2
+        echo "foresight: vLLM enumerates ALL physical devices at import and will" >&2
+        echo "foresight: die with NVMLError_Unknown regardless of which GPU is ours." >&2
+        echo "foresight: resubmit, or pass --exclude $(hostname) to launch.sh." >&2
+        exit 1
+    fi
+    echo "foresight: [$FORESIGHT_ROLE] GPU preflight OK on $(hostname)" \
+         "(CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset})" >&2
+fi
+
+# -- which tool-call parser this checkpoint needs --------------------------
+#
+# The checkpoint already knows. Its chat template is what emits tool calls, so
+# grepping the template is a direct reading of the wire format rather than a
+# guess from the model's name -- and it removes a per-run decision that fails
+# SILENTLY when got wrong: a mismatched parser returns HTTP 200 with
+# tool_calls=null, which is indistinguishable from a model that cannot call
+# tools at all.
+#
+# `auto` (the default) detects; an explicit name always wins; empty disables
+# tool calling entirely.
+#
+# Order matters and is not arbitrary: Qwen3-Coder's template contains BOTH
+# `<function=` and `<tool_call>`, because it wraps the XML in the same tag
+# Qwen2.5 wraps JSON in. Testing `<function=` first is what separates them.
+#
+# Both files are searched because the template lives in different places
+# depending on the checkpoint -- Qwen3-Coder ships chat_template.jinja, while
+# Qwen2.5-Coder-7B has no such file and carries the template inside
+# tokenizer_config.json.
+detect_tool_call_parser() {
+    _d=""
+    if [ -d "$FORESIGHT_MODEL_ID" ]; then
+        _d="$FORESIGHT_MODEL_ID"
+    else
+        # HF's own cache layout: models--<org>--<name>/snapshots/<rev>/
+        _cache="$HF_HOME/hub/models--$(echo "$FORESIGHT_MODEL_ID" | sed 's#/#--#g')"
+        _d="$(ls -dt "$_cache"/snapshots/*/ 2>/dev/null | head -1)"
+    fi
+    [ -n "$_d" ] || return 1
+
+    for _f in "$_d/chat_template.jinja" "$_d/tokenizer_config.json"; do
+        [ -f "$_f" ] || continue
+        if grep -q '<function=' "$_f" 2>/dev/null; then echo qwen3_coder; return 0; fi
+        if grep -q '<tool_call>' "$_f" 2>/dev/null; then echo hermes; return 0; fi
+        if grep -q '\[TOOL_CALLS\]' "$_f" 2>/dev/null; then echo mistral; return 0; fi
+        if grep -q 'python_tag' "$_f" 2>/dev/null; then echo llama3_json; return 0; fi
+    done
+    return 1
+}
+
+if [ "$FORESIGHT_TOOL_CALL_PARSER" = "auto" ]; then
+    if _detected="$(detect_tool_call_parser)" && [ -n "$_detected" ]; then
+        FORESIGHT_TOOL_CALL_PARSER="$_detected"
+        echo "foresight: [$FORESIGHT_ROLE] detected tool-call parser: $_detected" >&2
+    else
+        # Not fatal, and deliberately not a guess: serving with the WRONG parser
+        # fails silently, while serving with none fails loudly on the first
+        # request carrying a tools array -- which is the better failure.
+        FORESIGHT_TOOL_CALL_PARSER=""
+        echo "foresight: [$FORESIGHT_ROLE] WARNING -- could not detect a tool-call" \
+             "parser for $FORESIGHT_MODEL_ID; serving WITHOUT tool calling." >&2
+        echo "foresight: pass --tool-call-parser NAME to launch.sh if this model" \
+             "needs one (a real agent harness always sends a tools array)." >&2
+    fi
+fi
+
 endpoint_file="$FORESIGHT_RUN_DIR/${FORESIGHT_ROLE}.endpoint"
 rm -f "$endpoint_file"
 
@@ -112,6 +212,11 @@ trap cleanup EXIT INT TERM
 
 echo "foresight: [$FORESIGHT_ROLE] node=$(hostname) serving $FORESIGHT_MODEL_ID" \
      "as $FORESIGHT_ALIAS on port $FORESIGHT_PORT (HF_HOME=$HF_HOME)" >&2
+# Echoed because a wrong parser is otherwise invisible: it produces 200s with
+# tool_calls=null, not errors. This line is the first thing to check when a run
+# comes back ungrounded.
+echo "foresight: [$FORESIGHT_ROLE] tool-call parser: ${FORESIGHT_TOOL_CALL_PARSER:-(disabled)}" >&2
+echo "foresight: [$FORESIGHT_ROLE] tensor-parallel-size: $FORESIGHT_TENSOR_PARALLEL" >&2
 
 # Without --enable-auto-tool-choice/--tool-call-parser, vLLM 400s on ANY
 # request carrying a tools array -- which every message from a real agent
@@ -135,6 +240,7 @@ conda run --no-capture-output -p "$env_prefix" \
         --port "$FORESIGHT_PORT" \
         --served-model-name $FORESIGHT_ALIAS \
         --max-model-len "$FORESIGHT_MAX_MODEL_LEN" \
+        --tensor-parallel-size "$FORESIGHT_TENSOR_PARALLEL" \
         $tool_call_args \
     &
 vllm_pid=$!
