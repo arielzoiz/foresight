@@ -212,16 +212,115 @@ case "$FORESIGHT_ADAPTER" in
 esac
 echo "foresight: rendered $config_file (adapter=$FORESIGHT_ADAPTER)" >&2
 
+# -- aux transcript collection ------------------------------------------
+#
+# trace.jsonl already shows HOW MANY model calls the aux agent made (one
+# role:"aux" row each) and what it finally answered. What it cannot show is
+# what happened INSIDE a turn: whether the model emitted a tool call, in what
+# wire format, whether the server's --tool-call-parser recognised it, and what
+# the tool returned. Two rows means "no tool round-trip happened" but never
+# says why -- and that distinction is the whole question when evaluating a new
+# checkpoint's agentic ability.
+#
+# opencode already records all of it. Its session DB holds one step-start/
+# step-finish pair per model call plus a type:"tool" part per invocation,
+# carrying the tool name, its input and its output; `opencode export` renders
+# one session as JSON. So nothing here needs to log wire bytes -- and a
+# proxy-side log would be strictly worse anyway, because it would show what the
+# model SAID without showing how opencode INTERPRETED it, which is the half
+# that failed on Qwen2.5-Coder-7B.
+#
+# The gap was never recording, it was retrieval: the home lives on the compute
+# node's /tmp (deliberately -- see the note by aux_home above), killable nodes
+# reclaim it, and nothing copied it to shared storage. Hence this.
+#
+# ON EXIT ONLY, never on a timer. An earlier version re-exported every 120s to
+# allow watching a run in progress. That is actively unsafe: exporting means
+# running `opencode` against the SAME OPENCODE_HOME the aux agent uses, and two
+# opencode processes sharing one home deadlock its SQLite --
+# "Error: Unexpected error / database is locked" -- which surfaces as a 502
+# aux_failure and kills the caller's request. With adapter.timeout_s at 1800s, a
+# single aux run could overlap a dozen ticks. The loop risked breaking the very
+# runs it was meant to document, and the mid-run visibility it bought went
+# unused. To inspect a live run, attach to the job instead
+# (`srun --overlap --jobid=<proxy-job>`), which touches nothing.
+#
+# The trap covers preemption and scancel, since Slurm sends SIGTERM before
+# SIGKILL. A hard SIGKILL loses the transcripts; that is the accepted trade for
+# not corrupting live runs.
+#
+# Two rules learned the hard way, both load-bearing:
+#   * ALWAYS pass an explicit session id. `opencode export` with no argument
+#     blocks forever waiting on input.
+#   * ALWAYS wrap in `timeout`. A killed opencode leaves a lock behind that
+#     makes every subsequent opencode command in that home hang.
+aux_collect=0
+[ "$FORESIGHT_ADAPTER" = "local" ] && aux_collect=1
+aux_out_dir="$FORESIGHT_RUN_DIR/aux-agent"
+
+collect_aux_sessions() {
+    [ "$aux_collect" = "1" ] || return 0
+    [ -d "$aux_home/.local/share/opencode" ] || return 0
+    mkdir -p "$aux_out_dir" 2>/dev/null || return 0
+
+    # opencode's own log: cheap, and the only place a harness-level error
+    # (provider misconfiguration, plugin failure) is visible at all.
+    cp -f "$aux_home/.local/share/opencode/log/opencode.log" \
+          "$aux_out_dir/opencode.log" 2>/dev/null || true
+
+    # Sessions are scoped by project, so this must run with cwd = the workspace
+    # the aux agent explored, exactly as LocalAdapter spawns it.
+    ids="$(cd "$FORESIGHT_WORKSPACE" 2>/dev/null && \
+           OPENCODE_HOME="$aux_home" timeout 120 "$agent_bin" session list 2>/dev/null \
+           | grep -oE 'ses_[A-Za-z0-9]{20,}')" || true
+    for sid in $ids; do
+        (cd "$FORESIGHT_WORKSPACE" 2>/dev/null && \
+         OPENCODE_HOME="$aux_home" timeout 120 "$agent_bin" export "$sid" \
+             > "$aux_out_dir/$sid.json.part" 2>/dev/null) || true
+        if [ ! -s "$aux_out_dir/$sid.json.part" ]; then
+            rm -f "$aux_out_dir/$sid.json.part"
+            continue
+        fi
+        # Keep only sessions belonging to THIS run's workspace.
+        #
+        # OPENCODE_HOME does not isolate opencode's session database the way
+        # this deployment assumes: measured directly, sessions from every run --
+        # different job, different node, different workspace -- accumulate in one
+        # shared DB, and `opencode session list` returns all of them. Exporting
+        # unfiltered puts another experiment's transcripts into this run's
+        # evidence, which is worse than having none.
+        #
+        # The session's own `directory` field is the reliable discriminator,
+        # since LocalAdapter always spawns the agent with cwd = the workspace.
+        if grep -q "\"directory\"[[:space:]]*:[[:space:]]*\"$FORESIGHT_WORKSPACE\"" \
+                "$aux_out_dir/$sid.json.part" 2>/dev/null; then
+            mv -f "$aux_out_dir/$sid.json.part" "$aux_out_dir/$sid.json"
+        else
+            rm -f "$aux_out_dir/$sid.json.part"
+        fi
+    done
+}
+
 foresight_endpoint_file="$FORESIGHT_RUN_DIR/foresight.endpoint"
 rm -f "$foresight_endpoint_file"
 
 server_pid=""
 cleanup() {
     rm -f "$foresight_endpoint_file"
+    # The server is stopped FIRST, so no aux agent can still be mid-run holding
+    # opencode's SQLite when the export below opens it. Ordering is the whole
+    # reason this is safe -- see the note by collect_aux_sessions.
     [ -n "$server_pid" ] && kill "$server_pid" 2>/dev/null || true
     [ -n "$fake_pid" ] && kill "$fake_pid" 2>/dev/null || true
+    # Then capture the transcripts, before the node takes /tmp back.
+    collect_aux_sessions || true
 }
 trap cleanup EXIT INT TERM
+
+if [ "$aux_collect" = "1" ]; then
+    mkdir -p "$aux_out_dir"
+    echo "foresight: aux transcripts -> $aux_out_dir (written when the job ends)" >&2
+fi
 
 
 cd "$REPO_DIR"
