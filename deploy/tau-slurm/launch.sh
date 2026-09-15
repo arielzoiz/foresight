@@ -39,8 +39,43 @@
 #                            most accounts need one for killable; run --help to check yours)
 #   --foresight-partition N partition for the proxy job (default: cpu-killable)
 #   --foresight-account N   Slurm account for the proxy job, if needed (default: none)
-#   --gpus N                GPUs per vLLM job (default: 1)
+#   --gpus N                GPUs per vLLM job (default: 1). vLLM is told to shard
+#                            across all of them -- see --tensor-parallel. Use this
+#                            when one card cannot hold the weights: bf16 is ~2
+#                            bytes/param, so a 30B needs ~61 GB and does not fit a
+#                            48 GB a6000, but fits across two.
+#   --tensor-parallel N     vLLM --tensor-parallel-size (default: whatever --gpus
+#                            is). Only set it explicitly to shard across FEWER
+#                            cards than you reserved. Leaving it at the default is
+#                            what stops the silent failure where Slurm grants N
+#                            GPUs, vLLM uses exactly one, and the model OOMs with
+#                            N-1 cards sitting idle. Must divide the model's
+#                            attention-head count -- prefer powers of two.
 #   --max-model-len N       vLLM --max-model-len (default: 32768)
+#   --mem MB                host RAM per vLLM job (default: 32000). Raise it for
+#                            a big checkpoint: vLLM's loader is not bounded by
+#                            the GPU, and an OOM-kill does not just fail the job,
+#                            it DRAINS the node for everyone. ~32 GB suits a 7B;
+#                            budget 96000-128000 for a 30B.
+#   --time MIN              wall clock per vLLM job (default: 180). Weight
+#                            loading off this cluster's NFS is the dominant term
+#                            and scales with checkpoint size -- a 30 GB model can
+#                            spend an hour there before serving a single token.
+#   --tool-call-parser NAME vLLM --tool-call-parser. Default "auto": the parser
+#                            is read off the checkpoint's own chat template, so
+#                            a new model needs no flag. Override only to force a
+#                            specific parser, or pass "" to disable tool calling
+#                            entirely (valid only for --adapter generic, whose
+#                            aux call carries no tools; any real harness will
+#                            retry-storm without it).
+#                            Detection exists because a mismatch is INVISIBLE:
+#                            vLLM returns 200 with tool_calls=null, the harness
+#                            reads the raw text as a final answer, and the run
+#                            looks like "the model is bad at tool calling" when
+#                            it is really "nothing parsed what it emitted".
+#                            Qwen2.5 and Qwen3-Coder both wrap tool calls in
+#                            <tool_call>, one with a JSON body and one with XML,
+#                            which is exactly why guessing by model name fails.
 #   --py-env NAME_OR_PATH   conda env with foresight's own deps (default: foresight)
 #   --exclude LIST          Slurm --exclude for the vLLM job(s), comma-separated
 #                            node names (default: rack-bgw-dgx1,rack-gww-dgx1,
@@ -94,6 +129,14 @@
 # at all.
 #
 # Examples:
+#   # a checkpoint that can actually drive an aux AGENT -- note the parser,
+#   # the partition and the raised --mem/--time all change together
+#   launch.sh --single Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8 \
+#       --workspace $WORK/workspaces/tinyrepo \
+#       --partition gpu-h100-killable --account gpu-research \
+#       --foresight-account gpu-research \
+#       --tool-call-parser qwen3_coder --mem 128000 --time 300
+#
 #   # full pipeline, one model backing both roles, real aux agent
 #   launch.sh --single Qwen/Qwen2.5-Coder-7B-Instruct \
 #       --workspace $WORK/workspaces/tinyrepo \
@@ -115,7 +158,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 . "$SCRIPT_DIR/lib/common.sh"
 
 usage() {
-    sed -n '2,98p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,155p' "$0" | sed 's/^# \{0,1\}//'
     echo
     echo "Your Slurm access (sacctmgr -P -i show user -s \$USER):"
     sacctmgr -P -i show user -s "$USER" 2>&1 || echo "  (sacctmgr failed -- are you on the login node?)"
@@ -130,7 +173,17 @@ account=""
 foresight_partition="cpu-killable"
 foresight_account=""
 gpus="1"
+# Empty means "follow --gpus", resolved after parsing so the two flags can be
+# given in either order.
+tensor_parallel=""
 max_model_len="32768"
+mem="32000"
+time_min="180"
+# "auto" means serve_vllm.sbatch reads the parser off the checkpoint's chat
+# template. Inherited from the environment if already exported, so the older
+# `FORESIGHT_TOOL_CALL_PARSER=... launch.sh` form keeps working;
+# --tool-call-parser overrides both.
+tool_call_parser="${FORESIGHT_TOOL_CALL_PARSER-auto}"
 py_env="foresight"
 exclude_nodes="rack-bgw-dgx1,rack-gww-dgx1,rack-omerl-g01"
 constraint=""
@@ -176,8 +229,24 @@ while [ "$#" -gt 0 ]; do
             gpus="$2"
             shift 2
             ;;
+        --tensor-parallel)
+            tensor_parallel="$2"
+            shift 2
+            ;;
         --max-model-len)
             max_model_len="$2"
+            shift 2
+            ;;
+        --mem)
+            mem="$2"
+            shift 2
+            ;;
+        --time)
+            time_min="$2"
+            shift 2
+            ;;
+        --tool-call-parser)
+            tool_call_parser="$2"
             shift 2
             ;;
         --py-env)
@@ -251,6 +320,11 @@ case "$adapter" in
         ;;
 esac
 
+# Resolved here, not at parse time, so --gpus and --tensor-parallel may be given
+# in either order. The default is deliberately "use every GPU you reserved":
+# reserving N and sharding across 1 is the failure this exists to prevent.
+[ -z "$tensor_parallel" ] && tensor_parallel="$gpus"
+
 # shellcheck disable=SC2086
 foresight_resolve_root $root_arg
 
@@ -290,7 +364,9 @@ submit_vllm() {
         $exclude_opt \
         $constraint_opt \
         --gpus="$gpus" \
-        --export=ALL,FORESIGHT_ROOT="$FORESIGHT_ROOT",HF_HOME="$HF_HOME",FORESIGHT_RUN_DIR="$run_dir",FORESIGHT_ROLE="$role",FORESIGHT_MODEL_ID="$model_id",FORESIGHT_ALIAS="$alias",FORESIGHT_PORT="$port",FORESIGHT_MAX_MODEL_LEN="$max_model_len" \
+        --mem="$mem" \
+        --time="$time_min" \
+        --export=ALL,FORESIGHT_ROOT="$FORESIGHT_ROOT",HF_HOME="$HF_HOME",FORESIGHT_RUN_DIR="$run_dir",FORESIGHT_ROLE="$role",FORESIGHT_MODEL_ID="$model_id",FORESIGHT_ALIAS="$alias",FORESIGHT_PORT="$port",FORESIGHT_MAX_MODEL_LEN="$max_model_len",FORESIGHT_TOOL_CALL_PARSER="$tool_call_parser",FORESIGHT_TENSOR_PARALLEL="$tensor_parallel" \
         --parsable \
         "$SCRIPT_DIR/serve_vllm.sbatch"
 }
@@ -321,6 +397,7 @@ foresight_job="$(sbatch \
     --error="$run_dir/logs/proxy-%j.err" \
     --partition="$foresight_partition" \
     $foresight_account_opt \
+    --time="$time_min" \
     --export=ALL,FORESIGHT_ROOT="$FORESIGHT_ROOT",HF_HOME="$HF_HOME",FORESIGHT_RUN_DIR="$run_dir",REPO_DIR="$REPO_DIR",FORESIGHT_PY_ENV="$py_env",FORESIGHT_ADAPTER="$adapter",FORESIGHT_WORKSPACE="$workspace",FORESIGHT_MAX_MODEL_LEN="$max_model_len",FORESIGHT_VLLM_JOBS="$vllm_jobs",FORESIGHT_FAKE_UPSTREAM="$fake" \
     --parsable \
     "$SCRIPT_DIR/foresight.sbatch")"
