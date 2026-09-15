@@ -237,3 +237,49 @@ expensive way and both documented in `deploy/tau-slurm/README.md`:
 `ManifestGuard` is implemented and required from M2 on. It is not a security
 boundary -- nothing prevents a write, and a determined agent could restore an
 mtime. It exists so contamination is loud instead of silent.
+
+## For the M3 / SWE-CI PR
+
+Four things the M2 runs established that land on `SweCiAdapter`. Details in
+`results/qwen2.5-coder-7b/findings.md` and `deploy/tau-slurm/README.md`.
+
+1. **Session keying must be the container ID, not the prompt hash.** SWE-CI's
+   prompts come from a static template with only `role` and `mode` as variables,
+   so every architect call across all tasks and epochs is byte-identical. Under
+   the current default they collapse into one session and aux runs once, ever.
+   Container ID is one-to-one with a session, since SWE-CI builds a fresh
+   container per epoch -- which is also what gives each epoch its own aux run.
+2. **Fix the title-generation request first.** opencode opens a session with a
+   second request whose prompt is `Generate a title for this conversation:`, and
+   foresight treats it as a task prompt. Once keying is by container ID both
+   requests share a key, so whichever wins the race seeds the cached aux result
+   for the whole epoch -- possibly with future tasks invented for naming a chat.
+   Non-deterministic, and it silently corrupts the condition.
+3. **Concurrent aux runs are handled only where keys collide.**
+   `Pipeline._resolve_aux` takes a per-key lock on session start and
+   `get_if_created_after` collapses two concurrent starts into one aux run. The
+   M2 `database is locked` failure happened because the two requests hashed to
+   *different* keys and so took different locks; container-ID keying makes them
+   match, so this should stop recurring under `SweCiAdapter` — on a path no test
+   exercises yet. **It stays live everywhere else:** `LocalAdapter` and any other
+   prompt-hash keying still give the two requests different keys, so the
+   deadlock can recur on further local runs.
+4. **`HOME` isolation does not work -- verify before relying on it.** Measured
+   on M2: `OPENCODE_HOME` does not isolate opencode's session database, which is
+   shared across jobs, nodes and workspaces. The design's `SweCiAdapter` notes
+   assume a separate `HOME` keeps aux out of SWE-CI's own token accounting
+   (which reads `opencode.db`). That assumption needs checking, not inheriting.
+
+**2 and 3 are one bug, and one rule fixes both for every caller.** They are both
+consequences of treating opencode's title-generation request as an agent turn. It
+is distinguishable without any container: a real agent turn always advertises the
+harness's tools, and that request carries none — measured, `tool_count` 10 versus
+0. So: **do not start an aux run for a session-start request with no `tools`
+array.** The spurious run disappears at its source, which leaves exactly one
+session start per harness session, which in turn removes the concurrency — under
+`LocalAdapter` as much as `SweCiAdapter`, rather than relying on keys colliding.
+
+That leaves 1 as the only genuinely caller-specific piece (session identity, which
+needs the container ID), and 4 as a thing to verify. Worth doing as one change
+before SWE-CI rather than four fixes after it. Keep the rule configurable: a
+non-agent caller sending no tools would otherwise silently never be enhanced.
