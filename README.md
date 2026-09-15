@@ -196,12 +196,36 @@ both `target-model` and `aux-model` served by vLLM on a GPU node -- aux runs onc
 per session, the enhanced prompt is re-applied to every request of that session,
 and the workspace guard comes back clean. See `deploy/tau-slurm/`.
 
-**Aux is not grounded yet.** The only model tried so far is `Qwen/Qwen2.5-Coder-7B-Instruct`.
-It does attempt tool calls, but emits them as a fenced JSON block instead of the `<tool_call>`
-form the server's parser expects, so nothing is recognised as a tool call and opencode treats the
-text as the agent's final answer. Aux therefore answers from the task text without ever
-reading the code, which makes its output weaker evidence than the design
-intends. Worth retrying with a larger model, or one fine-tuned for agentic use.
+**Aux is not grounded yet.** With `Qwen/Qwen2.5-Coder-7B-Instruct` the aux agent never
+ran a single tool. Under the current prompt it does not even attempt one — it answers
+in prose, inventing JavaScript filenames for a Python repo. (Under an earlier
+tool-forcing prompt it did attempt a call, but emitted a fenced JSON block that no
+parser recognises.) Either way aux answers from the task text without reading the
+code, which makes its output weaker evidence than the design intends. See
+`results/qwen2.5-coder-7b/`.
+
+A larger model is the obvious next step, and `Qwen/Qwen3-Coder-30B-A3B-Instruct` is
+downloaded, but the bf16 attempt never loaded — see
+`results/qwen3-coder-30b-bf16-FAILED/`. The FP8 variant on a single H100/H200 is the
+retry to prefer.
+
+**Two things to get right before blaming a checkpoint for that**, both learned the
+expensive way and both documented in `deploy/tau-slurm/README.md`:
+
+- **The `--tool-call-parser` must match the checkpoint.** Qwen2.5 wraps *JSON* in
+  `<tool_call>`; Qwen3-Coder wraps *XML* in the same tag. The wrong parser returns
+  HTTP 200 with `tool_calls: null` and no error anywhere, which looks exactly like a
+  model that cannot call tools.
+- **Read the aux agent's own transcript, not just the trace.** `$RUN/aux-agent/ses_*.json`
+  is opencode's full session export — every tool call with its input and output.
+  `python tools/aux_transcript.py "$RUN/aux-agent/ses_*.json"` summarises it and says
+  whether the run was grounded. The trace's `role: "aux"` row count tells you *that*
+  no tool ran; only the transcript tells you *why*.
+- **Never guess a parser on a GPU.** `tools/probe_tool_parsers.py` replays a captured
+  model output through every registered vLLM parser offline — no GPU, no weights,
+  seconds instead of a queue wait per guess. Measured with it: what the 7B emits
+  (a fenced JSON block holding a *single* object) parses under no parser at all, and
+  the fence is not the obstacle — `xlam` accepts fences but demands an array.
 
 - **M3 -- `SweCiAdapter`.** Container resolution, `docker exec` aux,
   container-ID session keying. Gated on a container runtime being reachable --

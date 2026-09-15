@@ -102,6 +102,33 @@ pool (a5000/a6000/l40s/rtx_3090/rtx_2080/v100/quadro) is Volta-or-newer througho
 works. The cost is that `killable` needs `--account` for most accounts, which
 `studentkillable` never required — check `sacctmgr` (above) for yours.
 
+### Fitting a model that does not fit one GPU
+
+Weights are roughly **2 bytes per parameter at bf16, 1 byte at FP8**, plus room for
+KV cache and activations. So a 30B needs ~61 GB at bf16 and ~31 GB at FP8, against
+48 GB on an a6000 and 80/141 GB on an H100/H200.
+
+**`--gpus N` alone is not enough — it never was.** vLLM defaults
+`--tensor-parallel-size` to 1, so reserving four GPUs and saying nothing else gets
+you four GPUs with the model crammed onto *one*, OOMing while three sit idle.
+`launch.sh` now defaults `--tensor-parallel` to whatever `--gpus` is, which is what
+you almost always want; set it explicitly only to shard across fewer cards than you
+reserved. It must divide the model's attention-head count, so prefer powers of two.
+
+That gives three routes to a 30B on this cluster, and the scarcest hardware is not
+automatically the right answer:
+
+| Route | Fits? | Catch |
+|---|---|---|
+| FP8 on one H100/H200 | 31 GB of 80/141 GB, easily | `gpu-h200-killable` queues behind the non-killable `gpu-h200` partition, whose jobs run for **days** |
+| bf16 on 2× a6000, `--gpus 2` | 61 GB of 96 GB | needs tensor parallelism; `killable` usually has capacity immediately |
+| FP8 on one a6000 | 31 GB of 48 GB on paper | **unverified.** FP8 is nominally allowed from compute capability 7.5, but this checkpoint is *block*-quantized (128×128) and vLLM's Marlin path has no `weight_block_size` handling. If vLLM dequantizes to bf16 instead, it needs 61 GB and OOMs |
+
+**Prefer the middle row when the big partitions are busy.** bf16 on two a6000s
+sidesteps the FP8-on-Ampere question entirely — bf16 is fully supported on Ampere —
+at the cost of downloading twice the weights and reading twice as much off NFS. A
+queue you can enter now beats an ideal GPU you cannot.
+
 **The vLLM job(s) and the proxy job commonly need *different* accounts on top of
 that.** On this cluster, `cpu-killable` (the default proxy partition) needs
 `--account=gpu-research`, independent of whichever account the vLLM job needs. That's
@@ -120,20 +147,115 @@ The other two share the same naming/provisioning pattern and are excluded
 defensively, not individually confirmed. Override with `--exclude ""` if you want to
 try them, or `--exclude other,nodes` to adjust the list.
 
+**A node can be healthy to Slurm and broken in fact — `serve_vllm.sbatch` now checks.**
+Observed on `n-102` (`gpu-h100-killable`): `sinfo` reported `mix` with no drain
+reason, the cgroup exposed all eight `/dev/nvidia*`, and yet bare `nvidia-smi -L`
+could not enumerate two of the eight GPUs —
+
+```
+GPU 0: NVIDIA H100 80GB HBM3 (UUID: GPU-286e2580-...)
+Unable to determine the device handle for gpu 0000:18:00.0: Unknown Error
+GPU 2: ...                        <- GPUs 1 and 7 never appear
+```
+
+— and Slurm allocated the job `CUDA_VISIBLE_DEVICES=7`, one of the dead ones. vLLM
+then aborted inside `import vllm` with `NVMLError_Unknown`, because
+`CudaPlatform.log_warnings()` enumerates **every physical device on the node** at
+import time. So one sick GPU anywhere on the box kills the job even when the GPU you
+were given is fine, and the traceback points at `pynvml` and reads like a
+vLLM-or-driver version problem. It is neither.
+
+The preflight runs `nvidia-smi -L` before `vllm serve` and aborts in about five
+seconds with the node name if any device fails to enumerate, instead of discovering
+it after a queue wait plus a 30 GB checkpoint load. On hitting it, resubmit — you
+will usually land elsewhere — or add that node to `--exclude`. Worth reporting to
+the cluster admins too: Slurm cannot see this fault, so it will keep scheduling work
+onto it until someone says so.
+
 **Tool calling is enabled by default, with no flag needed.** `serve_vllm.sbatch`
-always passes `--enable-auto-tool-choice --tool-call-parser hermes` (the format
-Qwen2.5-Instruct's chat template emits). Without this, vLLM 400s on *any* request
-carrying a `tools` array — which every message from a real agent harness does, since
-it always advertises its own tools. Confirmed directly: pointed at a server started
-without these flags, an opencode session retried the same 400 forever — 1215 requests
-in 45 minutes, never making progress, silently burning the GPU allocation the whole
-time. Override with `FORESIGHT_TOOL_CALL_PARSER=<name>` before calling `launch.sh`
-for a non-Qwen model needing a different parser (vLLM ships dozens — see its own
-`--tool-call-parser` docs or `vllm/tool_parsers/__init__.py` in the installed
-package), or `FORESIGHT_TOOL_CALL_PARSER=""` to disable tool calling entirely — but
-expect the same retry-storm failure mode against any real agent harness if you do,
-unless the model never receives a `tools` array at all (true for `GenericAdapter`'s
-aux call, not for a real target or aux **agent**).
+always passes `--enable-auto-tool-choice --tool-call-parser <name>`. Without this,
+vLLM 400s on *any* request carrying a `tools` array — which every message from a real
+agent harness does, since it always advertises its own tools. Confirmed directly:
+pointed at a server started without these flags, an opencode session retried the same
+400 forever — 1215 requests in 45 minutes, never making progress, silently burning
+the GPU allocation the whole time. Disable it with `--tool-call-parser ""` only for
+`--adapter generic`, whose aux call carries no tools at all; any real target or aux
+**agent** will reproduce the retry storm.
+
+**The parser must match the checkpoint, and a mismatch is silent — so it is
+detected, not defaulted.** `--tool-call-parser` defaults to `auto`, and
+`serve_vllm.sbatch` reads the answer off the checkpoint's own chat template
+(`chat_template.jinja`, or `tokenizer_config.json` for checkpoints like
+Qwen2.5-Coder-7B that carry the template inline). The chosen parser is echoed into
+`logs/vllm-*.err`. Pass a name to force one; pass `""` to disable tool calling.
+
+This is detected rather than defaulted because guessing by model name does not
+work. Both families wrap tool calls in the same `<tool_call>` tag, so the mistake
+is invisible from the outside — the body inside differs:
+
+| Checkpoint family | `--tool-call-parser` | What the chat template emits |
+|---|---|---|
+| `Qwen2.5-*-Instruct` | `hermes` | `<tool_call>{"name": …, "arguments": {…}}</tool_call>` (JSON) |
+| `Qwen3-Coder-*` | `qwen3_coder` | `<tool_call><function=NAME><parameter=X>v</parameter></function></tool_call>` (XML) |
+
+Point `hermes` at Qwen3-Coder and it matches the opening tag, fails to JSON-parse the
+XML body, and returns **HTTP 200 with `tool_calls: null`** — no error anywhere. The
+harness then reads the raw text as the assistant's final answer and the session ends
+after one turn, which is *pixel-identical to the Qwen2.5-Coder-7B failure documented
+below* despite having a completely different cause. Do not diagnose one as the other.
+
+Detection tests `<function=` **before** `<tool_call>`, which is the whole trick:
+Qwen3-Coder's template contains both, since it wraps XML in the tag Qwen2.5 wraps
+JSON in. Checking the other order would classify every Qwen3-Coder as `hermes`.
+Confirm what was chosen with:
+
+```sh
+grep "tool-call parser" $RUN/logs/vllm-*.err
+```
+
+Some repos (Qwen3-Coder's among them) also ship their own
+`qwen3coder_tool_parser.py` next to the weights, which is the same hint by another
+route. vLLM ships dozens of parsers — `vllm/tool_parsers/__init__.py` in the installed
+package lists the registered names (this env has `qwen3_coder` and `qwen3_xml`
+alongside `hermes`). The parser actually used is echoed near the top of
+`logs/vllm-target-*.err`, so an ungrounded run can be checked against it in one grep.
+
+**Don't guess a parser on a GPU — replay the output offline.** A tool parser is a
+pure function from the model's output text to a list of tool calls: no GPU, no
+weights, just a tokenizer. So every candidate can be tried in seconds against the
+exact text the model produced, instead of paying a queue wait plus a checkpoint load
+per guess:
+
+```sh
+python tools/probe_tool_parsers.py --tokenizer Qwen/Qwen2.5-Coder-7B-Instruct
+python tools/probe_tool_parsers.py --tokenizer <id> --text-file captured.txt
+```
+
+It sweeps every registered parser and reports which recognised the text. Measured
+results on this cluster, which is where the table above comes from:
+
+| Model output | Recognised by |
+|---|---|
+| `<tool_call>{"name":…,"arguments":…}</tool_call>` | `hermes` |
+| `<tool_call><function=…><parameter=…>…` | `qwen3_coder`, `qwen3_xml` |
+| Qwen3-Coder's XML fed to **`hermes`** | **nothing** — `JSONDecodeError`, swallowed |
+| ```` ```json {"name":…,"arguments":…} ``` ```` (single object) | **nothing** |
+| ```` ```json [{"name":…,"arguments":…}] ``` ```` (array) | `xlam` |
+
+Two things worth keeping from that table. The Qwen3-Coder-under-hermes row is the
+silent failure spelled out above, reproduced deliberately — it logs a server-side
+`ERROR` and still returns 200 with `tool_calls: null`. And the last two rows are the
+Qwen2.5-Coder-7B case: what it actually emitted parses under **no** parser, and the
+reason is not the markdown fence — `xlam` strips fences happily — but that it emits a
+single object where `xlam` requires an array. `xlam` is therefore *not* a safe
+drop-in: it rejects the correct single-object `hermes` form, so switching to it would
+lose the turns where the model gets the format right.
+
+**The control sample is the point.** The sweep includes one input that must parse
+(`hermes` tags under `hermes`). The first run of this script reported `NONE` for
+every input including that one — because parsers register lazily and the registry
+dict is empty until each module is imported, so it had silently tested nothing. A
+sweep with no positive control cannot tell "no parser matches" from "no parser ran".
 
 **The `max_tokens` collision — read this before blaming the model.** An earlier
 version of this README attributed the 400 storm on real opencode traffic to model
@@ -227,6 +349,86 @@ The 7B produced *both*, depending on the prompt — see the next section.
 counts enumerated items, not groundedness. A fluent, well-formatted, entirely
 ungrounded answer passes it. Check the aux-row count as well.
 
+### Reading the aux agent's own transcript
+
+**The row count gives the verdict; opencode's transcript gives the diagnosis.**
+Every run with `--adapter local` now writes the aux agent's own session export to:
+
+```
+$RUN/aux-agent/
+    ses_<id>.json     one per aux session -- opencode's full transcript
+    opencode.log      the harness's own log
+```
+
+This is not new logging — opencode always recorded it. Its session DB holds one
+`step-start`/`step-finish` pair per model call and a `type: "tool"` part per
+invocation, carrying the tool name, its input and its output; `opencode export`
+renders that as JSON. What was missing was *retrieval*: the transcripts never reached
+the run directory, so they were neither attributable to a particular run nor readable
+by anyone without cluster access. `foresight.sbatch` now exports them into
+`$RUN/aux-agent/` **when the job ends**.
+
+The session DB itself does **not** live under `/tmp/foresight-aux-home-<jobid>` — only
+opencode's two config files do. The DB is on shared storage and outlives the job, so
+the risk was never losing it; the risk is that every run's sessions pile into the same
+one (see below).
+
+**`OPENCODE_HOME` does not isolate opencode's session database — measured, not
+assumed.** Sessions from every run accumulate in one shared DB regardless of the
+per-job home, and `opencode session list` returns all of them: a run whose workspace
+was `tinyrepo` exported two sessions belonging to `tinyrepo-7b`, from a different job
+on a different node. The collector therefore keeps only sessions whose own
+`directory` field matches this run's `--workspace`, since `LocalAdapter` always
+spawns the agent with `cwd` = the workspace.
+
+Two consequences worth knowing. Give every concurrent run its **own workspace clone**
+— it is what makes the filter able to tell runs apart, on top of keeping the guard
+from tripping on a neighbour's writes. And the design's assumption that a separate
+`HOME` isolates opencode's state (`foresight-design-plan.md`, `SweCiAdapter`
+specifics) does **not** hold here; anything relying on it, such as SWE-CI's own token
+accounting, needs verifying rather than assuming.
+
+**Deliberately on exit only, not on a timer.** Exporting runs `opencode` against the
+same `OPENCODE_HOME` the aux agent uses, and two opencode processes sharing one home
+deadlock its SQLite (`database is locked`) — which surfaces as a `502 aux_failure`
+and kills the caller's request. A periodic export would risk breaking the very runs
+it documents. To look at a run in progress, attach to the job instead:
+
+```sh
+srun --overlap --jobid=<proxy-jobid> --ntasks=1 \
+  ls /tmp/foresight-aux-home-<jobid>/.local/share/opencode/
+```
+
+Read it with:
+
+```sh
+python tools/aux_transcript.py "$RUN/aux-agent/ses_*.json"
+python tools/aux_transcript.py --full "$RUN/aux-agent/ses_*.json"   # no truncation
+```
+
+It prints each turn and ends with the verdict:
+
+```
+SUMMARY  model-calls(steps)=4  tool-calls=3
+         tools used: glob, read, read
+         GROUNDED -- the agent ran tools against the workspace.
+```
+
+`model-calls(steps)` should equal that session's `role: "aux"` row count in
+`trace.jsonl` — two independent records of the same thing, so a mismatch means one
+of them is lying and is worth chasing.
+
+**This is what separates the two ungrounded failure modes** that the row count alone
+cannot. A `tool` part present means opencode received a parsed tool call and ran it;
+no `tool` part at all, with a JSON or XML blob sitting in the assistant text, means
+the model emitted a call that the server's `--tool-call-parser` never recognised.
+The first is a model-capability problem, the second is a configuration problem —
+see the parser table in §2, which is the first thing to check.
+
+A proxy-side dump of the raw response bytes was considered instead and is strictly
+worse: it would show what the model *said* without showing how opencode *interpreted*
+it, and the interpretation is the half that failed on the 7B.
+
 **It is the model, not the prompt — tested.** The obvious suspect was the aux
 prompt, which ended "Answer with the numbered list and nothing else" and could
 plausibly have been read as *do not explore*. Replacing that with an explicit
@@ -293,8 +495,12 @@ for l in open('$RUN/trace.jsonl'):
 lives at `/tmp/foresight-aux-home-<jobid>` on the *proxy* node, deliberately —
 opencode materializes a `node_modules` tree on first use in a fresh home, which
 took over 6 minutes onto this cluster's NFS versus under 20 seconds on local
-`/tmp`. It is not cleaned up on exit, so its session DB survives for debugging a
-failed aux run; `killable` nodes reclaim `/tmp` on their own.
+`/tmp`. It is not cleaned up on exit; `killable` nodes reclaim `/tmp` on their own.
+
+It holds opencode's `auth.json` and `opencode.json` and **not** its session DB —
+that turns out to live on shared storage, outside the home, whatever
+`OPENCODE_HOME` says. For a failed aux run, read `$RUN/aux-agent/` (exported at job
+exit) rather than going looking on the node.
 
 `launch.sh` prints this path, plus a ready-made `tail -f` and `scancel` command, when it
 submits. Nothing appears in `target.endpoint` / `aux.endpoint` until that vLLM has
@@ -372,6 +578,40 @@ GPU memory climbing, or `VLLM::EngineCore` burning CPU with growing RSS, means
 progress the log has not flushed. Flat memory and an idle process means actually
 stuck: `scancel` and resubmit, ideally with a different `--constraint`.
 
+**But check the prefetch percentage first — it is the only real progress signal,
+and it is in `.out`, not `.err`.** Before the shard loader runs at all, vLLM
+pulls the whole checkpoint into page cache and reports that separately:
+
+```sh
+grep -E "Prefetching checkpoint files|Filesystem type" $RUN/logs/vllm-target-*.out
+```
+
+```
+Filesystem type for checkpoints: NFS. Checkpoint size: 56.87 GiB. Available RAM: 981.19 GiB.
+18:41:40  Prefetching checkpoint files into page cache started (num_threads=8, ...)
+20:48:54  Prefetching checkpoint files: 10% (1/8)
+```
+
+**`Loading safetensors checkpoint shards: 0/N` in `.err` sits at zero for this
+entire phase, by design.** A frozen shard counter is therefore *not* evidence of
+a hang, and neither is a worker in `D` state with growing RSS — both are exactly
+what a healthy-but-slow prefetch looks like. Only the percentage distinguishes
+"slow" from "stuck". This was learned the hard way: a 30B run was called wedged
+on those two signals while it was in fact reading at 0.76 MiB/s, and the correct
+diagnosis arrived two hours late (`results/qwen3-coder-30b-bf16-FAILED/`).
+
+Do the arithmetic once the first percentage lands — it tells you whether to wait
+or resubmit. 10% in 2 h means ~21 h total: kill it.
+
+**Tensor parallelism multiplies this cost.** Each `Worker_TP<n>` prefetches the
+*entire* checkpoint with its own 8 threads, so `--gpus 2` means twice the bytes
+and twice the concurrent streams against the same NFS volume. Measured on the
+same evening, same partition, same hardware: a single-worker 7B sustained
+~10 MiB/s, while a two-worker 30B managed ~0.76 MiB/s. That is not a controlled
+comparison — different checkpoints, different nodes — but it is reason enough to
+**prefer a quantized checkpoint that fits one GPU over a bf16 one that needs
+two**, when the choice exists.
+
 ### The proxy waits on the vLLM job, not on a clock
 
 `foresight.sbatch` used to give up after a fixed `FORESIGHT_WAIT_TIMEOUT`, and
@@ -386,6 +626,33 @@ Consequence worth knowing: **a stuck vLLM will hold the proxy job indefinitely.*
 That is the intended trade — the alternative killed good runs — but it means you,
 not the timeout, are responsible for noticing. Watch the run rather than
 assuming it will fail on its own.
+
+## 3a. Recording a finished run
+
+Run directories live on shared storage, outside git, and are eventually cleaned
+up. To keep a result — and let someone without cluster access review it:
+
+```sh
+tools/collect_run.sh $RUN <label>          # e.g. qwen3-coder-30b-fp8
+$EDITOR results/<label>/findings.md        # the one part no script can write
+git add results/<label> && git commit
+```
+
+That is the whole workflow. `collect_run.sh` copies the small, durable part of
+the run into `results/<label>/` — config, trace, aux transcripts, the prompts,
+the Slurm resource request, and the vLLM startup lines — then prints these three
+steps back at you. It is idempotent, so re-run it if a run is still producing
+output, and it works on runs that finished long ago (job details come from
+`sacct`, which outlives `squeue`).
+
+Missing pieces are warnings, not errors: a run that died before writing a config
+is exactly the run whose evidence is worth keeping. See `results/README.md` for
+what each file is, and `tools/collect_run.sh --help`.
+
+**Write `findings.md` even for a failure** — especially for a failure. State what
+the run showed *and what it does not show*, so nobody later reads a broken run as
+evidence about a model. `results/qwen3-coder-30b-bf16-FAILED/` is the worked
+example.
 
 ## 4. Paths and quota
 
