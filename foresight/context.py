@@ -9,7 +9,10 @@ prompts are byte-identical across all its tasks and carry no task identity at
 all.
 
 ``RequestContext`` is the mutable scratch space for one request -- stages write
-into ``extras``, the builder rewrites ``body_out``.
+into ``extras``, the builder rewrites ``body_out``. ``is_agent_turn`` records
+whether this request is a turn of the agent session foresight exists to
+enhance, as opposed to a harness's own bookkeeping call (e.g. opencode's
+title-generation request) -- see ``Pipeline.handle``.
 
 Note what is *not* here: the body is an opaque ``dict``, never a Pydantic model.
 See ``server.py`` for why that is a correctness constraint rather than a style
@@ -66,6 +69,19 @@ class InboundRequest:
     def has_assistant_message(self) -> bool:
         """True once the model has replied at least once in this session."""
         return any(m.get("role") == "assistant" for m in self.messages)
+
+    def advertises_tools(self) -> bool:
+        """True when the caller sent a non-empty ``tools`` array.
+
+        OpenAI's protocol has a harness resend its tool definitions on every
+        request, so this is stable across a whole agent session -- unlike
+        ``has_assistant_message``, which flips after the first reply. That is
+        what makes it the discriminator for ``CallerAdapter.is_agent_turn``:
+        opencode's title-generation request ("Generate a title for this
+        conversation:") carries no tools at all, on the first request of its
+        own session and on any later one.
+        """
+        return bool(self.tools)
 
     def first_user_index(self) -> int | None:
         """Index of the task-prompt message.
@@ -127,6 +143,7 @@ class RequestContext:
     builder_name: str = ""
     session_key: str = ""
     is_session_start: bool = False
+    is_agent_turn: bool = True
     phase: str | None = None
     enhanced: bool = False
     extras: dict[str, Any] = field(default_factory=dict)

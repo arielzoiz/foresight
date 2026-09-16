@@ -52,11 +52,42 @@ class AdapterOptions(BaseModel):
 
     Lives here rather than in config.py so that adapters own the shape of their
     own configuration, and config.py can use it directly instead of maintaining
-    a parallel model. Fields past ``name`` are used only by adapters that launch
-    a harness; GenericAdapter ignores all of them.
+    a parallel model. Most fields past ``name`` are used only by adapters that
+    launch a harness (GenericAdapter ignores them); ``require_tools`` and
+    ``max_concurrent_aux`` apply to every adapter.
     """
 
     name: str = "generic"
+
+    require_tools: bool | None = None
+    """Treat a session-start request with no ``tools`` array as not a turn of
+    the agent session, so no aux run and no prompt rewrite touch it.
+
+    ``None`` means "ask the adapter" (``CallerAdapter.require_tools_default``).
+    Measured: opencode opens every session with a title-generation request
+    ("Generate a title for this conversation:", zero tools) roughly two seconds
+    before the real agent turn (which carries the harness's full tool list).
+    Treating that request as a task prompt spends a whole aux agent run naming
+    a chat, and -- because it hashes to a different session key than the real
+    turn and so takes a different per-key lock -- races it into the harness's
+    own on-disk state.
+
+    Set ``false`` for a caller that legitimately never advertises tools (e.g.
+    mini-swe-agent's text-based model classes, which parse actions out of plain
+    text). Foresight cannot tell "never advertises tools" apart from "every
+    request is being skipped" until it has seen a few -- see the startup
+    warning that exists so a run enhancing nothing is never silent.
+    """
+
+    max_concurrent_aux: int = Field(default=0, ge=0)
+    """Cap on aux runs in flight across ALL sessions. 0 = unlimited.
+
+    Aux runs that share on-disk state can corrupt each other if run
+    concurrently -- measured with LocalAdapter/opencode, two `opencode run`
+    processes against one SQLite session DB produced `database is locked`.
+    Set to 1 for a caller whose aux subprocess shares state across sessions.
+    Not needed where each aux run is isolated (e.g. SWE-CI's aux runs in its
+    own container, with its own filesystem, per session)."""
 
     workspace: str | None = None
     """Directory the aux agent explores. Required by LocalAdapter."""
@@ -113,6 +144,13 @@ class CallerAdapter(ABC):
     variable its adapter does not supply fails before the port is bound rather
     than on the first request."""
 
+    require_tools_default: ClassVar[bool] = True
+    """This adapter's default for AdapterOptions.require_tools when unset.
+
+    True for every adapter shipped today: every supported caller's real agent
+    turn advertises tools. A caller that never does (e.g. a text-based,
+    non-tool-calling harness) overrides this to False in its adapter class."""
+
     def __init__(
         self,
         *,
@@ -129,8 +167,40 @@ class CallerAdapter(ABC):
         self._aux_prompt = aux_prompt
         self._options = options or AdapterOptions(name=self.name)
         self._guard_name = guard_name
+        # Resolved once, not per request: the tri-state config value means
+        # "ask the adapter" only until construction settles it.
+        self._require_tools = (
+            self.require_tools_default
+            if self._options.require_tools is None
+            else self._options.require_tools
+        )
 
     # -- concrete defaults ------------------------------------------------
+
+    def is_agent_turn(self, req: InboundRequest) -> bool:
+        """Is this request a turn of the agent session we are here to enhance?
+
+        Agent harnesses do bookkeeping against the same model on the same
+        endpoint: opencode opens every session with a title-generation request
+        ("Generate a title for this conversation:") shortly before the real
+        turn. SWE-CI's target agent is invoked the same way (``opencode run
+        --model ... "<prompt>"``), so this is not a local-only quirk. Treating
+        the title request as a task prompt spends a whole aux agent run naming
+        a chat and -- because it hashes to a different session key than the
+        real turn and so takes a different per-key lock -- runs concurrently
+        with it, which is what deadlocked opencode's shared session database
+        in the M2 runs (see results/qwen2.5-coder-7b/findings.md).
+
+        The discriminator is caller-agnostic: the OpenAI protocol requires
+        tools to be resent on every request, so a real agent turn always
+        advertises them and a bookkeeping call does not. Checked on every
+        request, not only at session start, so a title regenerated mid-session
+        (which would carry assistant messages) is skipped too, rather than
+        being handed the session's real aux text.
+        """
+        if not self._require_tools:
+            return True
+        return req.advertises_tools()
 
     def is_session_start(self, req: InboundRequest) -> bool:
         """True on the first request of an agent session.

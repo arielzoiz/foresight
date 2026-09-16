@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from conftest import AUX_PROMPT, TEMPLATE, StubBackend, make_adapter
+from conftest import AUX_PROMPT, DEFAULT_TOOLS, TEMPLATE, StubBackend, make_adapter
 from foresight.builders import BUILDERS
 from foresight.llm import ModelSpec
 from foresight.pipeline import Pipeline, SessionStore
@@ -102,7 +102,11 @@ async def test_target_request_is_enhanced_via_pipeline():
     async with await _client(app) as client:
         resp = await client.post(
             "/v1/chat/completions",
-            json={"model": "target-model", "messages": [{"role": "user", "content": "fix bug"}]},
+            json={
+                "model": "target-model",
+                "messages": [{"role": "user", "content": "fix bug"}],
+                "tools": DEFAULT_TOOLS,
+            },
         )
 
     assert resp.status_code == 200
@@ -141,7 +145,11 @@ async def test_aux_failure_returns_502_and_target_is_never_called():
     async with await _client(app) as client:
         resp = await client.post(
             "/v1/chat/completions",
-            json={"model": "target-model", "messages": [{"role": "user", "content": "fix bug"}]},
+            json={
+                "model": "target-model",
+                "messages": [{"role": "user", "content": "fix bug"}],
+                "tools": DEFAULT_TOOLS,
+            },
         )
 
     assert resp.status_code == 502
@@ -159,7 +167,11 @@ async def test_passthrough_builder_forwards_unenhanced_and_still_runs_aux():
     async with await _client(app) as client:
         resp = await client.post(
             "/v1/chat/completions",
-            json={"model": "target-model", "messages": [{"role": "user", "content": "fix bug"}]},
+            json={
+                "model": "target-model",
+                "messages": [{"role": "user", "content": "fix bug"}],
+                "tools": DEFAULT_TOOLS,
+            },
         )
 
     assert resp.status_code == 200
@@ -178,6 +190,7 @@ async def test_streaming_request_relays_sse_from_backend():
                 "model": "target-model",
                 "stream": True,
                 "messages": [{"role": "user", "content": "fix bug"}],
+                "tools": DEFAULT_TOOLS,
             },
         )
     assert resp.status_code == 200

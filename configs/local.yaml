@@ -70,10 +70,34 @@ adapter:
 
   timeout_s: 900
 
+  # Requests with no `tools` array are treated as not a turn of the agent
+  # session -- no aux run, no prompt rewrite, forwarded exactly as the control
+  # arm would send it. opencode opens every session with a title-generation
+  # request ("Generate a title for this conversation:") that carries no
+  # tools; without this, a whole aux agent run is spent naming a chat, and it
+  # can deadlock the real aux run below. `true` is the default for this
+  # adapter; uncomment only if this caller legitimately never sends tools --
+  # if it never enhances anything, foresight warns on stderr after a few
+  # requests.
+  # require_tools: true
+
+  # Caps aux runs in flight across ALL sessions. Set to 1 here because two
+  # `opencode run` processes sharing one on-disk session database deadlock
+  # each other (`database is locked`) -- measured when opencode's own
+  # title-generation request and the real agent turn both started an aux run
+  # concurrently. Not needed for a caller whose aux runs are filesystem-
+  # isolated per session (SWE-CI's aux runs inside its own container).
+  max_concurrent_aux: 1
+
   env:
-    # Mandatory with opencode: it keeps its session DB under $HOME, and sharing
-    # it would pollute your own history (and, under SWE-CI, the benchmark's own
-    # token accounting).
+    # opencode keeps its session DB under $HOME, and sharing it would pollute
+    # your own history. Setting HOME here does NOT fully isolate aux, though:
+    # measured on Slurm (deploy/tau-slurm/README.md), opencode's config files
+    # follow $HOME but its session SQLite lives on shared storage regardless,
+    # so sessions from unrelated runs still accumulate in one DB. Give every
+    # concurrent run its own HOME anyway (it is what lets a trace collector
+    # tell runs apart by workspace) but do not rely on it for isolation --
+    # max_concurrent_aux above is the actual fix for the deadlock.
     HOME: /tmp/foresight-aux-home
 
 # Jinja. Variables under the local adapter: {{ prompt }}, {{ system }},
@@ -114,6 +138,12 @@ builder:
     {{ prompt }}
 
 session:
+  # Must outlive the harness's own per-call timeout, or a session that goes
+  # quiet for a while (the agent thinking, a long tool call) can have its aux
+  # result expire mid-session -- the request is still forwarded, just
+  # unenhanced (see the `no_session_entry` trace note and /health counter).
+  # SWE-CI's architect/programmer timeouts are 3600s each; size this above
+  # whatever the caller's own timeout is for that run.
   ttl_s: 3600
 
 trace:

@@ -10,7 +10,11 @@ import asyncio
 
 import pytest
 
-from conftest import StubBackend, make_pipeline, user_only, with_history
+from conftest import AUX_PROMPT, TEMPLATE, StubBackend, make_adapter, make_pipeline, user_only, with_history
+from foresight.adapters.base import AuxResult
+from foresight.builders import BUILDERS
+from foresight.pipeline import Pipeline, SessionStore
+from foresight.stages import Stage
 
 
 @pytest.mark.asyncio
@@ -151,3 +155,110 @@ async def test_no_session_entry_notes_instead_of_crashing(aux_spec):
 
     assert "no_session_entry" in ctx.notes
     assert len(aux_backend.calls) == 0
+
+
+class _TrackingStage(Stage):
+    """Records how many aux runs are in flight at once, not just how many ran."""
+
+    name = "tracking"
+
+    def __init__(self, sleep_s: float = 0.02) -> None:
+        self._sleep_s = sleep_s
+        self.current = 0
+        self.max_seen = 0
+
+    async def run(self, ctx) -> None:
+        self.current += 1
+        self.max_seen = max(self.max_seen, self.current)
+        await asyncio.sleep(self._sleep_s)
+        self.current -= 1
+        ctx.extras["aux"] = AuxResult(text="future: X", source="chat_call")
+
+
+def _gated_pipeline(stage: Stage, aux_spec, *, max_concurrent_aux: int = 0) -> Pipeline:
+    adapter = make_adapter(StubBackend(), aux_spec, name="generic")
+    builder = BUILDERS["template"](TEMPLATE)
+    store = SessionStore()
+    return Pipeline(
+        adapter=adapter,
+        stages=[stage],
+        builder=builder,
+        store=store,
+        max_concurrent_aux=max_concurrent_aux,
+    )
+
+
+@pytest.mark.asyncio
+async def test_two_distinct_sessions_never_run_aux_concurrently_when_limited(aux_spec):
+    """Regression for the M2 `database is locked` failure: two aux runs that
+    share on-disk state must not overlap when the caller sets a limit."""
+    stage = _TrackingStage()
+    pipeline = _gated_pipeline(stage, aux_spec, max_concurrent_aux=1)
+
+    from foresight.context import InboundRequest
+
+    await asyncio.gather(
+        pipeline.handle(InboundRequest(body=user_only("task A"))),
+        pipeline.handle(InboundRequest(body=user_only("task B"))),
+    )
+
+    assert stage.max_seen == 1
+
+
+@pytest.mark.asyncio
+async def test_the_concurrency_limit_does_not_serialise_duplicate_session_starts(aux_spec):
+    """A limit of 1 must not turn "two requests for the same session" into two
+    queued aux runs -- SessionStore's own dedupe (get_if_created_after) has to
+    fire before either one ever reaches the semaphore."""
+    from foresight.context import InboundRequest
+    from foresight.stages import AuxStage
+
+    aux_backend = StubBackend(reply_text="future: A")
+    adapter = make_adapter(aux_backend, aux_spec)
+    pipeline = Pipeline(
+        adapter=adapter,
+        stages=[AuxStage(adapter, aux_spec)],
+        builder=BUILDERS["template"](TEMPLATE),
+        store=SessionStore(),
+        max_concurrent_aux=1,
+    )
+
+    body = user_only("fix parse_date()")
+    await asyncio.gather(
+        pipeline.handle(InboundRequest(body=body)),
+        pipeline.handle(InboundRequest(body=body)),
+    )
+
+    assert len(aux_backend.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_unlimited_is_the_default_so_existing_behaviour_is_unchanged(aux_spec):
+    stage = _TrackingStage()
+    pipeline = _gated_pipeline(stage, aux_spec)  # max_concurrent_aux=0 -> no gate
+
+    from foresight.context import InboundRequest
+
+    await asyncio.gather(
+        pipeline.handle(InboundRequest(body=user_only("task A"))),
+        pipeline.handle(InboundRequest(body=user_only("task B"))),
+    )
+
+    assert stage.max_seen == 2
+
+
+@pytest.mark.asyncio
+async def test_time_spent_waiting_for_an_aux_slot_is_recorded(aux_spec):
+    stage = _TrackingStage(sleep_s=0.05)
+    pipeline = _gated_pipeline(stage, aux_spec, max_concurrent_aux=1)
+
+    from foresight.context import InboundRequest
+
+    ctx_a, ctx_b = await asyncio.gather(
+        pipeline.handle(InboundRequest(body=user_only("task A"))),
+        pipeline.handle(InboundRequest(body=user_only("task B"))),
+    )
+
+    assert "aux_wait_s" in ctx_a.timings
+    assert "aux_wait_s" in ctx_b.timings
+    assert max(ctx_a.timings["aux_wait_s"], ctx_b.timings["aux_wait_s"]) > 0

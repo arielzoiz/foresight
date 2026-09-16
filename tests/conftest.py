@@ -105,12 +105,28 @@ def make_pipeline(
     return Pipeline(adapter=adapter, stages=[stage], builder=builder, store=store)
 
 
-def user_only(text: str) -> dict:
-    return {"model": "target-model", "messages": [{"role": "user", "content": text}]}
+#: Minimal and protocol-shaped. Every supported caller advertises tools on
+#: every real turn (the OpenAI protocol has a harness resend them each
+#: request); a body with none is a harness's own bookkeeping call -- e.g.
+#: opencode's title-generation request -- not a turn of the agent session.
+DEFAULT_TOOLS = [{"type": "function", "function": {"name": "bash", "parameters": {}}}]
 
 
-def with_history(text: str, *turns: dict) -> dict:
-    return {
+def user_only(text: str, *, tools: list | None = None) -> dict:
+    """``tools=None`` (default): a real agent turn. ``tools=[]``: an opencode-style
+    bookkeeping call with no tools at all -- what CallerAdapter.is_agent_turn skips.
+    """
+    body = {"model": "target-model", "messages": [{"role": "user", "content": text}]}
+    if tools != []:
+        body["tools"] = DEFAULT_TOOLS if tools is None else tools
+    return body
+
+
+def with_history(text: str, *turns: dict, tools: list | None = None) -> dict:
+    body = {
         "model": "target-model",
         "messages": [{"role": "user", "content": text}, *turns],
     }
+    if tools != []:
+        body["tools"] = DEFAULT_TOOLS if tools is None else tools
+    return body

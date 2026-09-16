@@ -374,19 +374,27 @@ the risk was never losing it; the risk is that every run's sessions pile into th
 one (see below).
 
 **`OPENCODE_HOME` does not isolate opencode's session database — measured, not
-assumed.** Sessions from every run accumulate in one shared DB regardless of the
-per-job home, and `opencode session list` returns all of them: a run whose workspace
-was `tinyrepo` exported two sessions belonging to `tinyrepo-7b`, from a different job
-on a different node. The collector therefore keeps only sessions whose own
-`directory` field matches this run's `--workspace`, since `LocalAdapter` always
-spawns the agent with `cwd` = the workspace.
+assumed.** `OPENCODE_HOME` is this project's own wrapper convention, not something
+opencode reads directly: `setup/install_opencode.sh` generates a wrapper script that
+does `export HOME="${OPENCODE_HOME:-$BASE/home}"` before exec'ing the real binary,
+precisely because there is no container here to isolate homes the way
+`docker exec -e HOME=...` does. So `HOME` genuinely *was* set per job -- this is not
+"the wrong variable was set" -- and it still does not isolate the session database.
+Sessions from every run accumulate in one shared DB regardless of the per-job home,
+and `opencode session list` returns all of them: a run whose workspace was `tinyrepo`
+exported two sessions belonging to `tinyrepo-7b`, from a different job on a different
+node. The collector therefore keeps only sessions whose own `directory` field matches
+this run's `--workspace`, since `LocalAdapter` always spawns the agent with `cwd` =
+the workspace.
 
 Two consequences worth knowing. Give every concurrent run its **own workspace clone**
 — it is what makes the filter able to tell runs apart, on top of keeping the guard
 from tripping on a neighbour's writes. And the design's assumption that a separate
 `HOME` isolates opencode's state (`foresight-design-plan.md`, `SweCiAdapter`
-specifics) does **not** hold here; anything relying on it, such as SWE-CI's own token
-accounting, needs verifying rather than assuming.
+specifics) does **not** hold here on the host; anything relying on it, such as
+SWE-CI's own token accounting via `docker exec -e HOME=...` inside a container, needs
+verifying with a container runtime rather than assumed from this host-side result --
+see `README.md`, "For the M3 / SWE-CI PR", item 4.
 
 **Deliberately on exit only, not on a timer.** Exporting runs `opencode` against the
 same `OPENCODE_HOME` the aux agent uses, and two opencode processes sharing one home

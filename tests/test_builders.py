@@ -92,6 +92,22 @@ def test_template_skips_non_string_content_without_raising():
     assert any("non-string" in n for n in ctx.notes)
 
 
+def test_a_missing_aux_result_is_not_rendered_as_an_empty_future_task_block():
+    """ctx.aux is None on the no_session_entry path (TTL expiry, a foresight
+    restart mid-session) -- the pipeline already decided not to enhance this
+    request. Rendering the template with an empty aux slot would contradict
+    that decision and still mark the row enhanced, putting a real agent turn
+    in neither experimental arm."""
+    body = {"model": "target-model", "messages": [{"role": "user", "content": "fix parse_date()"}]}
+    ctx = _ctx(body, aux_text=None)
+
+    TemplateBuilder("FUTURE:\n{{ aux }}\n\nTASK:\n{{ prompt }}").build(ctx)
+
+    assert ctx.body_out["messages"][0]["content"] == "fix parse_date()"
+    assert ctx.enhanced is False
+    assert any("no aux result" in n for n in ctx.notes)
+
+
 def test_template_no_user_message_notes_and_does_not_raise():
     body = {"model": "target-model", "messages": [{"role": "system", "content": "sys"}]}
     ctx = _ctx(body, aux_text="future stuff")

@@ -296,6 +296,7 @@ class CallerAdapter(ABC):
     name: str
 
     # concrete defaults — most callers never override these
+    def is_agent_turn(self, req: InboundRequest) -> bool: ...      # caller's tools advertised?
     def is_session_start(self, req: InboundRequest) -> bool: ...   # no assistant message present
     def session_key(self, req: InboundRequest) -> str: ...         # caller-specific scoping
     def phase(self, req: InboundRequest) -> str | None: ...        # trace metadata only
@@ -308,6 +309,15 @@ One abstract method; the rest are defaults. `InboundRequest` wraps the request b
 transport facts** (client IP, URL path, headers) — the latter is what makes SWE-CI resolvable at
 all. `AuxResult` carries the aux output plus provenance (how it was obtained, token counts,
 duration, guard verdict) for the trace.
+
+`is_agent_turn` is checked first, before `session_key` is resolved: a harness's own bookkeeping
+call (opencode issues one to generate a conversation title) looks like a session start but
+carries no `tools`, and treating it as a task prompt wastes a whole aux run and can race the real
+one. Default: a request is an agent turn iff it advertises a non-empty `tools` array (every
+supported caller's real turns do; the OpenAI protocol has a harness resend them every request).
+Configurable per adapter class (`require_tools_default`) and per deployment
+(`adapter.require_tools`) for a caller that legitimately never sends tools. See `README.md`,
+"Design decisions specific to this milestone", for the measurement this was built against.
 
 Three implementations cover every caller:
 
@@ -328,15 +338,27 @@ implementing; nothing else in the system changes.
 1. SWE-CI containers use Docker's default bridge (`docker.py:117-120`, no `--network` flag), so
    each has its own `172.17.0.x`, which the proxy sees as the client address.
 2. `docker exec -e HOME=/tmp/aux-home` a second harness against that container. **The `HOME`
-   override is mandatory**: opencode keeps its session DB under `$HOME/.local/share/opencode`, and
-   SWE-CI reads `opencode.db` back out to extract token usage (`opencode.py:71-106`). Sharing
-   `$HOME` would corrupt the benchmark's own accounting.
+   override is mandatory but not sufficient by itself** — see `README.md`, "For the M3 / SWE-CI
+   PR", item 4. opencode keeps its session DB under `$HOME/.local/share/opencode`, and SWE-CI reads
+   `opencode.db` back out to extract token usage (`opencode.py:71-106`). Sharing `$HOME` would
+   corrupt the benchmark's own accounting. Two things beyond the env var: `SweCiAdapter` must
+   replicate `setup_opencode` (`agents/opencode.py:16-67`) under aux's own home — `auth.json` +
+   `opencode.json` pointing at foresight as `aux-model` — or aux has no provider config and cannot
+   call anything; and `read_usage` (`opencode.py:71-106`) sums `SELECT data FROM message` across
+   *every* message in the DB and reads `SELECT time_created, time_updated FROM session LIMIT 1`
+   with **no `ORDER BY`**, so a DB genuinely shared with aux corrupts `execution_time` as well as
+   token counts, non-deterministically and silently (`read_usage` returns all-`None` when the DB
+   is simply absent, not when it is merely wrong).
 3. Have the aux agent write its answer to a file under `/tmp` and read it back — mirroring
    SWE-CI's own `requirement.xml` pattern (`run.py:108`), and more reliable than scraping stdout.
    `/tmp` is never copied out of the container.
 4. Key the cached `AuxResult` on the **container ID** (`docker inspect`), which is unique per
-   container *instance*. SWE-CI creates a fresh container per session, so container ID and session
-   are one-to-one — epoch 2 gets a different ID even if Docker recycles the IP.
+   container *instance*. SWE-CI creates a fresh container per *phase* — `run_locked` calls
+   `run_container`/`remove_container` separately for architect and programmer, twice per epoch, all
+   under one *name* generated once per task (`uuid.uuid4().hex[:16]` in `_run_locked`) — so
+   container ID and session are one-to-one (and separate architect from programmer for free) only
+   if keyed on the ID from `docker inspect`; the container *name* is not unique per session and
+   must not be used.
 
 **Fallback, and why it is not a valid condition.** If the container cannot be resolved,
 `run_aux` degrades to a single body-only aux call and records that in the provenance. For SWE-CI
@@ -564,9 +586,14 @@ The "one model" illusion is not perfect, and these are accepted:
 
 1. **Latency.** Session-start requests take dramatically longer. Nothing in the protocol reveals
    why — but the caller's HTTP client may time out. See risk 7.
-2. **Token accounting.** SWE-CI reads opencode's SQLite DB (`opencode.py:71-106`), which counts
-   only target traffic, because aux runs under an isolated `HOME`. SWE-CI's reported usage will
-   *understate* true cost; `AuxResult` carries aux token counts so the write-up can report both.
+2. **Token accounting.** SWE-CI reads opencode's SQLite DB (`opencode.py:71-106`), which is
+   *meant* to count only target traffic, because aux runs under an isolated `HOME`. Unverified
+   under `SweCiAdapter` -- the equivalent M2 measurement (host-side `OPENCODE_HOME`, not a
+   container `HOME`) found opencode's config files follow the home override but its session
+   database does not (`deploy/tau-slurm/README.md`), so this needs checking with a container
+   runtime rather than inherited from that host result. See the `SweCiAdapter` specifics above.
+   If it holds, SWE-CI's reported usage understates true cost; `AuxResult` carries aux token
+   counts either way, so the write-up can report both.
 3. **Wall-clock.** SWE-CI records `execution_time` in `iteration.jsonl`. The enhanced condition
    will show longer times. It does not feed ANC, but it is in the output.
 
@@ -672,8 +699,11 @@ Steps 1–3 need neither GPU nor Docker.
 2. **Two `SweCiAdapter` mechanisms are unverified**, both because Docker is missing: client-IP →
    container resolution, and whether a second `docker exec` harness behaves cleanly against a
    container whose first harness is mid-request. The `HOME` override should isolate the state
-   directory, but that is reasoning, not measurement. Either failure degrades to the body-only
-   aux call — which is not a valid condition.
+   directory, but that is reasoning, not measurement -- and the nearest measurement available
+   (M2, host-side `OPENCODE_HOME`) found the session database is *not* isolated by it, only
+   opencode's config files are; whether a container's own passwd/uid boundary changes that is the
+   open question. Either failure degrades to the body-only aux call — which is not a valid
+   condition.
 3. **Aux-as-agent cost is the dominant unknown.** Up to **40 aux agent runs per SWE-CI task**
    (2 per epoch × 20 epochs), so 100 tasks × 2 conditions × seeds is thousands of agent runs.
    Levers that do not change what is measured: lower `max_epoch`, and a smaller task subset.
