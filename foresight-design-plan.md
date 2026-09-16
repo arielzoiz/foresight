@@ -336,35 +336,65 @@ implementing; nothing else in the system changes.
 **`SweCiAdapter` specifics:**
 
 1. SWE-CI containers use Docker's default bridge (`docker.py:117-120`, no `--network` flag), so
-   each has its own `172.17.0.x`, which the proxy sees as the client address.
-2. `docker exec -e HOME=/tmp/aux-home` a second harness against that container. **The `HOME`
-   override is mandatory but not sufficient by itself** — see `README.md`, "For the M3 / SWE-CI
-   PR", item 4. opencode keeps its session DB under `$HOME/.local/share/opencode`, and SWE-CI reads
-   `opencode.db` back out to extract token usage (`opencode.py:71-106`). Sharing `$HOME` would
-   corrupt the benchmark's own accounting. Two things beyond the env var: `SweCiAdapter` must
-   replicate `setup_opencode` (`agents/opencode.py:16-67`) under aux's own home — `auth.json` +
-   `opencode.json` pointing at foresight as `aux-model` — or aux has no provider config and cannot
-   call anything; and `read_usage` (`opencode.py:71-106`) sums `SELECT data FROM message` across
-   *every* message in the DB and reads `SELECT time_created, time_updated FROM session LIMIT 1`
-   with **no `ORDER BY`**, so a DB genuinely shared with aux corrupts `execution_time` as well as
-   token counts, non-deterministically and silently (`read_usage` returns all-`None` when the DB
-   is simply absent, not when it is merely wrong).
+   each has its own `172.17.0.x`, which the proxy sees as the client address — under real Docker,
+   which is the runtime `SweCiAdapter` targets. (This Slurm cluster's `udocker` has no bridge at
+   all — containers share the host's network namespace — among other problems that make it
+   unusable for this pattern regardless; see risk 1. Not a design constraint, a cluster fact.)
+2. `docker exec -e HOME=/tmp/aux-home` a second harness against that container — **except this does
+   not work against SWE-CI's own task image**, found by inspecting `Dockerfile.opencode`, not by
+   reasoning from the design as originally written here. `Dockerfile.opencode` generates
+   `/usr/local/bin/opencode` as a wrapper that *unconditionally* does `export HOME="$BASE/home"`
+   (plus `XDG_CACHE_HOME`, `NPM_CONFIG_PREFIX`, `PATH`), with no `${OPENCODE_HOME:-...}` escape
+   hatch. So `-e HOME=/tmp/aux-home` is silently ignored and aux still lands in `/opt/agent/home`,
+   sharing the target's session DB. `SweCiAdapter` must instead exec the real binary directly —
+   `/opt/agent/npm-global/bin/opencode` — and set the whole environment itself (`HOME`,
+   `XDG_CACHE_HOME`, `NPM_CONFIG_PREFIX`, `npm_config_cache`,
+   `PATH=/opt/agent/node/bin:/opt/agent/npm-global/bin:$PATH`); image permissions
+   (`chmod -R 777 /opt/agent`) make this work under any uid. Once that is fixed, the isolation this
+   step exists for still matters: opencode keeps its session DB under
+   `$HOME/.local/share/opencode`, and SWE-CI reads `opencode.db` back out to extract token usage
+   (`opencode.py:71-106`); sharing `$HOME` would corrupt the benchmark's own accounting. Two things
+   beyond the env fix: `SweCiAdapter` must replicate `setup_opencode` (`agents/opencode.py:16-67`)
+   under aux's own home — `auth.json` + `opencode.json` pointing at foresight as `aux-model` — or
+   aux has no provider config and cannot call anything at all (this is not a degraded mode; it is a
+   startup-shaped failure on the first aux request, findable only by reading the adapter, since the
+   original design plan's step 2 stopped at "override HOME" and never named this file-writing
+   requirement explicitly); and `read_usage` (`opencode.py:71-106`) sums `SELECT data FROM message`
+   across *every* message in the DB and reads `SELECT time_created, time_updated FROM session LIMIT
+   1` with **no `ORDER BY`**, so a DB genuinely shared with aux corrupts `execution_time` as well as
+   token counts, non-deterministically and silently (`read_usage` returns all-`None` when the DB is
+   simply absent, not when it is merely wrong).
 3. Have the aux agent write its answer to a file under `/tmp` and read it back — mirroring
    SWE-CI's own `requirement.xml` pattern (`run.py:108`), and more reliable than scraping stdout.
    `/tmp` is never copied out of the container.
 4. Key the cached `AuxResult` on the **container ID** (`docker inspect`), which is unique per
    container *instance*. SWE-CI creates a fresh container per *phase* — `run_locked` calls
-   `run_container`/`remove_container` separately for architect and programmer, twice per epoch, all
-   under one *name* generated once per task (`uuid.uuid4().hex[:16]` in `_run_locked`) — so
-   container ID and session are one-to-one (and separate architect from programmer for free) only
-   if keyed on the ID from `docker inspect`; the container *name* is not unique per session and
-   must not be used.
+   `run_container`/`remove_container` separately for architect, programmer, **and pytest** (three
+   containers per epoch, not two; pytest never contacts foresight), all under one *name* generated
+   once per task (`uuid.uuid4().hex[:16]` in `_run_locked`) — so container ID and session are
+   one-to-one (and separate architect from programmer for free) only if keyed on the ID from
+   `docker inspect`; the container *name* is not unique per session and must not be used. Each of
+   the architect/programmer steps' up-to-10 retries (`evolve.architect.max_try` /
+   `evolve.programmer.max_try`) also recreates the container on every attempt, so a retried phase
+   gets a new ID and reruns aux from scratch — this compounds risk 3's cost estimate, it does not
+   just recur across epochs.
+5. **Session identity can skip `docker inspect` entirely, which simplifies (4) rather than
+   replacing it.** opencode itself sends `x-session-id` on every request — stable within one
+   `opencode run` invocation, distinct across invocations, no configuration needed (measured with
+   `tools/probe_opencode_headers.sh`) — which gives `session_key` an answer with no `docker`
+   involvement at all, removing a blocking subprocess pair from the hot path. Container identity
+   (which container to `docker exec` into) is a separate question a session key cannot answer by
+   itself, but under real Docker it does not need to: client-IP → `docker inspect` (1) already
+   resolves it. See `README.md`, "Keeping SWE-CI's task concurrency", for the combined picture.
 
-**Fallback, and why it is not a valid condition.** If the container cannot be resolved,
-`run_aux` degrades to a single body-only aux call and records that in the provenance. For SWE-CI
-the request body is byte-identical across all 100 tasks, so such a call has no task-specific
-content to work from. It keeps the run alive and makes the failure visible; **instances that fall
-back must be excluded from results, never averaged in.**
+**Fallback, and why it is not a valid condition.** If neither the session header nor container-ID
+resolution succeeds, `run_aux` degrades to a single body-only aux call and records that in the
+provenance. For SWE-CI the request body is byte-identical across all 100 tasks, so such a call has
+no task-specific content to work from. It keeps the run alive and makes the failure visible;
+**instances that fall back must be excluded from results, never averaged in.** With no
+per-container IP and no working session header, this fallback fires for *every* request once more
+than one container is running — which is why `evolve.max_workers = 1` is required, not merely
+preferred, whenever both resolution paths are unavailable.
 
 Each adapter module also **owns its caller's idiosyncrasies**, documented in its docstring.
 Already gathered for `adapters/swe_ci.py`:
@@ -676,34 +706,67 @@ Steps 1–3 need neither GPU nor Docker.
 
 ## Open risks
 
-1. **No container runtime on `c-006`** — `docker not found`, no `/var/run/docker.sock`, no
-   `singularity`/`apptainer`. Blocks milestones 3–4, not 1–2. But there are **three concrete leads,
-   none requiring a repo change**, and they should be tried before treating this as a blocker:
+1. **No container runtime on this cluster, and it is now a measured blocker, not an open
+   question.** `c-006` (login node): `docker not found`, no `/var/run/docker.sock`, no
+   `singularity`/`apptainer`. Blocks milestones 3–4, not 1–2. Three leads were identified as worth
+   trying before treating this as a blocker; all three were actually tried, on a real compute node
+   (`rack-iscb-31`), not just reasoned about, and the answer is negative:
 
-   - **`udocker` is installed** (`/usr/local/bin/udocker`) and is the cluster's sanctioned
-     container route (see the `slurm-jobs` skill). mini reads `MSWEA_DOCKER_EXECUTABLE`
-     (`environments/docker.py`), so pointing it at udocker is one env var. SWE-CI hardcodes the
-     literal `"docker"` in `docker.py`, but a `docker` shim earlier on `PATH` that forwards to
-     udocker is an *environment* change, not a repo change — constraint 1 holds.
-     Caveat: mini and SWE-CI both start a long-lived container and then `docker exec` into it;
-     udocker is daemonless and may not support that pattern. **Test this first** — it decides
-     whether milestones 3–4 are reachable at all.
+   - **`udocker` is installed**, but its container mechanism does not give the property M3/M4 need.
+     `udocker help`'s full command list has **no `exec` verb at all** in this cluster's version
+     (1.3.10) — only `run <container-id|name>`, which re-executes the container's process rather
+     than attaching to a live one. Worse, and not fixable by renaming a verb: **a write made by one
+     `udocker run` invocation does not survive into a separate, later invocation of the same
+     container** — measured directly (write a file, read it back, missing) and confirmed absent
+     from the persistent `udocker inspect -p` root on the host afterward too, so it is not a
+     namespace-visibility artifact. Retested across **all ten** of udocker's documented execution
+     modes (`P1`, `P2`, `F1`–`F4`, `R1`–`R3`, `S1`): the PRoot/fakechroot family (`P1`, `P2`,
+     `F1`–`F4`, the only modes that run at all here) reproduce the failure identically; the
+     namespace-backed family (`R1`–`R3`) fails outright with no `runc`/`crun` binary present to
+     invoke; `S1` fails outright with "apptainer or singularity executable not found". The same
+     root cause separately breaks `docker cp`'s container→host direction (confirmed independently):
+     copying code *into* a fresh container works, since it never goes through `udocker run` at all,
+     but copying a container's *output* back out — `requirement.xml`, the programmer's modified
+     `/app/code`, a pytest report — depends on the container's own write reaching persistent
+     storage, which it measurably does not. This blocks the single most basic SWE-CI workflow
+     (produce output, retrieve it), independent of the exec-chaining problem above. Measured
+     directly with a `docker`→`udocker` translation shim built to test this (`run`/`exec`/`ps`/
+     `inspect`/`rm`/`cp`, plus a reproducible probe script covering all ten execution modes); not
+     carried in this repo since it has no current use — `SweCiAdapter` targets real Docker, and
+     `udocker` does not support the pattern regardless of how it is driven.
+   - **Real Docker was also tried, not just ruled out by absence.** No `docker` binary or socket
+     anywhere on the node; no `sudo` (password required, none available); the official
+     rootless-Docker installer was actually run and fails hard requiring
+     `sudo apt-get install uidmap` + `sudo modprobe nf_tables` — both root-only. There is no
+     unprivileged path to a working Docker on this cluster.
    - **mini's environment is pluggable** — `_ENVIRONMENT_MAPPING` offers `singularity`,
-     `bubblewrap`, `local`, `swerex_modal` alongside `docker`. Singularity/Apptainer is absent on
-     the login node but is common on HPC compute nodes; check via Slurm before concluding
-     otherwise. SWE-CI has no such option.
-   - **Scoring needs no local runtime at all**: `sb-cli` evaluates in the cloud.
+     `bubblewrap`, `local`, `swerex_modal` alongside `docker`. Singularity/Apptainer is confirmed
+     absent (not just assumed), but `bubblewrap` has **not** been tested against this same failure
+     mode and needs no daemon and no `runc` — worth trying before ruling out M4 on the same grounds.
+   - **Scoring needs no local runtime at all**: `sb-cli` evaluates in the cloud — narrows the gap
+     (SWE-CI's own scoring, `summarize()`, is already local-file-based and unaffected) but does not
+     close it, since SWE-CI still needs a runtime to *run* tasks, not just score them.
 
-   Net: **mini may be unblocked even if SWE-CI is not**, which is a reason to keep milestone 4
-   independent of milestone 3 rather than sequenced after it.
-2. **Two `SweCiAdapter` mechanisms are unverified**, both because Docker is missing: client-IP →
-   container resolution, and whether a second `docker exec` harness behaves cleanly against a
-   container whose first harness is mid-request. The `HOME` override should isolate the state
-   directory, but that is reasoning, not measurement -- and the nearest measurement available
-   (M2, host-side `OPENCODE_HOME`) found the session database is *not* isolated by it, only
-   opencode's config files are; whether a container's own passwd/uid boundary changes that is the
-   open question. Either failure degrades to the body-only aux call — which is not a valid
-   condition.
+   **Net, revised: milestone 3 is blocked on *this Slurm cluster* as configured, not on the
+   `SweCiAdapter` design itself.** `SweCiAdapter` targets real Docker, which already works
+   elsewhere (a local machine with working Docker) — development and testing proceed there.
+   Unblocking *this cluster specifically* needs either a cluster admin ticket (install
+   `uidmap`+`nf_tables` for rootless Docker, or provide real Docker/Apptainer) or further
+   engineering not attempted here (e.g. batching SWE-CI's several logical `docker exec` calls per
+   container into one `udocker run` invocation, since writes ARE visible within a single invocation
+   — only cross-invocation state is lost); neither is a prerequisite for building or testing
+   `SweCiAdapter`. Milestone 4 remains independently worth trying via `bubblewrap` on this cluster,
+   for the reason above.
+2. **Two `SweCiAdapter` mechanisms were unverified because Docker was missing; both are now
+   resolved, and not in the design's favor for this cluster.** Client-IP → container resolution: a
+   real question under real Docker, moot under `udocker` (no per-container IP exists at all — see
+   risk 1). Whether a second harness behaves cleanly against a container whose first harness is
+   mid-request: irrelevant on this cluster specifically, since no second call into the *same*
+   container sees the first call's state regardless of timing (risk 1). The `HOME` override
+   question itself was also resolved, separately: `docker exec -e HOME=...` does not isolate aux
+   under SWE-CI's own image at all, because `Dockerfile.opencode`'s generated wrapper
+   unconditionally overwrites `HOME`; see "`SweCiAdapter` specifics" above for the fix. None of this
+   is reachable on this cluster's current runtime regardless.
 3. **Aux-as-agent cost is the dominant unknown.** Up to **40 aux agent runs per SWE-CI task**
    (2 per epoch × 20 epochs), so 100 tasks × 2 conditions × seeds is thousands of agent runs.
    Levers that do not change what is measured: lower `max_epoch`, and a smaller task subset.

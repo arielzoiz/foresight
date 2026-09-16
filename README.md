@@ -257,12 +257,21 @@ expensive way and both documented in `deploy/tau-slurm/README.md`:
   (a fenced JSON block holding a *single* object) parses under no parser at all, and
   the fence is not the obstacle — `xlam` accepts fences but demands an array.
 
-- **M3 -- `SweCiAdapter`.** Container resolution, `docker exec` aux,
-  container-ID session keying. Gated on a container runtime being reachable --
-  test `udocker` first, since that decides whether M3 and M4 are possible at all.
+- **M3 -- `SweCiAdapter`. Targets real Docker; this Slurm cluster does not
+  currently have one.** `udocker` (the cluster's only container route) was
+  tested directly, not assumed, and fails what M3 needs: no `exec` verb,
+  and writes made by `udocker run` do not survive a separate, later
+  invocation of the same container, in any of its execution modes. Real
+  Docker cannot be installed without root either. None of this affects
+  running `SweCiAdapter` anywhere real Docker already works (a local
+  machine, most CI runners) -- see `foresight-design-plan.md` risk 1 for the
+  measurement and the two options for this cluster specifically (an admin
+  ticket, or pivoting to M4).
 - **M4 -- mini-SWE-agent.** A config file pointing mini at foresight, then
   `MiniAdapter` (option B: aux explores a throwaway container from the
-  per-instance image). Independent of M3, not sequenced after it.
+  per-instance image). Independent of M3, not sequenced after it, and worth
+  prioritising on this cluster specifically: mini's environment backend is
+  pluggable and includes `bubblewrap`, not yet tested here.
 
 `ManifestGuard` is implemented and required from M2 on. It is not a security
 boundary -- nothing prevents a write, and a determined agent could restore an
@@ -311,60 +320,81 @@ title-generation request and would hit the same bug.
    (unlimited) by default and must **not** be set for `SweCiAdapter`, since
    each of its aux runs is isolated in its own container and serialising 16
    workers behind one 3600s aux call would be self-inflicted.
-4. **`HOME` isolation: the diagnosis needed a correction, the requirement still
-   needs verifying.** `OPENCODE_HOME` is not an opencode variable -- it is
-   this project's own wrapper convention
+4. **`HOME` isolation: the diagnosis needed a correction, and the requirement
+   turned out to be two separate fixes, not one.** `OPENCODE_HOME` is not an
+   opencode variable -- it is this project's own wrapper convention
    (`deploy/tau-slurm/setup/install_opencode.sh: export HOME="${OPENCODE_HOME:-$BASE/home}"`).
    So the M2 measurement was not "the wrong variable was set": `HOME` *was* set
    per run, and `deploy/tau-slurm/README.md` records a split -- opencode's
    config files followed it, but the session SQLite lived on shared storage
-   regardless. Two concrete things for `SweCiAdapter` to get right, which the
-   design plan does not currently say: it must replicate `setup_opencode`
-   (`SWE-CI/src/swe_ci/benchmark/agents/opencode.py:16-67`) under aux's own
-   home -- `auth.json` + `opencode.json` pointing at foresight as
-   `aux-model` -- or aux has no provider config and cannot call anything; and
-   `read_usage` (`opencode.py:71-106`) sums `SELECT data FROM message` across
-   *every* message and reads `SELECT time_created, time_updated FROM session
-   LIMIT 1` with **no `ORDER BY`**, so a DB shared with aux would corrupt
-   SWE-CI's own `execution_time` as well as its token counts,
-   non-deterministically, and silently (`read_usage` returns all-`None` when
-   the DB is simply missing). Needs a container runtime to verify -- gated on
-   risk 1, `udocker` first.
+   regardless. Investigating `SweCiAdapter`'s draft (`origin/m3-swe-ci-adapter`)
+   surfaced why that split happens under SWE-CI specifically, and a second gap
+   the design plan did not previously name:
 
-### Open question before implementing `SweCiAdapter`: one process per call, not one shared process
+   - **D-A -- `docker exec -e HOME=...` is a no-op against SWE-CI's own image.**
+     `Dockerfile.opencode` generates `/usr/local/bin/opencode` as a wrapper that
+     *unconditionally* does `export HOME="$BASE/home"` (plus `XDG_CACHE_HOME`,
+     `NPM_CONFIG_PREFIX`, `PATH`), with no `${OPENCODE_HOME:-...}` escape hatch
+     -- unlike this project's own wrapper. So `docker exec -e HOME=/tmp/aux-home
+     ... opencode` still lands aux in `/opt/agent/home`, sharing the target's
+     `opencode.db`. `read_usage` (`opencode.py:71-106`) sums `SELECT data FROM
+     message` across *every* message with no session filter, and reads
+     `SELECT time_created, time_updated FROM session LIMIT 1` with **no
+     `ORDER BY`** -- so a DB genuinely shared with aux corrupts both SWE-CI's
+     `execution_time` and its token counts, non-deterministically and
+     silently. `SweCiAdapter` must exec the real binary directly,
+     `/opt/agent/npm-global/bin/opencode`, and set the whole environment itself
+     (`HOME`, `XDG_CACHE_HOME`, `NPM_CONFIG_PREFIX`, `npm_config_cache`,
+     `PATH=/opt/agent/node/bin:/opt/agent/npm-global/bin:$PATH`). Image
+     permissions (`chmod -R 777 /opt/agent`) make this work under any uid.
+   - **D-B -- aux needs its own provider config, or it cannot call anything.**
+     `SweCiAdapter` must replicate `setup_opencode`
+     (`SWE-CI/src/swe_ci/benchmark/agents/opencode.py:16-67`) under aux's own
+     home before the first aux spawn -- `auth.json` + `opencode.json` pointing
+     at foresight as `aux-model`, written the same way SWE-CI writes them
+     (`docker exec -i -u root <name> sh -c "mkdir -p D && cat > D/F"` with the
+     JSON on stdin). Without this, a fresh `HOME` has no provider config at
+     all and aux fails on its very first request, not silently but not
+     obviously either -- it looks like any other `AuxFailure`.
 
-Item 1 above (container-ID keying) exists to answer "which of 16 concurrent
-sessions did this request belong to?" -- a question that only needs answering
-because SWE-CI's design, as sketched in `foresight-design-plan.md`, has all 16
-`ProcessPoolExecutor` workers (`run.py`, `CONFIG.evolve.max_workers`) point at
-one shared `base_url` and therefore one shared foresight process.
+   Both need a real Docker to verify -- available on a local machine, not on
+   this Slurm cluster as configured (see the M3 bullet above and
+   `foresight-design-plan.md` risk 1).
 
-**The alternative worth deciding first: one foresight process per call**,
-started and stopped alongside each `run_container`/`remove_container` pair
-SWE-CI already does (`run.py`, once per architect call and once per programmer
-call -- up to ~40 times per task). Under this model:
+## Keeping SWE-CI's task concurrency
 
-- Session identity is trivial -- one process, one session, no client-IP or
-  `docker inspect` resolution to build. `SweCiAdapter` may not need
-  container-ID keying, possibly not even a `session_key` override, at all.
-- Architect and programmer are isolated automatically, as a side effect of
-  matching container lifecycle, not as a separate design decision -- they
-  already get separate containers per call, so they'd get separate foresight
-  processes too.
-- The whole concurrency-correctness surface this PR hardened (per-key locks,
-  `get_if_created_after` dedupe, `max_concurrent_aux`) becomes moot for
-  SWE-CI specifically: no two calls ever share a `Pipeline` or `SessionStore`
-  to race over.
+SWE-CI's own `evolve.max_workers` (`config.toml`, default 16) is what runs
+100 tasks in a practical amount of time. Getting `SweCiAdapter` to work with
+it -- rather than forcing `max_workers = 1` -- needed settling which
+container a request belongs to, and which SWE-CI *session* it belongs to.
 
-Costs to weigh against that: SWE-CI's `config.toml` has one global `base_url`
-for the whole run (`CONFIG.base_url`, read once), so this needs a per-call
-`base_url` on the SWE-CI side -- real code there, not just a foresight config
-change. Traces fragment into many files (merge as a post-processing step).
-More process churn than one shared process, but bounded by the container
-churn SWE-CI already pays for, and foresight itself is a lightweight
-CPU-only async process with no heavy init -- none of this needs its own GPU
-Slurm allocation; all instances can run under one CPU job, same as the single
-shared process does today, pointed at the same GPU-backed vLLM endpoints.
+**The design plan's proposal -- one foresight process per `run_container`/
+`remove_container` call -- is rejected.** It needs a caller-repo change:
+`base_url` is a process-global read at `SWE-CI/src/swe_ci/benchmark/agents/
+opencode.py:47`, and giving each call its own value means threading a
+parameter through `tools.py::call_cli_agent`, `opencode.py::call_opencode`/
+`setup_opencode`, and both `run.py` call sites. Small (~4 lines), but still
+SWE-CI's repo, which binding constraint 1 forbids.
 
-Decide this **before** writing `SweCiAdapter`: it changes what the adapter
-needs to be, not just how it's configured.
+**Container identity: client-IP -> `docker inspect` already works under real
+Docker**, exactly as the original design plan describes (SWE-CI's containers
+sit on Docker's default bridge, each with its own address). No change needed
+there.
+
+**Session identity: opencode sends one for free, which simplifies this
+further.** Measured with `tools/probe_opencode_headers.sh` (no Docker, no
+GPU -- run it against the task image's actual opencode/iFlow binary before
+relying on this): opencode sends `x-session-id` on every request, stable
+across one `opencode run` invocation and distinct across invocations, with
+zero configuration. `SweCiAdapter.session_key` can read it directly instead
+of hashing `client_ip` + `docker inspect` output, removing a blocking
+subprocess pair from the hot path. (The title-generation request shares the
+id with the real turn, so `is_agent_turn` gating -- item 2 above -- remains
+load-bearing here exactly as it is under container-ID keying.)
+
+Together: `evolve.max_workers > 1` runs against one foresight process under
+real Docker with no sharding needed. `max_workers` itself should still be
+set from measured throughput rather than the default of 16 -- every session
+now costs two agent runs (aux plus target) against whatever is serving
+`target-model`/`aux-model`, which matters more, not less, when that's a
+CPU-served local model rather than a GPU endpoint.
