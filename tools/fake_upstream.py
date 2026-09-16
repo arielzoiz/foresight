@@ -12,6 +12,12 @@ every tool result of a session. foresight's own traces (foresight/trace.py) are
 the experiment's record; these two are complementary, and this one is the only
 way to see a body byte for byte as the model received it.
 
+Each record also carries the request's headers -- lowercased, as ASGI delivers
+them -- which is what tools/probe_opencode_headers.sh uses to check whether a
+caller's `provider.options.headers` (opencode.json) or a proxy's injected
+header actually reaches the wire, a question no assertion on the body alone
+can answer.
+
 Streaming replies carry a usage object only when the request asks for one via
 ``stream_options: {"include_usage": true}``, which is what real OpenAI-compatible
 servers do. foresight never injects that option -- raw passthrough is the whole
@@ -73,16 +79,19 @@ def _wants_stream_usage(body: dict) -> bool:
 def create_app(record_path: Path | None) -> FastAPI:
     app = FastAPI(title="fake-upstream")
 
-    def _record(body: dict) -> None:
+    def _record(body: dict, headers: dict[str, str]) -> None:
         if record_path is None:
             return
         with record_path.open("a") as f:
-            f.write(json.dumps({"received_at": time.time(), "body": body}) + "\n")
+            f.write(
+                json.dumps({"received_at": time.time(), "headers": headers, "body": body})
+                + "\n"
+            )
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: Request):
         body = await request.json()
-        _record(body)
+        _record(body, dict(request.headers))
 
         model = body.get("model", "fake-target")
         messages = body.get("messages", [])
