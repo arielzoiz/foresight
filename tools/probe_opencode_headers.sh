@@ -14,11 +14,12 @@
 #
 #   1. opencode.json's provider.custom.options.headers (an
 #      @ai-sdk/openai-compatible option, not an opencode one) must actually
-#      reach the wire, or deploy/shims/docker's X-Foresight-Container
-#      injection is dead code.
+#      reach the wire -- otherwise a header is not an available mechanism at
+#      all for a caller that needs to inject one.
 #   2. opencode must send something that identifies ONE `opencode run`
 #      invocation across all of its requests -- if it does, SweCiAdapter needs
-#      no docker/udocker involvement at all for session keying.
+#      no `docker inspect` involvement at all for session keying
+#      (`adapter.session_header_names`).
 #
 # Needs no Docker, no GPU, no SWE-CI checkout: a local opencode binary and this
 # repo's own mock upstream are enough. Two SEPARATE `opencode run` invocations
@@ -29,9 +30,8 @@
 #   tools/probe_opencode_headers.sh --opencode-bin PATH [--python PYTHON]
 #
 # Exit 0: both properties hold, tier A in README.md is viable as specified.
-# Exit 1: report which property failed; deploy/shims/docker's header comment
-# and README.md's concurrency table need updating to match reality, not the
-# other way around.
+# Exit 1: report which property failed; README.md's concurrency section needs
+# updating to match reality, not the other way around.
 
 set -eu
 
@@ -78,8 +78,8 @@ echo "probe_opencode_headers: work dir $work" >&2
 # probe exists to check. Written directly rather than via opencode_home.sh
 # because that script does not (yet) expose a --header flag, and adding one
 # there for a single one-off probe would be the wrong place to carry it --
-# deploy/shims/docker's real injection happens by rewriting this exact file's
-# stdin as SWE-CI's own setup_opencode() writes it, which this probe mimics.
+# this mimics the exact opencode.json shape SWE-CI's own setup_opencode()
+# writes (agents/opencode.py:16-67).
 mkdir -p "$home/.local/share/opencode" "$home/.config/opencode"
 cat > "$home/.local/share/opencode/auth.json" <<'EOF'
 {"custom": {"type": "api", "key": "dummy"}}
