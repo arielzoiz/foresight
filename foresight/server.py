@@ -94,6 +94,9 @@ class HealthResponse(BaseModel):
     adapter: str
     builder: str
     sessions: int
+    enhanced: int
+    skipped_not_agent: int
+    no_session_entry: int
 
 
 def create_app(runtime: Runtime) -> FastAPI:
@@ -111,6 +114,9 @@ def create_app(runtime: Runtime) -> FastAPI:
             adapter=runtime.adapter.name,
             builder=runtime.builder.name,
             sessions=len(runtime.store),
+            enhanced=runtime.pipeline.counters["enhanced"],
+            skipped_not_agent=runtime.pipeline.counters["skipped_not_agent"],
+            no_session_entry=runtime.pipeline.counters["no_session_entry"],
         )
 
     @app.get("/v1/models", response_model=ModelsResponse)

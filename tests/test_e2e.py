@@ -18,6 +18,7 @@ import pytest_asyncio
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from conftest import DEFAULT_TOOLS
 from foresight.config import Runtime, load_config
 from foresight.server import create_app
 from tools.fake_upstream import create_app as create_fake_app
@@ -62,6 +63,7 @@ async def test_aux_block_reaches_target_with_exactly_one_aux_call(wired_apps):
         json={
             "model": "target-model",
             "messages": [{"role": "user", "content": "Fix the bug in parse_date()"}],
+            "tools": DEFAULT_TOOLS,
         },
     )
     assert resp.status_code == 200
@@ -105,6 +107,7 @@ async def test_streaming_relays_raw_sse_unmodified(wired_apps):
             "model": "target-model",
             "stream": True,
             "messages": [{"role": "user", "content": "Fix the bug in parse_date()"}],
+            "tools": DEFAULT_TOOLS,
         },
     )
     assert resp.status_code == 200
@@ -151,6 +154,7 @@ async def test_streaming_usage_is_recovered_when_caller_opts_in(wired_apps):
             "stream": True,
             "stream_options": {"include_usage": True},
             "messages": [{"role": "user", "content": "Fix the bug in parse_date()"}],
+            "tools": DEFAULT_TOOLS,
         },
     )
     assert resp.status_code == 200
@@ -170,12 +174,27 @@ async def test_opencode_style_tool_definitions_survive_untouched(wired_apps):
     client, record_path, trace_path = wired_apps
     fixture = json.loads((FIXTURES / "opencode_request.json").read_text())
 
+    # The fixture is a continuation -- it already carries an assistant reply
+    # and a tool result -- so aux must have run for this session already.
+    # Send the session-start request first, with the same system + first-user
+    # content and the same tools, so it hashes to the same session key and
+    # seeds the cache; otherwise this is a request joining a session with no
+    # cached entry, which is correctly forwarded unenhanced.
+    session_start = {
+        "model": fixture["model"],
+        "messages": fixture["messages"][:2],
+        "tools": fixture["tools"],
+    }
+    first = await client.post("/v1/chat/completions", json=session_start)
+    assert first.status_code == 200
+
     resp = await client.post("/v1/chat/completions", json=fixture)
     assert resp.status_code == 200
 
     records = _read_jsonl(record_path)
-    target_call = next(r for r in records if r["body"]["model"] == "fake-target")
-    sent = target_call["body"]
+    target_calls = [r for r in records if r["body"]["model"] == "fake-target"]
+    assert len(target_calls) == 2
+    sent = target_calls[-1]["body"]
 
     # Protocol conformance: tool definitions must be byte-for-byte (structurally
     # identical) to what came in -- foresight rewrites messages, never tools.

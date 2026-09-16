@@ -39,6 +39,7 @@ TARGET_KEYS = {
     "builder",
     "session_key",
     "is_session_start",
+    "is_agent_turn",
     "phase",
     "enhanced",
     "prompt_in",

@@ -29,6 +29,13 @@ failed instances out at analysis time.
 configured. Like the aux verdict it appears on every row of a session, not only
 the one where the guard ran -- see ``_guard_block``.
 
+``is_agent_turn`` is ``False`` on a request a harness's own bookkeeping made
+(e.g. opencode's title-generation request) rather than a genuine turn of the
+agent session -- see ``CallerAdapter.is_agent_turn``. Those rows were forwarded
+byte-identical to what the control arm would have sent: no aux ran, no key was
+resolved (``session_key`` is empty), and ``aux`` is ``None``. Exclude them from
+per-session row counts; they are not part of any session.
+
 Token counts
 ------------
 ``usage.aux`` is the aux consultation made *during* this request; ``usage.
@@ -163,6 +170,7 @@ def target_record(
         "builder": ctx.builder_name,
         "session_key": ctx.session_key,
         "is_session_start": ctx.is_session_start,
+        "is_agent_turn": ctx.is_agent_turn,
         "phase": ctx.phase,
         "enhanced": ctx.enhanced,
         "prompt_in": prompt_in,
