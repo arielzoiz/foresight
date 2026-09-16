@@ -109,6 +109,13 @@ after the builder -- which is what makes the re-application invariant checkable:
 `aux` fires once per session (only the session-start row has `timings.aux_s`),
 yet every row of that session is `enhanced` with identical `prompt_out`.
 
+`is_agent_turn: false` marks a request a harness made for its own bookkeeping
+rather than as a turn of the agent session -- e.g. opencode's title-generation
+request, which carries no `tools`. Those rows were forwarded byte-identical to
+what the control arm would have sent: `session_key` is empty and `aux` is
+`null`, because no key was ever resolved. Exclude them from per-session row
+counts; they belong to no session. See "Design decisions" below.
+
 ```bash
 python -c "
 import json
@@ -136,6 +143,11 @@ caller does ask, the counts are recovered by watching the bytes go past.
 | `configs/ollama.yaml` | treatment, real model | `naive.yaml` pointed at a local Ollama instead of the mock |
 | `configs/local.yaml` | treatment, **M2** | aux is a real agent over a real repo, `guard: manifest` |
 
+The local configs (`local.yaml`, `local-fake.yaml`, `vllm-local.yaml.tmpl`,
+`fake.yaml.tmpl`) also set `adapter.max_concurrent_aux: 1`: two `opencode run`
+processes sharing one on-disk session database deadlock each other. See
+"Design decisions" below.
+
 `canary.yaml` answers a question no upstream inspection can, once a real
 harness sits between us and the visible output: *did the enhancement reach the
 model, or did it merely get sent?* Point a real harness at it and grep its
@@ -157,9 +169,10 @@ Covers builder rewriting (both arms), session keying, the
 aux-fires-once-per-session invariant, the `aux-model` bypass, config validation,
 `AuxFailure` handling, trace record shape and its failure policy, the aux quality
 gate, `LocalAdapter`'s subprocess contract (argv substitution, cwd, timeouts,
-stale answers), `ManifestGuard` against real directories, and an in-process
+stale answers), `ManifestGuard` against real directories, an in-process
 end-to-end run against `fake_upstream` (including `stream: true`, streaming
-token-usage recovery, and tool-call passthrough).
+token-usage recovery, and tool-call passthrough), the non-agent-turn gate
+(`tests/test_agent_turn.py`), and the global aux concurrency limit.
 
 ## Design decisions specific to this milestone
 
@@ -184,6 +197,23 @@ See `foresight-design-plan.md` for the full reasoning. In short:
   a request: aux's finished output, so the builder can re-inject it into every
   later request of the same target session. See the docstring on
   `foresight.pipeline.SessionStore` for the full argument.
+- **Requests that are not agent turns are forwarded untouched.** opencode opens
+  every session with a title-generation request ("Generate a title for this
+  conversation:") that carries no `tools`, shortly before the real agent turn,
+  which does. Left unhandled this costs a whole aux agent run naming a chat
+  and, because the two hash to different session keys and take different
+  per-key locks, races it into the real aux run -- measured as `database is
+  locked` against opencode's shared session database (M2, see
+  `results/qwen2.5-coder-7b/findings.md`). `CallerAdapter.is_agent_turn`
+  (`adapter.require_tools`, tri-state, default on) checks this before
+  `session_key` is even resolved, so a skipped request never reaches
+  aux *or* the builder -- skipping only aux and letting the builder run
+  would still enhance the title request with an empty future-task block. A
+  caller whose config never advertises tools (e.g. mini-swe-agent's
+  text-based model classes) sets `require_tools: false`; foresight warns on
+  stderr, and `/health` reports `enhanced`/`skipped_not_agent` counters, if a
+  run goes quiet for too long without enhancing anything, since that would
+  otherwise silently be the control arm.
 
 ## What's next
 
@@ -241,45 +271,100 @@ mtime. It exists so contamination is loud instead of silent.
 ## For the M3 / SWE-CI PR
 
 Four things the M2 runs established that land on `SweCiAdapter`. Details in
-`results/qwen2.5-coder-7b/findings.md` and `deploy/tau-slurm/README.md`.
+`results/qwen2.5-coder-7b/findings.md` and `deploy/tau-slurm/README.md`. Two of
+them (2 and 3) are fixed in this PR, for every caller, before `SweCiAdapter`
+exists -- not as four fixes after it. SWE-CI's target agent is invoked exactly
+the way M2's aux was (`opencode run --model ... "<prompt>"`,
+`SWE-CI/src/swe_ci/benchmark/agents/opencode.py`), so it issues the same
+title-generation request and would hit the same bug.
 
-1. **Session keying must be the container ID, not the prompt hash.** SWE-CI's
-   prompts come from a static template with only `role` and `mode` as variables,
-   so every architect call across all tasks and epochs is byte-identical. Under
-   the current default they collapse into one session and aux runs once, ever.
-   Container ID is one-to-one with a session, since SWE-CI builds a fresh
-   container per epoch -- which is also what gives each epoch its own aux run.
-2. **Fix the title-generation request first.** opencode opens a session with a
-   second request whose prompt is `Generate a title for this conversation:`, and
-   foresight treats it as a task prompt. Once keying is by container ID both
-   requests share a key, so whichever wins the race seeds the cached aux result
-   for the whole epoch -- possibly with future tasks invented for naming a chat.
-   Non-deterministic, and it silently corrupts the condition.
-3. **Concurrent aux runs are handled only where keys collide.**
-   `Pipeline._resolve_aux` takes a per-key lock on session start and
-   `get_if_created_after` collapses two concurrent starts into one aux run. The
-   M2 `database is locked` failure happened because the two requests hashed to
-   *different* keys and so took different locks; container-ID keying makes them
-   match, so this should stop recurring under `SweCiAdapter` — on a path no test
-   exercises yet. **It stays live everywhere else:** `LocalAdapter` and any other
-   prompt-hash keying still give the two requests different keys, so the
-   deadlock can recur on further local runs.
-4. **`HOME` isolation does not work -- verify before relying on it.** Measured
-   on M2: `OPENCODE_HOME` does not isolate opencode's session database, which is
-   shared across jobs, nodes and workspaces. The design's `SweCiAdapter` notes
-   assume a separate `HOME` keeps aux out of SWE-CI's own token accounting
-   (which reads `opencode.db`). That assumption needs checking, not inheriting.
+1. **Session keying must be the container ID, not the prompt hash.** Still M3
+   work. SWE-CI's prompts come from a static template with only `role` and
+   `mode` as variables, so every architect call across all tasks and epochs is
+   byte-identical. Under the current default they collapse into one session and
+   aux runs once, ever. Container ID is one-to-one with a session -- SWE-CI
+   builds a fresh container per *phase* (`run.py`: architect and programmer
+   each get their own `run_container`/`remove_container`, twice per epoch), not
+   per epoch as earlier phrasing here said, so keying on it also separates
+   architect from programmer for free. The container *name* is reused across a
+   whole task (`uuid.uuid4().hex[:16]` generated once in `_run_locked`), so
+   `SweCiAdapter` must key on the container **ID** from `docker inspect`, never
+   the name.
+2. ~~Fix the title-generation request first.~~ **Done.** opencode opens every
+   session with a second request whose prompt is `Generate a title for this
+   conversation:` and no `tools`. `CallerAdapter.is_agent_turn` now checks this
+   on every request, before `session_key` is even resolved, and the pipeline
+   skips aux *and* the builder for it -- see "Design decisions" above. This
+   matters more than it would have under prompt-hash keying: under container-ID
+   keying the title request and the real turn share a key, so without the gate
+   whichever wins the race would seed (or, worse, consume) the cached aux
+   result for the whole session.
+3. ~~Concurrent aux runs are handled only where keys collide.~~ **Removed at
+   the source, plus a configurable backstop.** The M2 `database is locked`
+   failure was two aux runs against opencode's title request and the real turn
+   racing each other; (2) removes it, because the title request no longer
+   starts an aux run at all. That is not the same as "concurrency is now
+   safe" -- two *genuinely distinct* sessions (two epochs, architect and
+   programmer, SWE-CI's `max_workers = 16`) still run concurrently by design.
+   `adapter.max_concurrent_aux` caps aux runs in flight for callers whose aux
+   subprocess shares on-disk state (`LocalAdapter`/opencode); it is 0
+   (unlimited) by default and must **not** be set for `SweCiAdapter`, since
+   each of its aux runs is isolated in its own container and serialising 16
+   workers behind one 3600s aux call would be self-inflicted.
+4. **`HOME` isolation: the diagnosis needed a correction, the requirement still
+   needs verifying.** `OPENCODE_HOME` is not an opencode variable -- it is
+   this project's own wrapper convention
+   (`deploy/tau-slurm/setup/install_opencode.sh: export HOME="${OPENCODE_HOME:-$BASE/home}"`).
+   So the M2 measurement was not "the wrong variable was set": `HOME` *was* set
+   per run, and `deploy/tau-slurm/README.md` records a split -- opencode's
+   config files followed it, but the session SQLite lived on shared storage
+   regardless. Two concrete things for `SweCiAdapter` to get right, which the
+   design plan does not currently say: it must replicate `setup_opencode`
+   (`SWE-CI/src/swe_ci/benchmark/agents/opencode.py:16-67`) under aux's own
+   home -- `auth.json` + `opencode.json` pointing at foresight as
+   `aux-model` -- or aux has no provider config and cannot call anything; and
+   `read_usage` (`opencode.py:71-106`) sums `SELECT data FROM message` across
+   *every* message and reads `SELECT time_created, time_updated FROM session
+   LIMIT 1` with **no `ORDER BY`**, so a DB shared with aux would corrupt
+   SWE-CI's own `execution_time` as well as its token counts,
+   non-deterministically, and silently (`read_usage` returns all-`None` when
+   the DB is simply missing). Needs a container runtime to verify -- gated on
+   risk 1, `udocker` first.
 
-**2 and 3 are one bug, and one rule fixes both for every caller.** They are both
-consequences of treating opencode's title-generation request as an agent turn. It
-is distinguishable without any container: a real agent turn always advertises the
-harness's tools, and that request carries none — measured, `tool_count` 10 versus
-0. So: **do not start an aux run for a session-start request with no `tools`
-array.** The spurious run disappears at its source, which leaves exactly one
-session start per harness session, which in turn removes the concurrency — under
-`LocalAdapter` as much as `SweCiAdapter`, rather than relying on keys colliding.
+### Open question before implementing `SweCiAdapter`: one process per call, not one shared process
 
-That leaves 1 as the only genuinely caller-specific piece (session identity, which
-needs the container ID), and 4 as a thing to verify. Worth doing as one change
-before SWE-CI rather than four fixes after it. Keep the rule configurable: a
-non-agent caller sending no tools would otherwise silently never be enhanced.
+Item 1 above (container-ID keying) exists to answer "which of 16 concurrent
+sessions did this request belong to?" -- a question that only needs answering
+because SWE-CI's design, as sketched in `foresight-design-plan.md`, has all 16
+`ProcessPoolExecutor` workers (`run.py`, `CONFIG.evolve.max_workers`) point at
+one shared `base_url` and therefore one shared foresight process.
+
+**The alternative worth deciding first: one foresight process per call**,
+started and stopped alongside each `run_container`/`remove_container` pair
+SWE-CI already does (`run.py`, once per architect call and once per programmer
+call -- up to ~40 times per task). Under this model:
+
+- Session identity is trivial -- one process, one session, no client-IP or
+  `docker inspect` resolution to build. `SweCiAdapter` may not need
+  container-ID keying, possibly not even a `session_key` override, at all.
+- Architect and programmer are isolated automatically, as a side effect of
+  matching container lifecycle, not as a separate design decision -- they
+  already get separate containers per call, so they'd get separate foresight
+  processes too.
+- The whole concurrency-correctness surface this PR hardened (per-key locks,
+  `get_if_created_after` dedupe, `max_concurrent_aux`) becomes moot for
+  SWE-CI specifically: no two calls ever share a `Pipeline` or `SessionStore`
+  to race over.
+
+Costs to weigh against that: SWE-CI's `config.toml` has one global `base_url`
+for the whole run (`CONFIG.base_url`, read once), so this needs a per-call
+`base_url` on the SWE-CI side -- real code there, not just a foresight config
+change. Traces fragment into many files (merge as a post-processing step).
+More process churn than one shared process, but bounded by the container
+churn SWE-CI already pays for, and foresight itself is a lightweight
+CPU-only async process with no heavy init -- none of this needs its own GPU
+Slurm allocation; all instances can run under one CPU job, same as the single
+shared process does today, pointed at the same GPU-backed vLLM endpoints.
+
+Decide this **before** writing `SweCiAdapter`: it changes what the adapter
+needs to be, not just how it's configured.
