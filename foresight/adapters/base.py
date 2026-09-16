@@ -53,8 +53,8 @@ class AdapterOptions(BaseModel):
     Lives here rather than in config.py so that adapters own the shape of their
     own configuration, and config.py can use it directly instead of maintaining
     a parallel model. Most fields past ``name`` are used only by adapters that
-    launch a harness (GenericAdapter ignores them); ``require_tools`` applies
-    to every adapter.
+    launch a harness (GenericAdapter ignores them); ``require_tools`` and
+    ``max_concurrent_aux`` apply to every adapter.
     """
 
     name: str = "generic"
@@ -78,6 +78,16 @@ class AdapterOptions(BaseModel):
     request is being skipped" until it has seen a few -- see the startup
     warning that exists so a run enhancing nothing is never silent.
     """
+
+    max_concurrent_aux: int = Field(default=0, ge=0)
+    """Cap on aux runs in flight across ALL sessions. 0 = unlimited.
+
+    Aux runs that share on-disk state can corrupt each other if run
+    concurrently -- measured with LocalAdapter/opencode, two `opencode run`
+    processes against one SQLite session DB produced `database is locked`.
+    Set to 1 for a caller whose aux subprocess shares state across sessions.
+    Not needed where each aux run is isolated (e.g. SWE-CI's aux runs in its
+    own container, with its own filesystem, per session)."""
 
     workspace: str | None = None
     """Directory the aux agent explores. Required by LocalAdapter."""

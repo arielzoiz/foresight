@@ -18,6 +18,7 @@ single easiest thing in this system to get wrong. See SessionStore below.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import copy
 import sys
 import time
@@ -127,11 +128,13 @@ class Pipeline:
         stages: Sequence[Stage],
         builder: Builder,
         store: SessionStore,
+        max_concurrent_aux: int = 0,
     ) -> None:
         self._adapter = adapter
         self._stages = list(stages)
         self._builder = builder
         self._store = store
+        self._aux_gate = asyncio.Semaphore(max_concurrent_aux) if max_concurrent_aux > 0 else None
         self.counters = {"enhanced": 0, "skipped_not_agent": 0, "no_session_entry": 0}
         self._warned = False
 
@@ -231,8 +234,22 @@ class Pipeline:
                 ctx.note("reused_concurrent_aux")
                 return
 
-            for stage in self._stages:
-                await stage.run(ctx)
-            result = ctx.extras.get("aux")
-            if result is not None:
-                self._store.put(key, result)
+            # The concurrency gate sits INSIDE the key lock and after the
+            # dedupe check above, not around the whole method. A concurrent
+            # duplicate session start must be discovered by
+            # get_if_created_after before it ever queues for a slot --
+            # otherwise it would consume a slot, block on the key lock, then
+            # find `fresh` and release having done nothing: serialising the
+            # exact case the store already collapses for free. Every task
+            # acquires in the same fixed order (key lock, then semaphore) and
+            # holds at most one key lock, so there is no cycle; aux is bounded
+            # by adapter.timeout_s, so every slot is eventually released.
+            gate = self._aux_gate or contextlib.nullcontext()
+            queued = time.monotonic()
+            async with gate:
+                ctx.timings["aux_wait_s"] = round(time.monotonic() - queued, 3)
+                for stage in self._stages:
+                    await stage.run(ctx)
+                result = ctx.extras.get("aux")
+                if result is not None:
+                    self._store.put(key, result)

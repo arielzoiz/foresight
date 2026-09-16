@@ -98,6 +98,7 @@ class Runtime:
             stages=_build_stages(config, self.adapter, self.aux_spec),
             builder=self.builder,
             store=self.store,
+            max_concurrent_aux=config.adapter.max_concurrent_aux,
         )
 
         # Routing is by served model name, so two specs may not claim the same
