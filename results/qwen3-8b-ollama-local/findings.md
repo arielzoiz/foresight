@@ -103,6 +103,20 @@ cluster had; it does not on this machine's 1.18.30. Consequence: this run's
 Anyone hitting empty `aux-agent/` exports locally should check the installed
 opencode version before assuming the collection tooling is broken.
 
+## A third failure shape, not root-caused
+
+Attempting to reproduce the empty-stdout failure directly (same aux prompt,
+`--log-level DEBUG --print-logs`, fresh HOME) hit a different problem instead:
+the process hung indefinitely before reaching opencode's own "watcher
+backend"/"project copy refresh" bootstrap steps -- i.e. before it ever made a
+network call, with both the foresight server and Ollama confirmed healthy and
+responsive throughout (`ollama ps` showed no model loaded, consistent with no
+request having arrived). This is a third, distinct symptom from the same aux
+harness, on top of the empty-stdout majority and the one captured
+malformed-tool-call case above. Not root-caused: killed after a sustained
+attempt rather than chased further. Worth retrying with a clean HOME on a
+future run before assuming it is transient.
+
 ## What this run does not show
 
 - Nothing about `qwen3:14b`: its raw tool-calling format was verified
