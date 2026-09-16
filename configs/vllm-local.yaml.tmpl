@@ -73,12 +73,29 @@ adapter:
   # while aux is still exploring.
   timeout_s: 1800
 
+  # Requests with no `tools` array are not a turn of the agent session --
+  # opencode's own title-generation request is one, and without this it costs
+  # a whole aux run and can deadlock the real one below. See configs/local.yaml
+  # for the full rationale; `true` is this adapter's default.
+  # require_tools: true
+
+  # Caps aux runs in flight. Two `opencode run` processes sharing one on-disk
+  # session database deadlock each other (`database is locked`) -- measured
+  # when opencode's title request and the real agent turn both triggered an
+  # aux run concurrently. See configs/local.yaml.
+  max_concurrent_aux: 1
+
   env:
     # Node-local, and NOT under the run directory. opencode materializes a
     # node_modules tree on first use in a fresh home: measured at over 6
-    # minutes onto this cluster's NFS versus under 20 seconds on /tmp. It also
-    # keeps its session SQLite here, so aux must never share this with a target
-    # harness.
+    # minutes onto this cluster's NFS versus under 20 seconds on /tmp.
+    #
+    # This does NOT fully isolate aux from the target's opencode state: on
+    # this cluster opencode's config files follow $HOME but its session
+    # SQLite lives on shared storage regardless of OPENCODE_HOME, so sessions
+    # from unrelated runs still land in one DB (deploy/tau-slurm/README.md).
+    # max_concurrent_aux above, not this variable, is what prevents aux and
+    # target processes from corrupting each other's writes to it.
     OPENCODE_HOME: "@AUX_HOME@"
 
   # opencode snapshots the workspace for its own undo feature and writes the
