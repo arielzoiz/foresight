@@ -103,9 +103,17 @@ class TemplateBuilder(Builder):
             return
 
         aux = ctx.aux
-        aux_text = aux.text if aux is not None else ""
+        if aux is None:
+            # The pipeline already decided not to enhance this request (e.g.
+            # it joined a session whose TTL expired -- see
+            # Pipeline._resolve_aux's `no_session_entry` note). Rendering an
+            # empty future-task block here would silently contradict that
+            # decision and mark the row `enhanced: true` despite carrying no
+            # aux text -- an instance in neither experimental arm.
+            ctx.note("no aux result; not enhanced")
+            return
 
-        prefix, suffix = self._wrapping(aux_text)
+        prefix, suffix = self._wrapping(aux.text)
         if content.startswith(prefix) and content.endswith(suffix) and prefix:
             # Already carries this session's enhancement -- the caller echoed
             # back our own text. Re-applying would double the prefix.
@@ -113,7 +121,7 @@ class TemplateBuilder(Builder):
             ctx.note("already enhanced; left as is")
             return
 
-        message["content"] = self._template.render(prompt=content, aux=aux_text)
+        message["content"] = self._template.render(prompt=content, aux=aux.text)
         ctx.enhanced = True
 
     def _wrapping(self, aux_text: str) -> tuple[str, str]:
