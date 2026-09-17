@@ -1,0 +1,101 @@
+# SweCiAdapter mechanics check: real Docker, fake models. Validates the
+# docker exec argv shape, the HOME-wrapper bypass, and provider bootstrap
+# (README's "Verifying SweCiAdapter against real Docker" steps 1-3) without
+# needing any working real LLM. See configs/swe_ci.yaml for the annotated
+# original this is derived from.
+
+server:
+  host: 0.0.0.0
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8011/v1
+    model: fake-target
+    api_key_env: TARGET_API_KEY
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:8011/v1
+    model: fake-aux
+    api_key_env: AUX_API_KEY
+    timeout_s: 1800
+
+adapter:
+  name: swe_ci
+  docker_cmd: docker
+
+  # Docker Desktop for Mac: 172.17.0.1 does not reach the host (measured --
+  # curl from inside a container to 172.17.0.1 fails, to host.docker.internal
+  # succeeds). host.docker.internal is Docker Desktop's own mechanism for
+  # exactly this; real Linux Docker would use 172.17.0.1 instead.
+  foresight_base_url: http://host.docker.internal:8000/v1
+
+  swe_ci_config: /Users/arielzoizner/Projects/repos/SWE-CI/config_local.toml
+
+  workspace: /app
+
+  agent_cmd:
+    [
+      "/opt/agent/npm-global/bin/opencode",
+      "run",
+      "--model",
+      "custom/aux-model",
+      "{prompt}",
+    ]
+  answer_from: stdout
+
+  env:
+    HOME: /tmp/aux-home
+    XDG_CACHE_HOME: /tmp/aux-home/.cache
+    NPM_CONFIG_PREFIX: /opt/agent/npm-global
+    npm_config_cache: /opt/agent/npm-cache
+    PATH: /opt/agent/node/bin:/opt/agent/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    NODE_NO_WARNINGS: "1"
+    DISABLE_SEND_PV: "1"
+
+  guard_ignore:
+    - ".git/opencode"
+
+  timeout_s: 300
+
+aux_prompt: |
+  You are inspecting a Python project inside a container at {{ workspace }}.
+
+  READ ONLY. Do not create, modify or delete any file under {{ workspace }}.
+  Any write there invalidates this run.
+
+  A developer is about to work on the task described below.
+
+  {{ prompt }}
+
+  Read enough of {{ workspace }}/code to answer concretely, then name 3 to 5
+  plausible FUTURE tasks that could reasonably follow this one in THIS codebase.
+  Refer to real files, functions or modules you actually read. Do not solve the
+  task, and do not write any file.
+
+stages: [aux]
+
+builder:
+  name: template
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 7200
+
+trace:
+  path: /tmp/foresight-swe-ci-mechanics-trace.jsonl
+
+guard: manifest
