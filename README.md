@@ -181,15 +181,8 @@ provider bootstrap, the guard, and the body-only degradation.
 
 See `deploy/local-ollama/README.md` for the reproducible setup.
 
-**Current state.** Steps 1-3 -- the `docker exec` argv, the HOME-wrapper
-bypass, and provider bootstrap -- are confirmed against real Docker Desktop
-(M1 Mac), after fixing two real bugs `fake_docker.py` couldn't have caught:
-`_exec_argv` was missing `-i`, so the provider bootstrap's piped stdin never
-arrived and silently wrote an empty config; and a container-ID cache went
-stale across a container recreation whenever a new session's key came from
-opencode's session header rather than a fresh IP resolution. Also found:
-Docker Desktop for Mac needs `host.docker.internal`, not `172.17.0.1`, in
-`foresight_base_url`. Full account: `results/swe-ci-mechanics-m1-docker/`.
+**Current state.** The `docker exec` argv, the HOME-wrapper bypass, and provider bootstrap --
+are confirmed against real Docker Desktop (M1 Mac).
 
 **Step 4 -- one real task, end to end, with a real model -- is still open**,
 for two separate reasons:
@@ -205,10 +198,9 @@ for two separate reasons:
   | `qwen2.5-coder:7b` / `:14b` | can't emit well-formed tool calls at all via Ollama |
   | `qwen3:8b` | tool-call format is fine, but 90% of aux invocations produced empty output outright |
   | `qwen3:14b` | stopped failing outright, but still couldn't find the one file in a two-file toy repo after 7.5 minutes of searching -- grounded activity, ungrounded result |
-  | `qwen3-coder:30b` | doesn't fit -- 18.56GB minimum, exceeds this machine's 16GB entirely |
+  | `qwen3-coder:30b` | doesn't fit my 16GB RAM M1 Macbook -- 18.56GB minimum, exceeds this machine's 16GB entirely |
 
-  (One aux hang hit while debugging `qwen3:8b` was never root-caused; see
-  `results/qwen3-8b-ollama-local/findings.md`.)
+  (One aux hang hit while debugging `qwen3:8b` was never root-caused; see `results/qwen3-8b-ollama-local/findings.md`.)
 
 **Next step: try `qwen3-coder:30b`** -- the model class this project's own
 results already flagged as the one worth trying, and no smaller model
@@ -220,25 +212,6 @@ cleared the grounding bar. It won't fit on this machine, so point
 
 See `foresight-design-plan.md` for the full reasoning. In short:
 
-- **The proxied request body is never parsed into a Pydantic model.** Doing so
-  would silently drop any field we did not declare, which breaks the
-  "indistinguishable from vLLM" requirement. Config, `ModelSpec`, and `AuxResult`
-  are Pydantic; the wire body stays an opaque `dict`.
-- **Aux failure fails the request, loudly** (`AuxFailure` -> `502`). No fallback,
-  no degraded path. Silently degrading to an unenhanced prompt would move an
-  instance into the control arm while the config still says treatment.
-- **Every request that reached a model is traced, and a failed trace write fails
-  the request** (`TraceFailure` -> `500`). A run whose traces silently stopped
-  produces results nobody can interpret afterwards, which is the same failure
-  mode `AuxFailure` guards against one layer out. Most causes are caught at
-  startup instead: an unwritable `trace.path` is a `ConfigError` before the port
-  is bound. Two paths do not honour it -- a request that is already failing
-  (the 502 must not become a 500 and hide the cause), and a stream, whose status
-  is on the wire before the record is written.
-- **The session store is not a cache.** It holds the one thing that must outlive
-  a request: aux's finished output, so the builder can re-inject it into every
-  later request of the same target session. See the docstring on
-  `foresight.pipeline.SessionStore` for the full argument.
 - **Requests that are not agent turns are forwarded untouched.** opencode opens
   every session with a title-generation request ("Generate a title for this
   conversation:") that carries no `tools`, shortly before the real agent turn,
@@ -263,160 +236,44 @@ Milestones 1, 2 and 3 have been implemented. See `foresight-design-plan.md` for
 more info on the milestones.
 > note: Update this section as further milestones are implemented.
 
-**The M2 flow runs on Slurm.** A real opencode aux agent over a real small repo, with
-both `target-model` and `aux-model` served by vLLM on a GPU node -- aux runs once
-per session, the enhanced prompt is re-applied to every request of that session,
-and the workspace guard comes back clean. See `deploy/tau-slurm/`.
-
-**Aux is not grounded yet.** With `Qwen/Qwen2.5-Coder-7B-Instruct` the aux agent never
-ran a single tool. Under the current prompt it does not even attempt one — it answers
-in prose, inventing JavaScript filenames for a Python repo. (Under an earlier
-tool-forcing prompt it did attempt a call, but emitted a fenced JSON block that no
-parser recognises.) Either way aux answers from the task text without reading the
-code, which makes its output weaker evidence than the design intends. See
-`results/qwen2.5-coder-7b/`.
-
-A larger model is the obvious next step, and `Qwen/Qwen3-Coder-30B-A3B-Instruct` is
-downloaded, but the bf16 attempt never loaded — see
-`results/qwen3-coder-30b-bf16-FAILED/`. The FP8 variant on a single H100/H200 is the
-retry to prefer.
-
-**Two things to get right before blaming a checkpoint for that**, both learned the
-expensive way and both documented in `deploy/tau-slurm/README.md`:
-
-- **The `--tool-call-parser` must match the checkpoint.** Qwen2.5 wraps *JSON* in
-  `<tool_call>`; Qwen3-Coder wraps *XML* in the same tag. The wrong parser returns
-  HTTP 200 with `tool_calls: null` and no error anywhere, which looks exactly like a
-  model that cannot call tools.
-- **Read the aux agent's own transcript, not just the trace.** `$RUN/aux-agent/ses_*.json`
-  is opencode's full session export — every tool call with its input and output.
-  `python tools/aux_transcript.py "$RUN/aux-agent/ses_*.json"` summarises it and says
-  whether the run was grounded. The trace's `role: "aux"` row count tells you *that*
-  no tool ran; only the transcript tells you *why*.
-- **Never guess a parser on a GPU.** `tools/probe_tool_parsers.py` replays a captured
-  model output through every registered vLLM parser offline — no GPU, no weights,
-  seconds instead of a queue wait per guess. Measured with it: what the 7B emits
-  (a fenced JSON block holding a *single* object) parses under no parser at all, and
-  the fence is not the obstacle — `xlam` accepts fences but demands an array.
-
 - **M3 -- `SweCiAdapter`. Implemented; current state, model findings and next
   steps in "Verifying `SweCiAdapter` against real Docker" above.** Resolves a
   container from the client IP (or a session header, see below), bootstraps
   aux's own opencode provider config, `docker exec`s a second harness into
   the live task container, and reads the answer back out through the
   workspace guard. `configs/swe_ci.yaml` targets real Docker; this Slurm
-  cluster does not currently have one --
-  `udocker` (the cluster's only container route) was tested directly, not
-  assumed, and fails what M3 needs regardless of the adapter's own
-  correctness: no `exec` verb, and writes made by `udocker run` do not
-  survive a separate, later invocation of the same container, in any of its
-  execution modes. Real Docker cannot be installed without root either. None
-  of this affects running `SweCiAdapter` anywhere real Docker already works
-  (a local machine, most CI runners) -- see `foresight-design-plan.md` risk 1
-  for the measurement and the two options for this cluster specifically (an
-  admin ticket, or pivoting to M4).
+  cluster does not currently have one (or does it? I wan't able to find docker installed - AZ),
+  and cannot get one without an admin ticket -- see `foresight-design-plan.md` risk 1 for the measurement.
+- **Run `SweCiAdapter` against real Docker, locally, with a bigger model.**
+  Try `qwen3-coder:30b` -- the smaller models tested so far (`qwen2.5-coder`,
+  `qwen3:8b`, `qwen3:14b`) were not sufficient as aux for a real task, see
+  the model table above.
+- **Check again for Docker on the Slurm cluster.** Not found on node
+  `c-006-tau-slurm` at time of writing (AZ). If it turns out to exist there or
+  elsewhere on the cluster, run the SWE-CI benchmark against
+  `SweCiAdapter` on Slurm with a 30B+ model and report results -- the
+  cluster's GPUs make a bigger model practical in a way this Mac cannot.
+- **If Docker never turns up on Slurm, run foresight locally with Docker
+  while serving the model(s) from Slurm as jobs instead.** Point
+  `models.target`/`models.aux` at a vLLM job's node (needs VPN access to
+  the cluster from off-campus). Slurm compute nodes have outbound
+  internet, confirmed directly in `deploy/tau-slurm/README.md` -- but
+  this direction is the reverse (this Mac calling *in* to a job's node),
+  which has not been checked and should not be assumed to work the same
+  way; confirm inbound requests actually reach the job before relying on
+  this.
 - **M4 -- mini-SWE-agent.** A config file pointing mini at foresight, then
   `MiniAdapter` (option B: aux explores a throwaway container from the
   per-instance image). Independent of M3, not sequenced after it, and worth
   prioritising on this cluster specifically: mini's environment backend is
   pluggable and includes `bubblewrap`, not yet tested here.
+- **M5 (if time permits) -- an adapter for enhancing local coding agents'
+  prompts.** Alongside the aux agent, also run a target agent locally, and
+  use foresight to enhance the first prompt the target agent gets.
 
 `ManifestGuard` is implemented and required from M2 on. It is not a security
 boundary -- nothing prevents a write, and a determined agent could restore an
 mtime. It exists so contamination is loud instead of silent.
-
-## For the M3 / SWE-CI PR
-
-Four things the M2 runs established that land on `SweCiAdapter`. Details in
-`results/qwen2.5-coder-7b/findings.md` and `deploy/tau-slurm/README.md`. Two of
-them (2 and 3) are fixed in this PR, for every caller, before `SweCiAdapter`
-exists -- not as four fixes after it. SWE-CI's target agent is invoked exactly
-the way M2's aux was (`opencode run --model ... "<prompt>"`,
-`SWE-CI/src/swe_ci/benchmark/agents/opencode.py`), so it issues the same
-title-generation request and would hit the same bug.
-
-1. ~~Session keying must be the container ID, not the prompt hash.~~ **Done.**
-   SWE-CI's prompts come from a static template with only `role` and `mode` as
-   variables, so every architect call across all tasks and epochs is
-   byte-identical -- the ABC's default prompt-hash key would collapse them
-   all into one session and run aux once, ever. Container ID is one-to-one
-   with a session -- SWE-CI builds a fresh container per *phase* (`run.py`:
-   architect and programmer each get their own
-   `run_container`/`remove_container`, twice per epoch, plus a third for
-   pytest that never contacts foresight), so keying on it also separates
-   architect from programmer for free. The container *name* is reused across
-   a whole task (`uuid.uuid4().hex[:16]` generated once in `_run_locked`), so
-   `SweCiAdapter.session_key` keys on the container **ID** from
-   `docker inspect`, never the name -- with opencode's own `x-session-id`
-   header preferred first where present (see "Keeping SWE-CI's task
-   concurrency" below), which needs neither.
-2. ~~Fix the title-generation request first.~~ **Done.** opencode opens every
-   session with a second request whose prompt is `Generate a title for this
-   conversation:` and no `tools`. `CallerAdapter.is_agent_turn` now checks this
-   on every request, before `session_key` is even resolved, and the pipeline
-   skips aux *and* the builder for it -- see "Design decisions" above. This
-   matters more than it would have under prompt-hash keying: under container-ID
-   keying the title request and the real turn share a key, so without the gate
-   whichever wins the race would seed (or, worse, consume) the cached aux
-   result for the whole session.
-3. ~~Concurrent aux runs are handled only where keys collide.~~ **Removed at
-   the source, plus a configurable backstop.** The M2 `database is locked`
-   failure was two aux runs against opencode's title request and the real turn
-   racing each other; (2) removes it, because the title request no longer
-   starts an aux run at all. That is not the same as "concurrency is now
-   safe" -- two *genuinely distinct* sessions (two epochs, architect and
-   programmer, SWE-CI's `max_workers = 16`) still run concurrently by design.
-   `adapter.max_concurrent_aux` caps aux runs in flight for callers whose aux
-   subprocess shares on-disk state (`LocalAdapter`/opencode); it is 0
-   (unlimited) by default and must **not** be set for `SweCiAdapter`, since
-   each of its aux runs is isolated in its own container and serialising 16
-   workers behind one 3600s aux call would be self-inflicted.
-4. ~~`HOME` isolation.~~ **Done, and the diagnosis needed a correction along
-   the way -- the requirement turned out to be two separate fixes, not one.**
-   `OPENCODE_HOME` is not an
-   opencode variable -- it is this project's own wrapper convention
-   (`deploy/tau-slurm/setup/install_opencode.sh: export HOME="${OPENCODE_HOME:-$BASE/home}"`).
-   So the M2 measurement was not "the wrong variable was set": `HOME` *was* set
-   per run, and `deploy/tau-slurm/README.md` records a split -- opencode's
-   config files followed it, but the session SQLite lived on shared storage
-   regardless. Investigating `SweCiAdapter`'s draft (`origin/m3-swe-ci-adapter`)
-   surfaced why that split happens under SWE-CI specifically, and a second gap
-   the design plan did not previously name:
-
-   - **D-A -- `docker exec -e HOME=...` is a no-op against SWE-CI's own image.**
-     `Dockerfile.opencode` generates `/usr/local/bin/opencode` as a wrapper that
-     *unconditionally* does `export HOME="$BASE/home"` (plus `XDG_CACHE_HOME`,
-     `NPM_CONFIG_PREFIX`, `PATH`), with no `${OPENCODE_HOME:-...}` escape hatch
-     -- unlike this project's own wrapper. So `docker exec -e HOME=/tmp/aux-home
-     ... opencode` still lands aux in `/opt/agent/home`, sharing the target's
-     `opencode.db`. `read_usage` (`opencode.py:71-106`) sums `SELECT data FROM
-     message` across *every* message with no session filter, and reads
-     `SELECT time_created, time_updated FROM session LIMIT 1` with **no
-     `ORDER BY`** -- so a DB genuinely shared with aux corrupts both SWE-CI's
-     `execution_time` and its token counts, non-deterministically and
-     silently. `configs/swe_ci.yaml` points `agent_cmd` at the real binary
-     directly, `/opt/agent/npm-global/bin/opencode`, and sets the whole
-     environment itself (`HOME`, `XDG_CACHE_HOME`, `NPM_CONFIG_PREFIX`,
-     `npm_config_cache`, `PATH=/opt/agent/node/bin:/opt/agent/npm-global/bin:$PATH`)
-     -- no code change needed, since `SweCiAdapter._exec_argv` already forwards
-     every `adapter.env` entry as its own `-e`. Image permissions
-     (`chmod -R 777 /opt/agent`) make this work under any uid.
-   - **D-B -- aux needs its own provider config, or it cannot call anything.**
-     `SweCiAdapter._bootstrap_provider` replicates `setup_opencode`
-     (`SWE-CI/src/swe_ci/benchmark/agents/opencode.py:16-67`) under aux's own
-     home before the first aux spawn -- `auth.json` + `opencode.json` pointing
-     at foresight as `aux-model` (`adapter.foresight_base_url`), written the
-     same way SWE-CI writes them (`docker exec -i -u root <name> sh -c
-     "mkdir -p D && cat > D/F"` with the JSON on stdin). Without this, a
-     fresh `HOME` has no provider config at all and aux fails on its very
-     first request, not silently but not obviously either -- it looks like
-     any other `AuxFailure`.
-
-   Both are implemented and covered by `tests/test_swe_ci_adapter.py` against
-   `fake_docker.py`; both still need a real Docker to verify for real --
-   available on a local machine, not on this Slurm cluster as configured (see
-   the M3 bullet above, "Verifying `SweCiAdapter` against real Docker", and
-   `foresight-design-plan.md` risk 1).
 
 ## Keeping SWE-CI's task concurrency
 
@@ -447,8 +304,9 @@ zero configuration. `SweCiAdapter.session_key` reads it directly when
 present (`adapter.session_header_names`, checked in order), falling back to
 `client_ip` + `docker inspect` otherwise -- removing a blocking subprocess
 pair from the hot path in the common case. (The title-generation request
-shares the id with the real turn, so `is_agent_turn` gating -- item 2 above
--- remains load-bearing here exactly as it is under container-ID keying.)
+shares the id with the real turn, so `is_agent_turn` gating -- see "Design
+decisions specific to this milestone" above -- remains load-bearing here
+exactly as it is under container-ID keying.)
 
 Together: `evolve.max_workers > 1` runs against one foresight process under
 real Docker with no sharding needed. `max_workers` itself should still be

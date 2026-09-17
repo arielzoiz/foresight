@@ -385,7 +385,21 @@ implementing; nothing else in the system changes.
    involvement at all, removing a blocking subprocess pair from the hot path. Container identity
    (which container to `docker exec` into) is a separate question a session key cannot answer by
    itself, but under real Docker it does not need to: client-IP → `docker inspect` (1) already
-   resolves it. See `README.md`, "Keeping SWE-CI's task concurrency", for the combined picture.
+   resolves it.
+
+**An alternative to all of this — one foresight process per SWE-CI container
+(`run_container`/`remove_container` call) instead of one shared process handling every
+session — was considered and rejected.** It needs a caller-repo change: `base_url` is a
+process-global read at `SWE-CI/src/swe_ci/benchmark/agents/opencode.py:47`, and giving each
+call its own value means threading a parameter through `tools.py::call_cli_agent`,
+`opencode.py::call_opencode`/`setup_opencode`, and both `run.py` call sites. Small (~4
+lines), but still SWE-CI's repo, which binding constraint 1 (§Binding constraints) forbids.
+So `evolve.max_workers > 1` runs against one shared foresight process under real Docker, with
+container-ID/session-header keying (4, 5) doing the work sharding would otherwise have done —
+`max_workers` itself should still be set from measured throughput rather than left at its
+default of 16, since every session now costs two agent runs (aux plus target) against whatever
+serves `target-model`/`aux-model`, which matters more, not less, against a CPU-served local
+model than against a GPU endpoint.
 
 **Fallback, and why it is not a valid condition.** If neither the session header nor container-ID
 resolution succeeds, `run_aux` degrades to a single body-only aux call and records that in the
@@ -676,6 +690,10 @@ Start with A for a cheap result; move to B if the mini condition needs to carry 
 
 **Independent of milestone 3, not sequenced after it.** mini's container runtime is configurable and its scoring is cloud-hosted, so it may be reachable while SWE-CI is still blocked (risk 1).
 If the udocker test succeeds for mini but not for SWE-CI, do this milestone first.
+
+**Milestone 5 (if time permits) — an adapter for enhancing local coding agents' prompts.**
+Alongside the aux agent, also run a target agent locally, and use foresight to enhance the
+first prompt the target agent gets.
 
 ---
 
