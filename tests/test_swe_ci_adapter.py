@@ -319,7 +319,7 @@ def test_the_sole_running_container_is_used_when_no_ip_matches(aux_spec, docker)
     adapter = build(docker, aux_spec)
 
     assert adapter.session_key(request_from("10.0.0.9")) == f"swe_ci:{only}"
-    assert adapter._resolved["10.0.0.9"] == (only, "sole_container")
+    assert adapter._resolved["10.0.0.9"] == (only, "sole_container", "ip:10.0.0.9")
 
 
 # -- session identity via headers -------------------------------------------
@@ -384,6 +384,48 @@ async def test_a_session_header_does_not_replace_container_targeting(aux_spec, d
     assert result.provenance["container_id"] == container
 
 
+@pytest.mark.asyncio
+async def test_a_new_session_does_not_reuse_a_stale_container_id_from_the_same_ip(
+    aux_spec, docker
+):
+    """Docker recycling an IP across sessions must not recycle the container ID.
+
+    session_key() only re-resolves on the IP-keyed path; when a session
+    header is present (the common case, opencode always sends one) it
+    returns before ever calling _resolve(). Measured against real Docker:
+    SWE-CI recreates a container per retry/phase, and the replacement can
+    land on the SAME bridge IP the just-removed one had -- so a naive
+    IP-only cache would hand session 2 session 1's already-gone container
+    ID, and every docker exec into it would fail as "no such container".
+    """
+    first = docker.create("swe-ci-1", "172.17.0.7")
+    docker.seed(first)
+    adapter = build(docker, aux_spec, answer_from="stdout")
+
+    req1 = InboundRequest(
+        body=user_only(ARCHITECT_PROMPT),
+        client_ip="172.17.0.7",
+        headers={"x-session-id": "ses_1"},
+    )
+    assert adapter.session_key(req1) == "swe_ci:hdr:ses_1"
+    result1 = await adapter.run_aux(req1, aux_spec)
+    assert result1.provenance["container_id"] == first
+
+    # session 1's container is gone; a new one for session 2 reuses its IP.
+    (docker.state / "containers" / first / "meta.json").unlink()
+    second = docker.create("swe-ci-2", "172.17.0.7")
+    docker.seed(second)
+
+    req2 = InboundRequest(
+        body=user_only(ARCHITECT_PROMPT),
+        client_ip="172.17.0.7",
+        headers={"x-session-id": "ses_2"},
+    )
+    assert adapter.session_key(req2) == "swe_ci:hdr:ses_2"
+    result2 = await adapter.run_aux(req2, aux_spec)
+    assert result2.provenance["container_id"] == second
+
+
 def test_several_containers_and_no_ip_match_is_unresolved(aux_spec, docker):
     """With nothing to disambiguate on, guessing would corrupt the measurement."""
     docker.create("swe-ci-1", "")
@@ -431,7 +473,7 @@ def test_inspect_output_that_is_not_json_is_survivable(aux_spec, docker):
     adapter._docker = str(broken)
 
     assert adapter.session_key(request_from("172.17.0.2")) == f"swe_ci:{only}"
-    assert adapter._resolved["172.17.0.2"] == (only, "sole_container")
+    assert adapter._resolved["172.17.0.2"] == (only, "sole_container", "ip:172.17.0.2")
 
 
 # -- phase classification --------------------------------------------------
@@ -476,6 +518,22 @@ def test_the_exec_argv_carries_the_workspace_and_an_isolated_home(aux_spec, dock
     assert "-e" in argv and "HOME=/tmp/aux-home" in argv
     # The container comes after every flag and before the command.
     assert argv[argv.index("CID") + 1 :] == ["opencode", "run"]
+
+
+def test_exec_argv_adds_dash_i_only_when_stdin_is_needed(aux_spec, docker):
+    """`docker exec` without `-i` never attaches the child's stdin to ours --
+
+    measured against real Docker, not `fake_docker.py`, which pipes stdin
+    through regardless of this flag and so cannot catch its absence itself.
+    `_bootstrap_provider` pipes its payload through exactly this path; without
+    `-i` the write silently produces a zero-byte file (`cat` sees immediate
+    EOF) instead of failing, and aux's first request inside the container then
+    fails with no indication the provider config was ever wrong.
+    """
+    adapter = build(docker, aux_spec)
+
+    assert "-i" not in adapter._exec_argv("CID", ["opencode", "run"])
+    assert "-i" in adapter._exec_argv("CID", ["sh", "-c", "cat > f"], stdin=True)
 
 
 def test_placeholders_are_substituted_by_replace_not_by_format(aux_spec, docker):

@@ -222,7 +222,7 @@ class SweCiAdapter(CallerAdapter):
         # session start rather than trusted forever: Docker recycles
         # 172.17.0.x across epochs, so a permanent IP cache would hand epoch 2
         # epoch 1's container ID and defeat the reason for keying on the ID.
-        self._resolved: dict[str, tuple[str, str]] = {}
+        self._resolved: dict[str, tuple[str, str, str]] = {}
 
     # -- startup checks ----------------------------------------------------
 
@@ -307,12 +307,32 @@ class SweCiAdapter(CallerAdapter):
                 return f"swe_ci:hdr:{value}"
 
         ip = req.client_ip or ""
+        identity = self._session_identity(req)
         entry = (
-            self._resolve(ip) if self.is_session_start(req) else self._resolved.get(ip)
+            self._resolve(ip, identity)
+            if self.is_session_start(req)
+            else self._resolved.get(ip)
         )
         if entry is None:
             return f"swe_ci:unresolved:{ip or 'no-client-ip'}"
         return f"swe_ci:{entry[0]}"
+
+    def _session_identity(self, req: InboundRequest) -> str:
+        """A cheap (no subprocess), stable tag for "which session is this".
+
+        Mirrors session_key()'s own precedence -- the header if present,
+        else the client IP -- but only to answer "is a cached container
+        resolution still for the same session", not to produce the session
+        key string itself. Used to tell a stale cross-session cache entry
+        (this adapter's own bug, see run_aux) apart from a same-session entry
+        whose container has genuinely died mid-run (which must still fail
+        loudly through a real docker exec).
+        """
+        for name in self._session_header_names:
+            value = req.headers.get(name)
+            if value:
+                return f"hdr:{value}"
+        return f"ip:{req.client_ip or ''}"
 
     def phase(self, req: InboundRequest) -> str | None:
         """architect or programmer -- trace metadata only, never control flow.
@@ -332,15 +352,35 @@ class SweCiAdapter(CallerAdapter):
 
     async def run_aux(self, req: InboundRequest, aux: ModelSpec) -> AuxResult:
         ip = req.client_ip or ""
+        identity = self._session_identity(req)
+        # A cache hit is trustworthy only if IT WAS RESOLVED FOR THIS SESSION
+        # -- not merely present for this IP. session_key() refreshes the
+        # cache at session start on the IP-keyed path, but returns via the
+        # session-header branch first whenever one is present (opencode
+        # always sends x-session-id, per tools/probe_opencode_headers.sh),
+        # and that branch never calls _resolve() at all. Measured directly
+        # against real Docker: SWE-CI recreates a container per retry/phase,
+        # and the new one can land on the SAME bridge IP as the one just
+        # removed -- so an identity-blind cache handed run_aux a container ID
+        # docker had already GC'd ("No such container" on every exec), for
+        # every session after the first that reused an IP. Comparing the
+        # cached entry's identity against this request's own is cheap (a
+        # header lookup, no subprocess) and correctly keeps trusting a
+        # same-session entry even if ITS OWN container later dies mid-run --
+        # that must still fail loudly via a real exec, not be silently
+        # re-resolved into a body-only degrade.
         entry = self._resolved.get(ip)
+        if entry is not None and entry[2] != identity:
+            entry = None
         if entry is None:
-            # session_key already tried; retry here (off the loop) because a
-            # container that was still starting a moment ago may be up now.
-            entry = await asyncio.to_thread(self._resolve, ip)
+            # Off the loop: a container that was still starting a moment ago
+            # may be up now, and (per above) this now also covers the case
+            # where session_key() never resolved at all.
+            entry = await asyncio.to_thread(self._resolve, ip, identity)
         if entry is None:
             return await self._body_only_fallback(req, aux, ip)
 
-        container_id, resolved_by = entry
+        container_id, resolved_by, _identity = entry
         await self._bootstrap_provider(container_id, aux)
         answer_path = self._answer_path()
         prompt = self._render_prompt(req, answer_path)
@@ -407,10 +447,14 @@ class SweCiAdapter(CallerAdapter):
 
     # -- container resolution ---------------------------------------------
 
-    def _resolve(self, ip: str) -> tuple[str, str] | None:
-        """(container_id, how) for this client IP, or None. Never raises.
+    def _resolve(self, ip: str, identity: str) -> tuple[str, str, str] | None:
+        """(container_id, how, identity) for this client IP, or None. Never raises.
 
         Two spawns: ``docker ps -q``, then one batched ``docker inspect``.
+        ``identity`` (see ``_session_identity``) is stamped onto the cache
+        entry so a later ``run_aux`` can tell a same-session lookup (trust it,
+        even if the container has since died) from a stale one left by a
+        previous session that happened to share this IP.
         """
         ids = self._running_container_ids()
         if not ids:
@@ -421,7 +465,7 @@ class SweCiAdapter(CallerAdapter):
         if ip:
             for container_id, address in self._container_addresses(ids):
                 if address and address == ip:
-                    return self._remember(ip, container_id, "client_ip")
+                    return self._remember(ip, container_id, "client_ip", identity)
 
         if len(ids) == 1:
             # udocker and any host-network runtime land here: no per-container
@@ -432,7 +476,7 @@ class SweCiAdapter(CallerAdapter):
                 ip or "(no client ip)",
                 ids[0][:12],
             )
-            return self._remember(ip, ids[0], "sole_container")
+            return self._remember(ip, ids[0], "sole_container", identity)
 
         log.warning(
             "swe_ci: %d containers running and none has address %r; aux will fall "
@@ -443,13 +487,18 @@ class SweCiAdapter(CallerAdapter):
         self._resolved.pop(ip, None)
         return None
 
-    def _remember(self, ip: str, container_id: str, how: str) -> tuple[str, str]:
+    def _remember(
+        self, ip: str, container_id: str, how: str, identity: str
+    ) -> tuple[str, str, str]:
         """Keep the verdict for the rest of this session, and no longer.
 
         Keyed on IP, but every session start overwrites it, so a recycled
-        172.17.0.x cannot alias epoch 1's container onto epoch 2.
+        172.17.0.x cannot alias epoch 1's container onto epoch 2 -- and
+        ``identity`` is what lets ``run_aux`` detect that overwrite even when
+        ``session_key()`` itself never touched this IP for the new session
+        (the header-keyed path), see ``run_aux``.
         """
-        entry = (container_id, how)
+        entry = (container_id, how, identity)
         self._resolved[ip] = entry
         return entry
 
@@ -582,6 +631,7 @@ class SweCiAdapter(CallerAdapter):
                 container_id,
                 ["sh", "-c", f"mkdir -p {target_dir} && cat > {target_dir}/{filename}"],
                 user="root",
+                stdin=True,
             )
             code, _out, err, timed_out = await self._spawn(
                 argv, timeout_s=30.0, input_data=payload.encode()
@@ -636,9 +686,14 @@ class SweCiAdapter(CallerAdapter):
         return argv
 
     def _exec_argv(
-        self, container_id: str, command: list[str], *, user: str | None = None
+        self,
+        container_id: str,
+        command: list[str],
+        *,
+        user: str | None = None,
+        stdin: bool = False,
     ) -> list[str]:
-        """``docker exec [-u USER] -w <workspace> -e K=V ... <cid> <command>``.
+        """``docker exec [-i] [-u USER] -w <workspace> -e K=V ... <cid> <command>``.
 
         Shaped like SWE-CI's own ``call_opencode`` (``-w``, then ``-e``, then
         the container), so the aux harness starts in the same working directory
@@ -646,8 +701,19 @@ class SweCiAdapter(CallerAdapter):
         SWE-CI's own ``setup_opencode`` (``agents/opencode.py:60,65``), needed
         to write config files under a fresh ``$HOME`` before aux's own user
         exists in the container's passwd database.
+
+        ``stdin=True`` adds ``-i``, and is required whenever the caller is
+        going to pipe ``input_data`` through ``_spawn``. Measured directly
+        against real Docker: without it, ``docker exec`` never attaches the
+        child's stdin to ours, so a piped payload never arrives -- the
+        ``cat > file`` in ``_bootstrap_provider`` below sees immediate EOF and
+        silently writes a zero-byte file instead of failing, which then made
+        opencode's own first request fail inside the container with no
+        indication the provider config was ever wrong.
         """
         flags: list[str] = []
+        if stdin:
+            flags += ["-i"]
         if user is not None:
             flags += ["-u", user]
         flags += ["-w", self._workspace]
