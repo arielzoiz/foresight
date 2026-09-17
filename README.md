@@ -179,29 +179,42 @@ provider bootstrap, the guard, and the body-only degradation.
 
 ### Verifying `SweCiAdapter` against real Docker
 
-`pytest` above never touches a real container. What it cannot prove:
+See `deploy/local-ollama/README.md` for the reproducible setup.
 
-1. **The `docker exec` argv actually works** -- `_exec_argv`'s flags
-   (`-u`, `-w`, `-e`) against a real `docker` binary, not `fake_docker.py`'s
-   host-subprocess stand-in.
-2. **The HOME-wrapper bypass holds against the real image.** Build (or pull)
-   an actual SWE-CI task image, start a container from it, and confirm
-   `docker exec -u root <cid> /opt/agent/npm-global/bin/opencode --version`
-   runs without touching `/opt/agent/home`.
-3. **Provider bootstrap produces a config opencode actually accepts.** After
-   one real `run_aux` call, `docker exec <cid> cat /tmp/aux-home/.config/opencode/opencode.json`
-   should be valid, and a manual `opencode run` inside the container using it
-   should reach `foresight_base_url` and get a reply.
-4. **One real SWE-CI task, end to end** -- smallest splitting, `max_epoch = 1`,
-   pointed at `configs/swe_ci.yaml`. Confirm: no instance falls back to
-   `valid_condition: false`, the guard reports `intact`, `phase` classifies
-   architect vs. programmer correctly, and SWE-CI's own `iteration.jsonl`
-   shows non-`None`, plausible token counts and `execution_time` for the
-   target -- the point of the HOME-wrapper fix; a shared-HOME regression
-   would corrupt exactly these fields, silently.
+**Current state.** Steps 1-3 -- the `docker exec` argv, the HOME-wrapper
+bypass, and provider bootstrap -- are confirmed against real Docker Desktop
+(M1 Mac), after fixing two real bugs `fake_docker.py` couldn't have caught:
+`_exec_argv` was missing `-i`, so the provider bootstrap's piped stdin never
+arrived and silently wrote an empty config; and a container-ID cache went
+stale across a container recreation whenever a new session's key came from
+opencode's session header rather than a fresh IP resolution. Also found:
+Docker Desktop for Mac needs `host.docker.internal`, not `172.17.0.1`, in
+`foresight_base_url`. Full account: `results/swe-ci-mechanics-m1-docker/`.
 
-Fix whatever step 1-3 finds before attempting step 4 -- a real task run costs
-significantly more time to fail than any of the three isolated checks.
+**Step 4 -- one real task, end to end, with a real model -- is still open**,
+for two separate reasons:
+
+- **Memory.** Docker's VM + a real task container + a loaded local model
+  OOM'd this 16GB machine twice (`qwen3:14b`, then `qwen3:8b`) before either
+  produced a single trace row.
+- **No model tested is actually good enough as aux**, which is the real
+  remaining gap, not an infrastructure one:
+
+  | Model | Result |
+  |---|---|
+  | `qwen2.5-coder:7b` / `:14b` | can't emit well-formed tool calls at all via Ollama |
+  | `qwen3:8b` | tool-call format is fine, but 90% of aux invocations produced empty output outright |
+  | `qwen3:14b` | stopped failing outright, but still couldn't find the one file in a two-file toy repo after 7.5 minutes of searching -- grounded activity, ungrounded result |
+  | `qwen3-coder:30b` | doesn't fit -- 18.56GB minimum, exceeds this machine's 16GB entirely |
+
+  (One aux hang hit while debugging `qwen3:8b` was never root-caused; see
+  `results/qwen3-8b-ollama-local/findings.md`.)
+
+**Next step: try `qwen3-coder:30b`** -- the model class this project's own
+results already flagged as the one worth trying, and no smaller model
+cleared the grounding bar. It won't fit on this machine, so point
+`models.target`/`models.aux` at a model server running elsewhere
+(`base_url` is just a URL) rather than loading it locally alongside Docker.
 
 ## Design decisions specific to this milestone
 
@@ -286,12 +299,13 @@ expensive way and both documented in `deploy/tau-slurm/README.md`:
   (a fenced JSON block holding a *single* object) parses under no parser at all, and
   the fence is not the obstacle — `xlam` accepts fences but demands an array.
 
-- **M3 -- `SweCiAdapter`. Implemented; verified only against `tools/fake_docker.py`,
-  not yet against a real Docker install.** Resolves a container from the client
-  IP (or a session header, see below), bootstraps aux's own opencode provider
-  config, `docker exec`s a second harness into the live task container, and
-  reads the answer back out through the workspace guard. `configs/swe_ci.yaml`
-  targets real Docker; this Slurm cluster does not currently have one --
+- **M3 -- `SweCiAdapter`. Implemented; current state, model findings and next
+  steps in "Verifying `SweCiAdapter` against real Docker" above.** Resolves a
+  container from the client IP (or a session header, see below), bootstraps
+  aux's own opencode provider config, `docker exec`s a second harness into
+  the live task container, and reads the answer back out through the
+  workspace guard. `configs/swe_ci.yaml` targets real Docker; this Slurm
+  cluster does not currently have one --
   `udocker` (the cluster's only container route) was tested directly, not
   assumed, and fails what M3 needs regardless of the adapter's own
   correctness: no `exec` verb, and writes made by `udocker run` do not

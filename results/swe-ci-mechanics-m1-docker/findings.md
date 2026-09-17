@@ -105,6 +105,23 @@ succeeds. `configs/swe_ci.yaml`'s `foresight_base_url` and SWE-CI's own
   `max_workers = 1` throughout.
 - `iflow` as the harness — only `opencode` was exercised.
 
+**Attempted and blocked, not just untested: this machine cannot run a real
+model against `SweCiAdapter` at all.** Repointing `configs/swe_ci.yaml` at
+Ollama (both `qwen3:14b` and, after that OOM'd, `qwen3:8b`) and rerunning the
+same one-task evolve loop got the process killed by the harness for low
+system memory both times, before either produced a single trace row. This is
+not the same finding as `results/qwen3-8b-ollama-local/`'s reliability
+numbers or `results/qwen3-14b-ollama-local/`'s latency numbers — those ran
+fine memory-wise; the difference here is running Docker Desktop's VM, a real
+task container, AND Ollama all at once, on top of everything `LocalAdapter`
+alone needed. That combination doesn't fit in this machine's 16GB regardless
+of which of the two model sizes tested is loaded, which is why this is
+recorded as a hardware ceiling for *this* machine, not a further model
+comparison data point. Unblocking step 4 here needs one of: more RAM, a
+smaller Docker Desktop VM allocation (currently ~7.75GB) traded against
+container memory, or serving the model from a separate machine over the
+network instead of loading it locally alongside Docker.
+
 ## Reproducing
 
 Environment notes specific to this Mac, not generic instructions: `docker`
