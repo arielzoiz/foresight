@@ -132,6 +132,40 @@ class AdapterOptions(BaseModel):
     session DB under $HOME, and sharing it would corrupt both the user's own
     state and (in SWE-CI) the benchmark's token accounting."""
 
+    docker_cmd: str = "docker"
+    """The container client SweCiAdapter drives. Named rather than hardcoded so
+    a deployment can point it at an absolute path instead of relying on PATH
+    order."""
+
+    swe_ci_config: str | None = None
+    """Path to SWE-CI's ``config.toml``. Read once at startup so that an
+    ``agent_cmd`` naming a harness the task image does not ship fails there
+    rather than on the first aux run -- binding constraint 2 says aux must use
+    the harness already in the image, and ``Dockerfile.opencode`` installs
+    exactly the one ``agent_name`` selected."""
+
+    foresight_base_url: str | None = None
+    """This server's own address, as reachable from inside a SWE-CI container
+    -- typically the Docker bridge gateway (``http://172.17.0.1:8000/v1``),
+    never ``localhost``. Required by ``SweCiAdapter`` to bootstrap aux's own
+    opencode provider config (``auth.json``/``opencode.json``, mirroring
+    SWE-CI's own ``setup_opencode``): aux's harness runs *inside* the
+    container and needs to know where to send its own model calls, which is
+    this address, not the aux model's real upstream -- aux is pointed at this
+    server precisely so its traffic bypasses the pipeline and lands in the
+    same trace as everything else."""
+
+    session_header_names: list[str] = Field(default_factory=lambda: ["x-session-id"])
+    """Request headers, checked in order, that identify a caller's session on
+    their own -- no ``docker inspect`` needed. Measured
+    (``tools/probe_opencode_headers.sh``): opencode sends ``x-session-id`` on
+    every request, stable within one ``opencode run`` invocation and distinct
+    across invocations, with zero configuration. When present this replaces a
+    blocking subprocess pair on every request, not only session starts;
+    container-ID resolution remains the fallback when no listed header is
+    present, since a session key alone does not say which container to
+    ``docker exec`` into."""
+
 
 class CallerAdapter(ABC):
     """One caller's idiosyncrasies, and how aux reaches its codebase."""
@@ -239,18 +273,29 @@ class CallerAdapter(ABC):
 
     # -- shared helper ----------------------------------------------------
 
-    async def _body_only_aux(self, req: InboundRequest, aux: ModelSpec) -> AuxResult:
+    async def _body_only_aux(
+        self, req: InboundRequest, aux: ModelSpec, **extra_vars: str
+    ) -> AuxResult:
         """One chat call over the request body.
 
         The generic way to ask a model a question about a request, with no
         workspace access at all. GenericAdapter *is* this helper; it lives here
-        because later adapters may want the same primitive.
+        because later adapters may want the same primitive -- SweCiAdapter
+        degrades to it when it cannot resolve the caller's container.
+
+        ``extra_vars`` exists for that degraded path: the aux prompt was
+        validated at startup against ``aux_prompt_vars``, so an adapter that
+        declares more of them must still supply them all here, or
+        StrictUndefined turns the fallback itself into a crash. The values are
+        necessarily hollow (there is no workspace to name), which is one more
+        reason such an instance is excluded at analysis time.
         """
         from jinja2 import StrictUndefined, Template
 
         rendered = Template(self._aux_prompt, undefined=StrictUndefined).render(
             prompt=req.first_user_content(),
             system=req.system_text(),
+            **extra_vars,
         )
         started = time.monotonic()
         response = await self._aux_backend.complete(

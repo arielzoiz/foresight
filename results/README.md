@@ -30,6 +30,17 @@ Regenerate any of it with:
 tools/collect_run.sh $WORK/foresight-runs/<run-dir> <label>
 ```
 
+For a run against a local OpenAI-compatible server (Ollama, llama.cpp, LM
+Studio) instead of a Slurm run directory, use `tools/collect_local_run.sh`
+instead -- same shape, but `run-settings.txt` records the local server's own
+version and this host's hardware instead of `sacct`/vLLM, and there is no
+`vllm.txt`:
+
+```sh
+tools/collect_local_run.sh --config PATH --trace PATH --workspace DIR \
+    --aux-home DIR --label <label>
+```
+
 ## The question every run here is trying to answer
 
 Does the auxiliary agent actually **read the repository** before naming plausible

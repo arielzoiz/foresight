@@ -226,9 +226,22 @@ class LocalAdapter(CallerAdapter):
         HOME belongs in adapter.env: opencode keeps its session DB under $HOME,
         so an aux run sharing it would pollute the user's own history and, under
         SWE-CI, the benchmark's token accounting.
+
+        PWD is corrected to the workspace, not merely inherited. `cwd=` on the
+        subprocess call below changes the process's real working directory, but
+        opencode's own project/session bookkeeping reads $PWD instead of calling
+        getcwd() -- measured directly: a subprocess spawned with cwd set to a
+        scratch workspace but a stale, inherited $PWD from wherever the
+        foresight server itself was launched gets its session recorded under
+        the SERVER's launch directory, not the workspace aux actually explored.
+        File tool calls are unaffected (those resolve against the real cwd),
+        but anything that identifies a session by its recorded directory --
+        `tools/collect_run.sh`'s and `tools/collect_local_run.sh`'s aux-agent
+        export filter included -- silently finds nothing.
         """
         env = dict(os.environ)
         env.update(self._env_overrides)
+        env["PWD"] = str(self._workspace)
         return env
 
     async def _spawn(

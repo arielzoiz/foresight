@@ -172,7 +172,49 @@ gate, `LocalAdapter`'s subprocess contract (argv substitution, cwd, timeouts,
 stale answers), `ManifestGuard` against real directories, an in-process
 end-to-end run against `fake_upstream` (including `stream: true`, streaming
 token-usage recovery, and tool-call passthrough), the non-agent-turn gate
-(`tests/test_agent_turn.py`), and the global aux concurrency limit.
+(`tests/test_agent_turn.py`), the global aux concurrency limit, and
+`SweCiAdapter` against `tools/fake_docker.py` (`tests/test_swe_ci_adapter.py`)
+-- IP/header session keying, the `docker exec` argv, the HOME-wrapper bypass,
+provider bootstrap, the guard, and the body-only degradation.
+
+### Verifying `SweCiAdapter` against real Docker
+
+See `deploy/local-ollama/README.md` for the reproducible setup.
+
+**Current state.** Steps 1-3 -- the `docker exec` argv, the HOME-wrapper
+bypass, and provider bootstrap -- are confirmed against real Docker Desktop
+(M1 Mac), after fixing two real bugs `fake_docker.py` couldn't have caught:
+`_exec_argv` was missing `-i`, so the provider bootstrap's piped stdin never
+arrived and silently wrote an empty config; and a container-ID cache went
+stale across a container recreation whenever a new session's key came from
+opencode's session header rather than a fresh IP resolution. Also found:
+Docker Desktop for Mac needs `host.docker.internal`, not `172.17.0.1`, in
+`foresight_base_url`. Full account: `results/swe-ci-mechanics-m1-docker/`.
+
+**Step 4 -- one real task, end to end, with a real model -- is still open**,
+for two separate reasons:
+
+- **Memory.** Docker's VM + a real task container + a loaded local model
+  OOM'd this 16GB machine twice (`qwen3:14b`, then `qwen3:8b`) before either
+  produced a single trace row.
+- **No model tested is actually good enough as aux**, which is the real
+  remaining gap, not an infrastructure one:
+
+  | Model | Result |
+  |---|---|
+  | `qwen2.5-coder:7b` / `:14b` | can't emit well-formed tool calls at all via Ollama |
+  | `qwen3:8b` | tool-call format is fine, but 90% of aux invocations produced empty output outright |
+  | `qwen3:14b` | stopped failing outright, but still couldn't find the one file in a two-file toy repo after 7.5 minutes of searching -- grounded activity, ungrounded result |
+  | `qwen3-coder:30b` | doesn't fit -- 18.56GB minimum, exceeds this machine's 16GB entirely |
+
+  (One aux hang hit while debugging `qwen3:8b` was never root-caused; see
+  `results/qwen3-8b-ollama-local/findings.md`.)
+
+**Next step: try `qwen3-coder:30b`** -- the model class this project's own
+results already flagged as the one worth trying, and no smaller model
+cleared the grounding bar. It won't fit on this machine, so point
+`models.target`/`models.aux` at a model server running elsewhere
+(`base_url` is just a URL) rather than loading it locally alongside Docker.
 
 ## Design decisions specific to this milestone
 
@@ -217,7 +259,7 @@ See `foresight-design-plan.md` for the full reasoning. In short:
 
 ## What's next
 
-Milestones 1 and 2 have been implemented. See `foresight-design-plan.md` for
+Milestones 1, 2 and 3 have been implemented. See `foresight-design-plan.md` for
 more info on the milestones.
 > note: Update this section as further milestones are implemented.
 
@@ -257,16 +299,22 @@ expensive way and both documented in `deploy/tau-slurm/README.md`:
   (a fenced JSON block holding a *single* object) parses under no parser at all, and
   the fence is not the obstacle — `xlam` accepts fences but demands an array.
 
-- **M3 -- `SweCiAdapter`. Targets real Docker; this Slurm cluster does not
-  currently have one.** `udocker` (the cluster's only container route) was
-  tested directly, not assumed, and fails what M3 needs: no `exec` verb,
-  and writes made by `udocker run` do not survive a separate, later
-  invocation of the same container, in any of its execution modes. Real
-  Docker cannot be installed without root either. None of this affects
-  running `SweCiAdapter` anywhere real Docker already works (a local
-  machine, most CI runners) -- see `foresight-design-plan.md` risk 1 for the
-  measurement and the two options for this cluster specifically (an admin
-  ticket, or pivoting to M4).
+- **M3 -- `SweCiAdapter`. Implemented; current state, model findings and next
+  steps in "Verifying `SweCiAdapter` against real Docker" above.** Resolves a
+  container from the client IP (or a session header, see below), bootstraps
+  aux's own opencode provider config, `docker exec`s a second harness into
+  the live task container, and reads the answer back out through the
+  workspace guard. `configs/swe_ci.yaml` targets real Docker; this Slurm
+  cluster does not currently have one --
+  `udocker` (the cluster's only container route) was tested directly, not
+  assumed, and fails what M3 needs regardless of the adapter's own
+  correctness: no `exec` verb, and writes made by `udocker run` do not
+  survive a separate, later invocation of the same container, in any of its
+  execution modes. Real Docker cannot be installed without root either. None
+  of this affects running `SweCiAdapter` anywhere real Docker already works
+  (a local machine, most CI runners) -- see `foresight-design-plan.md` risk 1
+  for the measurement and the two options for this cluster specifically (an
+  admin ticket, or pivoting to M4).
 - **M4 -- mini-SWE-agent.** A config file pointing mini at foresight, then
   `MiniAdapter` (option B: aux explores a throwaway container from the
   per-instance image). Independent of M3, not sequenced after it, and worth
@@ -287,18 +335,21 @@ the way M2's aux was (`opencode run --model ... "<prompt>"`,
 `SWE-CI/src/swe_ci/benchmark/agents/opencode.py`), so it issues the same
 title-generation request and would hit the same bug.
 
-1. **Session keying must be the container ID, not the prompt hash.** Still M3
-   work. SWE-CI's prompts come from a static template with only `role` and
-   `mode` as variables, so every architect call across all tasks and epochs is
-   byte-identical. Under the current default they collapse into one session and
-   aux runs once, ever. Container ID is one-to-one with a session -- SWE-CI
-   builds a fresh container per *phase* (`run.py`: architect and programmer
-   each get their own `run_container`/`remove_container`, twice per epoch), not
-   per epoch as earlier phrasing here said, so keying on it also separates
-   architect from programmer for free. The container *name* is reused across a
-   whole task (`uuid.uuid4().hex[:16]` generated once in `_run_locked`), so
-   `SweCiAdapter` must key on the container **ID** from `docker inspect`, never
-   the name.
+1. ~~Session keying must be the container ID, not the prompt hash.~~ **Done.**
+   SWE-CI's prompts come from a static template with only `role` and `mode` as
+   variables, so every architect call across all tasks and epochs is
+   byte-identical -- the ABC's default prompt-hash key would collapse them
+   all into one session and run aux once, ever. Container ID is one-to-one
+   with a session -- SWE-CI builds a fresh container per *phase* (`run.py`:
+   architect and programmer each get their own
+   `run_container`/`remove_container`, twice per epoch, plus a third for
+   pytest that never contacts foresight), so keying on it also separates
+   architect from programmer for free. The container *name* is reused across
+   a whole task (`uuid.uuid4().hex[:16]` generated once in `_run_locked`), so
+   `SweCiAdapter.session_key` keys on the container **ID** from
+   `docker inspect`, never the name -- with opencode's own `x-session-id`
+   header preferred first where present (see "Keeping SWE-CI's task
+   concurrency" below), which needs neither.
 2. ~~Fix the title-generation request first.~~ **Done.** opencode opens every
    session with a second request whose prompt is `Generate a title for this
    conversation:` and no `tools`. `CallerAdapter.is_agent_turn` now checks this
@@ -320,8 +371,9 @@ title-generation request and would hit the same bug.
    (unlimited) by default and must **not** be set for `SweCiAdapter`, since
    each of its aux runs is isolated in its own container and serialising 16
    workers behind one 3600s aux call would be self-inflicted.
-4. **`HOME` isolation: the diagnosis needed a correction, and the requirement
-   turned out to be two separate fixes, not one.** `OPENCODE_HOME` is not an
+4. ~~`HOME` isolation.~~ **Done, and the diagnosis needed a correction along
+   the way -- the requirement turned out to be two separate fixes, not one.**
+   `OPENCODE_HOME` is not an
    opencode variable -- it is this project's own wrapper convention
    (`deploy/tau-slurm/setup/install_opencode.sh: export HOME="${OPENCODE_HOME:-$BASE/home}"`).
    So the M2 measurement was not "the wrong variable was set": `HOME` *was* set
@@ -342,23 +394,28 @@ title-generation request and would hit the same bug.
      `SELECT time_created, time_updated FROM session LIMIT 1` with **no
      `ORDER BY`** -- so a DB genuinely shared with aux corrupts both SWE-CI's
      `execution_time` and its token counts, non-deterministically and
-     silently. `SweCiAdapter` must exec the real binary directly,
-     `/opt/agent/npm-global/bin/opencode`, and set the whole environment itself
-     (`HOME`, `XDG_CACHE_HOME`, `NPM_CONFIG_PREFIX`, `npm_config_cache`,
-     `PATH=/opt/agent/node/bin:/opt/agent/npm-global/bin:$PATH`). Image
-     permissions (`chmod -R 777 /opt/agent`) make this work under any uid.
+     silently. `configs/swe_ci.yaml` points `agent_cmd` at the real binary
+     directly, `/opt/agent/npm-global/bin/opencode`, and sets the whole
+     environment itself (`HOME`, `XDG_CACHE_HOME`, `NPM_CONFIG_PREFIX`,
+     `npm_config_cache`, `PATH=/opt/agent/node/bin:/opt/agent/npm-global/bin:$PATH`)
+     -- no code change needed, since `SweCiAdapter._exec_argv` already forwards
+     every `adapter.env` entry as its own `-e`. Image permissions
+     (`chmod -R 777 /opt/agent`) make this work under any uid.
    - **D-B -- aux needs its own provider config, or it cannot call anything.**
-     `SweCiAdapter` must replicate `setup_opencode`
+     `SweCiAdapter._bootstrap_provider` replicates `setup_opencode`
      (`SWE-CI/src/swe_ci/benchmark/agents/opencode.py:16-67`) under aux's own
      home before the first aux spawn -- `auth.json` + `opencode.json` pointing
-     at foresight as `aux-model`, written the same way SWE-CI writes them
-     (`docker exec -i -u root <name> sh -c "mkdir -p D && cat > D/F"` with the
-     JSON on stdin). Without this, a fresh `HOME` has no provider config at
-     all and aux fails on its very first request, not silently but not
-     obviously either -- it looks like any other `AuxFailure`.
+     at foresight as `aux-model` (`adapter.foresight_base_url`), written the
+     same way SWE-CI writes them (`docker exec -i -u root <name> sh -c
+     "mkdir -p D && cat > D/F"` with the JSON on stdin). Without this, a
+     fresh `HOME` has no provider config at all and aux fails on its very
+     first request, not silently but not obviously either -- it looks like
+     any other `AuxFailure`.
 
-   Both need a real Docker to verify -- available on a local machine, not on
-   this Slurm cluster as configured (see the M3 bullet above and
+   Both are implemented and covered by `tests/test_swe_ci_adapter.py` against
+   `fake_docker.py`; both still need a real Docker to verify for real --
+   available on a local machine, not on this Slurm cluster as configured (see
+   the M3 bullet above, "Verifying `SweCiAdapter` against real Docker", and
    `foresight-design-plan.md` risk 1).
 
 ## Keeping SWE-CI's task concurrency
@@ -386,11 +443,12 @@ further.** Measured with `tools/probe_opencode_headers.sh` (no Docker, no
 GPU -- run it against the task image's actual opencode/iFlow binary before
 relying on this): opencode sends `x-session-id` on every request, stable
 across one `opencode run` invocation and distinct across invocations, with
-zero configuration. `SweCiAdapter.session_key` can read it directly instead
-of hashing `client_ip` + `docker inspect` output, removing a blocking
-subprocess pair from the hot path. (The title-generation request shares the
-id with the real turn, so `is_agent_turn` gating -- item 2 above -- remains
-load-bearing here exactly as it is under container-ID keying.)
+zero configuration. `SweCiAdapter.session_key` reads it directly when
+present (`adapter.session_header_names`, checked in order), falling back to
+`client_ip` + `docker inspect` otherwise -- removing a blocking subprocess
+pair from the hot path in the common case. (The title-generation request
+shares the id with the real turn, so `is_agent_turn` gating -- item 2 above
+-- remains load-bearing here exactly as it is under container-ID keying.)
 
 Together: `evolve.max_workers > 1` runs against one foresight process under
 real Docker with no sharding needed. `max_workers` itself should still be
