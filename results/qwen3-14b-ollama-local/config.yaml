@@ -1,0 +1,76 @@
+# Local smoke test: configs/local.yaml, pointed at Ollama's qwen3:14b (real
+# opencode aux agent, real repo, no Docker, no SWE-CI). See README's M2.
+# Sibling to local-qwen3.yaml (qwen3:8b) -- see results/qwen3-8b-ollama-local/.
+
+server:
+  host: 127.0.0.1
+  port: 8000
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:11434/v1
+    model: qwen3:14b
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://127.0.0.1:11434/v1
+    model: qwen3:14b
+    timeout_s: 1800
+
+adapter:
+  name: local
+
+  workspace: /tmp/foresight-scratch
+
+  agent_cmd: ["/opt/homebrew/bin/opencode", "run", "--model", "custom/aux-model", "{prompt}"]
+  answer_from: stdout
+
+  timeout_s: 900
+  max_concurrent_aux: 1
+
+  env:
+    HOME: /tmp/foresight-aux-home
+
+  guard_ignore: [".git/opencode"]
+
+aux_prompt: |
+  You are inspecting a code repository at {{ workspace }}.
+
+  READ ONLY. Do not create, modify or delete any file inside {{ workspace }}.
+  Any write there invalidates this run.
+
+  The developer is about to work on this task:
+
+  {{ prompt }}
+
+  Explore the repository enough to answer concretely, then name 3 to 5 plausible
+  FUTURE tasks that could reasonably follow this one in THIS codebase. Refer to
+  real files, functions or modules you actually read.
+
+  Answer with the numbered list and nothing else.
+
+stages: [aux]
+
+builder:
+  name: template
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  ttl_s: 3600
+
+trace:
+  path: /tmp/foresight-scratch-trace.jsonl
+
+guard: manifest
