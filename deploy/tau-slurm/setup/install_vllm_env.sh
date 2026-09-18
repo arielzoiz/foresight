@@ -24,5 +24,44 @@ conda create -y -p "$ENV_PREFIX" python=3.12
 echo "foresight: installing vllm (this can take a few minutes) ..." >&2
 conda run -p "$ENV_PREFIX" pip install --cache-dir "$PIP_CACHE_DIR" vllm
 
+# pip resolves nvidia-cuda-nvcc (the compiler) and nvidia-cuda-runtime (its
+# headers) as independent wheels, not a matched bundle -- so a plain `pip
+# install vllm` can silently land them on different CUDA point releases
+# within the same 13.x line (observed: nvcc 13.4.59 against runtime 13.0.96).
+# cccl's cuda_toolkit.h asserts these are equal at major.minor granularity;
+# a mismatch is invisible until a JIT-compiled kernel (DeepGEMM, flashinfer's
+# fused MoE path) actually gets built, which happens well after a checkpoint
+# has already loaded: "CUDA compiler and CUDA toolkit headers are
+# incompatible, please check your include paths". Confirmed directly on a
+# B200 node serving Qwen3-Coder-30B/Next-FP8, 2026-09-18 -- ~20 minutes and a
+# full checkpoint load into the failure both times. Force them back onto the
+# same line explicitly, right after install, rather than discovering this per
+# job.
+nvcc_line="$(conda run -p "$ENV_PREFIX" python -c \
+    "import importlib.metadata as m; print('.'.join(m.version('nvidia-cuda-nvcc').split('.')[:2]))")"
+echo "foresight: pinning nvidia-cuda-runtime to the ${nvcc_line}.x line to match nvcc ..." >&2
+conda run -p "$ENV_PREFIX" pip install --cache-dir "$PIP_CACHE_DIR" --no-deps \
+    "nvidia-cuda-runtime==${nvcc_line}.*"
+
+# Every nvidia-cuXX pip wheel (cu13's cudart, cudnn, nccl, cusparselt, ...)
+# ships its libraries under a plain lib/, never the lib64/ a traditional
+# system CUDA toolkit install uses -- and ships only the versioned .so
+# (libcudart.so.13), no unversioned libcudart.so symlink for `-lcudart` to
+# resolve against. Tools written against the traditional layout (observed:
+# flashinfer's JIT linker step, `-L .../lib64 ... -lcudart`) fail with
+# "cannot find -lcudart: No such file or directory" -- distinct from, and
+# downstream of, the nvcc/runtime version-mismatch fixed above: this masked
+# it entirely until that fix let the build reach the link step. Confirmed on
+# a B200 node serving Qwen3-Coder-30B-A3B-Instruct-FP8, 2026-09-19. Not
+# GPU-architecture-specific -- this is pip packaging, not driver/hardware --
+# so it would block any JIT-compiled kernel on any card. libcuda.so (the
+# driver stub `-lcuda` needs) is unaffected: it comes from the node's real
+# NVIDIA driver install on the default system linker path, not from pip.
+cuda_pkg_dir="$(find "$ENV_PREFIX"/lib/python*/site-packages/nvidia/cu[0-9]* -maxdepth 0)"
+echo "foresight: linking lib64 -> lib and libcudart.so -> libcudart.so.* under $cuda_pkg_dir ..." >&2
+ln -sfn lib "$cuda_pkg_dir/lib64"
+cudart_versioned="$(basename "$(ls "$cuda_pkg_dir"/lib/libcudart.so.* | head -1)")"
+ln -sf "$cudart_versioned" "$cuda_pkg_dir/lib/libcudart.so"
+
 echo "foresight: done. Activate with:" >&2
 echo "  conda activate $ENV_PREFIX" >&2

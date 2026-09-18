@@ -301,6 +301,127 @@ So a real aux **agent** needs a checkpoint that is reliable at tool calling. The
 32B practical, which is the next thing to try; `--adapter generic` remains
 available meanwhile and needs no tool calling at all.
 
+### Two stacked CUDA packaging bugs break JIT-compiled kernels (B200, and possibly other Hopper/Blackwell cards)
+
+**Symptom:** `vllm serve` gets all the way through loading a checkpoint's
+weights into GPU memory — a real full-sized load, not a quick failure — then
+crashes at engine-core init. It looks like a driver or hardware problem, and
+reads a lot like the l40s/rack-bgw-dgx1 driver issues elsewhere in this doc,
+but is neither: both bugs below are pip packaging gaps, present regardless of
+which node or driver you land on, and both are invisible until a
+JIT-compiled kernel (`DeepGEMM`, or `flashinfer`'s `fused_moe_trtllm_*`
+fallback) actually gets built — which only happens after a full checkpoint
+load, costing 10-20+ minutes per attempt to even see the error.
+
+#### Bug 1 — `nvcc` and `nvidia-cuda-runtime` land on different CUDA point releases
+
+```
+RuntimeError: Assertion error (deepgemm-src/.../compiler.hpp:234): false and "NVCC compilation failed"
+```
+
+or, one layer down, if `DeepGEMM` is disabled:
+
+```
+/…/flashinfer/data/cccl/libcudacxx/include/cuda/std/__cccl/cuda_toolkit.h:41:8:
+error: #error "CUDA compiler and CUDA toolkit headers are incompatible, please check your include paths"
+```
+
+**Root cause.** `pip install vllm` resolves `nvidia-cuda-nvcc` (the compiler)
+and `nvidia-cuda-runtime` (its headers) as independent wheels — not a matched
+bundle — so they can land on different CUDA point releases within the same
+13.x line. Measured directly: `nvidia-cuda-nvcc==13.4.59` against
+`nvidia-cuda-runtime==13.0.96`. `cccl`'s `cuda_toolkit.h` asserts these are
+equal at major.minor granularity before letting any JIT-compiled kernel build:
+
+```c
+#if !_CCCL_CUDACC_EQUAL((CUDART_VERSION / 1000), (CUDART_VERSION % 1000) / 10)
+#  error "CUDA compiler and CUDA toolkit headers are incompatible, please check your include paths"
+#endif
+```
+
+`CUDART_VERSION` comes from `nvidia-cuda-runtime`'s `cuda_runtime_api.h`; the
+compiler's own version is read directly from `nvcc`. The check is a pure
+host-side preprocessor comparison — it does not depend on which GPU
+architecture is being targeted, only on whether these two packages agree.
+
+**Confirmed by direct compile-only reproduction**, no GPU needed: a minimal
+`.cu` file including `cuda_toolkit.h`, compiled with the mismatched
+`nvidia-cuda-runtime==13.0.96` headers, reproduces the exact error; the same
+file compiled against `nvidia-cuda-runtime==13.4.92` (same major.minor as the
+installed `nvcc`) compiles clean for `-arch=sm_100`. `nvcc`'s own
+`--list-gpu-arch` already lists `compute_100` — the compiler fully supports
+Blackwell; only the header/runtime version skew was blocking it.
+
+#### Bug 2 — pip's CUDA wheels ship no `lib64/` and no unversioned `.so`, masked by bug 1 until it's fixed
+
+Fixing bug 1 alone gets further, then hits a second, unrelated failure at the
+link step:
+
+```
+/usr/bin/ld: cannot find -lcudart: No such file or directory
+collect2: error: ld returned 1 exit status
+```
+
+**Root cause.** Every `nvidia-cuXX` pip wheel (`cu13`'s `cudart`, plus
+`cudnn`, `nccl`, `cusparselt`, ...) ships its libraries under a plain `lib/`,
+never the `lib64/` a traditional system CUDA toolkit install uses, and ships
+only the versioned `.so` (`libcudart.so.13`) — no unversioned `libcudart.so`
+for a linker's `-lcudart` flag to resolve against. `flashinfer`'s JIT linker
+step is written for the traditional layout (`-L .../lib64 ... -lcudart`) and
+fails outright against the pip layout. This is pure packaging, present in
+every `nvidia-cuXX` wheel — **not specific to B200, not specific to this
+checkpoint, and not new** in the sense of something this session introduced;
+it was always going to fail here, for any JIT-compiled kernel on any GPU.
+Bug 1 simply failed *first*, every time, which is the only reason bug 2 had
+never been seen before tonight.
+
+`-lcuda` (the driver stub, separate from `-lcudart`) is unaffected — it
+resolves fine via the node's real NVIDIA driver install
+(`/usr/lib/x86_64-linux-gnu/libcuda.so`, already on the default system
+linker path via `ldconfig`), which pip has nothing to do with.
+
+#### Fix for both
+
+`install_vllm_env.sh` now, immediately after installing vllm:
+1. pins `nvidia-cuda-runtime` to match `nvidia-cuda-nvcc`'s major.minor line
+   (fixes bug 1), and
+2. creates `lib64 -> lib` and `libcudart.so -> libcudart.so.<N>` compatibility
+   symlinks inside the resolved `nvidia/cuXX` package directory (fixes bug 2).
+
+`serve_vllm.sbatch` also checks both at job start, next to the existing
+GPU-health preflight, and aborts in seconds with the exact fix command rather
+than discovering either after a full checkpoint load — the same "fail fast,
+name the cause" philosophy as the unhealthy-GPU preflight above.
+
+**Why neither fix touches the driver floor.** `nvidia-cuda-runtime` also
+ships the actual `libcudart.so` loaded at runtime by every CUDA call, not
+just JIT-compiled ones — a version bump here could in principle raise the
+minimum driver version needed on every node, not just the ones hitting the
+JIT-kernel bug, which was the real remaining question before trusting bug 1's
+fix broadly. It doesn't: the driver floor is set by `torch`'s own build tag
+(`torch==2.13.0+cu130`), confirmed directly — `t-100`'s *"NVIDIA driver on
+your system is too old (found version 12070)"* failure happened with the
+**old**, unpatched `nvidia-cuda-runtime==13.0.96` already installed, so that
+check was never gated by this package's exact minor version. The fix stays
+within the same CUDA 13.x family `torch` already required from the start.
+The symlinks fixing bug 2 don't touch versions at all, only paths/naming.
+
+**Confirmed end to end**, 2026-09-19, on a B200 node (`n-b200`,
+`gpu-b200`): checkpoint loaded, `DeepGEMM` compiled and linked successfully,
+server reached `Application startup complete`, and a real
+`/v1/chat/completions` request returned a real completion
+(`Qwen3-Coder-30B-A3B-Instruct-FP8`, `finish_reason: stop`).
+
+**What this means per GPU option:**
+
+| Partition / GPU | Hits these bugs? | Why | Status after the fix |
+|---|---|---|---|
+| `killable` (a5000/a6000/rtx_3090/rtx_2080/v100/quadro_rtx_8000) | No | vLLM auto-selects the precompiled `MARLIN` FP8 kernel on Ampere-class cards, which needs no JIT compile at all | Unaffected either way. a6000 (48GB) still cannot fit this 30B FP8 checkpoint's weights + KV cache — that OOM is a real VRAM limit, unrelated to these bugs |
+| `gpu-h100-killable` (H100) | Unconfirmed — never reached this code path | Both attempts tonight failed earlier for unrelated reasons: `n-102` has a physically unhealthy GPU (caught by the existing preflight), `t-100`'s driver is too old for the CUDA-13 build regardless of these fixes | Untested; the fix should apply if H100 selects `DeepGEMM`/`flashinfer`'s fused-MoE path the way B200 does — both bugs are architecture-independent packaging issues, not Blackwell-specific |
+| `gpu-h200-killable` (H200) | Unconfirmed as of this writing | Prior attempts were preempted before reaching engine init (`killable` partitions are preemptible, unrelated to these bugs); a retry (`909240`) was still loading when this was written | Should benefit the same way as B200 if it hits the same kernel-selection path; check `results/` or re-run for a confirmed answer |
+| `gpu-b200` / `gpu-b200-killable` (B200) | **Yes, both — confirmed** | Blackwell (`sm_100`); vLLM selects `DeepGEMM` (and falls back to `flashinfer`'s `fused_moe_trtllm_sm100`, which JIT-compiles too) for its FP8 MoE kernels here | **Fixed and confirmed end-to-end**, including a real completion — see above |
+| `l40s`, `rack-bgw-dgx1`/`rack-gww-dgx1`/`rack-omerl-g01` | N/A | Pre-existing, unrelated driver/toolchain issues (driver too old for any CUDA-13 build; excluded by default) | Unaffected by these fixes either way |
+
 ### How to tell whether aux actually read the repo
 
 **This is the difference between a reportable condition and a weaker one**, and

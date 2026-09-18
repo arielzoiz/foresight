@@ -143,6 +143,56 @@ if command -v nvidia-smi >/dev/null 2>&1; then
          "(CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset})" >&2
 fi
 
+# CUDA compiler / toolkit-header version preflight. pip resolves
+# nvidia-cuda-nvcc and nvidia-cuda-runtime as independent wheels, not a
+# matched bundle, so a plain `pip install vllm` can land them on different
+# CUDA point releases within the same 13.x line. cccl's cuda_toolkit.h
+# asserts these are equal at major.minor granularity; a mismatch is invisible
+# until a JIT-compiled kernel (DeepGEMM, flashinfer's fused MoE path) is
+# actually built -- which happens well after a checkpoint has already loaded.
+# Confirmed directly on a B200 node serving Qwen3-Coder-30B/Next-FP8,
+# 2026-09-18: "CUDA compiler and CUDA toolkit headers are incompatible,
+# please check your include paths", ~20 minutes and a full checkpoint load
+# into the failure both times. install_vllm_env.sh now pins these together
+# at install time; this catches a hand-modified or pre-existing env before
+# paying that cost again.
+nvcc_line="$(conda run -p "$env_prefix" python -c \
+    "import importlib.metadata as m; print('.'.join(m.version('nvidia-cuda-nvcc').split('.')[:2]))" \
+    2>/dev/null || true)"
+rt_line="$(conda run -p "$env_prefix" python -c \
+    "import importlib.metadata as m; print('.'.join(m.version('nvidia-cuda-runtime').split('.')[:2]))" \
+    2>/dev/null || true)"
+if [ -n "$nvcc_line" ] && [ -n "$rt_line" ] && [ "$nvcc_line" != "$rt_line" ]; then
+    echo "foresight: [$FORESIGHT_ROLE] ABORT -- nvidia-cuda-nvcc (${nvcc_line}.x) and" >&2
+    echo "foresight: nvidia-cuda-runtime (${rt_line}.x) are on different CUDA point" >&2
+    echo "foresight: releases. Any JIT-compiled kernel (DeepGEMM, flashinfer's fused" >&2
+    echo "foresight: MoE path) will fail with 'CUDA compiler and CUDA toolkit headers" >&2
+    echo "foresight: are incompatible' -- usually after a full checkpoint load, not" >&2
+    echo "foresight: before. Fix:" >&2
+    echo "foresight:   conda run -p $env_prefix pip install --no-deps 'nvidia-cuda-runtime==${nvcc_line}.*'" >&2
+    exit 1
+fi
+
+# CUDA library layout preflight. pip's nvidia-cuXX wheels ship libraries
+# under plain lib/, not the lib64/ a traditional system CUDA install uses,
+# and ship only the versioned .so (no unversioned libcudart.so for `-lcudart`
+# to resolve against). A tool built for the traditional layout -- observed:
+# flashinfer's JIT linker step -- fails with "cannot find -lcudart: No such
+# file or directory", downstream of (and masked by) the version-mismatch
+# check above until that one is fixed. install_vllm_env.sh now creates both
+# compatibility symlinks at install time; this catches a hand-modified or
+# pre-existing env before paying for a full checkpoint load first.
+if [ -n "$cuda_pkg_home" ] && [ ! -e "$cuda_pkg_home/lib64" -o ! -e "$cuda_pkg_home/lib/libcudart.so" ]; then
+    echo "foresight: [$FORESIGHT_ROLE] ABORT -- $cuda_pkg_home is missing the" >&2
+    echo "foresight: lib64 -> lib compatibility symlink and/or an unversioned" >&2
+    echo "foresight: libcudart.so. Any JIT-compiled kernel's link step (observed:" >&2
+    echo "foresight: flashinfer's fused MoE path) will fail with 'cannot find" >&2
+    echo "foresight: -lcudart' after a full checkpoint load, not before. Fix:" >&2
+    echo "foresight:   ln -sfn lib $cuda_pkg_home/lib64" >&2
+    echo "foresight:   ln -sf \$(basename \$(ls $cuda_pkg_home/lib/libcudart.so.* | head -1)) $cuda_pkg_home/lib/libcudart.so" >&2
+    exit 1
+fi
+
 # -- which tool-call parser this checkpoint needs --------------------------
 #
 # The checkpoint already knows. Its chat template is what emits tool calls, so
