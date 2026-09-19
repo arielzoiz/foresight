@@ -206,21 +206,33 @@ fi
 
 # CUDA library layout preflight. pip's nvidia-cuXX wheels ship libraries
 # under plain lib/, not the lib64/ a traditional system CUDA install uses,
-# and ship only the versioned .so (no unversioned libcudart.so for `-lcudart`
-# to resolve against). A tool built for the traditional layout -- observed:
-# flashinfer's JIT linker step -- fails with "cannot find -lcudart: No such
-# file or directory", downstream of (and masked by) the version-mismatch
-# check above until that one is fixed. install_vllm_env.sh now creates both
-# compatibility symlinks at install time; this catches a hand-modified or
-# pre-existing env before paying for a full checkpoint load first.
-if [ -n "$cuda_pkg_home" ] && [ ! -e "$cuda_pkg_home/lib64" -o ! -e "$cuda_pkg_home/lib/libcudart.so" ]; then
+# and ship only the versioned .so (no unversioned libNAME.so for a bare
+# `-lNAME` to resolve against) -- confirmed across every library in the
+# package, not just cudart: fixing cudart alone only revealed nvrtc as the
+# next one flashinfer's JIT linker needed (Qwen3-Coder-Next-FP8, H200,
+# 2026-09-19). A tool built for the traditional layout fails with "cannot
+# find -lNAME: No such file or directory", downstream of (and masked by) the
+# version-mismatch check above until that one is fixed -- and each library
+# is only discovered once something actually links against it, well after a
+# full checkpoint load. install_vllm_env.sh now creates lib64 plus an
+# unversioned symlink for every versioned .so at install time; this checks
+# for the same before paying for a full checkpoint load again.
+missing_unversioned=""
+if [ -n "$cuda_pkg_home" ]; then
+    for versioned in "$cuda_pkg_home"/lib/lib*.so.*; do
+        [ -e "$versioned" ] || continue
+        unversioned="$(basename "$versioned" | sed 's/\.so\..*/.so/')"
+        [ -e "$cuda_pkg_home/lib/$unversioned" ] || missing_unversioned="$missing_unversioned $unversioned"
+    done
+fi
+if [ -n "$cuda_pkg_home" ] && { [ ! -e "$cuda_pkg_home/lib64" ] || [ -n "$missing_unversioned" ]; }; then
     echo "foresight: [$FORESIGHT_ROLE] ABORT -- $cuda_pkg_home is missing the" >&2
-    echo "foresight: lib64 -> lib compatibility symlink and/or an unversioned" >&2
-    echo "foresight: libcudart.so. Any JIT-compiled kernel's link step (observed:" >&2
-    echo "foresight: flashinfer's fused MoE path) will fail with 'cannot find" >&2
-    echo "foresight: -lcudart' after a full checkpoint load, not before. Fix:" >&2
-    echo "foresight:   ln -sfn lib $cuda_pkg_home/lib64" >&2
-    echo "foresight:   ln -sf \$(basename \$(ls $cuda_pkg_home/lib/libcudart.so.* | head -1)) $cuda_pkg_home/lib/libcudart.so" >&2
+    echo "foresight: lib64 -> lib compatibility symlink and/or unversioned .so" >&2
+    echo "foresight: symlinks for:${missing_unversioned:- (lib64 only)}" >&2
+    echo "foresight: Any JIT-compiled kernel's link step (observed: flashinfer's" >&2
+    echo "foresight: fused MoE path) will fail with 'cannot find -lNAME' after a" >&2
+    echo "foresight: full checkpoint load, not before. Fix: re-run" >&2
+    echo "foresight:   deploy/tau-slurm/setup/install_vllm_env.sh" >&2
     exit 1
 fi
 
