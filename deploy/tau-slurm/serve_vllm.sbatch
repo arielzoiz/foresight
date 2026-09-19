@@ -44,7 +44,34 @@
 #                                the matching parser (see detect_tool_call_parser
 #                                below). An explicit name overrides detection;
 #                                "" disables tool calling entirely.
+#   FORESIGHT_ENFORCE_EAGER   "1" passes --enforce-eager, skipping CUDA-graph
+#                                capture (and the torch.compile pass ahead of
+#                                it) entirely. Trades throughput for startup
+#                                reliability -- see "CUDA-graph capture can
+#                                legitimately take longer than the readiness
+#                                wait" below. Default unset (graphs on).
+#   FORESIGHT_READY_TIMEOUT_S  how long to wait for vllm's own /v1/models to
+#                                answer before giving up, in seconds (default
+#                                3600 = 60 min). Large models doing real
+#                                torch.compile + CUDA-graph capture across many
+#                                batch sizes can genuinely need longer than
+#                                that -- this was previously a hardcoded cap,
+#                                which killed a real (if slow) H200 run at 88%
+#                                through graph capture. Raise this rather than
+#                                assume a slow run is a hung one.
 #   HF_HOME                  inherited if already set; else derived from FORESIGHT_ROOT
+#   VLLM_CACHE_ROOT           inherited if already set; else derived from
+#                                FORESIGHT_ROOT. vLLM's own default
+#                                (~/.cache/vllm) is the small, per-node-local
+#                                $HOME -- torch.compile/CUDA-graph artifacts
+#                                written there never persist across a
+#                                different node assignment (which is nearly
+#                                every run), so the compile cache silently
+#                                never helps and nothing ever benefits from a
+#                                previous run's work. Redirecting it here is
+#                                the same fix HF_HOME already gets, and it's
+#                                what makes a second run against the same
+#                                checkpoint fast.
 
 set -eu
 
@@ -57,8 +84,12 @@ set -eu
 FORESIGHT_MAX_MODEL_LEN="${FORESIGHT_MAX_MODEL_LEN:-32768}"
 FORESIGHT_TENSOR_PARALLEL="${FORESIGHT_TENSOR_PARALLEL:-1}"
 FORESIGHT_TOOL_CALL_PARSER="${FORESIGHT_TOOL_CALL_PARSER-auto}"
+FORESIGHT_ENFORCE_EAGER="${FORESIGHT_ENFORCE_EAGER:-}"
+FORESIGHT_READY_TIMEOUT_S="${FORESIGHT_READY_TIMEOUT_S:-3600}"
 HF_HOME="${HF_HOME:-$FORESIGHT_ROOT/.cache/huggingface}"
 export HF_HOME
+VLLM_CACHE_ROOT="${VLLM_CACHE_ROOT:-$FORESIGHT_ROOT/.cache/vllm}"
+export VLLM_CACHE_ROOT
 
 case "$FORESIGHT_ROLE" in
     target|aux) ;;
@@ -141,6 +172,77 @@ if command -v nvidia-smi >/dev/null 2>&1; then
     fi
     echo "foresight: [$FORESIGHT_ROLE] GPU preflight OK on $(hostname)" \
          "(CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-unset})" >&2
+fi
+
+# CUDA compiler / toolkit-header version preflight. pip resolves
+# nvidia-cuda-nvcc and nvidia-cuda-runtime as independent wheels, not a
+# matched bundle, so a plain `pip install vllm` can land them on different
+# CUDA point releases within the same 13.x line. cccl's cuda_toolkit.h
+# asserts these are equal at major.minor granularity; a mismatch is invisible
+# until a JIT-compiled kernel (DeepGEMM, flashinfer's fused MoE path) is
+# actually built -- which happens well after a checkpoint has already loaded.
+# Confirmed directly on a B200 node serving Qwen3-Coder-30B/Next-FP8,
+# 2026-09-18: "CUDA compiler and CUDA toolkit headers are incompatible,
+# please check your include paths", ~20 minutes and a full checkpoint load
+# into the failure both times. install_vllm_env.sh now pins these together
+# at install time; this catches a hand-modified or pre-existing env before
+# paying that cost again.
+#
+# Read versions straight off each package's dist-info directory name rather
+# than `conda run -p ... python -c ...` -- measured directly: on a heavily
+# shared node (another user's multi-day job on the same GPU node), that
+# spawn (env activation + interpreter start + an importlib.metadata scan of
+# the whole site-packages tree, all over NFS) sat at 0% CPU for 11+ minutes
+# without returning, blocking the job indefinitely since nothing after it
+# can run. A directory-name glob is a handful of stat calls, not a process
+# spawn, and carries none of that risk.
+nvcc_dist="$(ls -d "$env_prefix"/lib/python*/site-packages/nvidia_cuda_nvcc-*.dist-info 2>/dev/null | head -1)"
+rt_dist="$(ls -d "$env_prefix"/lib/python*/site-packages/nvidia_cuda_runtime-*.dist-info 2>/dev/null | head -1)"
+nvcc_line=""
+rt_line=""
+[ -n "$nvcc_dist" ] && nvcc_line="$(basename "$nvcc_dist" .dist-info | sed 's/^nvidia_cuda_nvcc-//' | cut -d. -f1,2)"
+[ -n "$rt_dist" ] && rt_line="$(basename "$rt_dist" .dist-info | sed 's/^nvidia_cuda_runtime-//' | cut -d. -f1,2)"
+if [ -n "$nvcc_line" ] && [ -n "$rt_line" ] && [ "$nvcc_line" != "$rt_line" ]; then
+    echo "foresight: [$FORESIGHT_ROLE] ABORT -- nvidia-cuda-nvcc (${nvcc_line}.x) and" >&2
+    echo "foresight: nvidia-cuda-runtime (${rt_line}.x) are on different CUDA point" >&2
+    echo "foresight: releases. Any JIT-compiled kernel (DeepGEMM, flashinfer's fused" >&2
+    echo "foresight: MoE path) will fail with 'CUDA compiler and CUDA toolkit headers" >&2
+    echo "foresight: are incompatible' -- usually after a full checkpoint load, not" >&2
+    echo "foresight: before. Fix:" >&2
+    echo "foresight:   conda run -p $env_prefix pip install --no-deps 'nvidia-cuda-runtime==${nvcc_line}.*'" >&2
+    exit 1
+fi
+
+# CUDA library layout preflight. pip's nvidia-cuXX wheels ship libraries
+# under plain lib/, not the lib64/ a traditional system CUDA install uses,
+# and ship only the versioned .so (no unversioned libNAME.so for a bare
+# `-lNAME` to resolve against) -- confirmed across every library in the
+# package, not just cudart: fixing cudart alone only revealed nvrtc as the
+# next one flashinfer's JIT linker needed (Qwen3-Coder-Next-FP8, H200,
+# 2026-09-19). A tool built for the traditional layout fails with "cannot
+# find -lNAME: No such file or directory", downstream of (and masked by) the
+# version-mismatch check above until that one is fixed -- and each library
+# is only discovered once something actually links against it, well after a
+# full checkpoint load. install_vllm_env.sh now creates lib64 plus an
+# unversioned symlink for every versioned .so at install time; this checks
+# for the same before paying for a full checkpoint load again.
+missing_unversioned=""
+if [ -n "$cuda_pkg_home" ]; then
+    for versioned in "$cuda_pkg_home"/lib/lib*.so.*; do
+        [ -e "$versioned" ] || continue
+        unversioned="$(basename "$versioned" | sed 's/\.so\..*/.so/')"
+        [ -e "$cuda_pkg_home/lib/$unversioned" ] || missing_unversioned="$missing_unversioned $unversioned"
+    done
+fi
+if [ -n "$cuda_pkg_home" ] && { [ ! -e "$cuda_pkg_home/lib64" ] || [ -n "$missing_unversioned" ]; }; then
+    echo "foresight: [$FORESIGHT_ROLE] ABORT -- $cuda_pkg_home is missing the" >&2
+    echo "foresight: lib64 -> lib compatibility symlink and/or unversioned .so" >&2
+    echo "foresight: symlinks for:${missing_unversioned:- (lib64 only)}" >&2
+    echo "foresight: Any JIT-compiled kernel's link step (observed: flashinfer's" >&2
+    echo "foresight: fused MoE path) will fail with 'cannot find -lNAME' after a" >&2
+    echo "foresight: full checkpoint load, not before. Fix: re-run" >&2
+    echo "foresight:   deploy/tau-slurm/setup/install_vllm_env.sh" >&2
+    exit 1
 fi
 
 # -- which tool-call parser this checkpoint needs --------------------------
@@ -228,11 +330,29 @@ if [ -n "$FORESIGHT_TOOL_CALL_PARSER" ]; then
     tool_call_args="--enable-auto-tool-choice --tool-call-parser $FORESIGHT_TOOL_CALL_PARSER"
 fi
 
-# FORESIGHT_ALIAS and tool_call_args are deliberately NOT quoted below:
-# FORESIGHT_ALIAS may be "target-upstream aux-upstream" -- two space-separated
-# names in --single mode -- so that vLLM's --served-model-name (which takes
-# one or more values) registers both aliases against the one loaded model.
-# tool_call_args is either empty (nothing to pass) or two flags.
+# CUDA-graph capture can legitimately take longer than the readiness wait.
+# Observed directly, gpu-h200-killable, Qwen3-Coder-30B-A3B-Instruct-FP8:
+# capture reached 45/51 (88%) with per-item cost climbing (27s -> 80s ->
+# 93s as batch size grew) before the readiness loop's old hardcoded cap
+# killed the job -- genuine slow progress on a cold compile cache (see
+# VLLM_CACHE_ROOT above), not a hang. --enforce-eager skips torch.compile
+# and CUDA-graph capture entirely, trading throughput for a startup that
+# cannot get stuck here -- the safer choice for a large model's first run
+# or an unattended one. Once VLLM_CACHE_ROOT is warm and
+# FORESIGHT_READY_TIMEOUT_S comfortably covers a cold compile, this can be
+# dropped for the throughput graphs give back.
+eager_args=""
+if [ "$FORESIGHT_ENFORCE_EAGER" = "1" ]; then
+    eager_args="--enforce-eager"
+    echo "foresight: [$FORESIGHT_ROLE] --enforce-eager: skipping CUDA-graph capture" >&2
+fi
+
+# FORESIGHT_ALIAS, tool_call_args and eager_args are deliberately NOT quoted
+# below: FORESIGHT_ALIAS may be "target-upstream aux-upstream" -- two
+# space-separated names in --single mode -- so that vLLM's
+# --served-model-name (which takes one or more values) registers both
+# aliases against the one loaded model. tool_call_args/eager_args are each
+# either empty (nothing to pass) or the relevant flag(s).
 # shellcheck disable=SC2086
 conda run --no-capture-output -p "$env_prefix" \
     vllm serve "$FORESIGHT_MODEL_ID" \
@@ -242,15 +362,19 @@ conda run --no-capture-output -p "$env_prefix" \
         --max-model-len "$FORESIGHT_MAX_MODEL_LEN" \
         --tensor-parallel-size "$FORESIGHT_TENSOR_PARALLEL" \
         $tool_call_args \
+        $eager_args \
     &
 vllm_pid=$!
 
 # Poll our own port rather than trusting "the process started" -- weight
 # loading on a cold cache can take minutes, and a request sent too early is a
-# connection-refused, not a useful error.
+# connection-refused, not a useful error. FORESIGHT_READY_TIMEOUT_S, not a
+# hardcoded cap -- see its header comment for why a fixed 60 min cut off a
+# genuinely-progressing H200 run at 88% through CUDA-graph capture.
 ready=0
 i=0
-while [ "$i" -lt 720 ]; do   # up to 60 min
+iters=$((FORESIGHT_READY_TIMEOUT_S / 5))
+while [ "$i" -lt "$iters" ]; do
     if ! kill -0 "$vllm_pid" 2>/dev/null; then
         echo "foresight: [$FORESIGHT_ROLE] vllm exited before becoming ready" >&2
         exit 1
