@@ -187,12 +187,21 @@ fi
 # into the failure both times. install_vllm_env.sh now pins these together
 # at install time; this catches a hand-modified or pre-existing env before
 # paying that cost again.
-nvcc_line="$(conda run -p "$env_prefix" python -c \
-    "import importlib.metadata as m; print('.'.join(m.version('nvidia-cuda-nvcc').split('.')[:2]))" \
-    2>/dev/null || true)"
-rt_line="$(conda run -p "$env_prefix" python -c \
-    "import importlib.metadata as m; print('.'.join(m.version('nvidia-cuda-runtime').split('.')[:2]))" \
-    2>/dev/null || true)"
+#
+# Read versions straight off each package's dist-info directory name rather
+# than `conda run -p ... python -c ...` -- measured directly: on a heavily
+# shared node (another user's multi-day job on the same GPU node), that
+# spawn (env activation + interpreter start + an importlib.metadata scan of
+# the whole site-packages tree, all over NFS) sat at 0% CPU for 11+ minutes
+# without returning, blocking the job indefinitely since nothing after it
+# can run. A directory-name glob is a handful of stat calls, not a process
+# spawn, and carries none of that risk.
+nvcc_dist="$(ls -d "$env_prefix"/lib/python*/site-packages/nvidia_cuda_nvcc-*.dist-info 2>/dev/null | head -1)"
+rt_dist="$(ls -d "$env_prefix"/lib/python*/site-packages/nvidia_cuda_runtime-*.dist-info 2>/dev/null | head -1)"
+nvcc_line=""
+rt_line=""
+[ -n "$nvcc_dist" ] && nvcc_line="$(basename "$nvcc_dist" .dist-info | sed 's/^nvidia_cuda_nvcc-//' | cut -d. -f1,2)"
+[ -n "$rt_dist" ] && rt_line="$(basename "$rt_dist" .dist-info | sed 's/^nvidia_cuda_runtime-//' | cut -d. -f1,2)"
 if [ -n "$nvcc_line" ] && [ -n "$rt_line" ] && [ "$nvcc_line" != "$rt_line" ]; then
     echo "foresight: [$FORESIGHT_ROLE] ABORT -- nvidia-cuda-nvcc (${nvcc_line}.x) and" >&2
     echo "foresight: nvidia-cuda-runtime (${rt_line}.x) are on different CUDA point" >&2
