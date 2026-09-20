@@ -41,6 +41,15 @@ tools/collect_local_run.sh --config PATH --trace PATH --workspace DIR \
     --aux-home DIR --label <label>
 ```
 
+For a SWE-CI A/B run (control vs foresight, with the models on Slurm and SWE-CI
++ foresight on a laptop), use `tools/collect_swe_ci_ab.py` instead. It gathers
+SWE-CI's `experiments/` folder, foresight's trace and the aux transcripts into
+one layout, and adds what only SWE-CI's archive folders still hold: per epoch,
+the failing-test summary the architect saw, the `requirement.xml` it wrote, and
+the code diff the programmer made. It writes a generated `RUN.md` beside your
+hand-written `findings.md`. See the docstring of the script for the layout and
+the exact command, and `swe-ci-ab-control-vs-foresight-5tasks/` for an example.
+
 ## The question every run here is trying to answer
 
 Does the auxiliary agent actually **read the repository** before naming plausible
