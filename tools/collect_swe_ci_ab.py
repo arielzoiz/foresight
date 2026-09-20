@@ -6,37 +6,72 @@ such directory: its evidence is scattered over SWE-CI's ``experiments/`` folder,
 foresight's trace, an aux export directory and a few logs. This gathers it in
 one command, in one layout, so every run is documented the same way::
 
-    python tools/collect_swe_ci_ab.py --label swe-ci-ab-<name> \\
-        --swe-ci-dir ../SWE-CI \\
-        --arm control=control_t1-5:config_control.toml \\
-        --arm foresight=foresight_t1-5:config_foresight.toml \\
-        --trace foresight=traces/swe_ci_foresight_t1-5.jsonl \\
-        --aux-export-dir foresight=traces/aux-agent-swe-ci-t1-5 \\
+    python tools/collect_swe_ci_ab.py --swe-ci-dir ../SWE-CI \\
+        --metadata-csv ../SWE-CI/metadata/default.csv \\
+        --arm control=<experiment>:config_control.toml \\
+        --arm foresight=<experiment>:config_foresight.toml \\
+        --trace foresight=traces/<experiment>.jsonl \\
+        --aux-export-dir foresight=traces/<experiment>__aux-agent \\
         --foresight-config configs/swe_ci_expt.yaml \\
         --model-url target=http://host:8001/v1 --model-url aux=http://host:8002/v1
 
+The results folder is named from the data, ``results/ab-test__swe-ci__rows-<rows>__ep<epochs>``
+(``--label`` overrides it): rows are 1-based data rows of the benchmark csv, so pass
+``--metadata-csv`` with the untrimmed csv if ``metadata/default.csv`` was cut down to
+your tasks; epochs are ``evolve.max_epoch``. See the main README, "Naming conventions".
+
 Only the standard library is required. ``matplotlib`` (plots) and SWE-CI's own
-python (the ``swe_ci.summarize`` table) are used when present and skipped, with a
-note in ``RUN.md``, when not.
+python (the ``swe_ci.summarize`` table and the code-quality scores) are used when
+present and skipped, with a note in ``RUN.md``, when not. Scoring runs pylint on every
+epoch snapshot (about a minute for a large repo); ``--no-pylint`` keeps only the
+maintainability index, ``--no-score`` skips both.
 
 Layout written under ``results/<label>/``::
 
-    RUN.md                        generated: results, timing, aux provenance,
-                                  incidents, cost. findings.md stays hand-written.
+    RUN.md                        generated: run summary, results, code change and
+                                  quality per epoch, timing, aux provenance, incidents,
+                                  cost. findings.md stays hand-written.
+    manifest.json                 rows, each task's commits (from the benchmark csv), settings,
+                                  and whether the arms' settings matched
+    metrics.csv                   per arm, task and epoch end: gap, passed, lines changed
+                                  (this epoch and cumulative), maintainability index, pylint
     environment.txt               commits, versions, hardware, model endpoints
+    server-side/                  for the people who ran the model servers, to fill in AFTER this
+                                  collection (vLLM flags, sampling, partition, job ids, logs).
+                                  Created with a checklist if absent, never overwritten
     configs/                      SWE-CI configs and the foresight config (keys redacted)
     plots/                        gap per epoch, EvoScore per task
     data/<arm>/main.log           SWE-CI's main log
+    data/<arm>/swe_ci_stdout.log  console output of swe_ci.evaluate (--stdout-log): the effective
+                                  config and final table; a crash traceback would be here
     data/<arm>/summary.txt        the swe_ci.summarize table
     data/<arm>/<task>/iteration.jsonl, task.log
     data/<arm>/<task>/epoch_<N>/  what the architect saw and what the model did:
         non-passed/summary.jsonl    the failing-test list at the START of epoch N
         requirement.xml             the architect's output for epoch N
         edit.diff                   the code change made in epoch N (a/ = start, b/ = end)
-    data/<arm>/trace.jsonl.gz     foresight's trace (arms that have one)
+    data/<arm>/<task>/final/non-passed/summary.jsonl
+                                  the failing tests AFTER the last epoch (the last accepted state)
+    data/<arm>/trace.jsonl.gz     foresight's trace (arms that have one); rows carry the target
+                                  model's reply when the run set trace.log_replies
     data/<arm>/aux_sessions.json  one entry per aux run: task, epoch, phase, the
                                   aux answer, provenance, exported session ids
+    data/<arm>/AUX_PAIRS.md       each aux answer next to its base task
     data/<arm>/aux-agent/         ses_*.json, opencode's own record of each aux run
+
+What "the base task" means. A SWE-CI task is a repo evolved from ``current_sha`` until the
+tests of ``target_sha`` pass; each epoch is one architect step and one programmer step.
+Aux is asked about plausible FUTURE tasks after the CURRENT step, so its base task is the
+step's input, not the whole goal: for an architect session the failing tests, for a
+programmer session that epoch's ``requirement.xml``. The commits give the long-run goal
+and are in ``manifest.json``.
+
+Code quality. ``mi`` is SWE-CI's own ``mi_score`` (radon maintainability index). ``pylint``
+is a corrected pylint run: SWE-CI's ``pylint_score`` never passes ``--recursive=y`` and
+returns 0 on these repos. Scores exclude ``tests/`` and describe the state AFTER each epoch;
+an epoch whose pytest could not run is not accepted (SWE-CI keeps the previous code), so its
+state repeats the previous one. Only the change over epochs is meaningful, not the absolute
+value. See ``tools/swe_ci_score_helper.py``.
 
 Read ``requirement.xml`` with care: it is the architect's OUTPUT. In the foresight
 arm it was written after foresight enriched the prompt with aux's future-task
@@ -55,6 +90,7 @@ holds the broken code; its starting state is then the final folder.
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import gzip
 import json
@@ -65,7 +101,9 @@ import shutil
 import subprocess
 import sys
 import urllib.request
+import xml.etree.ElementTree as ET
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -186,15 +224,21 @@ def nearest(found: list[tuple[dt.datetime, Path]], when: dt.datetime) -> Path | 
     return best
 
 
+def final_folder(found: list[tuple[dt.datetime, Path]], finished: list[dict]) -> Path | None:
+    """The state after the last accepted epoch: SWE-CI archives ``current/`` a minute ahead at the end."""
+    if not found or not finished:
+        return None
+    last_end = max(e["end"] for e in finished)
+    if (found[-1][0] - last_end).total_seconds() >= FINAL_MIN_LEAD_S:
+        return found[-1][1]
+    return None
+
+
 def epoch_states(task_dir: Path, epochs: list[dict]) -> dict[int, dict]:
     """``{epoch: {"start": dir|None, "result": dir|None}}``. See the module docstring."""
     found = archives(task_dir)
     finished = [e for e in epochs if e["end"] is not None]
-    final = None
-    if found and finished:
-        last_end = max(e["end"] for e in finished)
-        if (found[-1][0] - last_end).total_seconds() >= FINAL_MIN_LEAD_S:
-            final = found[-1][1]
+    final = final_folder(found, finished)
     by_number = {e["epoch"]: e for e in finished}
     states: dict[int, dict] = {}
     for number, epoch in by_number.items():
@@ -217,7 +261,9 @@ def code_diff(start: Path, result: Path) -> str:
     if not a.is_dir() or not b.is_dir():
         return ""
     done = subprocess.run(
-        ["diff", "-ruN", "-x", ".git", "-x", "__pycache__", "-x", "*.pyc", str(a), str(b)],
+        # "._*" are macOS AppleDouble sidecars: on an external (non-HFS) volume, moving a
+        # folder makes macOS write one beside every file, and they are not code.
+        ["diff", "-ruN", "-x", ".git", "-x", "__pycache__", "-x", "*.pyc", "-x", "._*", str(a), str(b)],
         capture_output=True,
         text=True,
         errors="replace",
@@ -243,6 +289,7 @@ def collect_arm(
     if (src / "main.log").is_file():
         shutil.copy2(src / "main.log", dest / "main.log")
     tasks: dict[str, list[dict]] = {}
+    all_states: dict[str, dict] = {}
     for task_dir in sorted(p for p in src.iterdir() if p.is_dir()):
         log = task_dir / "task.log"
         if not log.is_file():
@@ -255,6 +302,20 @@ def collect_arm(
         epochs = parse_task_log(log)
         tasks[task_dir.name] = epochs
         states = epoch_states(task_dir, epochs) if archives(task_dir) else {}
+        all_states[task_dir.name] = states
+        # The failing tests AFTER the last epoch: the epoch folders hold the state at the
+        # START of each epoch, so without this the end state would be unrecorded. After
+        # an epoch that could not run pytest it is the last accepted state.
+        final = final_folder(archives(task_dir), [e for e in epochs if e["end"] is not None])
+        if final is not None and (final / "non-passed").is_dir():
+            (tdest / "final" / "non-passed").mkdir(parents=True, exist_ok=True)
+            summary = final / "non-passed" / "summary.jsonl"
+            if summary.is_file():
+                shutil.copy2(summary, tdest / "final" / "non-passed" / "summary.jsonl")
+            if with_tracebacks:
+                for extra in (final / "non-passed").iterdir():
+                    if extra.is_file() and extra.name != "summary.jsonl":
+                        shutil.copy2(extra, tdest / "final" / "non-passed" / extra.name)
         for number, state in states.items():
             edest = tdest / f"epoch_{number}"
             edest.mkdir(exist_ok=True)
@@ -274,7 +335,7 @@ def collect_arm(
                                 shutil.copy2(extra, edest / "non-passed" / extra.name)
             if start is not None and result is not None:
                 (edest / "edit.diff").write_text(code_diff(start, result), encoding="utf-8")
-    return {"tasks": tasks}
+    return {"tasks": tasks, "states": all_states}
 
 
 def copy_summary(
@@ -385,7 +446,58 @@ def collect_trace(
             tokens[role]["calls"] += 1
             tokens[role]["prompt_tokens"] += upstream.get("prompt_tokens") or 0
             tokens[role]["completion_tokens"] += upstream.get("completion_tokens") or 0
-    return {"sessions": sessions, "tokens": tokens, "rows": len(rows)}
+    target_rows = [r for r in rows if r.get("role") == "target"]
+    return {"sessions": sessions, "tokens": tokens, "rows": len(rows),
+            "target_rows": len(target_rows), "replies": sum(1 for r in target_rows if "reply" in r)}
+
+
+SERVER_SIDE_TEMPLATE = """# Server side: what to add to this run
+
+The caller side (the machine running SWE-CI and foresight) collected this folder. The people who ran the
+model servers add what only they know, here, after that collection. The collector never overwrites
+anything in `server-side/`, so re-collecting is safe. Replace or keep this file; add your own files
+beside it (e.g. `setup.md`, `vllm-<role>.log`).
+
+Fields, in order of how much a reader needs them:
+
+- **Models**: checkpoint, served name per role, and the port each is on
+- **vLLM**: version, launch flags (`--max-model-len`, `--tool-call-parser`, tensor parallel size,
+  `--enforce-eager`), and the sampling defaults the server applies when a caller sends none
+  (temperature, top_p, top_k, max tokens): these change results and are visible only on this side
+- **Hardware**: partition, node, GPU type and count, memory
+- **Jobs**: Slurm job ids, submit/start/end times, wall-clock limit, how long the model took to load
+- **Events during the run**: preemptions, restarts, OOMs, errors in the vLLM log
+- **Shared capacity**: other jobs on the same node or GPUs, since timing between arms depends on it
+- **Logs**: the vLLM log (or its tail and any errors) for each server
+"""
+
+
+def ensure_server_side(out: Path) -> dict:
+    """Create ``server-side/`` with a checklist if it is absent, and report what it holds.
+
+    Written only when the folder does not exist, and never touched afterwards: the
+    server side adds files here after the caller side has collected, and a re-run
+    of this script must not lose them.
+    """
+    folder = out / "server-side"
+    if not folder.exists():
+        folder.mkdir(parents=True)
+        (folder / "TEMPLATE.md").write_text(SERVER_SIDE_TEMPLATE, encoding="utf-8")
+    files = sorted(p.name for p in folder.iterdir() if p.is_file() and p.name != "TEMPLATE.md")
+    return {"filled": bool(files), "files": files}
+
+
+def copy_stdout_log(arm: str, path: Path, out: Path) -> bool:
+    """The console output of ``swe_ci.evaluate`` (nohup's file): SWE-CI's effective config
+    (secrets already shown as ``***``) and the final summary table. It is NOT the agent's
+    log. Small, and the only place a crash of the evaluate process itself would show."""
+    if not path.is_file():
+        return False
+    dest = out / "data" / arm
+    dest.mkdir(parents=True, exist_ok=True)
+    text = strip_ansi(path.read_text(encoding="utf-8", errors="replace"))
+    (dest / "swe_ci_stdout.log").write_text(redact(text), encoding="utf-8")
+    return True
 
 
 def copy_aux_export(arm: str, export_dir: Path, out: Path) -> int:
@@ -448,9 +560,373 @@ def write_environment(
     docker = run(["docker", "version", "--format", "{{.Server.Version}}"])
     info = run(["docker", "info", "--format", "cpus={{.NCPU}} mem_bytes={{.MemTotal}}"])
     lines.append(f"docker              {docker or 'unavailable'}  {info}")
+    # The model servers are Slurm jobs that expire, so a later collection often finds
+    # them gone. Losing the served model, checkpoint and context length to
+    # "unreachable" would erase the one record of what was actually served, so an
+    # earlier good line for the same endpoint is kept and labelled as such.
+    previous = {}
+    if (out / "environment.txt").is_file():
+        for line in (out / "environment.txt").read_text(encoding="utf-8").splitlines():
+            if line.startswith("model[") and "served=" in line:      # a line that carries real info
+                previous[line.split(maxsplit=1)[0]] = line
     for name, url in urls.items():
-        lines.append(f"model[{name}]".ljust(20) + f"{url}  {model_info(url)}")
+        key, info = f"model[{name}]", model_info(url)
+        if info.startswith("unreachable") and key in previous:
+            lines.append(previous[key].split(" (kept from")[0] + "  (kept from an earlier collection; "
+                         "unreachable now)")
+        else:
+            lines.append(key.ljust(20) + f"{url}  {info}")
     (out / "environment.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+# -- manifest, churn and maintainability ------------------------------------
+
+#: Per-arm plumbing. Everything else in a SWE-CI config must match between arms
+#: for an A/B to mean anything, and the manifest checks that.
+ARM_SPECIFIC_KEYS = {"experiment_name", "base_url", "model_name", "api_key", "hf_token"}
+#: The settings copied into the manifest for a reader, in a stable order.
+SETTING_KEYS = (
+    "agent_name", "mode", "splitting", "evolve.max_epoch", "evolve.max_workers", "init.max_workers",
+    "evolve.architect.max_try", "evolve.programmer.max_try", "evolve.architect.timeout",
+    "evolve.programmer.timeout", "pytest.timeout",
+)
+#: Run naming: ``ab-test__swe-ci__rows-<rows>__ep<epochs>``. Rows are 1-based data
+#: rows of the benchmark's ``metadata/<splitting>.csv``.
+LABEL_TEMPLATE = "ab-test__swe-ci__rows-{rows}__ep{epochs}"
+
+METRIC_COLUMNS = [
+    "arm", "task_id", "epoch", "accepted", "gap", "passed", "edit_files", "edit_added",
+    "edit_removed", "edit_test_files", "cum_added", "cum_removed", "cum_lines", "mi", "pylint",
+]
+
+
+def read_config_values(text: str) -> dict[str, str]:
+    """A SWE-CI ``config.toml`` as flat ``section.key -> text``. Scalars only, which is all it has."""
+    section, values = "", {}
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        m = re.match(r"^\[([^\]]+)\]$", line)
+        if m:
+            section = m.group(1).strip()
+            continue
+        m = re.match(r"^([A-Za-z_][\w\-]*)\s*=\s*(.+)$", line)
+        if m:
+            value = m.group(2).strip()
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+                value = value[1:-1]
+            values[f"{section}.{m.group(1)}" if section else m.group(1)] = value
+    return values
+
+
+def load_task_rows(csv_path: Path) -> dict[str, dict]:
+    """``{task_id: {row, repo, url, current_sha, target_sha, test_gap}}``; ``row`` is 1-based."""
+    rows: dict[str, dict] = {}
+    if not csv_path.is_file():
+        return rows
+    with csv_path.open(newline="", encoding="utf-8", errors="replace") as handle:
+        for index, record in enumerate(csv.DictReader(handle), start=1):
+            task_id = record.get("task_id")
+            if task_id:
+                rows[task_id] = {
+                    "row": index, "repo": record.get("repo_name"), "url": record.get("url"),
+                    "current_sha": record.get("current_sha"), "target_sha": record.get("target_sha"),
+                    "test_gap": record.get("test_gap"),
+                }
+    return rows
+
+
+def range_str(rows: list[int]) -> str:
+    """``[6,7,8,9,10]`` -> ``6-10``; ``[1,2,5]`` -> ``1-2_5``."""
+    rows = sorted(set(rows))
+    parts, start, prev = [], rows[0], rows[0]
+    for row in rows[1:] + [None]:
+        if row is not None and row == prev + 1:
+            prev = row
+            continue
+        parts.append(f"{start}-{prev}" if start != prev else str(start))
+        if row is not None:
+            start = prev = row
+    return "_".join(parts)
+
+
+def discover_tasks(swe_ci_dir: Path, experiment: str) -> list[str]:
+    src = swe_ci_dir / "experiments" / experiment
+    if not src.is_dir():
+        return []
+    return sorted(p.name for p in src.iterdir() if p.is_dir() and (p / "task.log").is_file())
+
+
+def build_manifest(
+    label: str, arms: dict, collected: dict, task_rows: dict, config_values: dict, csv_name: str,
+    foresight_rev: str | None, swe_ci_dir: Path, argv: list[str], server_side: dict | None = None,
+) -> dict:
+    task_ids = sorted({t for c in collected.values() for t in c["tasks"]},
+                      key=lambda t: (task_rows.get(t, {}).get("row") or 10**9, t))
+    tasks = [{"task_id": t, **task_rows.get(t, {"row": None})} for t in task_ids]
+    rows = [t["row"] for t in tasks if t["row"]]
+    settings = {a: {k: v for k, v in config_values[a].items() if k in SETTING_KEYS}
+                for a in arms if a in config_values}
+    differences: dict[str, dict] = {}
+    if len(settings) > 1:
+        comparable = {a: {k: v for k, v in config_values[a].items() if k not in ARM_SPECIFIC_KEYS}
+                      for a in settings}
+        for key in sorted(set().union(*[set(c) for c in comparable.values()])):
+            values = {a: comparable[a].get(key) for a in comparable}
+            if len(set(values.values())) > 1:
+                differences[key] = values
+    first = next(iter(settings.values()), {})
+    return {
+        "label": label,
+        "naming": "ab-test__swe-ci__rows-<rows>__ep<epochs>; rows are 1-based data rows of metadata/<splitting>.csv",
+        "collected_at": dt.datetime.now().astimezone().isoformat(timespec="seconds"),
+        "splitting": first.get("splitting"),
+        "metadata_csv": csv_name,
+        "rows": sorted(rows),
+        "rows_range": range_str(rows) if rows else None,
+        "max_epoch": int(first["evolve.max_epoch"]) if first.get("evolve.max_epoch", "").isdigit() else None,
+        "arms": {a: {"experiment": spec["experiment"], "config": spec["config"]} for a, spec in arms.items()},
+        "settings": settings,
+        "settings_identical_across_arms": (not differences) if len(settings) > 1 else None,
+        "settings_differences": differences,
+        "tasks": tasks,
+        "foresight_rev": foresight_rev or run(["git", "-C", str(REPO), "rev-parse", "HEAD"]),
+        "swe_ci_rev": run(["git", "-C", str(swe_ci_dir), "rev-parse", "HEAD"]),
+        "server_side": server_side or {"filled": False, "files": []},
+        "collector_command": ["collect_swe_ci_ab.py"] + argv,
+    }
+
+
+def is_test_path(path: str) -> bool:
+    parts = path.split("/")
+    name = parts[-1]
+    return (bool({"tests", "test", "testing"} & set(parts[:-1]))
+            or name.startswith("test_") or name.endswith("_test.py") or name == "conftest.py")
+
+
+def diffstat(text: str) -> dict:
+    """Files changed and lines added/removed in a ``diff -ruN``, counted inside hunks only.
+
+    Hunk-aware on purpose: a removed line whose text starts with ``--`` appears as
+    ``---...`` and would be mistaken for a file header by a line-prefix count.
+    """
+    files: dict[str, list[int]] = {}
+    current, in_hunk = None, False
+    for line in text.splitlines():
+        if line.startswith("diff "):
+            current, in_hunk = line.rsplit(" b/", 1)[-1] if " b/" in line else line, False
+            files[current] = [0, 0]
+        elif line.startswith("@@") and current is not None:
+            in_hunk = True
+        elif in_hunk and current is not None:
+            if line.startswith("+"):
+                files[current][0] += 1
+            elif line.startswith("-"):
+                files[current][1] += 1
+    tests = [f for f in files if is_test_path(f)]
+    return {
+        "files": len(files),
+        "added": sum(a for a, _ in files.values()),
+        "removed": sum(r for _, r in files.values()),
+        "test_files": len(tests),
+    }
+
+
+def build_metrics(arm: str, task_id: str, out: Path, epochs: list[dict], states: dict, scores: dict) -> list[dict]:
+    """One row per epoch end (0 = the starting state): churn, gap, and code-quality scores.
+
+    Churn is the size of the edit made IN that epoch. The scores describe the state
+    AFTER it. An epoch whose pytest could not run is not accepted (SWE-CI keeps the
+    previous code), so its state is the previous one; its attempted edit is still
+    counted in ``edit_*`` but not in ``cum_*``.
+    """
+    task_out = out / "data" / arm / task_id
+    iteration = read_jsonl(task_out / "iteration.jsonl") if (task_out / "iteration.jsonl").is_file() else []
+    broken = {e["epoch"]: e["broken"] for e in epochs}
+
+    def gap_passed(n: int):
+        row = iteration[n] if n < len(iteration) else None
+        if row and row.get("pytest", {}).get("passed") is not None and row.get("gap", -1) >= 0:
+            return row["gap"], row["pytest"]["passed"]
+        return None, None
+
+    rows: list[dict] = []
+    first_start = (states.get(1) or {}).get("start")
+    if first_start is None:
+        return rows
+    state_dir = first_start
+    gap, passed = gap_passed(0)
+    cum_added = cum_removed = 0
+
+    def make_row(epoch, accepted, edit, dir_):
+        sc = scores.get(dir_) or {}
+        return {
+            "arm": arm, "task_id": task_id, "epoch": epoch, "accepted": accepted, "gap": gap,
+            "passed": passed, "edit_files": edit.get("files"), "edit_added": edit.get("added"),
+            "edit_removed": edit.get("removed"), "edit_test_files": edit.get("test_files"),
+            "cum_added": cum_added, "cum_removed": cum_removed, "cum_lines": cum_added + cum_removed,
+            "mi": sc.get("mi"), "pylint": sc.get("pylint"),
+        }
+
+    rows.append(make_row(0, True, {}, state_dir))
+    for number in sorted(states):
+        accepted = not broken.get(number, False)
+        diff_path = task_out / f"epoch_{number}" / "edit.diff"
+        edit = diffstat(diff_path.read_text(encoding="utf-8", errors="replace")) if diff_path.is_file() else {}
+        if accepted:
+            cum_added += edit.get("added", 0)
+            cum_removed += edit.get("removed", 0)
+            state_dir = states[number]["result"] or state_dir
+        gap, passed = gap_passed(number)
+        rows.append(make_row(number, accepted, edit, state_dir))
+    return rows
+
+
+def score_snapshots(
+    dirs: list[Path], python: str, helper: Path, score_py: Path, exclude: list[str],
+    pylint: bool, timeout: float, jobs: int,
+) -> dict[Path, dict]:
+    """Run ``swe_ci_score_helper.py`` on each snapshot's ``code/`` under SWE-CI's python."""
+    def one(directory: Path):
+        command = [python, str(helper), str(score_py), str(directory / "code")]
+        for item in exclude:
+            command += ["--exclude", item]
+        if not pylint:
+            command.append("--no-pylint")
+        try:
+            done = subprocess.run(command, capture_output=True, text=True, timeout=timeout, errors="replace")
+        except subprocess.TimeoutExpired:
+            return directory, {"error": f"timed out after {timeout:.0f}s"}
+        except OSError as exc:
+            return directory, {"error": str(exc)}
+        for line in reversed(done.stdout.strip().splitlines()):
+            try:
+                return directory, json.loads(line)
+            except ValueError:
+                continue
+        return directory, {"error": ((done.stderr or done.stdout).strip()[-200:]) or f"exit {done.returncode}"}
+
+    with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
+        return dict(pool.map(one, dirs))
+
+
+def write_metrics_csv(out: Path, rows: list[dict]) -> None:
+    with (out / "metrics.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=METRIC_COLUMNS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({k: ("" if row.get(k) is None else row.get(k)) for k in METRIC_COLUMNS})
+
+
+def write_aux_pairs(out: Path, arm: str, sessions: list[dict], task_info: dict) -> None:
+    """Each aux answer next to the base task it was written for.
+
+    Architect session: the base task is the failing-test list at the start of the
+    epoch. Programmer session: it is that epoch's ``requirement.xml``. The task's
+    commits give the long-run goal (evolve from ``current_sha`` until the tests of
+    ``target_sha`` pass); the aux tasks are about what could plausibly follow the
+    CURRENT step, not about that whole goal.
+    """
+    lines = [
+        f"# Aux answers paired with their base task ({arm})", "",
+        "Architect session: base task = failing tests at the start of the epoch. Programmer session: "
+        "base task = that epoch's `requirement.xml`. Generated by `tools/collect_swe_ci_ab.py`.", "",
+    ]
+    for s in sessions:
+        task_id, epoch = s.get("task_id"), s.get("epoch")
+        if not task_id:
+            lines += [f"## unjoined session at {s.get('received_at')} ({s.get('phase')}): {s.get('join')}", ""]
+            continue
+        info = task_info.get(task_id, {})
+        lines += [f"## {short(task_id)}, epoch {epoch}, {s['phase']}", ""]
+        if info.get("current_sha"):
+            lines.append(f"Task goal: evolve `{info.get('repo')}` from `{info['current_sha'][:10]}` "
+                         f"until the tests of `{(info.get('target_sha') or '?')[:10]}` pass.")
+        base = out / "data" / arm / task_id / f"epoch_{epoch}"
+        if s["phase"] == "architect":
+            summary = base / "non-passed" / "summary.jsonl"
+            tests = [r.get("test") for r in read_jsonl(summary)] if summary.is_file() else []
+            shown = ", ".join(f"`{t}`" for t in tests[:8]) + (f" (+{len(tests) - 8} more)" if len(tests) > 8 else "")
+            lines += ["", f"**Base task: {len(tests)} failing test(s):** {shown or 'not available'}"]
+        else:
+            requirement = base / "requirement.xml"
+            lines += ["", "**Base task: requirement.xml**"]
+            try:
+                for item in ET.parse(requirement).getroot().iter("requirement"):
+                    where = (item.findtext("location") or "").strip()
+                    what = " ".join((item.findtext("description") or "").split())[:300]
+                    lines.append(f"- `{where}`: {what}")
+            except (ET.ParseError, OSError):
+                lines.append("- not available")
+        lines += ["", "**Aux's future tasks:**", ""]
+        lines += [f"> {t}" if t else ">" for t in (s.get("aux_text") or "").strip().splitlines()]
+        lines.append("")
+    (out / "data" / arm / "AUX_PAIRS.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _cells(rows: list[dict], fmt) -> str:
+    return ", ".join(fmt(r) for r in sorted(rows, key=lambda r: r["epoch"]))
+
+
+def metrics_section(manifest: dict, metrics: list[dict], arms: dict, scored: bool) -> list[str]:
+    names = list(arms)
+    by = {}
+    for row in metrics:
+        by.setdefault((row["task_id"], row["arm"]), []).append(row)
+    task_ids = [t["task_id"] for t in manifest["tasks"]]
+    lines = ["", "## Code change per epoch", "",
+             "`+added/-removed` lines of the edit made in each epoch (epoch 1 first). `!` = pytest could not run, "
+             "so the edit was not accepted. Cumulative counts are in `metrics.csv`.", "",
+             "| Task | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
+
+    def edit_cell(r):
+        if r["epoch"] == 0:
+            return None
+        mark = "" if r["accepted"] else "!"
+        return f"+{r['edit_added'] or 0}/-{r['edit_removed'] or 0}{mark}"
+
+    for tid in task_ids:
+        cells = []
+        for a in names:
+            rows = [r for r in by.get((tid, a), []) if r["epoch"] > 0]
+            cells.append(_cells(rows, edit_cell) or "-")
+        lines.append(f"| {short(tid)} | " + " | ".join(cells) + " |")
+    for key, title, digits in (("mi", "Maintainability index after each epoch (0 = start; higher is better)", 1),
+                               ("pylint", "pylint note after each epoch (0 = start; 0-10, higher is better)", 2)):
+        if not any(r.get(key) is not None for r in metrics):
+            continue
+        lines += ["", f"## {title}", "", "| Task | " + " | ".join(names) + " |", "|---|" + "---|" * len(names)]
+        for tid in task_ids:
+            cells = []
+            for a in names:
+                cells.append(_cells(by.get((tid, a), []),
+                                    lambda r, k=key, d=digits: "-" if r.get(k) is None else f"{r[k]:.{d}f}") or "-")
+            lines.append(f"| {short(tid)} | " + " | ".join(cells) + " |")
+    if scored:
+        lines += ["", "Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; both exclude "
+                      "`tests/`. Only the change between epochs is meaningful, not the absolute value "
+                      "(see `tools/swe_ci_score_helper.py`)."]
+    return lines
+
+
+def manifest_section(manifest: dict) -> list[str]:
+    lines = ["## Run", "",
+             f"- rows {manifest['rows_range'] or '?'} of `{manifest.get('metadata_csv')}`, "
+             f"splitting `{manifest.get('splitting')}`, up to {manifest.get('max_epoch')} epochs",
+             f"- settings identical across arms: {manifest['settings_identical_across_arms']}"]
+    side = manifest.get("server_side") or {}
+    lines.append("- server side (`server-side/`, added by whoever ran the model servers): "
+                 + (f"{len(side['files'])} file(s): {', '.join(side['files'])}" if side.get("filled")
+                    else "not added yet, see `server-side/TEMPLATE.md`"))
+    for key, values in manifest["settings_differences"].items():
+        lines.append(f"  - DIFFERS `{key}`: {values}")
+    lines += ["", "| Row | Task | Repo | current -> target commit |", "|---|---|---|---|"]
+    for t in manifest["tasks"]:
+        cur, tgt = (t.get("current_sha") or "?")[:10], (t.get("target_sha") or "?")[:10]
+        lines.append(f"| {t.get('row') or '?'} | `{short(t['task_id'])}` | {t.get('repo') or '?'} | `{cur}` -> `{tgt}` |")
+    lines.append("")
+    return lines
 
 
 # -- report and plots --------------------------------------------------------
@@ -473,13 +949,15 @@ def wall_clock(main_log: Path) -> tuple[str, str, str]:
 
 
 def build_report(
-    label: str, out: Path, arms: dict, collected: dict, traces: dict, exports: dict, notes: list[str]
+    label: str, out: Path, arms: dict, collected: dict, traces: dict, exports: dict, notes: list[str],
+    manifest: dict, metrics: list[dict], scored: bool,
 ) -> str:
     names = list(arms)
     task_ids = sorted({t for c in collected.values() for t in c["tasks"]})
     scores = {a: parse_summary(out / "data" / a / "summary.txt", task_ids) for a in names}
     lines = [f"# {label}: generated run report", "",
              "Generated by `tools/collect_swe_ci_ab.py`. The interpretation lives in `findings.md`.", ""]
+    lines += manifest_section(manifest)
     lines += ["## Results", "", "Gap per epoch (starting state first; lower is better; `x` = pytest could not run).", ""]
     lines += ["| Task | " + " | ".join(f"{a} gaps" for a in names) + " |",
               "|---|" + "---|" * len(names)]
@@ -501,6 +979,7 @@ def build_report(
             if "_zero_reg" in scores[a]:
                 lines.append("")
                 lines.append(f"{a}: resolved {scores[a]['_resolved']:.2f}, zero-regression rate {scores[a]['_zero_reg']:.2f}")
+    lines += metrics_section(manifest, metrics, arms, scored)
     lines += ["", "## Timing (indicative: arms may share model capacity)", "",
               "| Arm | Start | End | Elapsed |", "|---|---|---|---|"]
     for a in names:
@@ -542,6 +1021,11 @@ def build_report(
         for role, tok in info["tokens"].items():
             lines.append(f"- {role} model calls in trace: {tok['calls']:,}, "
                          f"prompt tokens {tok['prompt_tokens']:,}, completion tokens {tok['completion_tokens']:,}")
+        if info.get("replies"):
+            lines.append(f"- target replies logged: {info['replies']:,} of {info['target_rows']:,} target rows "
+                         "(text and tool calls, in the trace)")
+        else:
+            lines.append("- target replies: not logged in this run (`trace.log_replies` in the foresight config)")
         exported = sum(len(p.get("aux_export", {}).get("sessions", [])) for p in prov)
         errors = [e for p in prov for e in p.get("aux_export", {}).get("errors", [])]
         if any("aux_export" in p for p in prov):
@@ -566,7 +1050,7 @@ def build_report(
     return "\n".join(lines) + "\n"
 
 
-def make_plots(out: Path, arms: dict, collected: dict, notes: list[str]) -> None:
+def make_plots(out: Path, arms: dict, collected: dict, notes: list[str], metrics: list[dict] | None = None) -> None:
     try:
         import matplotlib
 
@@ -621,6 +1105,37 @@ def make_plots(out: Path, arms: dict, collected: dict, notes: list[str]) -> None
     fig.savefig(out / "plots" / "results_gap_per_epoch.png", dpi=150, facecolor=surface)
     plt.close(fig)
 
+    def metric_figure(key: str, title: str, filename: str) -> None:
+        series: dict = {}
+        for row in metrics or []:
+            if row.get(key) is not None:
+                series.setdefault((row["task_id"], row["arm"]), []).append((row["epoch"], row[key]))
+        if not series:
+            return
+        fig2, axes2 = plt.subplots(rows, cols, figsize=(4.4 * cols, 3.6 * rows), facecolor=surface, squeeze=False)
+        flat2 = list(axes2.flat)
+        for ax, tid in zip(flat2, task_ids):
+            style(ax)
+            for color, arm in zip(palette, names):
+                points = sorted(series.get((tid, arm), []))
+                if points:
+                    ax.plot([x for x, _ in points], [y for _, y in points], color=color, lw=2,
+                            marker="o", ms=6, mec=surface, mew=2, zorder=3)
+            ax.set_title(short(tid), loc="left", fontsize=11, fontweight="bold", color=ink)
+            ax.set_xlabel("epoch (0 = starting state)", fontsize=9, color=muted)
+        for ax in flat2[len(task_ids):]:
+            ax.axis("off")
+        flat2[len(task_ids)].legend(handles=legend[:len(names)], loc="upper left", frameon=False, labelcolor=ink)
+        fig2.suptitle(title, x=0.02, ha="left", fontsize=14, fontweight="bold", color=ink)
+        fig2.tight_layout(rect=(0, 0, 1, 0.95))
+        fig2.savefig(out / "plots" / filename, dpi=150, facecolor=surface)
+        plt.close(fig2)
+
+    metric_figure("cum_lines", "Cumulative lines changed (added + removed), state after each epoch",
+                  "results_churn_per_epoch.png")
+    metric_figure("mi", "Maintainability index after each epoch (higher is better)", "results_mi_per_epoch.png")
+    metric_figure("pylint", "pylint note after each epoch (higher is better)", "results_pylint_per_epoch.png")
+
     scores = {a: parse_summary(out / "data" / a / "summary.txt", task_ids) for a in names}
     if not all(scores.values()):
         notes.append("EvoScore plot skipped: a summary.txt is missing")
@@ -653,15 +1168,21 @@ def make_plots(out: Path, arms: dict, collected: dict, notes: list[str]) -> None
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--label", required=True, help="results/<label>/ unless --out is given")
+    p.add_argument("--label", default=None,
+                   help="results/<label>/. Default: ab-test__swe-ci__rows-<rows>__ep<epochs>, from the data")
     p.add_argument("--out", type=Path, default=None)
     p.add_argument("--swe-ci-dir", type=Path, default=REPO.parent / "SWE-CI")
     p.add_argument("--arm", action="append", required=True, metavar="NAME=EXPERIMENT[:CONFIG]",
                    help="repeatable; CONFIG is a file name inside --swe-ci-dir")
     p.add_argument("--trace", action="append", default=[], metavar="ARM=PATH")
     p.add_argument("--aux-export-dir", action="append", default=[], metavar="ARM=DIR")
+    p.add_argument("--stdout-log", action="append", default=[], metavar="ARM=PATH",
+                   help="the nohup output of `swe_ci.evaluate` for that arm (small; keeps a crash traceback)")
     p.add_argument("--foresight-config", type=Path, default=None)
     p.add_argument("--model-url", action="append", default=[], metavar="NAME=URL")
+    p.add_argument("--metadata-csv", type=Path, default=None,
+                   help="the FULL benchmark csv, for row numbers and commits; default "
+                        "<swe-ci-dir>/metadata/<splitting>.csv (pass the untrimmed copy if you trimmed it)")
     p.add_argument("--swe-ci-python", default=None, help="default: <swe-ci-dir>/.venv/bin/python")
     p.add_argument("--foresight-rev", default=None,
                    help="commit the run used, when this checkout has moved on since")
@@ -669,9 +1190,14 @@ def main(argv: list[str] | None = None) -> int:
                    help="local time offset from UTC of the machine that ran SWE-CI (default: this machine)")
     p.add_argument("--with-tracebacks", action="store_true", help="also copy each epoch's per-test tracebacks")
     p.add_argument("--no-plots", action="store_true")
+    p.add_argument("--no-score", action="store_true", help="skip maintainability index and pylint")
+    p.add_argument("--no-pylint", action="store_true", help="maintainability index only (much faster)")
+    p.add_argument("--score-jobs", type=int, default=2, help="snapshots scored in parallel")
+    p.add_argument("--score-timeout", type=float, default=1800.0, help="seconds per snapshot")
+    p.add_argument("--score-exclude", action="append", default=None,
+                   help="top-level dir to leave out of the scores (default: tests); repeatable")
     args = p.parse_args(argv)
 
-    out = args.out or (REPO / "results" / args.label)
     swe_ci_dir = args.swe_ci_dir.resolve()
     python = args.swe_ci_python or str(swe_ci_dir / ".venv" / "bin" / "python")
     arms: dict[str, dict] = {}
@@ -682,12 +1208,37 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"--arm expects NAME=EXPERIMENT[:CONFIG], got {value!r}")
         arms[name] = {"experiment": experiment, "config": config or None}
     traces, exports = parse_kv(args.trace, "--trace"), parse_kv(args.aux_export_dir, "--aux-export-dir")
-    for name in list(traces) + list(exports):
+    stdout_logs = parse_kv(args.stdout_log, "--stdout-log")
+    for name in list(traces) + list(exports) + list(stdout_logs):
         if name not in arms:
-            raise SystemExit(f"--trace/--aux-export-dir names an arm that is not given: {name!r}")
+            raise SystemExit(f"--trace/--aux-export-dir/--stdout-log names an arm that is not given: {name!r}")
+
+    # What the run was, before anything is copied: the label is derived from it.
+    config_values = {}
+    for name, spec in arms.items():
+        if spec["config"] and (swe_ci_dir / spec["config"]).is_file():
+            config_values[name] = read_config_values(
+                (swe_ci_dir / spec["config"]).read_text(encoding="utf-8", errors="replace"))
+    first_cfg = next(iter(config_values.values()), {})
+    splitting = first_cfg.get("splitting", "default")
+    csv_path = args.metadata_csv or (swe_ci_dir / "metadata" / f"{splitting}.csv")
+    task_rows = load_task_rows(csv_path)
+    all_tasks = sorted({t for spec in arms.values() for t in discover_tasks(swe_ci_dir, spec["experiment"])})
+    rows = [task_rows[t]["row"] for t in all_tasks if t in task_rows]
+    label = args.label
+    if not label:
+        max_epoch = first_cfg.get("evolve.max_epoch")
+        if not rows or not max_epoch:
+            raise SystemExit("cannot derive a label (no matching rows in the csv, or no config with "
+                             "evolve.max_epoch): pass --label, and --metadata-csv if the csv was trimmed")
+        label = LABEL_TEMPLATE.format(rows=range_str(rows), epochs=max_epoch)
+    out = args.out or (REPO / "results" / label)
 
     out.mkdir(parents=True, exist_ok=True)
     notes: list[str] = []
+    if all_tasks and len(rows) < len(all_tasks):
+        notes.append(f"{len(all_tasks) - len(rows)} task(s) not found in {csv_path.name}: row numbers "
+                     "unknown (pass --metadata-csv with the untrimmed benchmark csv)")
     collected, trace_info, export_counts = {}, {}, {}
     for name, spec in arms.items():
         collected[name] = collect_arm(name, spec["experiment"], swe_ci_dir, out,
@@ -699,6 +1250,8 @@ def main(argv: list[str] | None = None) -> int:
                 trace_info[name] = collect_trace(name, path, collected[name]["tasks"], out, args.tz_offset_hours)
             else:
                 notes.append(f"{name}: trace {path} not found")
+        if name in stdout_logs and not copy_stdout_log(name, Path(stdout_logs[name]), out):
+            notes.append(f"{name}: stdout log {stdout_logs[name]} not found")
         if name in exports:
             path = Path(exports[name])
             export_counts[name] = copy_aux_export(name, path, out) if path.is_dir() else 0
@@ -707,10 +1260,45 @@ def main(argv: list[str] | None = None) -> int:
     copy_configs(swe_ci_dir, arms, args.foresight_config, out)
     write_environment(out, swe_ci_dir, parse_kv(args.model_url, "--model-url"), args.foresight_rev,
                       ["collect_swe_ci_ab.py"] + argv)
+
+    manifest = build_manifest(label, arms, collected, task_rows, config_values, csv_path.name,
+                              args.foresight_rev, swe_ci_dir, argv, ensure_server_side(out))
+    (out / "manifest.json").write_text(json.dumps(manifest, indent=1), encoding="utf-8")
+    if manifest["settings_identical_across_arms"] is False:
+        notes.append("the arms' SWE-CI settings differ beyond experiment name, base_url and model: "
+                     f"{sorted(manifest['settings_differences'])}")
+
+    # Per-epoch code change and code quality, from the epoch archive folders.
+    scores: dict[Path, dict] = {}
+    score_py = swe_ci_dir / "src" / "swe_ci" / "benchmark" / "utils" / "score.py"
+    scored = False
+    if not args.no_score:
+        dirs = sorted({d for c in collected.values() for st in c["states"].values()
+                       for e in st.values() for d in (e["start"], e["result"]) if d is not None})
+        if Path(python).exists() and score_py.is_file() and dirs:
+            scores = score_snapshots(dirs, python, REPO / "tools" / "swe_ci_score_helper.py", score_py,
+                                     args.score_exclude or ["tests"], not args.no_pylint,
+                                     args.score_timeout, args.score_jobs)
+            scored = True
+            failed = [d.parent.name + "/" + d.name for d, r in scores.items() if r.get("error")]
+            if failed:
+                notes.append(f"{len(failed)} snapshot(s) could not be scored, e.g. {failed[0]}: "
+                             f"{scores[next(d for d, r in scores.items() if r.get('error'))]['error']}")
+        else:
+            notes.append("maintainability scores skipped: no SWE-CI python / score.py, or no epoch snapshots")
+    metrics: list[dict] = []
+    for name in arms:
+        for task_id, states in collected[name]["states"].items():
+            metrics += build_metrics(name, task_id, out, collected[name]["tasks"][task_id], states, scores)
+    write_metrics_csv(out, metrics)
+    for name, info in trace_info.items():
+        write_aux_pairs(out, name, info["sessions"], {t["task_id"]: t for t in manifest["tasks"]})
+
     if not args.no_plots:
-        make_plots(out, arms, collected, notes)
+        make_plots(out, arms, collected, notes, metrics)
     (out / "RUN.md").write_text(
-        build_report(args.label, out, arms, collected, trace_info, export_counts, notes), encoding="utf-8"
+        build_report(label, out, arms, collected, trace_info, export_counts, notes, manifest, metrics, scored),
+        encoding="utf-8",
     )
     print(f"collected {len(arms)} arm(s) into {out}")
     for note in notes:

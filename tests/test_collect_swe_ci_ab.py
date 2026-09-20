@@ -29,6 +29,8 @@ import collect_swe_ci_ab as collector  # noqa: E402
 
 TASK_A = "owner__alpha__aaaaaa__bbbbbb"
 TASK_B = "owner__beta__cccccc__dddddd"
+REQ_TWO = ("<requirements><requirement><location>/app/code/a.py</location>"
+           "<description>make x three</description></requirement></requirements>")
 
 
 def log_line(when: str, task: str, message: str, level: str = "INFO") -> str:
@@ -79,7 +81,7 @@ def swe_ci(tmp_path: Path) -> Path:
     ]) + "\n")
     (a / "iteration.jsonl").write_text(iteration((5, 10), (4, 11), (2, 13)))
     make_archive(a, "2026-09-19-10-00-05", "x = 1\n", failing='{"test": "t1"}\n', requirement="<req>one</req>")
-    make_archive(a, "2026-09-19-10-01-10", "x = 2\n", failing='{"test": "t2"}\n', requirement="<req>two</req>")
+    make_archive(a, "2026-09-19-10-01-10", "x = 2\n", failing='{"test": "t2"}\n', requirement=REQ_TWO)
     make_archive(a, "2026-09-19-10-02-10", "x = 3\n", failing='{"test": "t3"}\n')  # final: +60 s
 
     # Task B: epoch 1 normal (v1 -> v2); epoch 2 broke pytest (tmp = broken code).
@@ -98,7 +100,22 @@ def swe_ci(tmp_path: Path) -> Path:
     make_archive(b, "2026-09-19-10-10-40", "x = (\n")                       # the broken tmp
     make_archive(b, "2026-09-19-10-11-40", "x = 2\n", failing='{"test": "b2"}\n', requirement="<req>b-two</req>")
 
-    (root / "cfg.toml").write_text('splitting = "default"\napi_key = "sk-secret123"\nhf_token = "none"\n')
+    (root / "cfg.toml").write_text(
+        'splitting = "default"\napi_key = "sk-secret123"\nhf_token = "none"\n'
+        '[evolve]\nmax_epoch = 2\nmax_workers = 1\n[evolve.architect]\nmax_try = 3\n'
+    )
+    # The benchmark csv: A and B are rows 6 and 7 of it.
+    (root / "metadata").mkdir()
+    lines = ["task_id,repo_name,url,licence,current_sha,target_sha,test_gap,image_sha,code_sha"]
+    for n in range(1, 6):
+        lines.append(f"filler{n},o/f{n},https://x/f{n}.git,MIT,{'0' * 40},{'1' * 40},3,i,c")
+    lines.append(f"{TASK_A},owner/alpha,https://github.com/owner/alpha.git,MIT,{'a' * 40},{'b' * 40},5,i,c")
+    lines.append(f"{TASK_B},owner/beta,https://github.com/owner/beta.git,MIT,{'c' * 40},{'d' * 40},3,i,c")
+    (root / "metadata" / "default.csv").write_text("\n".join(lines) + "\n")
+    # Stands in for SWE-CI's score.py: only its PATH is checked, the scorer itself is faked below.
+    score_dir = root / "src" / "swe_ci" / "benchmark" / "utils"
+    score_dir.mkdir(parents=True)
+    (score_dir / "score.py").write_text("")
     return root
 
 
@@ -150,7 +167,7 @@ def test_each_epoch_gets_its_requirement_failing_tests_and_edit(swe_ci, tmp_path
 
     # Epoch 2's start is the folder named for ITS end, and its result the final folder.
     e2 = out / "data" / "control" / TASK_A / "epoch_2"
-    assert (e2 / "requirement.xml").read_text() == "<req>two</req>"
+    assert (e2 / "requirement.xml").read_text() == REQ_TWO
     assert "-x = 2" in (e2 / "edit.diff").read_text() and "+x = 3" in (e2 / "edit.diff").read_text()
 
 
@@ -316,3 +333,314 @@ def test_a_missing_experiment_is_a_clear_error(swe_ci, tmp_path):
     with pytest.raises(SystemExit, match="no experiment folder"):
         collector.main(["--label", "t", "--out", str(tmp_path / "o"), "--swe-ci-dir", str(swe_ci),
                         "--arm", "control=missing", "--no-plots"])
+
+
+# -- rows, commits, settings: the manifest -----------------------------------
+
+
+def test_range_str():
+    assert collector.range_str([6, 7, 8, 9, 10]) == "6-10"
+    assert collector.range_str([1, 2, 5]) == "1-2_5"
+    assert collector.range_str([3]) == "3"
+    assert collector.range_str([10, 6, 8, 7, 9, 6]) == "6-10"
+
+
+def test_config_values_are_read_flat_with_their_section():
+    values = collector.read_config_values(
+        'experiment_name = "x"   # a comment\nmode = "tdd"\n[evolve]\nmax_epoch = 20\n'
+        '[evolve.architect]\nmax_try = 3\n'
+    )
+    assert values["experiment_name"] == "x" and values["mode"] == "tdd"
+    assert values["evolve.max_epoch"] == "20" and values["evolve.architect.max_try"] == "3"
+
+
+def test_the_label_is_derived_from_the_rows_and_epochs(swe_ci, tmp_path):
+    out = tmp_path / "out"
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--no-plots", "--no-score", "--foresight-rev", "abc"])
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["label"] == "ab-test__swe-ci__rows-6-7__ep2"
+    assert manifest["rows"] == [6, 7] and manifest["rows_range"] == "6-7" and manifest["max_epoch"] == 2
+    assert (out / "RUN.md").read_text().startswith("# ab-test__swe-ci__rows-6-7__ep2")
+
+
+def test_the_manifest_carries_each_tasks_commits_from_the_benchmark(swe_ci, tmp_path):
+    out = tmp_path / "out"
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--no-plots", "--no-score", "--foresight-rev", "abc"])
+    manifest = json.loads((out / "manifest.json").read_text())
+    alpha = manifest["tasks"][0]
+    assert alpha["task_id"] == TASK_A and alpha["row"] == 6 and alpha["repo"] == "owner/alpha"
+    assert alpha["current_sha"] == "a" * 40 and alpha["target_sha"] == "b" * 40
+    report = (out / "RUN.md").read_text()
+    assert "`aaaaaaaaaa` -> `bbbbbbbbbb`" in report and "owner/alpha" in report
+
+
+def test_a_label_cannot_be_derived_without_rows_so_one_must_be_given(swe_ci, tmp_path):
+    (swe_ci / "metadata" / "default.csv").write_text("task_id,repo_name\n")     # a trimmed-away csv
+    with pytest.raises(SystemExit, match="--label"):
+        collector.main(["--out", str(tmp_path / "o"), "--swe-ci-dir", str(swe_ci),
+                        "--arm", "control=exp1:cfg.toml", "--no-plots", "--no-score"])
+
+
+def test_settings_that_differ_between_arms_are_flagged(swe_ci, tmp_path):
+    import shutil
+
+    shutil.copytree(swe_ci / "experiments" / "exp1", swe_ci / "experiments" / "exp2")
+    (swe_ci / "cfg2.toml").write_text(       # top-level keys first, as in a real SWE-CI config
+        'base_url = "http://elsewhere"\n' + (swe_ci / "cfg.toml").read_text().replace("max_try = 3", "max_try = 5")
+    )
+    out = tmp_path / "out"
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--arm", "foresight=exp2:cfg2.toml", "--no-plots", "--no-score", "--foresight-rev", "a"])
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["settings_identical_across_arms"] is False
+    # base_url is per-arm plumbing and must not count; max_try must.
+    assert list(manifest["settings_differences"]) == ["evolve.architect.max_try"]
+    assert "DIFFERS `evolve.architect.max_try`" in (out / "RUN.md").read_text()
+
+
+def test_identical_settings_are_confirmed(swe_ci, tmp_path):
+    import shutil
+
+    shutil.copytree(swe_ci / "experiments" / "exp1", swe_ci / "experiments" / "exp2")
+    (swe_ci / "cfg2.toml").write_text('experiment_name = "other"\n' + (swe_ci / "cfg.toml").read_text())
+    out = tmp_path / "out"
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--arm", "foresight=exp2:cfg2.toml", "--no-plots", "--no-score", "--foresight-rev", "a"])
+    assert json.loads((out / "manifest.json").read_text())["settings_identical_across_arms"] is True
+
+
+# -- code change and code quality per epoch ----------------------------------
+
+DIFF = """diff -ruN a/x.py b/x.py
+--- a/x.py\t2026-01-01
++++ b/x.py\t2026-01-02
+@@ -1,3 +1,3 @@
+ keep
+--- a comment that begins with two dashes
++added one
++added two
+-plain removal
+diff -ruN a/tests/test_x.py b/tests/test_x.py
+--- a/tests/test_x.py
++++ b/tests/test_x.py
+@@ -1 +1 @@
+-old
++new
+"""
+
+
+def test_diffstat_counts_inside_hunks_and_is_not_fooled_by_dashes():
+    stat = collector.diffstat(DIFF)
+    # "--- a comment" is a REMOVED line (its text starts with "-- "), not a file header.
+    assert stat == {"files": 2, "added": 3, "removed": 3, "test_files": 1}
+
+
+@pytest.mark.parametrize("path, expected", [
+    ("tests/test_a.py", True), ("pkg/tests/helpers.py", True), ("conftest.py", True),
+    ("pkg/test_thing.py", True), ("pkg/thing_test.py", True), ("pkg/core.py", False),
+    ("src/testing_utils.py", False),
+])
+def test_test_paths(path, expected):
+    assert collector.is_test_path(path) is expected
+
+
+def fake_scores(directory_scores):
+    def score(dirs, *args, **kwargs):
+        return {d: directory_scores.get(d.name, {"mi": 50.0, "pylint": 5.0}) for d in dirs}
+    return score
+
+
+def test_metrics_follow_every_epoch_end_and_hold_state_over_a_broken_epoch(swe_ci, tmp_path, monkeypatch):
+    monkeypatch.setattr(collector, "score_snapshots", fake_scores({
+        "2026-09-19-10-00-05": {"mi": 40.0, "pylint": 4.0},     # A: start of epoch 1 (state 0)
+        "2026-09-19-10-01-10": {"mi": 44.0, "pylint": 4.5},     # A: after epoch 1
+        "2026-09-19-10-02-10": {"mi": 47.0, "pylint": 5.0},     # A: after epoch 2 (final)
+    }))
+    out = tmp_path / "out"
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--no-plots", "--swe-ci-python", sys.executable, "--foresight-rev", "abc"])
+
+    import csv
+
+    rows = list(csv.DictReader((out / "metrics.csv").open()))
+    a = [r for r in rows if r["task_id"] == TASK_A]
+    assert [r["epoch"] for r in a] == ["0", "1", "2"]
+    assert [r["mi"] for r in a] == ["40.0", "44.0", "47.0"]           # the state AFTER each epoch
+    assert (a[1]["edit_added"], a[1]["edit_removed"]) == ("1", "1")   # x = 1 -> x = 2
+    assert (a[2]["cum_added"], a[2]["cum_removed"], a[2]["cum_lines"]) == ("2", "2", "4")
+    assert [r["gap"] for r in a] == ["5", "4", "2"]
+
+    b = [r for r in rows if r["task_id"] == TASK_B]
+    assert [r["accepted"] for r in b] == ["True", "True", "False"]
+    assert b[2]["gap"] == ""                                           # pytest did not run
+    assert b[2]["mi"] == b[1]["mi"]                                    # SWE-CI kept the previous code
+    assert b[2]["edit_added"] != ""                                    # the attempted edit is still counted
+    assert b[2]["cum_lines"] == b[1]["cum_lines"]                      # ... but not accumulated
+    report = (out / "RUN.md").read_text()
+    assert "+1/-1, +1/-1" in report and "!" in report                 # churn table, broken epoch marked
+
+
+def test_scoring_can_be_skipped(swe_ci, tmp_path, monkeypatch):
+    def boom(*a, **k):
+        raise AssertionError("must not score")
+
+    monkeypatch.setattr(collector, "score_snapshots", boom)
+    out = tmp_path / "out"
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--no-plots", "--no-score", "--foresight-rev", "abc"])
+    import csv
+
+    assert all(r["mi"] == "" for r in csv.DictReader((out / "metrics.csv").open()))
+
+
+# -- the aux / base task pairing table ---------------------------------------
+
+
+def test_each_aux_answer_is_paired_with_its_base_task(swe_ci, trace, tmp_path):
+    out = tmp_path / "out"
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--trace", f"control={trace}", "--tz-offset-hours", "0", "--no-plots", "--no-score",
+                    "--foresight-rev", "abc"])
+    text = (out / "data" / "control" / "AUX_PAIRS.md").read_text()
+    # Architect session (epoch 1): the failing tests it started from.
+    assert "alpha aaaaaa, epoch 1, architect" in text and "`t1`" in text
+    assert "evolve `owner/alpha` from `aaaaaaaaaa` until the tests of `bbbbbbbbbb` pass" in text
+    assert "> epoch one architect future tasks" in text
+    # Programmer session (epoch 2): the requirement.xml it was working from.
+    assert "alpha aaaaaa, epoch 2, programmer" in text and "make x three" in text
+    assert "> epoch two programmer future tasks" in text
+
+
+def test_a_model_line_recorded_while_the_server_was_up_survives_a_later_collection(swe_ci, tmp_path, monkeypatch):
+    """Slurm model jobs expire; a re-collection must not erase what was served."""
+    out = tmp_path / "out"
+    args = ["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+            "--no-plots", "--no-score", "--foresight-rev", "abc", "--model-url", "target=http://gone/v1"]
+    monkeypatch.setattr(collector, "model_info", lambda url: "served=target-model root=Qwen/X max_model_len=262144")
+    collector.main(args)
+    monkeypatch.setattr(collector, "model_info", lambda url: "unreachable (URLError)")
+    collector.main(args)
+    collector.main(args)                                     # a third time must not stack the note
+    line = next(l for l in (out / "environment.txt").read_text().splitlines() if l.startswith("model[target]"))
+    assert "root=Qwen/X" in line and "max_model_len=262144" in line
+    assert line.count("kept from an earlier collection") == 1
+
+
+def test_an_endpoint_never_seen_up_is_reported_unreachable(swe_ci, tmp_path, monkeypatch):
+    out = tmp_path / "out"
+    monkeypatch.setattr(collector, "model_info", lambda url: "unreachable (URLError)")
+    collector.main(["--out", str(out), "--swe-ci-dir", str(swe_ci), "--arm", "control=exp1:cfg.toml",
+                    "--no-plots", "--no-score", "--foresight-rev", "abc", "--model-url", "target=http://gone/v1"])
+    assert "unreachable (URLError)" in (out / "environment.txt").read_text()
+
+
+# -- macOS AppleDouble sidecars ("._name") -----------------------------------
+
+
+def test_sidecar_files_are_left_out_of_the_code_diff(tmp_path):
+    """On an external volume macOS writes ._x beside every moved file; they are not code."""
+    def snapshot(name, code, sidecar):
+        folder = tmp_path / name
+        (folder / "code").mkdir(parents=True)
+        (folder / "code" / "a.py").write_text(code)
+        if sidecar:
+            (folder / "code" / "._a.py").write_bytes(b"\x00\x05\x16\x07 appledouble")
+        return folder
+
+    diff = collector.code_diff(snapshot("before", "x = 1\n", False), snapshot("after", "x = 2\n", True))
+    assert "+x = 2" in diff
+    assert "._a.py" not in diff
+    assert collector.diffstat(diff)["files"] == 1
+
+
+def test_pylint_is_told_to_ignore_sidecars_and_the_excluded_dirs():
+    sys.path.insert(0, str(REPO / "tools"))
+    import swe_ci_score_helper as helper
+
+    args = helper.pylint_args(Path("/snap/code"), ["tests"])
+    assert "--recursive=y" in args and "-j1" in args          # SWE-CI's own call scans nothing
+    assert r"--ignore-patterns=^\._" in args
+    assert any(a.startswith("--ignore-paths=") and "/snap/code/tests" in a for a in args)
+
+
+# -- the failing tests after the last epoch, stdout logs, logged replies ------
+
+
+def test_the_failing_tests_after_the_last_epoch_are_saved(swe_ci, tmp_path):
+    out = tmp_path / "out"
+    run_collector(swe_ci, out)
+    # Task A: the final folder holds the state after epoch 2 (t3), not epoch 2's start (t2).
+    final = out / "data" / "control" / TASK_A / "final" / "non-passed" / "summary.jsonl"
+    assert final.read_text() == '{"test": "t3"}\n'
+    assert (out / "data" / "control" / TASK_A / "epoch_2" / "non-passed" / "summary.jsonl").read_text() == '{"test": "t2"}\n'
+
+
+def test_after_an_epoch_that_could_not_run_the_final_state_is_the_last_accepted_one(swe_ci, tmp_path):
+    out = tmp_path / "out"
+    run_collector(swe_ci, out)
+    final = out / "data" / "control" / TASK_B / "final" / "non-passed" / "summary.jsonl"
+    assert final.read_text() == '{"test": "b2"}\n'      # not the broken tmp/, which has no failing-test list
+
+
+def test_tracebacks_of_the_final_state_follow_the_flag(swe_ci, tmp_path):
+    run_collector(swe_ci, tmp_path / "plain")
+    run_collector(swe_ci, tmp_path / "full", "--with-tracebacks")
+    plain = tmp_path / "plain" / "data" / "control" / TASK_A / "final" / "non-passed"
+    full = tmp_path / "full" / "data" / "control" / TASK_A / "final" / "non-passed"
+    assert not (plain / "tests_a.py__test_x").exists() and (full / "tests_a.py__test_x").is_file()
+
+
+def test_the_stdout_log_is_copied_without_colour_codes_or_secrets(swe_ci, tmp_path):
+    log = tmp_path / "control.log"
+    log.write_text("\x1b[1mAVERAGE\x1b[0m 0.1\n api_key = \"sk-real-secret-value\"\n")
+    out = tmp_path / "out"
+    run_collector(swe_ci, out, "--stdout-log", f"control={log}")
+    text = (out / "data" / "control" / "swe_ci_stdout.log").read_text()
+    assert "AVERAGE 0.1" in text and "\x1b" not in text and "sk-real-secret-value" not in text
+
+
+def test_a_missing_stdout_log_is_a_note_not_a_failure(swe_ci, tmp_path, capsys):
+    assert run_collector(swe_ci, tmp_path / "out", "--stdout-log", f"control={tmp_path / 'nope.log'}") == 0
+    assert "stdout log" in capsys.readouterr().err
+
+
+def test_the_report_says_whether_target_replies_were_logged(swe_ci, trace, tmp_path):
+    with_replies = tmp_path / "with.jsonl"
+    rows = [json.loads(l) for l in trace.read_text().splitlines()]
+    for row in rows:
+        if row["role"] == "target":
+            row["reply"] = {"content": "hi", "tool_calls": [], "finish_reason": "stop", "truncated": False}
+    with_replies.write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+    out1, out2 = tmp_path / "o1", tmp_path / "o2"
+    run_collector(swe_ci, out1, "--trace", f"control={with_replies}")
+    run_collector(swe_ci, out2, "--trace", f"control={trace}")
+    assert "target replies logged: 2 of 2 target rows" in (out1 / "RUN.md").read_text()
+    assert "target replies: not logged in this run" in (out2 / "RUN.md").read_text()
+
+
+# -- server-side/: filled in by the model-server side after collection ----------
+
+
+def test_a_server_side_checklist_is_created_and_reported_as_not_filled(swe_ci, tmp_path):
+    out = tmp_path / "out"
+    run_collector(swe_ci, out)
+    assert "sampling defaults" in (out / "server-side" / "TEMPLATE.md").read_text()
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["server_side"] == {"filled": False, "files": []}
+    assert "server side" in (out / "RUN.md").read_text() and "not added yet" in (out / "RUN.md").read_text()
+
+
+def test_what_the_server_side_adds_survives_a_recollection(swe_ci, tmp_path):
+    """The whole point: they add files AFTER our collection, and a re-run must not lose them."""
+    out = tmp_path / "out"
+    run_collector(swe_ci, out)
+    (out / "server-side" / "setup.md").write_text("vLLM 0.29.0, gpu-b200, jobs 911023 / 911146\n")
+    (out / "server-side" / "TEMPLATE.md").write_text("edited by them\n")
+    run_collector(swe_ci, out)
+    assert (out / "server-side" / "setup.md").read_text().startswith("vLLM 0.29.0")
+    assert (out / "server-side" / "TEMPLATE.md").read_text() == "edited by them\n"   # not regenerated
+    manifest = json.loads((out / "manifest.json").read_text())
+    assert manifest["server_side"] == {"filled": True, "files": ["setup.md"]}
+    assert "1 file(s): setup.md" in (out / "RUN.md").read_text()
