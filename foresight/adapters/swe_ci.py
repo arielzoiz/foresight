@@ -110,6 +110,7 @@ import functools
 import json
 import logging
 import re
+import shlex
 import subprocess
 import time
 import uuid
@@ -157,6 +158,9 @@ PROGRAMMER_MARKER = "You are a senior programmer"
 #: string key, and taking a dependency for a startup sanity check would be out
 #: of proportion.
 _AGENT_NAME_RE = re.compile(r"""(?m)^[ \t]*agent_name[ \t]*=[ \t]*["']([^"']+)["']""")
+
+#: opencode's session ids, as `opencode session list` prints them.
+_SESSION_ID_RE = re.compile(r"ses_[A-Za-z0-9]{20,}")
 
 #: How long to wait, after killing a timed-out `docker exec`, for its pipes to
 #: close. Only the local client is killed, so the in-container harness may
@@ -217,6 +221,26 @@ class SweCiAdapter(CallerAdapter):
         self._env = env
 
         self._check_agent_name(options.swe_ci_config)
+
+        # Off by default, so a config that never mentions it behaves exactly as
+        # before. Checked here rather than at the first export because the
+        # export runs once per session, deep inside a benchmark run: an
+        # unwritable directory should stop the server at startup, not silently
+        # cost every transcript of an overnight run.
+        self._export_dir: Path | None = None
+        self._export_bin = options.aux_export_bin or self._agent_cmd[0]
+        if options.aux_export_dir:
+            export_dir = Path(options.aux_export_dir).expanduser()
+            try:
+                export_dir.mkdir(parents=True, exist_ok=True)
+                probe = export_dir / f".write-test-{uuid.uuid4().hex[:8]}"
+                probe.write_text("")
+                probe.unlink()
+            except OSError as exc:
+                raise ConfigError(
+                    f"adapter.aux_export_dir {str(export_dir)!r} is not writable: {exc}"
+                ) from exc
+            self._export_dir = export_dir
 
         # ip -> (container_id, how_it_was_resolved). Re-resolved at every
         # session start rather than trusted forever: Docker recycles
@@ -401,6 +425,18 @@ class SweCiAdapter(CallerAdapter):
         code, stdout, stderr, timed_out = await self._spawn(argv, self._timeout_s)
         duration = time.monotonic() - started
 
+        # The container is deleted when SWE-CI ends the session, and with it the
+        # only copy of what aux actually did, so this is the last chance to save
+        # it. Done on every path -- including a timeout or an empty answer,
+        # where the transcript is exactly what explains the failure -- and
+        # BEFORE the guard's verify below, so that anything these extra
+        # invocations write under the workspace is caught like aux's own
+        # writes. `duration` is taken above so the export never counts as aux
+        # time.
+        export = None
+        if self._export_dir is not None:
+            export = await self._export_aux_sessions(container_id, timed_out=timed_out)
+
         # Checked before the answer is even read: if aux both contaminated the
         # workspace and produced text, the contamination is the thing that
         # invalidates the instance. Under SWE-CI an edit below /app/code is
@@ -426,24 +462,118 @@ class SweCiAdapter(CallerAdapter):
                 f"stdout: {_tail(stdout, 200)} stderr: {_tail(stderr, 200)}"
             )
 
-        return AuxResult(
-            text=text,
-            source="agent",
-            provenance={
-                "adapter": self.name,
-                "container_id": container_id,
-                "resolved_by": resolved_by,
-                "workspace": self._workspace,
-                "command": self._agent_cmd[0],
-                "returncode": code,
-                "duration_s": round(duration, 3),
-                "answer_from": self._answer_from,
-                "guard": None if guard is None else "intact",
-                "fallback": None,
-                "valid_condition": True,
-                "stdout_tail": _tail(stdout),
-            },
-        )
+        provenance = {
+            "adapter": self.name,
+            "container_id": container_id,
+            "resolved_by": resolved_by,
+            "workspace": self._workspace,
+            "command": self._agent_cmd[0],
+            "returncode": code,
+            "duration_s": round(duration, 3),
+            "answer_from": self._answer_from,
+            "guard": None if guard is None else "intact",
+            "fallback": None,
+            "valid_condition": True,
+            "stdout_tail": _tail(stdout),
+        }
+        # Only when enabled, so a run that does not use it records exactly the
+        # provenance it always did.
+        if export is not None:
+            provenance["aux_export"] = export
+        return AuxResult(text=text, source="agent", provenance=provenance)
+
+    # -- aux transcript export -----------------------------------------------
+
+    async def _export_aux_sessions(
+        self, container_id: str, *, timed_out: bool
+    ) -> dict:
+        """Save aux's opencode sessions out of the container. Never raises.
+
+        ``session list`` finds the ids, ``export <id>`` dumps each one (every
+        message, tool call, input and output) as JSON, written to
+        ``<aux_export_dir>/<id>.json``. Two rules carried over from
+        ``deploy/tau-slurm/foresight.sbatch``, learned the hard way there:
+        always pass an explicit session id (a bare ``export`` blocks forever
+        waiting on input), and always bound the call (a killed opencode leaves
+        a lock that makes every later command in that home hang -- here that is
+        bounded by the spawn timeout, shorter after an aux timeout, when the
+        harness may still be running).
+
+        Sessions are scoped to aux's own ``HOME`` inside this one container, so
+        unlike the shared-database case ``foresight.sbatch`` has to filter,
+        every session listed here is this container's. A file that already
+        exists is left alone, so a container reused for a second aux run does
+        not re-export the first run's session.
+
+        Returns ``{"dir", "sessions", "errors"}`` for the aux provenance:
+        ``sessions`` are the ids newly written by this call.
+        """
+        result: dict = {"dir": str(self._export_dir), "sessions": [], "errors": []}
+        limit = 30.0 if timed_out else 60.0
+        try:
+            code, out, err, expired = await self._spawn(
+                self._exec_argv(container_id, [self._export_bin, "session", "list"]),
+                limit,
+            )
+            if expired or code != 0:
+                result["errors"].append(
+                    "session list "
+                    + ("timed out" if expired else f"failed (exit {code}): {_tail(err, 200)}")
+                )
+                return result
+            for session_id in dict.fromkeys(_SESSION_ID_RE.findall(out)):
+                dest = self._export_dir / f"{session_id}.json"
+                if dest.exists():
+                    continue
+                # Through a file, never straight down the exec pipe. Measured
+                # against real opencode in a real container: `opencode export`
+                # exits before its stdout pipe has drained, so anything past the
+                # pipe buffer (64 KiB) is cut off mid-string -- every real
+                # session is larger than that. Redirected to a file it is whole,
+                # and `cat` then reads the file back the way _read_answer does.
+                remote = f"/tmp/foresight-aux-export-{session_id}.json"
+                command = f"{shlex.quote(self._export_bin)} export {session_id} > {remote}"
+                code, _out, err, expired = await self._spawn(
+                    self._exec_argv(container_id, ["sh", "-c", command]), limit
+                )
+                if not expired and code == 0:
+                    code, out, err, expired = await self._spawn(
+                        self._exec_argv(container_id, ["cat", remote]), limit
+                    )
+                await self._exec(container_id, ["rm", "-f", remote], timeout_s=30.0)
+                if expired or code != 0 or not out.strip():
+                    result["errors"].append(
+                        f"export {session_id} "
+                        + ("timed out" if expired else f"failed (exit {code}): {_tail(err, 200)}")
+                    )
+                    continue
+                dump = _extract_json(out)
+                if dump is None:
+                    # Kept rather than dropped: with the raw text on disk a
+                    # failure can be diagnosed, and the session itself is not
+                    # lost -- the container is about to be deleted, so this is
+                    # the only copy there will ever be.
+                    raw = self._export_dir / f"{session_id}.export.txt"
+                    raw.write_text(out, encoding="utf-8")
+                    result["errors"].append(
+                        f"export {session_id} was not valid JSON "
+                        f"(raw output kept as {raw.name}, {len(out)} chars)"
+                    )
+                    continue
+                # Written whole, then renamed, so a reader never sees half of one.
+                part = dest.with_suffix(".json.part")
+                part.write_text(dump, encoding="utf-8")
+                part.replace(dest)
+                result["sessions"].append(session_id)
+        except Exception as exc:  # noqa: BLE001 -- best effort by contract
+            log.warning("swe_ci: aux session export failed in %s: %s", container_id[:12], exc)
+            result["errors"].append(f"{type(exc).__name__}: {exc}")
+        else:
+            log.info(
+                "swe_ci: exported %d aux session(s) from %s (%d error(s))",
+                len(result["sessions"]), container_id[:12], len(result["errors"]),
+            )
+        return result
 
     # -- container resolution ---------------------------------------------
 
@@ -857,6 +987,29 @@ class SweCiAdapter(CallerAdapter):
     ) -> None:
         """Best-effort housekeeping inside the container."""
         await self._spawn(self._exec_argv(container_id, command), timeout_s)
+
+
+def _extract_json(text: str) -> str | None:
+    """The JSON document in ``text``, or None.
+
+    ``opencode export`` prints one JSON object, but a harness may put a banner
+    or a log line ahead of it on the same stream, and a `docker exec` adds
+    nothing of its own. Tries the whole text first, then the span from the
+    first ``{`` to the last ``}``, so a prefix or suffix does not cost the
+    transcript.
+    """
+    text = text.strip()
+    candidates = [text]
+    start, end = text.find("{"), text.rfind("}")
+    if 0 <= start < end:
+        candidates.append(text[start : end + 1])
+    for candidate in candidates:
+        try:
+            json.loads(candidate)
+        except ValueError:
+            continue
+        return candidate
+    return None
 
 
 def _decode(raw: bytes) -> str:

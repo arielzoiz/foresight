@@ -155,6 +155,26 @@ class AdapterOptions(BaseModel):
     server precisely so its traffic bypasses the pipeline and lands in the
     same trace as everything else."""
 
+    aux_export_dir: str | None = None
+    """Host directory to save the aux agent's own session transcripts into
+    (``SweCiAdapter`` only). ``None`` (the default) disables it.
+
+    The trace records how many model calls aux made, and its final answer, but
+    foresight relays aux's traffic as raw bytes and never parses it, so the
+    messages and tool calls (which files aux read, what it saw) are not in it.
+    They live only in opencode's session database, under aux's ``HOME`` inside
+    the task container -- and SWE-CI deletes that container as soon as the
+    session ends. When this is set, the adapter runs ``opencode session list``
+    and ``opencode export <id>`` inside the container right after the aux
+    command finishes, and writes each session to ``<dir>/<session id>.json``:
+    the same shape ``tools/aux_transcript.py`` reads. Best effort -- a failed
+    export is recorded in the aux provenance and never fails the request."""
+
+    aux_export_bin: str | None = None
+    """The harness binary used for ``session list`` / ``export`` when
+    ``aux_export_dir`` is set. Defaults to ``agent_cmd[0]``; set it when that
+    is a wrapper rather than the harness itself."""
+
     session_header_names: list[str] = Field(default_factory=lambda: ["x-session-id"])
     """Request headers, checked in order, that identify a caller's session on
     their own -- no ``docker inspect`` needed. Measured

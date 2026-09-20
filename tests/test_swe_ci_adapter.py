@@ -33,6 +33,7 @@ from foresight.errors import AuxFailure, ConfigError, GuardViolation
 REPO = Path(__file__).resolve().parents[1]
 FAKE_DOCKER = str(REPO / "tools" / "fake_docker.py")
 FAKE_AGENT = str(REPO / "tools" / "fake_agent.py")
+FAKE_OPENCODE = str(REPO / "tools" / "fake_opencode.py")
 
 AUX_PROMPT = (
     "Project at {{ workspace }} in a container. READ ONLY.\n"
@@ -110,6 +111,8 @@ def build(
     swe_ci_config: str | None = None,
     foresight_base_url: str | None = DEFAULT_FORESIGHT_BASE_URL,
     session_header_names: list[str] | None = None,
+    aux_export_dir: str | None = None,
+    aux_export_bin: str | None = None,
 ) -> SweCiAdapter:
     argv = [sys.executable, FAKE_AGENT]
     if answer_from == "file":
@@ -120,6 +123,10 @@ def build(
     kwargs = {}
     if session_header_names is not None:
         kwargs["session_header_names"] = session_header_names
+    if aux_export_dir is not None:
+        kwargs["aux_export_dir"] = aux_export_dir
+    if aux_export_bin is not None:
+        kwargs["aux_export_bin"] = aux_export_bin
 
     return SweCiAdapter(
         aux_backend=StubBackend(reply_text=_body_only_reply()),
@@ -937,3 +944,244 @@ def _runtime_for(config):
 
     config = config.model_copy(update={"trace": config.trace.model_copy(update={"path": None})})
     return Runtime(config, http_client=httpx.AsyncClient())
+
+
+# -- aux transcript export -------------------------------------------------
+
+@pytest.fixture
+def opencode_bin() -> str:
+    """The fake `opencode`, as ONE path, the way a real deployment names its binary."""
+    return FAKE_OPENCODE
+
+
+SESSION_ID = "ses_" + "a1b2c3d4e5f6g7h8i9j0k1l2m3"
+SESSION_ID_2 = "ses_" + "z9y8x7w6v5u4t3s2r1q0p9o8n7"
+
+
+def seed_session(
+    docker: FakeDocker, container: str, session_id: str = SESSION_ID, *, home="/tmp/aux-home"
+) -> dict:
+    """An opencode session on disk under aux's HOME, as `opencode export` would dump it."""
+    dump = {
+        "info": {"id": session_id, "directory": "/app"},
+        "messages": [
+            {"info": {"role": "user"}, "parts": [{"type": "text", "text": "explore"}]},
+            {
+                "info": {"role": "assistant"},
+                "parts": [
+                    {
+                        "type": "tool",
+                        "tool": "read",
+                        "state": {"input": {"filePath": "/app/code/pkg/sync.py"}},
+                    }
+                ],
+            },
+        ],
+    }
+    directory = (
+        docker.rootfs(container) / home.lstrip("/") / ".local" / "share" / "opencode" / "sessions"
+    )
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / f"{session_id}.json").write_text(json.dumps(dump))
+    return dump
+
+
+@pytest.mark.asyncio
+async def test_the_aux_sessions_are_exported_and_recorded(aux_spec, docker, tmp_path, opencode_bin):
+    """The point of the feature: aux's tool calls survive the container."""
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    dump = seed_session(docker, container)
+    out = tmp_path / "aux-agent"
+    adapter = build(docker, aux_spec, aux_export_dir=str(out), aux_export_bin=opencode_bin)
+
+    result = await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    exported = out / f"{SESSION_ID}.json"
+    assert json.loads(exported.read_text()) == dump  # the tool call is in there
+    assert result.provenance["aux_export"] == {
+        "dir": str(out),
+        "sessions": [SESSION_ID],
+        "errors": [],
+    }
+    assert not list(out.glob("*.part"))
+
+
+@pytest.mark.asyncio
+async def test_export_is_off_by_default(aux_spec, docker, tmp_path):
+    """No option, no export, and the provenance keeps the shape it always had."""
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    seed_session(docker, container)
+    adapter = build(docker, aux_spec)
+
+    result = await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    assert "aux_export" not in result.provenance
+
+
+@pytest.mark.asyncio
+async def test_a_session_already_exported_is_not_written_again(aux_spec, docker, tmp_path, opencode_bin):
+    """A reused container must not re-export (or overwrite) an earlier run's session."""
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    seed_session(docker, container)
+    out = tmp_path / "aux-agent"
+    adapter = build(docker, aux_spec, aux_export_dir=str(out), aux_export_bin=opencode_bin)
+    await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    seed_session(docker, container, SESSION_ID_2)
+    second = await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    assert second.provenance["aux_export"]["sessions"] == [SESSION_ID_2]
+    assert sorted(p.name for p in out.glob("*.json")) == sorted(
+        [f"{SESSION_ID}.json", f"{SESSION_ID_2}.json"]
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mode, needle",
+    [
+        ("list_fail", "session list failed"),
+        ("export_fail", "failed (exit 4)"),
+        ("bad_json", "not valid JSON"),
+    ],
+)
+async def test_a_failed_export_never_fails_the_aux_run(
+    aux_spec, docker, tmp_path, opencode_bin, mode, needle
+):
+    """Best effort: losing a transcript must not cost the request its aux answer."""
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    seed_session(docker, container)
+    out = tmp_path / "aux-agent"
+    adapter = build(
+        docker,
+        aux_spec,
+        aux_export_dir=str(out),
+        aux_export_bin=opencode_bin,
+        env={"FAKE_OPENCODE_MODE": mode},
+    )
+
+    result = await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    assert result.source == "agent"
+    assert "code/pkg/sync.py" in result.text
+    assert result.provenance["aux_export"]["sessions"] == []
+    assert any(needle in error for error in result.provenance["aux_export"]["errors"])
+    assert not list(out.glob("*.json"))
+
+
+@pytest.mark.asyncio
+async def test_a_transcript_larger_than_the_pipe_buffer_is_exported_whole(
+    aux_spec, docker, tmp_path, opencode_bin
+):
+    """Found against real opencode: `export` cut its own stdout at 64 KiB.
+
+    Every real session is bigger than that, so reading the export straight off
+    the exec pipe silently kept a truncated, unparseable prefix of each one.
+    """
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    dump = seed_session(docker, container)
+    dump["messages"][0]["parts"][0]["text"] = "x" * 200_000  # well past 64 KiB
+    path = (
+        docker.rootfs(container) / "tmp/aux-home/.local/share/opencode/sessions"
+        / f"{SESSION_ID}.json"
+    )
+    path.write_text(json.dumps(dump))
+    out = tmp_path / "aux-agent"
+    adapter = build(
+        docker,
+        aux_spec,
+        aux_export_dir=str(out),
+        aux_export_bin=opencode_bin,
+        env={"FAKE_OPENCODE_MODE": "pipe_cut"},
+    )
+
+    result = await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    assert json.loads((out / f"{SESSION_ID}.json").read_text()) == dump
+    assert result.provenance["aux_export"]["errors"] == []
+    # And the scratch copy is not left behind in the container.
+    assert not list(docker.rootfs(container).rglob("foresight-aux-export-*"))
+
+
+@pytest.mark.asyncio
+async def test_a_banner_ahead_of_the_json_does_not_cost_the_transcript(
+    aux_spec, docker, tmp_path, opencode_bin
+):
+    """Found against real opencode in a real container: extra text around the JSON."""
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    dump = seed_session(docker, container)
+    out = tmp_path / "aux-agent"
+    adapter = build(
+        docker,
+        aux_spec,
+        aux_export_dir=str(out),
+        aux_export_bin=opencode_bin,
+        env={"FAKE_OPENCODE_MODE": "banner"},
+    )
+
+    result = await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    assert json.loads((out / f"{SESSION_ID}.json").read_text()) == dump
+    assert result.provenance["aux_export"]["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_output_that_is_not_json_is_kept_raw_for_diagnosis(
+    aux_spec, docker, tmp_path, opencode_bin
+):
+    """The container is about to be deleted: never throw away the only copy."""
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    seed_session(docker, container)
+    out = tmp_path / "aux-agent"
+    adapter = build(
+        docker,
+        aux_spec,
+        aux_export_dir=str(out),
+        aux_export_bin=opencode_bin,
+        env={"FAKE_OPENCODE_MODE": "bad_json"},
+    )
+
+    result = await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    assert (out / f"{SESSION_ID}.export.txt").read_text().strip() == "this is not json"
+    assert not (out / f"{SESSION_ID}.json").exists()
+    assert "raw output kept" in result.provenance["aux_export"]["errors"][0]
+
+
+@pytest.mark.asyncio
+async def test_the_export_is_still_taken_when_aux_produces_no_answer(
+    aux_spec, docker, tmp_path, opencode_bin
+):
+    """The transcript is what explains an empty answer, so it must not depend on one."""
+    container = docker.create("swe-ci-1", "172.17.0.2")
+    docker.seed(container)
+    seed_session(docker, container)
+    out = tmp_path / "aux-agent"
+    # answer_from=file, and nothing writes the file: an empty-answer AuxFailure.
+    adapter = build(
+        docker,
+        aux_spec,
+        extra_args=["--silent"],
+        aux_export_dir=str(out),
+        aux_export_bin=opencode_bin,
+    )
+
+    with pytest.raises(AuxFailure):
+        await adapter.run_aux(request_from("172.17.0.2"), aux_spec)
+
+    assert (out / f"{SESSION_ID}.json").is_file()
+
+
+def test_an_unwritable_export_dir_fails_at_startup(aux_spec, docker, tmp_path):
+    """Found at startup, not after the first epoch of an overnight run."""
+    blocker = tmp_path / "a-file"
+    blocker.write_text("")
+    with pytest.raises(ConfigError, match="aux_export_dir"):
+        build(docker, aux_spec, aux_export_dir=str(blocker / "sub"))
