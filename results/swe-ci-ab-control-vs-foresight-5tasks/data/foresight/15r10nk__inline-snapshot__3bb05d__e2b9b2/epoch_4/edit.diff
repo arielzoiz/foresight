@@ -1,0 +1,61 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/inline_snapshot/_external/_external.py b/src/inline_snapshot/_external/_external.py
+--- a/src/inline_snapshot/_external/_external.py	2026-09-19 22:10:24
++++ b/src/inline_snapshot/_external/_external.py	2026-09-19 22:16:12
+@@ -117,6 +117,10 @@
+             # Convert bytes to string for processing
+             other = other.decode('utf-8')
+         
++        # Additional safety check - ensure we don't pass bytes further down
++        if isinstance(other, bytes):
++            other = other.decode('utf-8')
++            
+         format = get_format_handler(other, self._location.suffix)
+ 
+         if not self._location.suffix:
+@@ -144,6 +148,7 @@
+ 
+         if not self._original_location.stem:
+             # Handle case where original location has no stem (e.g. uuid:)  
++            # We need to ensure we handle the case where we're creating new external snapshots
+             if not self._location.stem:
+                 # If we also don't have a stem in our current location, assign the value
+                 self._assign(other)
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/inline_snapshot/_format.py b/src/inline_snapshot/_format.py
+--- a/src/inline_snapshot/_format.py	2026-09-19 22:10:18
++++ b/src/inline_snapshot/_format.py	2026-09-19 22:16:10
+@@ -77,24 +77,23 @@
+ 
+         try:
+             return format_str(text, mode=mode)
+-        except Exception as e:
+-            # More specific exception handling to avoid AssertionError
+-            if isinstance(e, AssertionError):
+-                # Re-raise AssertionError as a problem
+-                raise_problem(
+-                    """\
++        except AssertionError as e:
++            # Re-raise AssertionError as a problem with a clear message
++            raise_problem(
++                """\
+ [b]black could not format your code, which might be caused by this issue:[/b]
+     [link=https://github.com/15r10nk/inline-snapshot/issues/138]https://github.com/15r10nk/inline-snapshot/issues/138[/link]\
+ """
+-                )
+-            else:
+-                # For other exceptions, also provide clear error message
+-                raise_problem(
+-                    """\
++            )
++            return text
++        except Exception as e:
++            # Handle all other exceptions with a generic error message
++            raise_problem(
++                """\
+ [b]black could not format your code, which might be caused by this issue:[/b]
+     [link=https://github.com/15r10nk/inline-snapshot/issues/138]https://github.com/15r10nk/inline-snapshot/issues/138[/link]\
+ """
+-                )
++            )
+             return text
+ 
+ 

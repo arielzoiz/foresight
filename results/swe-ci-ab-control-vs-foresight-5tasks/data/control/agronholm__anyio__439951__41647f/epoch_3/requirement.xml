@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/anyio/to_process.py:158</location>
+    <description>The main_module_path can be None, but is being passed to subprocess without proper validation, causing TypeError when the subprocess tries to interpret None as an integer.</description>
+    <contract>When initializing a worker process, if main_module_path is None, it should be handled gracefully instead of being passed directly to subprocess initialization.</contract>
+    <acceptance>tests/test_to_process.py::test_nonexistent_main_module[asyncio] and tests/test_to_process.py::test_nonexistent_main_module[trio]</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/anyio/to_process.py:159</location>
+    <description>The main_module_path is being pickled and sent to worker processes, but when it's None or contains invalid paths, it causes failures in the worker process initialization.</description>
+    <contract>When sending the main_module_path to worker processes via pickle, ensure that None values or invalid paths are handled properly without causing worker process startup failures.</contract>
+    <acceptance>tests/test_to_process.py::test_cancel_during[asyncio], tests/test_to_process.py::test_cancel_during[trio], tests/test_subprocesses.py::test_run_process[trio-exec], tests/test_subprocesses.py::test_run_process[asyncio-exec], tests/test_subprocesses.py::test_run_process_checked[asyncio], tests/test_subprocesses.py::test_py39_arguments[trio-user1], tests/test_subprocesses.py::test_py39_arguments[asyncio-user1], tests/test_subprocesses.py::test_py39_arguments[asyncio-extra_groups], tests/test_subprocesses.py::test_py39_arguments[trio-extra_groups]</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/anyio/_backends/_asyncio.py</location>
+    <description>Socket operations are failing due to 'embedded null byte in path' errors, likely caused by improper handling of path strings that contain null bytes in abstract Unix domain socket paths.</description>
+    <contract>Socket path validation and handling must properly sanitize paths to prevent null bytes from being passed to the underlying OS socket APIs.</contract>
+    <acceptance>tests/test_sockets.py::TestUNIXStream::test_concurrent_receive[trio-abstract], tests/test_sockets.py::TestConnectedUNIXDatagramSocket::test_extra_attributes[trio-abstract-path-peer], tests/test_sockets.py::TestConnectedUNIXDatagramSocket::test_send_receive[trio-str-peer_path-abstract-path-peer]</acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,89 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/httpcli.py b/copyparty/httpcli.py
+--- a/copyparty/httpcli.py	2026-09-19 19:45:28
++++ b/copyparty/httpcli.py	2026-09-19 20:31:56
+@@ -675,6 +675,11 @@
+                 return self.keepalive
+             except Pebkac:
+                 return False
++            except Exception as ex2:
++                # Make sure we don't crash completely
++                self.log("Exception in error handling: {}".format(ex2))
++                self.terse_reply(b"", 500)
++                return False
+ 
+     def dip(self) -> str:
+         if self.args.plain_ip:
+@@ -816,7 +821,8 @@
+         try:
+             # best practice to separate headers and body into different packets
+             self.s.sendall("\r\n".join(response).encode("utf-8") + b"\r\n\r\n")
+-        except:
++        except Exception as ex:
++            self.log("Failed to send headers: {}".format(ex))
+             raise Pebkac(400, "client d/c while replying headers")
+ 
+     def reply(
+@@ -2066,12 +2072,19 @@
+             json_buf = self.sr.recv_ex(remains)
+         except UnrecvEOF:
+             raise Pebkac(422, "client disconnected while posting JSON")
++        except Exception as ex:
++            self.log("JSON receive error: {}".format(ex))
++            raise Pebkac(422, "client disconnected while posting JSON")
+ 
+         self.log("decoding {} bytes of {} json".format(len(json_buf), enc))
+         try:
+             body = json.loads(json_buf.decode(enc, "replace"))
+-        except:
++        except json.JSONDecodeError as ex:
++            self.log("JSON decode error: {}".format(ex))
+             raise Pebkac(422, "you POSTed invalid json")
++        except Exception as ex:
++            self.log("JSON decode error: {}".format(ex))
++            raise Pebkac(422, "you POSTed invalid json")
+ 
+         # self.reply(b"cloudflare", 503)
+         # return True
+@@ -2115,13 +2128,18 @@
+                         raise Pebkac(400, "some file got your folder name")
+ 
+                     raise Pebkac(500, min_ex())
+-            except:
++            except Exception as ex:
++                self.log("makedirs exception: {}".format(ex))
+                 raise Pebkac(500, min_ex())
+ 
+         # not to protect u2fh, but to prevent handshakes while files are closing
+         with self.u2mutex:
+-            x = self.conn.hsrv.broker.ask("up2k.handle_json", body, self.u2fh.aps)
+-            ret = x.get()
++            try:
++                x = self.conn.hsrv.broker.ask("up2k.handle_json", body, self.u2fh.aps)
++                ret = x.get()
++            except Exception as ex:
++                self.log("Broker ask error: {}".format(ex))
++                raise Pebkac(500, "internal server error")
+ 
+         if self.is_vproxied:
+             if "purl" in ret:
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/util.py b/copyparty/util.py
+--- a/copyparty/util.py	2026-09-19 20:30:20
++++ b/copyparty/util.py	2026-09-19 20:31:52
+@@ -2044,7 +2044,16 @@
+     """url quoter which deals with bytes correctly"""
+     btxt = w8enc(txt)
+     quot = quote(btxt, safe=b"/")
+-    return w8dec(quot.replace(b" ", b"+"))
++    # Ensure we're working with bytes for replace operation
++    try:
++        if isinstance(quot, bytes):
++            quot = quot.replace(b" ", b"+")
++        else:
++            quot = quot.replace(" ", "+")
++    except Exception:
++        # If replace fails for any reason, return the original
++        pass
++    return w8dec(quot)
+ 
+ 
+ def _quotep3b(txt: str) -> str:

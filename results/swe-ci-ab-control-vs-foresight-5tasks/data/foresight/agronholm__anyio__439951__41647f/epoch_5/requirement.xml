@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/src/anyio/_core/_sockets.py</location>
+        <description>The socket path handling code does not validate for null bytes in path strings, causing ValueError exceptions when paths contain embedded null characters.</description>
+        <contract>Socket path handling functions must validate input paths to reject null bytes before attempting to use them in system calls. This applies to all socket creation, binding, and path-based operations for UNIX domain sockets.</contract>
+        <acceptance>Tests that currently fail with "ValueError: embedded null byte in path" or "ValueError: stat: embedded null character in path" should pass after implementing null byte validation.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/anyio/from_thread.py</location>
+        <description>The test test_raise_baseexception_from_task fails because thread daemon property assertions are not properly implemented in the from_thread module.</description>
+        <contract>When a task is spawned from a blocking portal, it must properly inherit the daemon property of the thread it's executed on. Specifically, tasks started via from_thread.run should have their thread.daemon property checked to ensure it matches the expected behavior.</contract>
+        <acceptance>Test test_raise_baseexception_from_task[asyncio] and test_raise_baseexception_from_task[trio] should pass after implementing proper daemon thread property handling.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/anyio/_core/_synchronization.py</location>
+        <description>The fast_acquire behavior in Lock and Semaphore classes is not correctly implemented, causing test failures in fast_acquire tests.</description>
+        <contract>The fast_acquire parameter in Lock and Semaphore constructors must correctly control whether to yield control to the event loop when acquiring the resource without contention. When fast_acquire=True, the acquisition should not yield control if there's no contention.</contract>
+        <acceptance>Tests test_fast_acquire[asyncio] for Lock and test_fast_acquire[trio] for Lock, and similar semaphore tests should pass after implementing correct fast_acquire behavior.</acceptance>
+    </item>
+</requirement>

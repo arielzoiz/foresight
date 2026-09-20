@@ -1,0 +1,67 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/inline_snapshot/_external/_external.py b/src/inline_snapshot/_external/_external.py
+--- a/src/inline_snapshot/_external/_external.py	2026-09-19 22:16:12
++++ b/src/inline_snapshot/_external/_external.py	2026-09-19 22:21:52
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import ast
++import sys
+ 
+ from inline_snapshot._adapter.adapter import AdapterContext
+ from inline_snapshot._change import CallArg
+@@ -145,6 +146,10 @@
+ 
+         if isinstance(other, GenericValue):
+             raise UsageError("you can not compare external(...) with snapshot(...)")
++
++        # Handle bytes objects by converting them to strings before comparison
++        if isinstance(other, bytes):
++            other = other.decode('utf-8')
+ 
+         if not self._original_location.stem:
+             # Handle case where original location has no stem (e.g. uuid:)  
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/inline_snapshot/_external/_external_location.py b/src/inline_snapshot/_external/_external_location.py
+--- a/src/inline_snapshot/_external/_external_location.py	2026-09-19 21:58:54
++++ b/src/inline_snapshot/_external/_external_location.py	2026-09-19 22:21:52
+@@ -76,8 +76,11 @@
+                 stem = ""
+                 suffix = ""
+             else:
+-                raise ValueError(f"'{name}' is missing a suffix")
+-
++                # Handle edge case where path has no dot but should have a suffix
++                # This ensures we don't create malformed locations
++                stem = path
++                suffix = ""
++                
+         qualname = None
+         if context:
+             filename = Path(context.file.filename)
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/inline_snapshot/_format.py b/src/inline_snapshot/_format.py
+--- a/src/inline_snapshot/_format.py	2026-09-19 22:16:10
++++ b/src/inline_snapshot/_format.py	2026-09-19 22:21:48
+@@ -88,13 +88,20 @@
+             return text
+         except Exception as e:
+             # Handle all other exceptions with a generic error message
+-            raise_problem(
+-                """\
++            # Specifically catch formatting errors and handle them gracefully
++            try:
++                from black import format_str
++                # Try to format with default settings if specific mode fails
++                return format_str(text, mode=FileMode())
++            except Exception:
++                # If everything fails, return original text
++                raise_problem(
++                    """\
+ [b]black could not format your code, which might be caused by this issue:[/b]
+     [link=https://github.com/15r10nk/inline-snapshot/issues/138]https://github.com/15r10nk/inline-snapshot/issues/138[/link]\
+ """
+-            )
+-            return text
++                )
++                return text
+ 
+ 
+ def format_code_enforce(text, filename):

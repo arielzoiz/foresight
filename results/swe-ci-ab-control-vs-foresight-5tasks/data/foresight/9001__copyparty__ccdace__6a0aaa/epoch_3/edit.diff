@@ -1,0 +1,23 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/httpcli.py b/copyparty/httpcli.py
+--- a/copyparty/httpcli.py	2026-09-19 22:50:54
++++ b/copyparty/httpcli.py	2026-09-19 22:52:18
+@@ -727,7 +727,7 @@
+                         xml_response = '<?xml version="1.0" encoding="{}"?>\n'.format(uenc)
+                         xml_response += ET.tostring(error_root).decode("utf-8")
+                         
+-                        h = {"WWW-Authenticate": 'Basic realm="a"'} if pex.code == 401 else {}
++                        h = {"WWW-Authenticate": 'Basic realm="a"', "Content-Type": "application/xml; charset=utf-8"} if pex.code == 401 else {"Content-Type": "application/xml; charset=utf-8"}
+                         self.reply(xml_response.encode("utf-8", "replace"), status=pex.code, headers=h, volsan=True)
+                         if pex.log:
+                             self.log("additional error context:\n" + pex.log, 6)
+@@ -4556,7 +4556,9 @@
+             return True
+ 
+         if "th" in self.ouparam:
+-            return self.tx_svg("e" + pt[:3])
++            # For thumbnail requests, correctly identify error type
++            error_code = "e403" if is_403 else "e404"
++            return self.tx_svg(error_code)
+ 
+         t = t.format(self.args.SR)
+         qv = quotep(self.vpaths) + self.ourlq()

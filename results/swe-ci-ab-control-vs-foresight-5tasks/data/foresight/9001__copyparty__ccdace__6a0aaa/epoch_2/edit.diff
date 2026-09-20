@@ -1,0 +1,48 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/httpcli.py b/copyparty/httpcli.py
+--- a/copyparty/httpcli.py	2026-09-19 21:53:18
++++ b/copyparty/httpcli.py	2026-09-19 22:50:54
+@@ -708,6 +708,31 @@
+                         6 if em.startswith("client d/c ") else 3,
+                     )
+ 
++                # For WebDAV methods, return XML error responses instead of HTML
++                if not self.args.no_dav and self.mode in ["PROPFIND", "PUT", "MKCOL", "DELETE", "MOVE", "PROPPATCH", "LOCK", "UNLOCK"]:
++                    if pex.code in [401, 403, 404, 405]:
++                        # Return XML error response for WebDAV
++                        from .dxml import mkenod, mktnod
++                        from xml.etree import ElementTree as ET
++                        
++                        enc = "utf-8"
++                        uenc = enc.upper()
++                        
++                        error_root = mkenod("D:error")
++                        error_root.set("xmlns:D", "DAV:")
++                        
++                        error_desc = mktnod("D:errordescription", str(em))
++                        error_root.append(error_desc)
++                        
++                        xml_response = '<?xml version="1.0" encoding="{}"?>\n'.format(uenc)
++                        xml_response += ET.tostring(error_root).decode("utf-8")
++                        
++                        h = {"WWW-Authenticate": 'Basic realm="a"'} if pex.code == 401 else {}
++                        self.reply(xml_response.encode("utf-8", "replace"), status=pex.code, headers=h, volsan=True)
++                        if pex.log:
++                            self.log("additional error context:\n" + pex.log, 6)
++                        return self.keepalive
++
+                 msg = "%s\r\nURL: %s\r\n" % (em, self.vpath)
+                 if self.hint:
+                     msg += "hint: %s\r\n" % (self.hint,)
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/metrics.py b/copyparty/metrics.py
+--- a/copyparty/metrics.py	2026-09-19 21:53:18
++++ b/copyparty/metrics.py	2026-09-19 22:50:40
+@@ -228,6 +228,9 @@
+             except Exception as ex:
+                 cli.log("tx_stats get_unfinished: {!r}".format(ex), 3)
+ 
++        # Active downloads gauge
++        addg("cpp_active_dl", "0", "number of currently active downloads")
++
+         ret.append("# EOF")
+ 
+         mime = "application/openmetrics-text; version=1.0.0; charset=utf-8"

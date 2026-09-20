@@ -1,0 +1,68 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/anyio/_core/_subprocesses.py b/src/anyio/_core/_subprocesses.py
+--- a/src/anyio/_core/_subprocesses.py	2026-09-19 20:49:20
++++ b/src/anyio/_core/_subprocesses.py	2026-09-19 21:36:38
+@@ -67,10 +67,10 @@
+         cwd=cwd,
+         env=env,
+         start_new_session=start_new_session,
+-        user=user,
+-        group=group,
+-        extra_groups=extra_groups,
+-        umask=umask,
++        user=user if user is not None else None,
++        group=group if group is not None else None,
++        extra_groups=extra_groups if extra_groups is not None else None,
++        umask=umask if umask is not None else None,
+     ) as process:
+         stream_contents: list[bytes | None] = [None, None]
+         async with create_task_group() as tg:
+@@ -138,10 +138,10 @@
+             cwd=cwd,
+             env=env,
+             start_new_session=start_new_session,
+-            user=user,
+-            group=group,
+-            extra_groups=extra_groups,
+-            umask=umask,
++            user=user if user is not None else None,
++            group=group if group is not None else None,
++            extra_groups=extra_groups if extra_groups is not None else None,
++            umask=umask if umask is not None else None,
+         )
+     else:
+         return await get_async_backend().open_process(
+@@ -153,8 +153,8 @@
+             cwd=cwd,
+             env=env,
+             start_new_session=start_new_session,
+-            user=user,
+-            group=group,
+-            extra_groups=extra_groups,
+-            umask=umask,
++            user=user if user is not None else None,
++            group=group if group is not None else None,
++            extra_groups=extra_groups if extra_groups is not None else None,
++            umask=umask if umask is not None else None,
+         )
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/anyio/to_process.py b/src/anyio/to_process.py
+--- a/src/anyio/to_process.py	2026-09-19 21:34:40
++++ b/src/anyio/to_process.py	2026-09-19 21:36:34
+@@ -161,6 +161,9 @@
+                     # Validate that the path doesn't contain null bytes
+                     if isinstance(main_module_path, str) and "\x00" in main_module_path:
+                         main_module_path = None
++                # Ensure main_module_path is a string or None
++                if main_module_path is not None and not isinstance(main_module_path, str):
++                    main_module_path = None
+                 pickled = pickle.dumps(
+                     ("init", sys.path, main_module_path),
+                     protocol=pickle.HIGHEST_PROTOCOL,
+@@ -229,7 +232,7 @@
+                 sys.path, main_module_path = args
+                 del sys.modules["__main__"]
+                 # Handle None or invalid paths gracefully
+-                if main_module_path is not None and os.path.isfile(main_module_path):
++                if main_module_path is not None and isinstance(main_module_path, str) and os.path.isfile(main_module_path):
+                     # Load the parent's main module but as __mp_main__ instead of
+                     # __main__ (like multiprocessing does) to avoid infinite recursion
+                     try:

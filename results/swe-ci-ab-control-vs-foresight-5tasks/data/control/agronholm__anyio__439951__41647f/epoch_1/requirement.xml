@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/src/anyio/_core/_sockets.py</location>
+        <description>Socket path validation is missing null byte rejection. Tests fail with "ValueError: embedded null byte" and "ValueError: stat: embedded null character in path" when paths contain null bytes.</description>
+        <contract>Add validation in socket path handling to reject paths containing null bytes before attempting to bind or operate on them. This should be implemented in the socket creation and path validation functions.</contract>
+        <acceptance>tests/test_sockets.py::TestUNIXListener::test_send_after_eof, tests/test_sockets.py::TestUNIXDatagramSocket::test_send_after_close, tests/test_sockets.py::TestUNIXDatagramSocket::test_local_path_bytes, etc.</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/anyio/_core/_subprocesses.py</location>
+        <description>Missing support for newer Python subprocess arguments (user, extra_groups, umask). Tests fail with "TypeError: run_process() got an unexpected keyword argument" for these parameters.</description>
+        <contract>Add support for user, group, extra_groups, and umask parameters to both run_process and open_process functions. These should be passed through to the underlying subprocess implementation in both asyncio and trio backends.</contract>
+        <acceptance>tests/test_subprocesses.py::test_py39_arguments</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/anyio/_core/_synchronization.py</location>
+        <description>Lock and Semaphore classes do not support fast_acquire parameter. Tests fail with "TypeError: Lock.__init__() got an unexpected keyword argument 'fast_acquire'" and "TypeError: Semaphore.__init__() got an unexpected keyword argument 'fast_acquire'".</description>
+        <contract>Add fast_acquire parameter to Lock and Semaphore constructors. This parameter should control whether the lock/acquisition should yield control to the event loop immediately when uncontended.</contract>
+        <acceptance>tests/test_synchronization.py::TestLock::test_fast_acquire, tests/test_synchronization.py::TestSemaphore::test_fast_acquire</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/anyio/from_thread.py</location>
+        <description>Thread daemon checking assertion failure in from_thread tests. Tests expect a specific daemon property check but the implementation doesn't validate this correctly.</description>
+        <contract>Fix the thread daemon checking mechanism to properly validate that threads meet expected daemon properties when required by the test assertions.</contract>
+        <acceptance>tests/test_from_thread.py::TestBlockingPortal::test_raise_baseexception_from_task</acceptance>
+    </requirement>
+</requirement_document>

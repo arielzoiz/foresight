@@ -1,0 +1,48 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/httpcli.py b/copyparty/httpcli.py
+--- a/copyparty/httpcli.py	2026-09-19 22:30:46
++++ b/copyparty/httpcli.py	2026-09-19 22:32:14
+@@ -1499,6 +1499,7 @@
+         if not self._mv(self.vpath, dst.lstrip("/")):
+             return False
+ 
++        self.loud_reply("k", status=201)
+         return True
+ 
+     def _applesan(self) -> bool:
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/ico.py b/copyparty/ico.py
+--- a/copyparty/ico.py	2026-09-19 21:50:46
++++ b/copyparty/ico.py	2026-09-19 22:32:16
+@@ -98,6 +98,8 @@
+   fill="#{}" font-family="monospace" font-size="14px" style="letter-spacing:.5px">{}</text>
+ </g></svg>
+ """
+-        svg = svg.format(h, c[:6], c[6:], html_escape(ext, True))
++        # Ensure we escape the text properly for SVG
++        escaped_ext = html_escape(ext, True)
++        svg = svg.format(h, c[:6], c[6:], escaped_ext)
+ 
+         return "image/svg+xml", svg.encode("utf-8")
+diff -ruN -x .git -x __pycache__ -x *.pyc a/copyparty/up2k.py b/copyparty/up2k.py
+--- a/copyparty/up2k.py	2026-09-19 21:50:46
++++ b/copyparty/up2k.py	2026-09-19 22:32:12
+@@ -147,6 +147,7 @@
+         self.busy_aps: dict[str, int] = {}
+         self.dupesched: dict[str, list[tuple[str, str, float]]] = {}
+         self.snap_prev: dict[str, Optional[tuple[int, float]]] = {}
++        self.dupesched_mutex = threading.Lock()
+ 
+         self.mtag: Optional[MTag] = None
+         self.entags: dict[str, set[str]] = {}
+@@ -161,10 +162,12 @@
+         self.n_hashq = 0
+         self.n_tagq = 0
+         self.mpool_used = False
++        self.dupesched_mutex = threading.Lock()
+ 
+         self.xiu_ptn = re.compile(r"(?:^|,)i([0-9]+)")
+         self.xiu_busy = False  # currently running hook
+         self.xiu_asleep = True  # needs rescan_cond poke to schedule self
++        self.dupesched_mutex = threading.Lock()
+ 
+         self.cur: dict[str, "sqlite3.Cursor"] = {}
+         self.mem_cur = None

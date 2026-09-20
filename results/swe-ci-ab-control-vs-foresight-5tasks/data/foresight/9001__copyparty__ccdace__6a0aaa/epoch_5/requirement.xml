@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/copyparty/httpcli.py</location>
+        <description>The HttpCli class fails to properly handle WebDAV authentication errors. When unauthorized access is attempted, it returns a 403 Forbidden response with XML content-type instead of the expected 401 Unauthorized response with proper XML error format.</description>
+        <contract>When a WebDAV method (PROPFIND, PUT, MKCOL, DELETE, MOVE, PROPPATCH, LOCK, UNLOCK) encounters an authentication error (401), it must return an XML-formatted error response with Content-Type: application/xml; charset=utf-8 and the proper XML structure including DAV error elements.</contract>
+        <acceptance>tests/test_webdav.py::TestHttpCli::test - The test should pass when the WebDAV authentication error returns a proper 401 Unauthorized response with XML content-type instead of 403 Forbidden.</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/copyparty/th_srv.py</location>
+        <description>The thumbnail service incorrectly returns "e404" instead of "e403" in SVG error responses when access is denied to a directory key. This affects the test in test_dots.py which expects "e403" but receives "e404".</description>
+        <contract>When generating SVG thumbnails for a resource that cannot be accessed due to directory key validation, the error message in the SVG should correctly display "e403" for forbidden access instead of "e404" for not found.</contract>
+        <acceptance>tests/test_dots.py::TestDots::test_dk_fk - The test should pass when SVG thumbnail responses correctly show "e403" instead of "e404" for forbidden access.</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/copyparty/httpcli.py</location>
+        <description>The HttpCli class does not properly handle POST methods for WebDAV operations like COPY. When attempting to perform a COPY operation, it returns a 405 Method Not Allowed instead of properly processing the request.</description>
+        <contract>When handling POST requests with copy operations (e.g., /a?copy=/c/a), the HttpCli must properly process these WebDAV-style copy operations and return 201 Created when successful, rather than returning 405 Method Not Allowed.</contract>
+        <acceptance>tests/test_cp.py::TestDedup::test - The test should pass when COPY operations return 201 Created instead of 405 Method Not Allowed.</acceptance>
+    </requirement>
+</requirements>

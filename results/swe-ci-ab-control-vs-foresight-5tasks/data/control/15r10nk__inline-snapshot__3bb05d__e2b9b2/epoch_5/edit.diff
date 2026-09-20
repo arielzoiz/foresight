@@ -1,0 +1,32 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/inline_snapshot/_external/_external.py b/src/inline_snapshot/_external/_external.py
+--- a/src/inline_snapshot/_external/_external.py	2026-09-19 20:15:56
++++ b/src/inline_snapshot/_external/_external.py	2026-09-19 20:21:18
+@@ -199,7 +199,16 @@
+                     # If we can't decode, fall back to a safe comparison
+                     pass
+             
+-            result = value == other
++            # Ensure we're not trying to call .items() on bytes or other non-dict objects
++            if hasattr(value, 'items') and hasattr(other, 'items'):
++                # Both are dict-like, compare items
++                result = value == other
++            elif hasattr(value, 'items') or hasattr(other, 'items'):
++                # Only one is dict-like, can't be equal
++                result = False
++            else:
++                # Neither is dict-like, normal comparison
++                result = value == other
+ 
+         if state().update_flags.fix or state().update_flags.update:
+             if not result:
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/inline_snapshot/testing/_example.py b/src/inline_snapshot/testing/_example.py
+--- a/src/inline_snapshot/testing/_example.py	2026-09-19 19:33:38
++++ b/src/inline_snapshot/testing/_example.py	2026-09-19 20:21:06
+@@ -296,6 +296,7 @@
+                 state.all_storages["hash"] = HashStorage(
+                     tmp_path / ".inline-snapshot" / "external"
+                 )
++                state.all_storages["uuid"] = UuidStorage()
+                 state.config = Config()
+                 read_config(tmp_path / "pyproject.toml", state.config)
+                 if state.config.storage_dir is None:

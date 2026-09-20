@@ -1,0 +1,19 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc a/src/anyio/_core/_sockets.py b/src/anyio/_core/_sockets.py
+--- a/src/anyio/_core/_sockets.py	2026-09-19 22:58:00
++++ b/src/anyio/_core/_sockets.py	2026-09-19 23:02:40
+@@ -685,8 +685,13 @@
+         path_str = os.fspath(path)
+ 
+         # Validate abstract socket paths (paths starting with @)
+-        if isinstance(path_str, str) and path_str.startswith("@") and "\x00" in path_str:
+-            raise ValueError("Abstract Unix socket path cannot contain null bytes")
++        # Abstract namespace paths are allowed to contain null bytes
++        if isinstance(path_str, str) and path_str.startswith("@"):
++            # For abstract paths, we don't validate null bytes - they are valid
++            pass
++        elif isinstance(path_str, str) and "\x00" in path_str:
++            # For regular paths, null bytes are not allowed
++            raise ValueError("embedded null byte in path")
+ 
+         # Copied from pathlib...
+         try:

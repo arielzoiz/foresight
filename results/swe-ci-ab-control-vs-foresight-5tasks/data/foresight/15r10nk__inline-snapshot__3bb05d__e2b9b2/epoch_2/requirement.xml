@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>src/inline_snapshot/_external/_storage/_uuid.py</location>
+    <description>The _lookup_path method in UuidStorage fails when trying to resolve external file paths, particularly when handling UUID locations without stems. The error occurs because the method tries to treat bytes objects as dictionaries when external files aren't found in the cache, and raises KeyError when accessing 'uuid' keys in external file paths.</description>
+    <contract>When resolving an ExternalLocation without a stem (e.g., uuid:), the _lookup_path method should properly generate a new UUID and create the associated external file path. The method should handle cases where external files are not cached but should be generated with new UUIDs, and should not raise KeyError when accessing 'uuid' keys in external file resolution.</contract>
+    <acceptance>Tests in tests/test_storage.py::test_uuid_storage and tests/external/storage/test_uuid.py::test_no_test_dir should pass. The specific error cases involving AttributeError: 'bytes' object has no attribute 'items' from tests/test_encoding.py should also be resolved.</acceptance>
+  </requirement>
+  <requirement>
+    <location>src/inline_snapshot/_external/_storage/_uuid.py</location>
+    <description>The _external_files property in UuidStorage doesn't properly initialize the external file cache when test directories are not configured or when test_dir is not properly set. This leads to KeyError when looking up UUID-based external files.</description>
+    <contract>The _external_files property should correctly initialize the external file cache by scanning all relevant base folders including test directories, and should properly handle cases where test_dir is None or not set.</contract>
+    <acceptance>Tests in tests/external/storage/test_uuid.py that check external file path resolution should pass, especially test_uuid_rename_function and test_no_test_dir.</acceptance>
+  </requirement>
+  <requirement>
+    <location>src/inline_snapshot/_inline_snapshot.py</location>
+    <description>The snapshot function fails when processing encoded bytes objects from test files. The error occurs because bytes objects are incorrectly treated as dictionaries during snapshot creation, leading to AttributeError: 'bytes' object has no attribute 'items'.</description>
+    <contract>The snapshot function should properly handle bytes objects and other non-string types when creating snapshots, without attempting to treat them as dictionaries. The function should process bytes objects as raw data without assuming dictionary structure.</contract>
+    <acceptance>Tests in tests/test_encoding.py with various encodings (utf-8, windows-1251, cp1252, latin-1, ascii) should pass.</acceptance>
+  </requirement>
+  <requirement>
+    <location>src/inline_snapshot/_external/_storage/_uuid.py</location>
+    <description>The _get_path method in UuidStorage has logic issues when handling locations without stems. The method doesn't properly validate or handle empty stems, causing incorrect path construction and UUID generation.</description>
+    <contract>The _get_path method should properly handle cases where location.stem is empty by generating a new UUID and ensuring the resulting path is valid for external file storage.</contract>
+    <acceptance>Tests in tests/external/storage/test_uuid.py should pass, particularly those that create external files with UUID-based paths.</acceptance>
+  </requirement>
+  <requirement>
+    <location>src/inline_snapshot/_external/_storage/_uuid.py</location>
+    <description>The storage lookup mechanism doesn't properly handle the case where external files are not found in the cache but should be generated with new UUIDs. This leads to failures when creating new external snapshot files.</description>
+    <contract>When an external file is not found in the cache, the lookup mechanism should create a new UUID-based file path and allow the external storage to create the file with the appropriate UUID.</contract>
+    <acceptance>Tests in tests/test_storage.py and tests/external/storage/test_uuid.py should pass, especially those involving creation and management of UUID-based external files.</acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/anyio/_core/_sockets.py:setup_unix_local_socket</location>
+    <description>The setup_unix_local_socket function incorrectly rejects socket paths containing null bytes, particularly in abstract namespace sockets (paths starting with '@'). This causes multiple test failures related to socket path validation.</description>
+    <contract>
+      <description>The function should properly handle socket paths that contain null bytes, distinguishing between valid abstract namespace usage (where null bytes are acceptable) and invalid paths that should be rejected.</description>
+      <inputs>
+        <input>path: None | str | bytes | PathLike[Any] - the socket path to validate</input>
+        <input>mode: int | None - permissions to set on the socket</input>
+        <input>socktype: int - socket.SOCK_STREAM or socket.SOCK_DGRAM</input>
+      </inputs>
+      <outputs>
+        <output>socket.socket - a properly initialized UNIX socket</output>
+      </outputs>
+      <exceptions>
+        <exception>ValueError - raised when abstract Unix socket path contains null bytes (for invalid cases)</exception>
+      </exceptions>
+      <behavior>
+        <behavior>Paths starting with '@' (abstract namespace) should be allowed to contain null bytes as they are valid in this context</behavior>
+        <behavior>Regular socket paths should not contain null bytes, and if they do, should raise ValueError</behavior>
+        <behavior>System-level validation should be performed correctly without rejecting valid abstract paths</behavior>
+      </behavior>
+    </contract>
+    <acceptance>
+      <acceptance>Tests in test_sockets.py that are failing with "embedded null byte" or "embedded null character in path" errors should pass</acceptance>
+      <acceptance>Specifically, tests with abstract namespace paths (marked with "abstract" parametrization) should work correctly</acceptance>
+    </acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/src/anyio/_core/_sockets.py</location>
+        <description>Socket path validation is missing null byte checks, causing ValueError when socket paths contain null bytes. Multiple test failures show "ValueError: embedded null byte in path" and "ValueError: stat: embedded null character in path" when dealing with abstract Unix socket paths.</description>
+        <contract>Socket path validation must be implemented to reject paths containing null bytes before attempting socket operations. The validation should occur in all socket creation and binding functions that accept path strings or bytes. Invalid paths should raise a ValueError with descriptive message.</contract>
+        <acceptance>tests/test_sockets.py::TestUNIXListener::test_listening_bytes_path[trio-abstract], tests/test_sockets.py::TestUNIXListener::test_accept[trio-path-abstract], tests/test_sockets.py::TestConnectedUNIXDatagramSocket::test_send_receive[asyncio-path-peer_str-abstract-abstract-peer], and other related socket tests should pass.</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/anyio/from_thread.py</location>
+        <description>The BlockingPortal thread daemon checking logic is incorrect. Tests show "assert False" when checking daemon status of threads in the ThreadPoolExecutor, indicating the daemon property check is not working correctly for threads created by the portal.</description>
+        <contract>The BlockingPortal implementation must correctly detect daemon threads when checking thread properties. The daemon thread detection logic should properly identify threads that are daemons vs non-daemon threads in the ThreadPoolExecutor.</contract>
+        <acceptance>tests/test_from_thread.py::TestBlockingPortal::test_raise_baseexception_from_task[trio] and tests/test_from_thread.py::TestBlockingPortal::test_raise_baseexception_from_task[asyncio] should pass.</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/anyio/_backends/_asyncio.py</location>
+        <description>Asyncio backend synchronization issues in semaphore and task groups cause test failures. Tests like test_fast_acquire and test_cancel_from_shielded_scope show inconsistent behavior between asyncio and trio backends.</description>
+        <contract>Ensure consistent behavior across asyncio and trio backends for semaphore operations and task group cancellation. The implementation must handle task scheduling and resource acquisition consistently.</contract>
+        <acceptance>tests/test_synchronization.py::TestSemaphore::test_fast_acquire[asyncio] and tests/test_taskgroups.py::test_cancel_from_shielded_scope[asyncio] should pass.</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/anyio/_core/_sockets.py</location>
+        <description>Missing validation for invalid ASCII characters in socket paths. Tests show "ValueError: stat: embedded null character in path" which indicates insufficient validation of socket path inputs.</description>
+        <contract>Socket path validation must also check for invalid ASCII characters beyond just null bytes. All socket path inputs should be validated to ensure they don't contain characters that would cause system-level errors.</contract>
+        <acceptance>tests/test_sockets.py::TestUNIXListener::test_listening_invalid_ascii[asyncio-abstract] and tests/test_sockets.py::TestUNIXDatagramSocket::test_local_path_invalid_ascii[trio-abstract] should pass.</acceptance>
+    </requirement>
+</requirement_document>

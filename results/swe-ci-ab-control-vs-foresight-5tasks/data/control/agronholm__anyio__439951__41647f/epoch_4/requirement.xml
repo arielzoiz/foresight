@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/anyio/to_process.py</location>
+    <description>The to_process module has issues with handling None values and invalid paths when initializing worker processes. Several tests fail with "TypeError: 'NoneType' object cannot be interpreted as an integer" related to process management.</description>
+    <contract>Fix the process initialization logic to properly handle cases where main_module_path is None or contains invalid characters. The init command should not crash when sys.modules['__main__'].__file__ is None or contains null bytes.</contract>
+    <acceptance>tests/test_to_process.py::test_nonexistent_main_module, tests/test_to_process.py::test_cancel_during, tests/test_to_process.py::test_print, tests/test_to_process.py::test_exception, tests/test_to_process.py::test_exec_while_pruning, tests/test_to_process.py::test_identical_sys_path, tests/test_to_process.py::test_partial</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/anyio/to_process.py</location>
+    <description>The process worker initialization fails when dealing with null bytes in paths, causing ValueError: embedded null byte in path errors.</description>
+    <contract>Ensure that when extracting the main module path, null bytes are properly validated and handled. The system should gracefully handle invalid paths without crashing.</contract>
+    <acceptance>tests/test_sockets.py::TestUNIXStream::test_concurrent_receive, tests/test_sockets.py::TestConnectedUNIXDatagramSocket::test_extra_attributes, tests/test_sockets.py::TestConnectedUNIXDatagramSocket::test_send_receive</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/anyio/_core/_subprocesses.py</location>
+    <description>Subprocess handling fails with None values in process parameters, particularly in the run_process function.</description>
+    <contract>Improve robustness of subprocess parameter handling to properly deal with None values for parameters like user, group, extra_groups, and umask.</contract>
+    <acceptance>tests/test_subprocesses.py::test_run_process, tests/test_subprocesses.py::test_run_process_checked, tests/test_subprocesses.py::test_process_cwd, tests/test_subprocesses.py::test_process_env, tests/test_subprocesses.py::test_process_new_session_sid</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/anyio/to_process.py</location>
+    <description>Process worker initialization lacks proper error handling for invalid main module paths.</description>
+    <contract>Add validation for main_module_path in the process_worker function to prevent crashes when paths are invalid or contain null bytes.</contract>
+    <acceptance>tests/test_to_process.py::test_nonexistent_main_module</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/anyio/_core/_subprocesses.py</location>
+    <description>Subprocess functions fail when handling parameters that are None or improperly typed.</description>
+    <contract>Ensure all subprocess functions properly validate and handle None parameters to prevent TypeError exceptions when passing these to underlying subprocess APIs.</contract>
+    <acceptance>tests/test_subprocesses.py::test_process_cwd, tests/test_subprocesses.py::test_process_env, tests/test_subprocesses.py::test_run_process_connect_to_file</acceptance>
+  </requirement>
+</requirement_document>
