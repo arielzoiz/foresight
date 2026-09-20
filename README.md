@@ -60,6 +60,194 @@ conda activate foresight
 pip install -r requirements.txt
 ```
 
+## Run it for real: models served by vLLM on Slurm
+
+### At a glance (the first SWE-CI A/B)
+
+**Server side, on Slurm** (whoever runs the models)
+- Two independent vLLM servers, one job each, same checkpoint (`Qwen3-Coder-30B-A3B-Instruct-FP8`), same
+  node, one B200 GPU each, no tensor parallelism, `--max-model-len 262144`,
+  `--tool-call-parser qwen3_coder`, no auth, 12 h jobs.
+- `target` (`:8001`, served name `target-model`) is what SWE-CI calls directly in the control arm.
+  `aux` (`:8002`, `aux-model`) is used only by foresight's aux agent in the treatment arm; SWE-CI never
+  calls it. foresight does not run here.
+
+**Caller side, your machine over the TAU VPN**
+- SWE-CI, Docker and foresight. Control arm: SWE-CI to target. Treatment arm: SWE-CI to foresight to
+  target, with aux exploring the task container. Run the arms one after the other, `max_workers = 1`.
+- After the run the caller collects the results (`tools/collect_swe_ci_ab.py`). The server side then adds
+  what only it knows (vLLM flags, sampling defaults, partition, job ids, logs) to `server-side/` in the
+  same results folder.
+
+foresight is a light HTTP proxy (no GPU). Only the two model endpoints, `target` and `aux`,
+need a GPU, and they are ordinary OpenAI-compatible vLLM servers, so they can run as Slurm jobs
+(`deploy/tau-slurm/`, a site deployment, not part of the library). Where foresight itself runs
+depends on the caller:
+
+| Caller | foresight runs on | Why |
+|---|---|---|
+| a harness on the cluster, no Docker (`LocalAdapter`) | a Slurm CPU job (`deploy/tau-slurm/launch.sh`) | starts models, proxy and aux agent together |
+| SWE-CI (needs Docker) | **your machine**, models on Slurm, over the TAU VPN | there is no Docker on the cluster, and SWE-CI's containers must reach foresight, so it has to sit where Docker sits |
+
+Models on Slurm, foresight on your machine (`deploy/local-swe-ci-slurm-models/README.md` has the
+full walkthrough and the exact `sbatch` line):
+
+1. **Once, on the login node:** `deploy/tau-slurm/setup/install_vllm_env.sh`, then
+   `deploy/tau-slurm/setup/prefetch_model.sh <hf-model-id>` (weights are fetched before a GPU job
+   needs them, so a preempted job never restarts the transfer).
+2. **One vLLM job per role**, submitting `deploy/tau-slurm/serve_vllm.sbatch` directly (not
+   `launch.sh`, which would also start its own foresight job). Per job, via `--export`:
+
+   | Variable | Meaning |
+   |---|---|
+   | `FORESIGHT_ROLE` | `target` or `aux` (names the endpoint file) |
+   | `FORESIGHT_MODEL_ID` | Hugging Face model id |
+   | `FORESIGHT_ALIAS` | served model name; two space-separated names let one loaded model answer as both roles |
+   | `FORESIGHT_PORT` | port to bind, one per job when the roles use separate jobs |
+   | `FORESIGHT_TOOL_CALL_PARSER` | e.g. `qwen3_coder`; the harness needs working tool calls (default `auto`) |
+   | `FORESIGHT_MAX_MODEL_LEN` | context length (default 32768; SWE-CI prompts need far more, 262144 for the model above) |
+
+   Cold start takes 15-50 min; the job writes `<run dir>/<role>.endpoint` once vLLM answers.
+   Request a `--time` longer than the whole run. The jobs do not stop themselves: `scancel` them.
+
+   Choices that mattered (as reported by the server side, 2026-09-20):
+   - **Checkpoint:** pick one that loads fast from NFS. `Qwen3-Coder-30B-A3B-Instruct-FP8` (31 GB, one
+     GPU, no tensor parallelism) loads in about 10-35 min; `Qwen3-Coder-Next-FP8` once took 4.5 h.
+     `--max-model-len 262144` is this model's native context, so no rope scaling.
+   - **Partition:** the shared `*-killable` pools can preempt a job mid-experiment. `gpu-b200` is
+     non-killable and cs_dcor-owned, so the two jobs cannot be preempted; the tradeoff is that submitting
+     there forcibly requeues other users' lower-tier jobs on that node to free the GPUs.
+   - **Hardware:** only B200 and H200 are confirmed to run this vLLM build (CUDA-13 wheels). a6000 runs
+     out of KV-cache memory on one GPU, l40s and older cards have drivers too old for CUDA 13, and both
+     H100 nodes are broken or blocked.
+   - **Wall clock:** the first A/B used 12 h jobs; the run itself took about 3.5 h after the load.
+3. **Check reachability from the machine running foresight**, and use the node's fully qualified
+   name (measured: the short hostname did not resolve off-cluster, the FQDN did):
+
+   ```bash
+   nc -zv <node-fqdn> <port>
+   curl http://<node-fqdn>:<port>/v1/models
+   docker run --rm curlimages/curl -s -m 10 http://<node-fqdn>:<port>/v1/models   # from a container too
+   ```
+
+   The container check matters because SWE-CI's containers, not the host, make the calls: to the target
+   directly in the control arm, to foresight in the treatment arm.
+4. **Point foresight at them** (`configs/swe_ci.yaml` is the template). `served_name` is what the
+   caller addresses foresight as; `model` is what the upstream calls the model. Leave out
+   `api_key_env` for an endpoint without auth. Both roles may share one URL.
+
+   ```yaml
+   models:
+     target: {served_name: target-model, backend: openai_compat, model: target-model,
+              base_url: "http://<node-fqdn>:8001/v1", timeout_s: 3600}
+     aux:    {served_name: aux-model,    backend: openai_compat, model: aux-model,
+              base_url: "http://<node-fqdn>:8002/v1", timeout_s: 1800}
+   ```
+5. `python -m foresight.server --config <your.yaml>`; the caller's `base_url` is this server.
+
+### Running with SWE-CI
+
+Everything but the models runs on one machine: Docker, the SWE-CI clone (its own venv), and
+foresight. SWE-CI's repo stays unmodified; the only change on its side is `base_url`.
+
+One-time setup: Docker Desktop running and the VPN on; in the SWE-CI clone
+`conda create -p .venv python=3.11 && .venv/bin/pip install -r requirements.txt`; the `foresight` env from
+"Setup" above.
+
+1. **Pick the tasks.** A task is a row of the benchmark csv `metadata/<splitting>.csv` (1-based data
+   rows). Back up `default.csv`, write the header plus your rows into it, and fetch only those
+   tasks with `swe_ci.download.download_hf_folder(CONFIG.hf_repo_id, f"data/{task_id}",
+   CONFIG.save_root_dir, hf_token)` (`PYTHONPATH=src`). Do not run `python -m swe_ci.download`: it
+   overwrites the trimmed csv and fetches the whole ~50 GB dataset.
+2. **Two SWE-CI configs that differ only in `experiment_name`, `base_url` and `model_name`.**
+   *Control* points at the target endpoint (`api_key = "dummy"`); *foresight* points at
+   `http://<address containers can reach>:<foresight port>/v1` with `model_name = "target-model"`.
+   Everything else must match: `agent_name = "opencode"`, `mode`, `splitting`, `evolve.max_epoch`,
+   `max_try`, and `max_workers = 1` (see below). On macOS with Docker Desktop, containers reach the
+   host at `host.docker.internal`, and SWE-CI needs `docker.storage_disk = "local-docker-desktop"`,
+   `read_bps = write_bps = ""` and a small `memory`/`memory_reservation` (`2048mb`/`1024mb`); on
+   Linux the bridge gateway `172.17.0.1` is used.
+3. **A foresight config for the run:** copy `configs/swe_ci.yaml` and set the model URLs,
+   `adapter.foresight_base_url` (the address from step 2), `adapter.swe_ci_config` (absolute path
+   of the foresight SWE-CI config), a unique `trace.path`, `trace.log_replies: true` to keep what the
+   target replied, and `adapter.aux_export_dir` to keep what the aux agent actually did (its own
+   opencode sessions, exported from the container before SWE-CI deletes it).
+4. **Run the arms one after the other, never together:**
+
+   ```bash
+   # from the SWE-CI dir, control arm
+   PYTHONPATH=src nohup .venv/bin/python -u -m swe_ci.evaluate --config_file config_control.toml > control.log 2>&1 &
+
+   # foresight arm: start the proxy, check it from the host AND from a container, then run
+   python -m foresight.server --config configs/<your>.yaml
+   curl http://localhost:<port>/v1/models
+   docker run --rm curlimages/curl -s http://host.docker.internal:<port>/v1/models
+   PYTHONPATH=src nohup .venv/bin/python -u -m swe_ci.evaluate --config_file config_foresight.toml > foresight.log 2>&1 &
+   ```
+
+   Keep `evolve.max_workers = 1`. foresight finds the calling container by IP, or failing that as
+   "the only running container" (`resolved_by: sole_container`, what Docker Desktop gives). With
+   several containers running and no IP match it silently degrades to a body-only aux call
+   (`provenance.fallback: body_only`), which is not the condition under test; exclude those runs.
+   Under Linux Docker, see "Keeping SWE-CI's task concurrency" below.
+
+   Watch for:
+   - Container exits with code 137 are normal teardown after each pytest run, not an out-of-memory kill.
+   - `Cannot connect to API ... Max attempts reached` means an endpoint died. Stop, and do not retry
+     against a dead endpoint.
+   - A failed experiment folder must be renamed or removed before re-running under the same name, because
+     the same name resumes from its checkpoints.
+   - `timeout` does not exist on macOS, and zsh errors on an unmatched glob; use `find`/`ls` in scripts.
+5. **Collect the results** into `results/`, one command for both arms:
+
+   ```bash
+   python tools/collect_swe_ci_ab.py --swe-ci-dir ../SWE-CI --metadata-csv ../SWE-CI/metadata/<full>.csv \
+       --arm control=<control experiment>:config_control.toml \
+       --arm foresight=<foresight experiment>:config_foresight.toml \
+       --trace foresight=traces/<foresight experiment>.jsonl \
+       --aux-export-dir foresight=<aux_export_dir> --foresight-config configs/<your>.yaml \
+       --stdout-log control=control.log --stdout-log foresight=foresight.log \
+       --model-url target=http://<node-fqdn>:8001/v1 --model-url aux=http://<node-fqdn>:8002/v1
+   ```
+
+   It writes `RUN.md` (results, timing, cost, aux provenance, incidents), `manifest.json` (rows,
+   each task's commits, settings and whether the arms' settings matched), `metrics.csv` (per epoch:
+   gap, lines changed, maintainability index, pylint note), per-epoch failing tests (and the failing
+   tests after the last epoch, in `final/`), `requirement.xml` and code diffs, the aux runs paired
+   with their base task, the console output of each `swe_ci.evaluate` process, and plots. Check
+   that no aux run has a `fallback`.
+6. **The server side adds its part**, after the caller side has collected: into
+   `results/<label>/server-side/`, following the checklist the collector left in `TEMPLATE.md` (models and
+   vLLM version, launch flags, the sampling defaults the servers applied, hardware, job ids and times,
+   events such as preemptions or OOMs, other load on the node, and the vLLM logs). Sampling defaults
+   change results and are visible only on this side. The collector never overwrites that folder, so a
+   re-collection is safe. Then commit the results folder.
+
+### Naming conventions for A/B tests
+
+Start every name with `ab-test`, then `swe-ci`, the rows and the epoch cap. Rows are 1-based data
+rows of the **full** `metadata/<splitting>.csv` (not a trimmed copy): `6-10`, or `1-2_5` for a
+non-contiguous set. The epoch cap is `evolve.max_epoch`.
+
+| What | Pattern | Example |
+|---|---|---|
+| results folder | `results/ab-test__swe-ci__rows-<rows>__ep<epochs>` | `ab-test__swe-ci__rows-6-10__ep20` |
+| SWE-CI `experiment_name` | `ab-test__swe-ci__<arm>__rows-<rows>__ep<epochs>`, `<arm>` is `control` or `foresight` | `ab-test__swe-ci__foresight__rows-6-10__ep20` |
+| foresight trace | `traces/<experiment_name>.jsonl` | `traces/ab-test__swe-ci__foresight__rows-6-10__ep20.jsonl` |
+| aux export dir | `traces/<experiment_name>__aux-agent/` | |
+
+`collect_swe_ci_ab.py` derives the results folder name from the data (`--label` overrides it). SWE-CI
+resumes any experiment whose name already exists, so a repeat of the same rows needs a new name:
+append `__run2` to the experiment names and to the results folder.
+
+**Merging batches later** (say rows 6-10 and rows 11-15 at 20 epochs each): task ids are unique, so
+the `data/<arm>/<task_id>/` folders of two batches can be combined by copying. Only merge batches
+with the same epoch cap, arms, models and settings (compare `settings` in each `manifest.json`).
+EvoScore is averaged over `max_epoch` epochs, and SWE-CI pads a task that stopped early with its
+last value, so recompute it over all merged tasks from the `iteration.jsonl` files with one epoch
+cap; averaging two batches' averages is only right when they have the same number of tasks. There is
+no merge tool yet.
+
 ## Run it (local test setup)
 
 The commands below stand up foresight against `fake_upstream.py`, a mock
@@ -126,6 +314,14 @@ for l in open('traces/naive.jsonl'):
 "
 ```
 
+By default a record holds prompts and token counts, not what the target *said*. Set
+`trace.log_replies: true` to also keep the target's reply on each row as `reply`: its text and every tool
+call (`name`, `arguments`), the finish reason, and `truncated` if it was cut at `trace.reply_max_chars`
+(default 50,000). Replies are small next to prompts (about 1 MB per arm for a 25-epoch SWE-CI run), and
+what the agent later feeds back to the model, the tool outputs, is not recorded. Aux replies are never
+logged here: the aux agent's own record is `adapter.aux_export_dir`. Streamed and non-streamed replies use
+the same shape, and the relayed bytes are untouched either way.
+
 Two fields are `null` on streamed requests, and neither is a shortcut:
 `upstream_status`, because `Backend.stream` yields bytes and never exposes the
 status; and `usage.upstream`, unless the caller set
@@ -184,7 +380,11 @@ See `deploy/local-ollama/README.md` for the reproducible setup.
 **Current state.** The `docker exec` argv, the HOME-wrapper bypass, and provider bootstrap --
 are confirmed against real Docker Desktop (M1 Mac).
 
-**Step 4 -- one real task, end to end, with a real model -- is still open**,
+**Update:** step 4 is done. A real SWE-CI A/B, five tasks and five epochs against
+`Qwen3-Coder-30B-A3B-Instruct-FP8` served by vLLM on Slurm, is in
+`results/ab-test__swe-ci__rows-1-5__ep5/`. What follows is the earlier, local-model attempt.
+
+**Step 4 -- one real task, end to end, with a real model -- was open**,
 for two separate reasons:
 
 - **Memory.** Docker's VM + a real task container + a loaded local model
@@ -244,8 +444,9 @@ more info on the milestones.
   workspace guard. `configs/swe_ci.yaml` targets real Docker; this Slurm
   cluster does not currently have one (or does it? I wan't able to find docker installed - AZ),
   and cannot get one without an admin ticket -- see `foresight-design-plan.md` risk 1 for the measurement.
-- **Run `SweCiAdapter` against real Docker, locally, with a bigger model.**
-  Try `qwen3-coder:30b` -- the smaller models tested so far (`qwen2.5-coder`,
+- **Done: `SweCiAdapter` against real Docker, with a 30B model served on Slurm**
+  (`results/ab-test__swe-ci__rows-1-5__ep5/`; inbound requests from a laptop to a job's node
+  work over the VPN). Originally: try `qwen3-coder:30b` -- the smaller models tested so far (`qwen2.5-coder`,
   `qwen3:8b`, `qwen3:14b`) were not sufficient as aux for a real task, see
   the model table above.
 - **Check again for Docker on the Slurm cluster.** Not found on node

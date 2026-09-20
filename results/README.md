@@ -67,9 +67,15 @@ environment.txt        generated: commits, versions, Docker resources, model end
                        line is kept from an earlier collection if the server has since expired)
 configs/               the SWE-CI configs and the foresight config used, keys redacted;
                        tasks.txt lists the task ids
+server-side/           NOT generated: added by whoever ran the model servers, after the caller side has
+                       collected. TEMPLATE.md is the checklist (models, vLLM flags, sampling defaults,
+                       hardware, job ids, events, shared load, logs); setup.md is their description.
+                       The collector creates the folder if absent and never overwrites it.
 plots/                 gap, EvoScore, cumulative lines changed, maintainability, pylint, per epoch
 data/<arm>/            <arm> is control or foresight
     main.log             SWE-CI's own log
+    swe_ci_stdout.log    console output of swe_ci.evaluate: SWE-CI's effective config and the final
+                         table (not the agent's log); a crash of the process itself would show here
     summary.txt          the swe_ci.summarize table: EvoScore, resolved, zero-regression
     <task_id>/
         iteration.jsonl    one line per epoch, 0 = starting state: gap, pytest counts, agent tokens/time
@@ -78,7 +84,9 @@ data/<arm>/            <arm> is control or foresight
             non-passed/summary.jsonl   failing tests at the START of epoch N
             requirement.xml            the architect's output for epoch N
             edit.diff                  the code change made in epoch N (a/ = before, b/ = after)
-    trace.jsonl.gz       foresight's trace (foresight arm only)
+        final/non-passed/summary.jsonl   failing tests AFTER the last epoch (the last accepted state)
+    trace.jsonl.gz       foresight's trace (foresight arm only); rows carry the target model's reply
+                         (text and tool calls) when the run set trace.log_replies
     aux_sessions.json    one entry per aux run: task, epoch, phase, answer, provenance
     AUX_PAIRS.md         each aux answer next to its base task
     aux-agent/           ses_*.json, the aux agent's own reads and tool calls (only when
