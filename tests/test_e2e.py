@@ -238,3 +238,63 @@ async def test_aux_model_bypass_e2e_never_enhances(wired_apps):
     assert traces[0]["usage"]["upstream"]["prompt_tokens"] > 0
     assert "session_key" not in traces[0]
     assert "enhanced" not in traces[0]
+
+
+# -- trace.log_replies end to end ---------------------------------------------
+
+
+@pytest_asyncio.fixture
+async def apps_logging_replies(tmp_path):
+    fake_client = httpx.AsyncClient(transport=httpx.ASGITransport(app=create_fake_app(tmp_path / "up.jsonl")))
+    trace_path = tmp_path / "traces" / "replies.jsonl"
+    config = load_config("configs/naive.yaml")
+    config.trace.path = str(trace_path)
+    config.trace.log_replies = True
+    runtime = Runtime(config, http_client=fake_client)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app(runtime)), base_url="http://test") as client:
+        yield client, trace_path
+    await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_a_non_streamed_reply_is_recorded_when_asked(apps_logging_replies):
+    client, trace_path = apps_logging_replies
+    resp = await client.post("/v1/chat/completions", json={
+        "model": "target-model", "messages": [{"role": "user", "content": "Fix parse_date()"}], "tools": DEFAULT_TOOLS})
+    said = resp.json()["choices"][0]["message"]["content"]
+    (row,) = _read_jsonl(trace_path)
+    assert row["reply"]["content"] == said and row["reply"]["finish_reason"] == "stop"
+
+
+@pytest.mark.asyncio
+async def test_a_streamed_reply_is_recorded_and_the_stream_is_unchanged(apps_logging_replies):
+    client, trace_path = apps_logging_replies
+    resp = await client.post("/v1/chat/completions", json={
+        "model": "target-model", "stream": True,
+        "messages": [{"role": "user", "content": "Fix parse_date()"}], "tools": DEFAULT_TOOLS})
+    streamed = ""
+    for line in resp.text.splitlines():
+        if line.startswith("data:") and "[DONE]" not in line:
+            for choice in json.loads(line[5:]).get("choices", []):
+                streamed += choice["delta"].get("content") or ""
+    (row,) = _read_jsonl(trace_path)
+    assert streamed and row["reply"]["content"] == streamed
+    assert row["reply"]["finish_reason"] == "stop"
+
+
+@pytest.mark.asyncio
+async def test_replies_are_not_recorded_unless_asked(wired_apps):
+    client, _record, trace_path = wired_apps
+    await client.post("/v1/chat/completions", json={
+        "model": "target-model", "messages": [{"role": "user", "content": "Fix parse_date()"}], "tools": DEFAULT_TOOLS})
+    (row,) = _read_jsonl(trace_path)
+    assert "reply" not in row                      # the record keeps exactly the shape it always had
+
+
+@pytest.mark.asyncio
+async def test_aux_traffic_never_gets_a_reply_field(apps_logging_replies):
+    client, trace_path = apps_logging_replies
+    await client.post("/v1/chat/completions", json={
+        "model": "aux-model", "messages": [{"role": "user", "content": "anything"}]})
+    (row,) = _read_jsonl(trace_path)
+    assert row["role"] == "aux" and "reply" not in row

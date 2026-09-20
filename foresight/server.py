@@ -67,15 +67,16 @@ from .llm import ModelSpec
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Callable
 
-    #: Called once the upstream exchange is finished: (status, usage, notes).
-    #: ``status`` and ``usage`` are None on a stream -- see trace.py.
+    #: Called once the upstream exchange is finished: (status, usage, notes, reply).
+    #: ``status`` and ``usage`` are None on a stream -- see trace.py. ``reply`` is
+    #: None unless ``trace.log_replies`` is on.
     #:
     #: Kept behind TYPE_CHECKING deliberately. A type alias is an ordinary
     #: runtime expression, so `from __future__ import annotations` does not
     #: defer it, and `int | None` inside a subscript is a TypeError before 3.10.
     #: Annotations *referring* to it stay lazy strings, and nothing introspects
     #: these two functions -- FastAPI only reads the decorated route signatures.
-    OnComplete = Callable[[int | None, dict | None, list[str]], None]
+    OnComplete = Callable[[int | None, dict | None, list[str], dict | None], None]
 
 
 class ModelCard(BaseModel):
@@ -157,7 +158,7 @@ def create_app(runtime: Runtime) -> FastAPI:
             # Bypass: aux traffic is relayed, never enhanced. Enhancing it would
             # mean asking aux about future work for its own aux prompt.
             def on_bypass_complete(
-                status: int | None, usage: dict | None, notes: list[str]
+                status: int | None, usage: dict | None, notes: list[str], reply: dict | None = None
             ) -> None:
                 _trace(
                     runtime,
@@ -183,7 +184,7 @@ def create_app(runtime: Runtime) -> FastAPI:
         ctx.timings["pipeline_s"] = round(time.monotonic() - started, 4)
 
         def on_target_complete(
-            status: int | None, usage: dict | None, notes: list[str]
+            status: int | None, usage: dict | None, notes: list[str], reply: dict | None = None
         ) -> None:
             _trace(
                 runtime,
@@ -193,11 +194,15 @@ def create_app(runtime: Runtime) -> FastAPI:
                     upstream_status=status,
                     usage_upstream=usage,
                     extra_notes=notes,
+                    reply=reply,
                 ),
             )
 
+        # Only the target's replies are kept: aux's own transcripts are exported
+        # from its container instead (adapter.aux_export_dir).
         return await _forward(
-            backend, spec, ctx.body_out, stream=req.stream, on_complete=on_target_complete
+            backend, spec, ctx.body_out, stream=req.stream, on_complete=on_target_complete,
+            reply_max_chars=runtime.config.trace.reply_max_chars if runtime.trace_replies else None,
         )
 
     return app
@@ -210,10 +215,11 @@ async def _forward(
     *,
     stream: bool,
     on_complete: OnComplete,
+    reply_max_chars: int | None = None,
 ):
     if stream:
         return StreamingResponse(
-            _traced_stream(backend, spec, body, on_complete),
+            _traced_stream(backend, spec, body, on_complete, reply_max_chars),
             media_type="text/event-stream",
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
@@ -221,12 +227,14 @@ async def _forward(
     usage = upstream.json.get("usage") if isinstance(upstream.json, dict) else None
     # Before the response, so a TraceFailure here surfaces as a 500 rather than
     # riding along behind a 200 that has already been committed.
-    on_complete(upstream.status, usage if isinstance(usage, dict) else None, [])
+    reply = trace.reply_from_json(upstream.json, reply_max_chars) if reply_max_chars else None
+    on_complete(upstream.status, usage if isinstance(usage, dict) else None, [], reply)
     return JSONResponse(status_code=upstream.status, content=upstream.json)
 
 
 async def _traced_stream(
-    backend: Backend, spec: ModelSpec, body: dict, on_complete: OnComplete
+    backend: Backend, spec: ModelSpec, body: dict, on_complete: OnComplete,
+    reply_max_chars: int | None = None,
 ) -> AsyncIterator[bytes]:
     """Relay the stream untouched, then record it.
 
@@ -241,20 +249,23 @@ async def _traced_stream(
     masking the original exception would cost more than the record is worth.
     """
     sniffer = trace.UsageSniffer()
+    replies = trace.ReplyCollector(reply_max_chars) if reply_max_chars else None
     notes: list[str] = []
     try:
         async for chunk in backend.stream(spec, body):
             yield chunk
             sniffer.feed(chunk)
+            if replies is not None:
+                replies.feed(chunk)
     except BaseException:
         notes.append("stream_incomplete")
         try:
-            on_complete(None, sniffer.usage(), notes)
+            on_complete(None, sniffer.usage(), notes, replies.reply() if replies else None)
         except Exception as exc:  # noqa: BLE001 -- never mask the stream failure
             print(f"foresight: trace write failed on aborted stream: {exc}", file=sys.stderr)
         raise
     else:
-        on_complete(None, sniffer.usage(), notes)
+        on_complete(None, sniffer.usage(), notes, replies.reply() if replies else None)
 
 
 def _trace(runtime: Runtime, record: dict) -> None:

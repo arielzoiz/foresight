@@ -53,6 +53,16 @@ class TraceConfig(BaseModel):
 
     path: str | None = None
 
+    log_replies: bool = False
+    """Also record what the target model replied: its text and every tool call
+    (name and arguments) on each row, as ``reply``. Off by default. The trace
+    otherwise holds prompts and token counts only, so what the target actually
+    said and did is lost. Replies are small next to prompts; tool *outputs* fed
+    back to the model are not recorded. Needs ``path``."""
+
+    reply_max_chars: int = Field(default=50_000, ge=1_000)
+    """A reply longer than this is cut and marked ``truncated``."""
+
 
 class ForesightConfig(BaseModel):
     """The whole configuration, validated before anything is constructed."""
@@ -92,6 +102,7 @@ class Runtime:
         self.adapter = _build_adapter(config, self.aux_backend, self.aux_spec)
         self.builder = _build_builder(config)
         self.tracer = _build_tracer(config)
+        self.trace_replies = bool(config.trace.log_replies and self.tracer is not None)
         self.store = SessionStore(ttl_s=config.session.ttl_s)
         self.pipeline = Pipeline(
             adapter=self.adapter,

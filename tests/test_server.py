@@ -55,6 +55,7 @@ def build_test_runtime(
         store=store,
         pipeline=pipeline,
         tracer=tracer,
+        trace_replies=False,
         by_served_name={
             "target-model": ("target", target_spec, target_backend),
             "aux-model": ("aux", aux_spec, aux_backend),

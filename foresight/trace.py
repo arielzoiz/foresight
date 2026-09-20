@@ -144,6 +144,137 @@ class UsageSniffer:
         return None
 
 
+#: A logged reply is cut at this many characters (per reply, across content,
+#: reasoning and tool-call arguments) and marked ``truncated``. Replies are small
+#: next to prompts -- a whole SWE-CI run's were about 1 MB per arm -- so this only
+#: guards against a runaway generation.
+DEFAULT_REPLY_MAX_CHARS = 50_000
+#: An SSE line longer than this without a newline is dropped, not buffered.
+_MAX_SSE_LINE_BYTES = 1_000_000
+
+
+class ReplyCollector:
+    """Rebuilds the assistant's reply from raw SSE bytes, without altering them.
+
+    Read-only by construction, like ``UsageSniffer``: ``feed`` is handed each
+    chunk *after* it has been yielded downstream, so nothing here can change or
+    delay what the caller receives. Chunk boundaries do not respect SSE line
+    boundaries, so a partial trailing line is held until its newline arrives.
+
+    Keeps what the model said (``content``), any ``reasoning`` text, and every
+    tool call it made (name and arguments, reassembled from their deltas by
+    ``index``) -- what a debugger of an agent run wants, and none of the tool
+    *outputs* the agent later feeds back, which are the large part of a session.
+    """
+
+    def __init__(self, max_chars: int = DEFAULT_REPLY_MAX_CHARS) -> None:
+        self._buf = b""
+        self._content: list[str] = []
+        self._reasoning: list[str] = []
+        self._tools: dict[int, dict] = {}
+        self._finish: str | None = None
+        self._max = max_chars
+        self._chars = 0
+        self.truncated = False
+
+    def feed(self, chunk: bytes) -> None:
+        self._buf += chunk
+        *lines, self._buf = self._buf.split(b"\n")
+        if len(self._buf) > _MAX_SSE_LINE_BYTES:
+            self._buf = b""
+        for raw in lines:
+            self._line(raw)
+
+    def _room(self, text: str) -> str:
+        """``text``, cut to whatever budget is left; flags ``truncated`` when it had to cut."""
+        left = self._max - self._chars
+        if left <= 0:
+            self.truncated = self.truncated or bool(text)
+            return ""
+        if len(text) > left:
+            self.truncated = True
+            text = text[:left]
+        self._chars += len(text)
+        return text
+
+    def _line(self, raw: bytes) -> None:
+        line = raw.strip()
+        if not line.startswith(b"data:"):
+            return
+        payload = line[len(b"data:") :].strip()
+        if not payload or payload == b"[DONE]":
+            return
+        try:
+            event = json.loads(payload)
+        except ValueError:
+            return
+        choices = event.get("choices") if isinstance(event, dict) else None
+        if not choices or not isinstance(choices[0], dict):
+            return
+        choice = choices[0]
+        if choice.get("finish_reason"):
+            self._finish = choice["finish_reason"]
+        delta = choice.get("delta") or {}
+        if isinstance(delta.get("content"), str):
+            self._content.append(self._room(delta["content"]))
+        for key in ("reasoning_content", "reasoning"):
+            if isinstance(delta.get(key), str):
+                self._reasoning.append(self._room(delta[key]))
+        for call in delta.get("tool_calls") or []:
+            if not isinstance(call, dict):
+                continue
+            slot = self._tools.setdefault(
+                call.get("index", len(self._tools)), {"id": None, "name": "", "arguments": ""}
+            )
+            if call.get("id"):
+                slot["id"] = call["id"]
+            function = call.get("function") or {}
+            if isinstance(function.get("name"), str):
+                slot["name"] += function["name"]
+            if isinstance(function.get("arguments"), str):
+                slot["arguments"] += self._room(function["arguments"])
+
+    def reply(self) -> dict:
+        out: dict = {
+            "content": "".join(self._content) or None,
+            "tool_calls": [self._tools[i] for i in sorted(self._tools)],
+            "finish_reason": self._finish,
+            "truncated": self.truncated,
+        }
+        if self._reasoning and "".join(self._reasoning):
+            out["reasoning"] = "".join(self._reasoning)
+        return out
+
+
+def reply_from_json(payload: object, max_chars: int = DEFAULT_REPLY_MAX_CHARS) -> dict:
+    """The same reply shape, from a non-streaming response body."""
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if not choices or not isinstance(choices[0], dict):
+        # An error body, or anything else that is not a completion: keep it, bounded.
+        return {"content": None, "tool_calls": [], "finish_reason": None, "truncated": False,
+                "unparsed": json.dumps(payload, default=str)[:max_chars]}
+    choice = choices[0]
+    message = choice.get("message") or {}
+    collector = ReplyCollector(max_chars)
+    content = collector._room(message["content"]) if isinstance(message.get("content"), str) else None
+    tools = []
+    for call in message.get("tool_calls") or []:
+        function = (call or {}).get("function") or {}
+        args = function.get("arguments")
+        tools.append({
+            "id": (call or {}).get("id"),
+            "name": function.get("name", ""),
+            "arguments": collector._room(args if isinstance(args, str) else json.dumps(args)),
+        })
+    out = {"content": content or None, "tool_calls": tools,
+           "finish_reason": choice.get("finish_reason"), "truncated": collector.truncated}
+    reasoning = message.get("reasoning_content") or message.get("reasoning")
+    if isinstance(reasoning, str) and reasoning:
+        out["reasoning"] = collector._room(reasoning)
+        out["truncated"] = collector.truncated
+    return out
+
+
 # -- record builders ------------------------------------------------------
 # Pure functions: they read state and return a dict. Keeping them separate from
 # the writer is what lets tests assert on record shape without touching a disk.
@@ -156,8 +287,13 @@ def target_record(
     upstream_status: int | None,
     usage_upstream: dict | None,
     extra_notes: list[str] | None = None,
+    reply: dict | None = None,
 ) -> dict:
-    """The full record: a request that went through the pipeline."""
+    """The full record: a request that went through the pipeline.
+
+    ``reply`` is present only when ``trace.log_replies`` is on, so a config that
+    never asks for it writes exactly the records it always did.
+    """
     req = ctx.req
     prompt_in = req.first_user_content()
     prompt_out = _prompt_out(ctx)
@@ -187,6 +323,7 @@ def target_record(
         "timings": dict(ctx.timings),
         "notes": [*ctx.notes, *(extra_notes or [])],
         "error": None,
+        **({"reply": reply} if reply is not None else {}),
     }
 
 

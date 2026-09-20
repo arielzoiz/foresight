@@ -458,3 +458,91 @@ async def test_sniffer_recovers_usage_from_a_real_fake_upstream_stream():
     async for chunk in _sse_chunks("id", 0, "fake-target", "some reply text", usage=expected):
         sniffer.feed(chunk)
     assert sniffer.usage() == expected
+
+
+# -- trace.log_replies: what the target model replied --------------------------
+
+
+def _sse(*events: dict, done: bool = True) -> bytes:
+    body = b"".join(b"data: " + json.dumps(e).encode() + b"\n\n" for e in events)
+    return body + (b"data: [DONE]\n\n" if done else b"")
+
+
+def _delta(delta: dict, finish: str | None = None) -> dict:
+    return {"choices": [{"index": 0, "delta": delta, "finish_reason": finish}]}
+
+
+def test_reply_collector_rebuilds_text_and_tool_calls_from_sse():
+    from foresight.trace import ReplyCollector
+
+    stream = _sse(
+        _delta({"role": "assistant", "content": ""}),
+        _delta({"content": "Let me "}),
+        _delta({"content": "look."}),
+        _delta({"tool_calls": [{"index": 0, "id": "call_1", "function": {"name": "read", "arguments": ""}}]}),
+        _delta({"tool_calls": [{"index": 0, "function": {"arguments": '{"filePath": '}}]}),
+        _delta({"tool_calls": [{"index": 0, "function": {"arguments": '"/app/x.py"}'}}]}),
+        _delta({"tool_calls": [{"index": 1, "id": "call_2", "function": {"name": "glob", "arguments": "{}"}}]}),
+        _delta({}, finish="tool_calls"),
+        {"choices": [], "usage": {"prompt_tokens": 5, "completion_tokens": 2}},
+    )
+    collector = ReplyCollector()
+    collector.feed(stream)
+    reply = collector.reply()
+    assert reply["content"] == "Let me look."
+    assert reply["finish_reason"] == "tool_calls" and reply["truncated"] is False
+    assert reply["tool_calls"] == [
+        {"id": "call_1", "name": "read", "arguments": '{"filePath": "/app/x.py"}'},
+        {"id": "call_2", "name": "glob", "arguments": "{}"},
+    ]
+    assert "reasoning" not in reply
+
+
+def test_reply_collector_survives_chunk_boundaries_inside_a_line():
+    """Chunks do not respect SSE lines: feed the same stream one byte at a time."""
+    from foresight.trace import ReplyCollector
+
+    stream = _sse(_delta({"content": "héllo "}), _delta({"content": "wörld"}, finish="stop"))
+    whole = ReplyCollector()
+    whole.feed(stream)
+    bytewise = ReplyCollector()
+    for i in range(len(stream)):
+        bytewise.feed(stream[i : i + 1])
+    assert bytewise.reply() == whole.reply()
+    assert bytewise.reply()["content"] == "héllo wörld"
+
+
+def test_reply_collector_cuts_a_runaway_reply_and_says_so():
+    from foresight.trace import ReplyCollector
+
+    collector = ReplyCollector(max_chars=10)
+    collector.feed(_sse(_delta({"content": "abcdefgh"}), _delta({"content": "ijklmnop"}), _delta({"content": "more"})))
+    reply = collector.reply()
+    assert reply["content"] == "abcdefghij" and reply["truncated"] is True
+
+
+def test_reply_collector_ignores_garbage_lines():
+    from foresight.trace import ReplyCollector
+
+    collector = ReplyCollector()
+    collector.feed(b": keep-alive\n\ndata: not json\n\nevent: ping\n\n")
+    collector.feed(_sse(_delta({"content": "ok"})))
+    assert collector.reply()["content"] == "ok"
+
+
+def test_reply_from_json_matches_the_streamed_shape():
+    from foresight.trace import reply_from_json
+
+    payload = {"choices": [{"message": {"role": "assistant", "content": "done", "tool_calls": [
+        {"id": "c1", "function": {"name": "bash", "arguments": '{"command": "ls"}'}}]}, "finish_reason": "tool_calls"}]}
+    assert reply_from_json(payload) == {
+        "content": "done", "finish_reason": "tool_calls", "truncated": False,
+        "tool_calls": [{"id": "c1", "name": "bash", "arguments": '{"command": "ls"}'}],
+    }
+
+
+def test_reply_from_json_keeps_an_error_body_instead_of_losing_it():
+    from foresight.trace import reply_from_json
+
+    reply = reply_from_json({"error": {"message": "context length exceeded"}})
+    assert reply["content"] is None and "context length exceeded" in reply["unparsed"]
