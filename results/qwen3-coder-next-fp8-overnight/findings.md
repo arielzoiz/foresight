@@ -261,3 +261,8 @@ something to dismiss outright.
   it for real would need an old enough `vllm` release to predate this
   baseline, which almost certainly means predating `qwen3_next` support too
   (same tension as l40s). Not pursuing further.
+- 16:14 — **post-commit update**: `909753` was preempted after ~1h of
+  serving (had already produced the grounded local-caller result above
+  before this happened). Auto-requeued by Slurm, `PENDING@BeginTime`.
+  `gpu-h200-killable` remains preemptible regardless of how long a job has
+  already been up -- this is expected, not a regression of anything.
