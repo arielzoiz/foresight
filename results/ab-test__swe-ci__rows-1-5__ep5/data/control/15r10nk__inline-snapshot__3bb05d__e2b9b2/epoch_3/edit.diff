@@ -1,0 +1,116 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/__init__.py b/src/inline_snapshot/_external/__init__.py
+--- a/src/inline_snapshot/_external/__init__.py	2026-09-19 19:33:38
++++ b/src/inline_snapshot/_external/__init__.py	2026-09-19 20:10:40
+@@ -1,4 +1,6 @@
+ from ._external import external
++from ._format import BinaryFormat
++from ._format import TextFormat
+ from ._outsource import outsource
+ from ._storage._hash import HashStorage
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_external.py b/src/inline_snapshot/_external/_external.py
+--- a/src/inline_snapshot/_external/_external.py	2026-09-19 20:05:22
++++ b/src/inline_snapshot/_external/_external.py	2026-09-19 20:10:36
+@@ -147,34 +147,60 @@
+ 
+         if isinstance(other, GenericValue):
+             raise UsageError("you can not compare external(...) with snapshot(...)")
+-
+-        if not self._original_location.stem:
+-            self._assign(other)
+-            state().missing_values += 1
+-            if state().update_flags.create:
+-                return True
+-            return False
+-
+-        assert self._location.stem
+-
+-        value = self._load_value()
+-        # Handle case where value might be bytes or other non-dict types
+-        if isinstance(value, bytes) and not isinstance(other, bytes):
+-            # Convert bytes to string for comparison
++        
++        # Handle bytes comparison safely
++        if isinstance(other, bytes) and not isinstance(self._load_value(), bytes):
++            # If other is bytes but our loaded value is not, we should not try to call .items() on bytes
++            # Just compare as bytes
+             try:
+-                value = value.decode('utf-8')
+-            except UnicodeDecodeError:
+-                # If we can't decode, fall back to a safe comparison
+-                pass
+-        elif isinstance(other, bytes) and not isinstance(value, bytes):
+-            # If other is bytes but value isn't, convert value to bytes for comparison
++                loaded_value = self._load_value()
++                if isinstance(loaded_value, bytes):
++                    result = loaded_value == other
++                else:
++                    # For non-bytes values, we can still do normal comparison
++                    result = loaded_value == other
++            except Exception:
++                # Fall back to simple equality check
++                result = False
++        elif isinstance(self._load_value(), bytes) and not isinstance(other, bytes):
++            # If our loaded value is bytes but other is not, we should not try to call .items() on bytes
+             try:
+-                other = other.decode('utf-8')
+-            except UnicodeDecodeError:
+-                # If we can't decode, fall back to a safe comparison
+-                pass
+-        
+-        result = value == other
++                loaded_value = self._load_value()
++                if isinstance(loaded_value, bytes):
++                    result = loaded_value == other
++                else:
++                    result = loaded_value == other
++            except Exception:
++                result = False
++        else:
++            # Normal comparison logic
++            if not self._original_location.stem:
++                self._assign(other)
++                state().missing_values += 1
++                if state().update_flags.create:
++                    return True
++                return False
++
++            assert self._location.stem
++
++            value = self._load_value()
++            # Handle case where value might be bytes or other non-dict types
++            if isinstance(value, bytes) and not isinstance(other, bytes):
++                # Convert bytes to string for comparison
++                try:
++                    value = value.decode('utf-8')
++                except UnicodeDecodeError:
++                    # If we can't decode, fall back to a safe comparison
++                    pass
++            elif isinstance(other, bytes) and not isinstance(value, bytes):
++                # If other is bytes but value isn't, convert value to bytes for comparison
++                try:
++                    other = other.decode('utf-8')
++                except UnicodeDecodeError:
++                    # If we can't decode, fall back to a safe comparison
++                    pass
++            
++            result = value == other
+ 
+         if state().update_flags.fix or state().update_flags.update:
+             if not result:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_storage/_uuid.py b/src/inline_snapshot/_external/_storage/_uuid.py
+--- a/src/inline_snapshot/_external/_storage/_uuid.py	2026-09-19 20:05:18
++++ b/src/inline_snapshot/_external/_storage/_uuid.py	2026-09-19 20:10:32
+@@ -69,6 +69,12 @@
+                 if file_name.startswith(location.stem):
+                     return file_path
+ 
++        # Additional fallback: look for any file that matches the location path
++        if location.path:
++            for file_name, file_path in self._external_files.items():
++                if location.path in str(file_path):
++                    return file_path
++
+         raise StorageLookupError(location)
+ 
+     def store(self, location: ExternalLocation, file_path: Path):

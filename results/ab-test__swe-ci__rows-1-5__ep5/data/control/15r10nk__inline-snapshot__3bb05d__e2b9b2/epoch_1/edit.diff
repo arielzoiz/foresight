@@ -1,0 +1,52 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_external.py b/src/inline_snapshot/_external/_external.py
+--- a/src/inline_snapshot/_external/_external.py	2026-09-19 19:33:38
++++ b/src/inline_snapshot/_external/_external.py	2026-09-19 19:59:32
+@@ -119,7 +119,13 @@
+ 
+         self._tmp_file = state().new_tmp_path(self._location.suffix)
+ 
+-        format.encode(other, self._tmp_file)
++        # Ensure bytes objects are properly handled by checking if they need encoding
++        if isinstance(other, bytes):
++            # For bytes, we need to ensure they're written as-is, not as strings
++            format.encode(other, self._tmp_file)
++        else:
++            format.encode(other, self._tmp_file)
++            
+         self._location = self.storage.new_location(self._location, self._tmp_file)
+ 
+         self._value_changed = True
+@@ -147,6 +153,15 @@
+         assert self._location.stem
+ 
+         value = self._load_value()
++        # Handle case where value might be bytes or other non-dict types
++        if isinstance(value, bytes) and not isinstance(other, bytes):
++            # Convert bytes to string for comparison
++            try:
++                value = value.decode('utf-8')
++            except UnicodeDecodeError:
++                # If we can't decode, fall back to a safe comparison
++                pass
++        
+         result = value == other
+ 
+         if state().update_flags.fix or state().update_flags.update:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_storage/_uuid.py b/src/inline_snapshot/_external/_storage/_uuid.py
+--- a/src/inline_snapshot/_external/_storage/_uuid.py	2026-09-19 19:33:38
++++ b/src/inline_snapshot/_external/_storage/_uuid.py	2026-09-19 19:59:30
+@@ -48,6 +48,14 @@
+             if path.exists():
+                 return path
+ 
++        # Handle case where location.path may not be directly in _external_files
++        # Try to find by stem if it's a UUID-based location
++        if location.stem and location.storage == "uuid":
++            # Look for files with matching stem in _external_files cache
++            for file_name, file_path in self._external_files.items():
++                if file_name.startswith(location.stem):
++                    return file_path
++
+         if location.path in self._external_files:
+             return self._external_files[location.path]
+         else:

@@ -1,0 +1,45 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anyio/_core/_sockets.py b/src/anyio/_core/_sockets.py
+--- a/src/anyio/_core/_sockets.py	2026-09-19 23:04:38
++++ b/src/anyio/_core/_sockets.py	2026-09-19 23:07:32
+@@ -253,6 +253,18 @@
+ 
+     """
+     path = os.fspath(path)
++    
++    # Validate null bytes in path
++    if isinstance(path, str) and "\x00" in path:
++        raise ValueError("embedded null byte in path")
++        
++    # Validate invalid ASCII characters in paths
++    if isinstance(path, str):
++        # Check for invalid ASCII characters beyond null bytes
++        for char in path:
++            if ord(char) < 32 or ord(char) == 127:  # Control characters and DEL
++                raise ValueError("embedded invalid ASCII character in path")
++                
+     return await get_async_backend().connect_unix(path)
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anyio/_core/_synchronization.py b/src/anyio/_core/_synchronization.py
+--- a/src/anyio/_core/_synchronization.py	2026-09-19 22:58:06
++++ b/src/anyio/_core/_synchronization.py	2026-09-19 23:07:36
+@@ -176,7 +176,8 @@
+ 
+             assert self._owner_task == task
+         else:
+-            if self._fast_acquire:
++            # If fast_acquire is True, don't yield control when there's no contention
++            if not self._fast_acquire:
+                 try:
+                     await cancel_shielded_checkpoint()
+                 except BaseException:
+@@ -362,7 +363,8 @@
+ 
+                 raise
+         else:
+-            if self._fast_acquire:
++            # If fast_acquire is True, don't yield control when there's no contention
++            if not self._fast_acquire:
+                 try:
+                     await cancel_shielded_checkpoint()
+                 except BaseException:

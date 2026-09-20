@@ -1,0 +1,103 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_external_location.py b/src/inline_snapshot/_external/_external_location.py
+--- a/src/inline_snapshot/_external/_external_location.py	2026-09-19 21:41:14
++++ b/src/inline_snapshot/_external/_external_location.py	2026-09-19 21:58:54
+@@ -72,6 +72,7 @@
+                 stem, suffix = path.split(".", 1)
+                 suffix = "." + suffix
+             elif not path:
++                # Handle case where we have "uuid:" or "hash:" with empty path
+                 stem = ""
+                 suffix = ""
+             else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_format/_json.py b/src/inline_snapshot/_external/_format/_json.py
+--- a/src/inline_snapshot/_external/_format/_json.py	2026-09-19 21:41:14
++++ b/src/inline_snapshot/_external/_format/_json.py	2026-09-19 21:58:58
+@@ -32,11 +32,23 @@
+         return is_json(value)
+ 
+     def encode(self, value: object, path: Path):
+-
+         with path.open("w", newline="\n", encoding="utf-8") as f:
+             json.dump(value, f, indent=2)
+ 
+     def decode(self, path: Path) -> object:
+-
+-        with path.open("r", newline="\n", encoding="utf-8") as f:
+-            return json.load(f)
++        # Handle potential bytes objects that may be passed to decode
++        try:
++            with path.open("r", newline="\n", encoding="utf-8") as f:
++                return json.load(f)
++        except (UnicodeDecodeError, TypeError):
++            # If it's bytes or there's a decoding issue, try to read as bytes first
++            try:
++                with path.open("rb") as f:
++                    data = f.read()
++                    # Try to decode as UTF-8
++                    if isinstance(data, bytes):
++                        return data.decode("utf-8")
++                    return data
++            except (UnicodeDecodeError, TypeError):
++                # If we can't decode it, return as-is
++                return data
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_storage/_hash.py b/src/inline_snapshot/_external/_storage/_hash.py
+--- a/src/inline_snapshot/_external/_storage/_hash.py	2026-09-19 21:41:14
++++ b/src/inline_snapshot/_external/_storage/_hash.py	2026-09-19 21:58:32
+@@ -26,7 +26,7 @@
+ class HashStorage(StorageProtocol):
+     def __init__(self, directory):
+         self.directory = Path(directory)
+-
++        
+     def _ensure_directory(self):
+         self.directory.mkdir(exist_ok=True, parents=True)
+         gitignore = self.directory / ".gitignore"
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_external/_storage/_uuid.py b/src/inline_snapshot/_external/_storage/_uuid.py
+--- a/src/inline_snapshot/_external/_storage/_uuid.py	2026-09-19 21:41:14
++++ b/src/inline_snapshot/_external/_storage/_uuid.py	2026-09-19 21:59:02
+@@ -51,6 +51,11 @@
+         if location.path in self._external_files:
+             return self._external_files[location.path]
+         else:
++            # If we can't find it in the cache, we may need to create it with a new UUID
++            if not location.stem:
++                # Handle case where we have a uuid: without stem - should generate new UUID
++                # This case is likely handled in new_location, but let's be safe
++                return self._get_path(location.with_stem(str(uuid.uuid4())))
+             raise StorageLookupError(location)
+ 
+     def store(self, location: ExternalLocation, file_path: Path):
+@@ -69,11 +74,18 @@
+     ) -> ExternalLocation:
+ 
+         if not location.stem:
++            # When we have a UUID location without a stem (e.g., uuid:), we should generate a new UUID
+             return location.with_stem(str(uuid.uuid4()))
+         return location
+ 
+     def _get_path(self, location: ExternalLocation) -> Path:
+-
++        # Handle the case where location.stem might be empty
++        if not location.stem:
++            # If we have an empty stem (like uuid:), we should generate a new UUID
++            # This can happen when we're creating a new UUID-based location
++            stem = str(uuid.uuid4())
++            location = location.with_stem(stem)
++            
+         file_path = location.filename
+         qualname = location.qualname
+         assert file_path
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/inline_snapshot/_format.py b/src/inline_snapshot/_format.py
+--- a/src/inline_snapshot/_format.py	2026-09-19 21:41:14
++++ b/src/inline_snapshot/_format.py	2026-09-19 21:58:40
+@@ -85,3 +85,10 @@
+ """
+             )
+             return text
++
++
++def format_code_enforce(text, filename):
++    """Enforce formatting by applying black formatting if enabled."""
++    if enforce_formatting():
++        return format_code(text, filename)
++    return text

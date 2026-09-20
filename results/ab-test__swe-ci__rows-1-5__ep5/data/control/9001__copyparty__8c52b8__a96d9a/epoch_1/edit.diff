@@ -1,0 +1,59 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/copyparty/authsrv.py b/copyparty/authsrv.py
+--- a/copyparty/authsrv.py	2026-09-19 19:47:42
++++ b/copyparty/authsrv.py	2026-09-19 20:35:28
+@@ -958,7 +958,12 @@
+                 try:
+                     self._l(ln, 5, "volume access config:")
+                     assert vp
+-                    sk, sv = ln.split(":")
++                    # Split on first colon only to handle colons in user identifiers
++                    parts = ln.split(":", 1)
++                    if len(parts) != 2:
++                        err = "malformed accs entry; "
++                        raise Exception(err)
++                    sk, sv = parts
+                     if re.sub("[rwmdgGha]", "", sk) or not sk:
+                         err = "invalid accs permissions list; "
+                         raise Exception(err)
+@@ -1005,7 +1010,8 @@
+     def _read_vol_str(
+         self, lvl: str, uname: str, axs: AXS, flags: dict[str, Any]
+     ) -> None:
+-        if lvl.strip("crwmdgGha"):
++        # Allow dots in volflags as well as standard characters
++        if lvl.strip("crwmdgGha."):
+             raise Exception("invalid volflag: {},{}".format(lvl, uname))
+ 
+         if lvl == "c":
+@@ -1028,7 +1034,15 @@
+         if uname == "":
+             uname = "*"
+ 
+-        for un in uname.replace(",", " ").strip().split():
++        # Handle comma-separated user identifiers that might contain periods
++        # Split on commas but preserve periods in user identifiers
++        user_list = []
++        for user_part in uname.split(','):
++            user_part = user_part.strip()
++            if user_part:
++                user_list.append(user_part)
++        
++        for un in user_list:
+             for ch, al in [
+                 ("r", axs.uread),
+                 ("w", axs.uwrite),
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/copyparty/util.py b/copyparty/util.py
+--- a/copyparty/util.py	2026-09-19 19:47:42
++++ b/copyparty/util.py	2026-09-19 20:35:14
+@@ -1743,6 +1743,11 @@
+ 
+         ret.append(node)
+ 
++    # Handle edge case where path ends with .. that removes all elements
++    # and we want to return empty string instead of "."
++    if not ret and path.endswith("/.."):
++        return ""
++    
+     return "/".join(ret)
+ 
+ 

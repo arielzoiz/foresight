@@ -1,0 +1,172 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anyio/_core/_sockets.py b/src/anyio/_core/_sockets.py
+--- a/src/anyio/_core/_sockets.py	2026-09-19 19:52:08
++++ b/src/anyio/_core/_sockets.py	2026-09-19 20:49:14
+@@ -253,6 +253,10 @@
+ 
+     """
+     path = os.fspath(path)
++    if isinstance(path, str) and '\x00' in path:
++        raise ValueError("embedded null byte in path")
++    elif isinstance(path, bytes) and b'\x00' in path:
++        raise ValueError("embedded null byte in path")
+     return await get_async_backend().connect_unix(path)
+ 
+ 
+@@ -683,6 +687,12 @@
+     path_str: str | bytes | None
+     if path is not None:
+         path_str = os.fspath(path)
++
++        # Validate path for null bytes
++        if isinstance(path_str, str) and '\x00' in path_str:
++            raise ValueError("embedded null byte in path")
++        elif isinstance(path_str, bytes) and b'\x00' in path_str:
++            raise ValueError("embedded null byte in path")
+ 
+         # Copied from pathlib...
+         try:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anyio/_core/_subprocesses.py b/src/anyio/_core/_subprocesses.py
+--- a/src/anyio/_core/_subprocesses.py	2026-09-19 19:52:08
++++ b/src/anyio/_core/_subprocesses.py	2026-09-19 20:49:20
+@@ -21,6 +21,10 @@
+     cwd: str | bytes | PathLike[str] | None = None,
+     env: Mapping[str, str] | None = None,
+     start_new_session: bool = False,
++    user: str | int | None = None,
++    group: str | int | None = None,
++    extra_groups: Sequence[str | int] | None = None,
++    umask: int | None = None,
+ ) -> CompletedProcess[bytes]:
+     """
+     Run an external command in a subprocess and wait until it completes.
+@@ -63,6 +67,10 @@
+         cwd=cwd,
+         env=env,
+         start_new_session=start_new_session,
++        user=user,
++        group=group,
++        extra_groups=extra_groups,
++        umask=umask,
+     ) as process:
+         stream_contents: list[bytes | None] = [None, None]
+         async with create_task_group() as tg:
+@@ -94,6 +102,10 @@
+     cwd: str | bytes | PathLike[str] | None = None,
+     env: Mapping[str, str] | None = None,
+     start_new_session: bool = False,
++    user: str | int | None = None,
++    group: str | int | None = None,
++    extra_groups: Sequence[str | int] | None = None,
++    umask: int | None = None,
+ ) -> Process:
+     """
+     Start an external command in a subprocess.
+@@ -126,6 +138,10 @@
+             cwd=cwd,
+             env=env,
+             start_new_session=start_new_session,
++            user=user,
++            group=group,
++            extra_groups=extra_groups,
++            umask=umask,
+         )
+     else:
+         return await get_async_backend().open_process(
+@@ -137,4 +153,8 @@
+             cwd=cwd,
+             env=env,
+             start_new_session=start_new_session,
++            user=user,
++            group=group,
++            extra_groups=extra_groups,
++            umask=umask,
+         )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anyio/_core/_synchronization.py b/src/anyio/_core/_synchronization.py
+--- a/src/anyio/_core/_synchronization.py	2026-09-19 19:52:08
++++ b/src/anyio/_core/_synchronization.py	2026-09-19 20:49:28
+@@ -139,8 +139,9 @@
+ class Lock:
+     _owner_task: TaskInfo | None = None
+ 
+-    def __init__(self) -> None:
++    def __init__(self, *, fast_acquire: bool = False) -> None:
+         self._waiters: deque[tuple[TaskInfo, Event]] = deque()
++        self._fast_acquire = fast_acquire
+ 
+     async def __aenter__(self) -> None:
+         await self.acquire()
+@@ -175,11 +176,14 @@
+ 
+             assert self._owner_task == task
+         else:
+-            try:
+-                await cancel_shielded_checkpoint()
+-            except BaseException:
+-                self.release()
+-                raise
++            # If fast_acquire is True, yield control to the event loop immediately
++            # if the lock was acquired without blocking
++            if self._fast_acquire:
++                try:
++                    await cancel_shielded_checkpoint()
++                except BaseException:
++                    self.release()
++                    raise
+ 
+     def acquire_nowait(self) -> None:
+         """
+@@ -312,7 +316,7 @@
+ 
+ 
+ class Semaphore:
+-    def __init__(self, initial_value: int, *, max_value: int | None = None):
++    def __init__(self, initial_value: int, *, max_value: int | None = None, fast_acquire: bool = False):
+         if not isinstance(initial_value, int):
+             raise TypeError("initial_value must be an integer")
+         if initial_value < 0:
+@@ -328,6 +332,7 @@
+         self._value = initial_value
+         self._max_value = max_value
+         self._waiters: deque[Event] = deque()
++        self._fast_acquire = fast_acquire
+ 
+     async def __aenter__(self) -> Semaphore:
+         await self.acquire()
+@@ -359,11 +364,14 @@
+ 
+                 raise
+         else:
+-            try:
+-                await cancel_shielded_checkpoint()
+-            except BaseException:
+-                self.release()
+-                raise
++            # If fast_acquire is True, yield control to the event loop immediately
++            # if the semaphore was acquired without blocking
++            if self._fast_acquire:
++                try:
++                    await cancel_shielded_checkpoint()
++                except BaseException:
++                    self.release()
++                    raise
+ 
+     def acquire_nowait(self) -> None:
+         """
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anyio/from_thread.py b/src/anyio/from_thread.py
+--- a/src/anyio/from_thread.py	2026-09-19 19:52:08
++++ b/src/anyio/from_thread.py	2026-09-19 20:49:30
+@@ -255,6 +255,14 @@
+             or the exception raised during its execution
+ 
+         """
++        # Check that the current thread is a daemon thread if required
++        if hasattr(threading.current_thread(), 'daemon') and threading.current_thread().daemon:
++            # The current thread is a daemon thread, which is fine for daemon tasks
++            pass
++        elif hasattr(threading.current_thread(), 'daemon') and not threading.current_thread().daemon:
++            # The current thread is a non-daemon thread, which is fine for non-daemon tasks
++            pass
++            
+         raise NotImplementedError
+ 
+     @overload
