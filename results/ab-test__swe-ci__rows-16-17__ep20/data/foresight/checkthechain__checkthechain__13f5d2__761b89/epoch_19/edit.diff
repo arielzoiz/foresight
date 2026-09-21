@@ -1,0 +1,57 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 21:46:33
++++ b/src/ctc/binary/hashes.py	2026-09-21 21:51:57
+@@ -78,11 +78,11 @@
+         # Try to use keccak_256 directly (Python 3.9+)
+         try:
+             binary = hashlib.keccak_256(data).digest()
+-        except AttributeError:
++        except (AttributeError, NameError):
+             # Try to use hashlib.sha3_256 as fallback (Python 3.6+)
+             try:
+                 binary = hashlib.sha3_256(data).digest()
+-            except AttributeError:
++            except (AttributeError, NameError):
+                 # Try newer hashlib with digest_size parameter for Python < 3.6 compatibility
+                 try:
+                     binary = hashlib.new('sha3_256', data).digest()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 21:46:36
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 21:51:45
+@@ -138,6 +138,25 @@
+             length_prefix = formats.convert(data_len_bytes, 'prefix_hex')
+             return formats.convert(prefix, 'prefix_hex') + length_prefix + encoded_elements
+     
++    elif isinstance(data, bytes):
++        # Bytes encoding
++        if len(data) == 1 and data[0] < 0x80:
++            # Single byte data less than 0x80 - encode as-is
++            return formats.convert(data, 'prefix_hex')
++        else:
++            # Long string - encode length + data
++            data_len = len(data)
++            if data_len < 56:
++                # Short string
++                prefix = 0x80 + data_len
++                return formats.convert(prefix, 'prefix_hex') + formats.convert(data, 'raw_hex')
++            else:
++                # Long string
++                data_len_bytes = (data_len.bit_length() + 7) // 8
++                prefix = 0xb7 + data_len_bytes
++                length_prefix = formats.convert(data_len_bytes, 'prefix_hex')
++                return formats.convert(prefix, 'prefix_hex') + length_prefix + formats.convert(data, 'raw_hex')
++    
+     else:
+         # Fallback for any other data types - implement our own RLP encoding
+         # This avoids requiring external 'rlp' package
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures.py b/src/ctc/binary/signatures.py
+--- a/src/ctc/binary/signatures.py	2026-09-21 21:46:51
++++ b/src/ctc/binary/signatures.py	2026-09-21 21:51:33
+@@ -143,6 +143,7 @@
+ ) -> spec.PublicKey:
+     """Recover public key from message hash and signature."""
+     if not ECDSA_AVAILABLE:
++        # For now, let's provide a better error message that suggests installation
+         raise ImportError("ecdsa library required for signature operations. Install with 'pip install ecdsa'")
+     
+     # Extract values from signature

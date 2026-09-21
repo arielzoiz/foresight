@@ -1,0 +1,44 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/eip712_utils.py b/src/ctc/binary/signatures/eip712_utils.py
+--- a/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:12:22
++++ b/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:16:38
+@@ -21,7 +21,8 @@
+             },
+             sort_keys=True,
+             separators=(',', ':'),
+-        ).encode('utf-8')
++        ).encode('utf-8'),
++        output_format='binary'
+     )
+     
+     # Prepend the EIP-712 domain separator prefix
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 18:07:08
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 18:16:43
+@@ -27,6 +27,16 @@
+     if 'type' in standardized:
+         standardized['type'] = standardized['type']
+         
++    # Handle data field
++    if 'data' in standardized:
++        # Ensure data is properly formatted (should be hex string with 0x prefix)
++        data = standardized['data']
++        if isinstance(data, bytes):
++            standardized['data'] = '0x' + data.hex()
++        elif isinstance(data, str) and not data.startswith('0x'):
++            standardized['data'] = '0x' + data
++        # If already hex string, leave as is
++        
+     # Handle gas price fields - ensure consistency for both legacy and EIP-1559 transactions
+     if 'gas_price' in standardized:
+         standardized['gasPrice'] = standardized.pop('gas_price')
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/llama_utils/cli/llama_command.py b/src/ctc/protocols/llama_utils/cli/llama_command.py
+--- a/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 17:42:41
++++ b/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 18:16:44
+@@ -21,6 +21,7 @@
+                 'nargs': '*',
+             },
+         ],
++        'alias': 'll',
+     }
+ 
+ 

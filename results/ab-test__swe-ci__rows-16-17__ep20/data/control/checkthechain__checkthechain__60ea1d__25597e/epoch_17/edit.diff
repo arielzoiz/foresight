@@ -1,0 +1,196 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balance_command.py b/src/ctc/cli/commands/data/eth/balance_command.py
+--- a/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 18:29:16
++++ b/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 18:33:28
+@@ -5,15 +5,13 @@
+ import toolcli
+ 
+ from ctc import cli
++from ctc import evm
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'name': 'balance',
++        'f': run,
+         'help': 'Get ETH balance',
+-        'examples': [
+-            'ctc eth balance 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+-        ],
+         'args': [
+             {
+                 'name': 'address',
+@@ -21,14 +19,25 @@
+                 'nargs': '?',
+             },
+         ],
+-        'alias': 'bal',
+-        'category': 'data',
+-        'subcategory': 'eth',
+-        'f': run,
++        'examples': [
++            'ctc eth balance 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
++        ],
+         'hidden': False,
+         'extra_data': [],
+     }
+ 
+ 
+ def run(args: typing.Sequence[str]) -> None:
+-    print('ETH balance command executed')
+\ No newline at end of file
++    import asyncio
++    asyncio.run(async_run(args))
++
++
++async def async_run(args: typing.Sequence[str]) -> None:
++    if len(args) == 0:
++        address = await evm.async_get_default_address()
++    else:
++        address = args[0]
++    
++    address = await evm.async_resolve_address(address)
++    balance = await evm.async_get_eth_balance(address)
++    print(f'Balance: {balance} ETH')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balances_command.py b/src/ctc/cli/commands/data/eth/balances_command.py
+--- a/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 18:29:18
++++ b/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 18:33:31
+@@ -5,15 +5,13 @@
+ import toolcli
+ 
+ from ctc import cli
++from ctc import evm
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'name': 'balances',
++        'f': run,
+         'help': 'Get ETH balances',
+-        'examples': [
+-            'ctc eth balances 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+-        ],
+         'args': [
+             {
+                 'name': 'address',
+@@ -21,14 +19,26 @@
+                 'nargs': '+',
+             },
+         ],
+-        'alias': 'bals',
+-        'category': 'data',
+-        'subcategory': 'eth',
+-        'f': run,
++        'examples': [
++            'ctc eth balances 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
++        ],
+         'hidden': False,
+         'extra_data': [],
+     }
+ 
+ 
+ def run(args: typing.Sequence[str]) -> None:
+-    print('ETH balances command executed')
+\ No newline at end of file
++    import asyncio
++    asyncio.run(async_run(args))
++
++
++async def async_run(args: typing.Sequence[str]) -> None:
++    addresses = args
++    resolved_addresses = []
++    for addr in addresses:
++        resolved_addr = await evm.async_resolve_address(addr)
++        resolved_addresses.append(resolved_addr)
++    
++    balances = await evm.async_get_eth_balances(resolved_addresses)
++    for i, addr in enumerate(addresses):
++        print(f'{addr}: {balances[i]} ETH')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py b/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py
+--- a/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py	2026-09-21 17:32:59
++++ b/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py	2026-09-21 18:39:24
+@@ -24,7 +24,7 @@
+ 
+ async def async_reverse_command(
+     address: spec.Address,
+-    block: spec.BlockNumberReference,
++    block: spec.BlockNumberReference | None,
+ ) -> None:
+     if block is not None:
+         block = binary.standardize_block_number(block)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/llama_utils/cli/llama_command.py b/src/ctc/protocols/llama_utils/cli/llama_command.py
+--- a/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 18:29:19
++++ b/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 18:39:15
+@@ -30,5 +30,5 @@
+     }
+ 
+ 
+-def run(args: typing.Sequence[str]) -> None:
++def run(**kwargs: typing.Any) -> None:
+     print('Llama command executed')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py b/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py
+--- a/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py	2026-09-21 17:32:59
++++ b/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py	2026-09-21 18:39:22
+@@ -34,11 +34,11 @@
+     }
+ 
+ 
+-async def async_fuse_command(arg: str, block: str) -> None:
++async def async_fuse_command(arg: str | None, block: str) -> None:
+     block_number = await evm.async_block_number_to_int(block)
+ 
+     if arg is not None:
+-
++        # Handle different argument types
+         try:
+             pool_index = int(arg)
+             arg_type = 'pool_index'
+@@ -52,7 +52,6 @@
+             )
+         elif arg_type == 'token':
+             await async_summarize_fuse_token(token, block_number)
+-
+     else:
+         await async_summarize_all_fuse_pools(block=block_number)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/spec/__init__.py b/src/ctc/spec/__init__.py
+--- a/src/ctc/spec/__init__.py	2026-09-21 18:03:02
++++ b/src/ctc/spec/__init__.py	2026-09-21 18:33:23
+@@ -16,20 +16,25 @@
+ ]
+ 
+ block_keys = [
+-    'number',
+-    'hash',
+-    'parent_hash',
+-    'timestamp',
+-    'gas_used',
+-    'gas_limit',
+-    'transactions',
+-    'miner',
++    'base_fee_per_gas',
+     'difficulty',
+-    'total_difficulty',
+-    'size',
+     'extra_data',
++    'gas_limit',
++    'gas_used',
++    'hash',
+     'logs_bloom',
++    'miner',
++    'mix_hash',
++    'nonce',
++    'number',
++    'parent_hash',
+     'receipts_root',
++    'sha3_uncles',
++    'size',
+     'state_root',
++    'timestamp',
++    'total_difficulty',
++    'transactions',
+     'transactions_root',
++    'uncles',
+ ]

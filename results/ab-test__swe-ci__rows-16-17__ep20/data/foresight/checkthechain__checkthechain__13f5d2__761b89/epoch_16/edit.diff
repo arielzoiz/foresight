@@ -1,0 +1,85 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 21:31:29
++++ b/src/ctc/binary/hashes.py	2026-09-21 21:36:15
+@@ -79,19 +79,19 @@
+         try:
+             binary = hashlib.keccak_256(data).digest()
+         except AttributeError:
+-            # Fallback for older Python versions - try sha3_256 or pysha3
++            # Try to use hashlib.sha3_256 as fallback
+             try:
+-                import sha3
+-                binary = sha3.keccak_256(data).digest()
+-            except ImportError:
+-                # Try hashlib.sha3_256 as fallback
++                binary = hashlib.sha3_256(data).digest()
++            except AttributeError:
++                # Try newer hashlib with digest_size parameter
+                 try:
+-                    binary = hashlib.sha3_256(data).digest()
+-                except AttributeError:
+-                    # Final fallback - try the newer hashlib with digest_size parameter
++                    binary = hashlib.new('sha3_256', data).digest()
++                except Exception:
++                    # Final fallback - try pysha3 if available
+                     try:
+-                        binary = hashlib.new('sha3_256', data).digest()
+-                    except Exception:
++                        import sha3
++                        binary = sha3.keccak_256(data).digest()
++                    except ImportError:
+                         # If nothing works, raise error with helpful message
+                         raise Exception("No suitable keccak library available. Please install 'pysha3' or 'pycryptodome' packages.")
+     else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/address_utils/address_resolution.py b/src/ctc/evm/address_utils/address_resolution.py
+--- a/src/ctc/evm/address_utils/address_resolution.py	2026-09-21 21:21:27
++++ b/src/ctc/evm/address_utils/address_resolution.py	2026-09-21 21:36:25
+@@ -139,14 +139,40 @@
+     # Handle CREATE case
+     elif nonce is not None:
+         # Perform CREATE address derivation
+-        import rlp
+-        import hashlib
+-        
+-        # RLP encode [sender, nonce]
+-        rlp_encoded = rlp.encode([bytes.fromhex(sender), nonce])
+-        # Keccak256 of RLP encoded data
+-        address = hashlib.keccak_256(rlp_encoded).digest()[-20:]
+-        return '0x' + address.hex()
++        if rlp is None:
++            # Fallback implementation when rlp is not available
++            # We'll use the built-in Python implementation
++            import hashlib
++            import struct
++            
++            # RLP encode [sender, nonce] manually
++            # First encode sender as bytes
++            sender_bytes = bytes.fromhex(sender)
++            # Encode nonce as big endian bytes
++            nonce_bytes = nonce.to_bytes((nonce.bit_length() + 7) // 8 or 1, 'big')
++            
++            # Create RLP encoding manually for [sender, nonce]
++            # Length of the list elements
++            sender_encoded = sender_bytes if len(sender_bytes) == 1 and sender_bytes[0] < 0x80 else bytes([0x80 + len(sender_bytes)]) + sender_bytes
++            nonce_encoded = nonce_bytes if len(nonce_bytes) == 1 and nonce_bytes[0] < 0x80 else bytes([0x80 + len(nonce_bytes)]) + nonce_bytes
++            
++            # Encode the list
++            list_data = sender_encoded + nonce_encoded
++            list_len = len(list_data)
++            list_prefix = bytes([0xc0 + list_len]) if list_len < 56 else bytes([0xf7 + ((list_len.bit_length() + 7) // 8)]) + list_len.to_bytes((list_len.bit_length() + 7) // 8, 'big')
++            
++            rlp_encoded = list_prefix + list_data
++            
++            # Keccak256 of RLP encoded data
++            address = hashlib.keccak_256(rlp_encoded).digest()[-20:]
++            return '0x' + address.hex()
++        else:
++            import hashlib
++            # RLP encode [sender, nonce]
++            rlp_encoded = rlp.encode([bytes.fromhex(sender), nonce])
++            # Keccak256 of RLP encoded data
++            address = hashlib.keccak_256(rlp_encoded).digest()[-20:]
++            return '0x' + address.hex()
+     
+     else:
+         raise ValueError('Either salt and init_code (for CREATE2) or nonce (for CREATE) must be provided')

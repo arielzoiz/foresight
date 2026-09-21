@@ -1,0 +1,137 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 19:34:08
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 19:39:05
+@@ -65,13 +65,15 @@
+         if str_mode == 'hex':
+             # Convert hex string to bytes and encode as RLP
+             if data.startswith('0x'):
+-                data = data[2:]
++                hex_data = data[2:]
++            else:
++                hex_data = data
+             # Validate hex string
+             try:
+-                bytes.fromhex(data)
++                bytes.fromhex(hex_data)
+             except ValueError:
+                 raise ValueError("Invalid hex string")
+-            encoded = bytes.fromhex(data)
++            encoded = bytes.fromhex(hex_data)
+         else:
+             # Default to text mode
+             encoded = data.encode('utf-8')
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/address_utils/address_resolution.py b/src/ctc/evm/address_utils/address_resolution.py
+--- a/src/ctc/evm/address_utils/address_resolution.py	2026-09-21 19:11:07
++++ b/src/ctc/evm/address_utils/address_resolution.py	2026-09-21 19:39:16
+@@ -90,3 +90,111 @@
+     ]
+ 
+     return await asyncio.gather(*coroutines)
++
++
++def get_created_address(
++    sender: str, 
++    salt: str = None, 
++    init_code: str = None, 
++    nonce: int = None
++) -> str:
++    """
++    Derive Ethereum address for CREATE or CREATE2 operations
++    
++    For CREATE2:
++    - sender: address that initiates the creation
++    - salt: 32-byte salt for CREATE2
++    - init_code: initialization code for CREATE2
++    
++    For CREATE:
++    - sender: address that initiates the creation
++    - nonce: transaction nonce for CREATE
++    """
++    # Remove '0x' prefix if present from sender
++    if sender.startswith('0x'):
++        sender = sender[2:]
++    
++    # Handle CREATE2 case
++    if salt is not None and init_code is not None:
++        # Remove '0x' prefix if present from salt and init_code
++        if salt.startswith('0x'):
++            salt = salt[2:]
++        if init_code.startswith('0x'):
++            init_code = init_code[2:]
++            
++        # Perform CREATE2 address derivation
++        import hashlib
++        # Keccak256(0xff + sender + salt + keccak256(init_code))
++        prefix = b'\xff'
++        data = prefix + bytes.fromhex(sender) + bytes.fromhex(salt) + hashlib.keccak_256(bytes.fromhex(init_code)).digest()
++        address = hashlib.keccak_256(data).digest()[-20:]
++        return '0x' + address.hex()
++    
++    # Handle CREATE case
++    elif nonce is not None:
++        # Perform CREATE address derivation
++        import rlp
++        import hashlib
++        
++        # RLP encode [sender, nonce]
++        rlp_encoded = rlp.encode([bytes.fromhex(sender), nonce])
++        # Keccak256 of RLP encoded data
++        address = hashlib.keccak_256(rlp_encoded).digest()[-20:]
++        return '0x' + address.hex()
++    
++    else:
++        raise ValueError('Either salt and init_code (for CREATE2) or nonce (for CREATE) must be provided')
++
++
++def get_created_address(
++    sender: str, 
++    salt: str = None, 
++    init_code: str = None, 
++    nonce: int = None
++) -> str:
++    """
++    Derive Ethereum address for CREATE or CREATE2 operations
++    
++    For CREATE2:
++    - sender: address that initiates the creation
++    - salt: 32-byte salt for CREATE2
++    - init_code: initialization code for CREATE2
++    
++    For CREATE:
++    - sender: address that initiates the creation
++    - nonce: transaction nonce for CREATE
++    """
++    # Remove '0x' prefix if present from sender
++    if sender.startswith('0x'):
++        sender = sender[2:]
++    
++    # Handle CREATE2 case
++    if salt is not None and init_code is not None:
++        # Remove '0x' prefix if present from salt and init_code
++        if salt.startswith('0x'):
++            salt = salt[2:]
++        if init_code.startswith('0x'):
++            init_code = init_code[2:]
++            
++        # Perform CREATE2 address derivation
++        import hashlib
++        # Keccak256(0xff + sender + salt + keccak256(init_code))
++        prefix = b'\xff'
++        data = prefix + bytes.fromhex(sender) + bytes.fromhex(salt) + hashlib.keccak_256(bytes.fromhex(init_code)).digest()
++        address = hashlib.keccak_256(data).digest()[-20:]
++        return '0x' + address.hex()
++    
++    # Handle CREATE case
++    elif nonce is not None:
++        # Perform CREATE address derivation
++        import rlp
++        import hashlib
++        
++        # RLP encode [sender, nonce]
++        rlp_encoded = rlp.encode([bytes.fromhex(sender), nonce])
++        # Keccak256 of RLP encoded data
++        address = hashlib.keccak_256(rlp_encoded).digest()[-20:]
++        return '0x' + address.hex()
++    
++    else:
++        raise ValueError('Either salt and init_code (for CREATE2) or nonce (for CREATE) must be provided')

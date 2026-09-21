@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/ctc/binary/eip712.py:get_domain_separator</location>
+    <description>The get_domain_separator function produces incorrect domain separators due to improper EIP-712 domain data serialization. The function doesn't properly format the domain data according to EIP-712 specifications, particularly in how it handles the domain type hash and field concatenation.</description>
+    <contract>Given a domain dictionary with keys 'name', 'version', 'chainId', and 'verifyingContract', the function should compute the correct EIP-712 domain separator by:
+1. Computing the type hash of the EIP-712 domain type definition
+2. Properly serializing each domain field with 32-byte padding
+3. Concatenating all serialized fields and computing the final keccak256 hash
+4. Returning the result as a 32-byte hex string with 0x prefix</contract>
+    <acceptance>tests/ctc/binary/test_eip712.py::test_get_domain_separator</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/binary/signatures/transaction_signatures.py:sign_transaction</location>
+    <description>The sign_transaction function produces incorrect signatures for EIP-1559 transactions because it passes chain_id=None instead of the actual chain_id to the signing process. The function also doesn't properly handle the transaction serialization for EIP-1559 transactions.</description>
+    <contract>Given an unsigned transaction and private key, the function should:
+1. Properly serialize the transaction according to EIP-1559 specifications
+2. Pass the correct chain_id parameter to the signing process
+3. Return a signature tuple (v, r, s) that matches the expected test values</contract>
+    <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/binary/signatures/signature_creation.py:sign_text_message</location>
+    <description>The sign_text_message function produces incorrect signatures for text messages due to improper message hashing or signature processing. The function doesn't correctly implement the EIP-155 signing protocol.</description>
+    <contract>Given a text message, private key, and signing mode, the function should:
+1. Correctly format the message according to the specified mode ('eth_sign' or 'personal_sign')
+2. Compute the correct keccak256 hash of the formatted message
+3. Generate a valid ECDSA signature using the private key
+4. Adjust the v-component appropriately for chain-specific signatures
+5. Return the signature as a tuple (v, r, s) that matches expected test values</contract>
+    <acceptance>tests/ctc/binary/test_signatures.py::test_sign_text_message</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/evm/transaction_utils/transaction_crud.py:sign_transaction</location>
+    <description>The sign_transaction function incorrectly handles EIP-1559 transactions by always passing chain_id=None to the underlying signing function. This causes signature mismatches with expected test values.</description>
+    <contract>Given a transaction and private key, the function should:
+1. Standardize the transaction format properly
+2. For EIP-1559 transactions (type 2), pass the chain_id parameter to the signing function
+3. For legacy and EIP-2930 transactions, pass chain_id=None to maintain compatibility
+4. Return the signature tuple that matches expected test values</contract>
+    <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/test_code.py:test_max_positional_args</location>
+    <description>Several functions in the codebase exceed the allowed 2 positional arguments threshold and need to be updated to use keyword-only arguments. This affects functions that are called frequently and need to be more maintainable.</description>
+    <contract>Functions in the codebase should:
+1. Limit positional arguments to 2 or fewer
+2. Use keyword-only arguments for additional parameters
+3. Maintain backward compatibility where possible
+4. Ensure all functions conform to this standard to pass the test</contract>
+    <acceptance>tests/ctc/test_code.py::test_max_positional_args</acceptance>
+  </requirement>
+</requirement_document>

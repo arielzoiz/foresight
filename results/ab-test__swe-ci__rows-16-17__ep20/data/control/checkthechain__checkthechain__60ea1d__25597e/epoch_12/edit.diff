@@ -1,0 +1,34 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/eip712_utils.py b/src/ctc/binary/signatures/eip712_utils.py
+--- a/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:07:03
++++ b/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:12:22
+@@ -14,10 +14,10 @@
+     domain_hash = hashes.keccak(
+         json.dumps(
+             {
+-                "name": domain.get("name"),
+-                "version": domain.get("version"),
+-                "chainId": domain.get("chainId"),
+-                "verifyingContract": domain.get("verifyingContract"),
++                "name": domain.get("name", ""),
++                "version": domain.get("version", ""),
++                "chainId": domain.get("chainId", 0),
++                "verifyingContract": domain.get("verifyingContract", ""),
+             },
+             sort_keys=True,
+             separators=(',', ':'),
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 18:07:18
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 18:12:16
+@@ -78,6 +78,12 @@
+     if 'maxPriorityFeePerGas' not in transaction_copy and 'max_priority_fee_per_gas' in transaction_copy:
+         transaction_copy['maxPriorityFeePerGas'] = transaction_copy.pop('max_priority_fee_per_gas')
+         
++    # Ensure gas_limit exists with default value if missing
++    if 'gas_limit' not in transaction_copy and 'gas' in transaction_copy:
++        transaction_copy['gas_limit'] = transaction_copy.pop('gas')
++    elif 'gas_limit' not in transaction_copy:
++        transaction_copy['gas_limit'] = 0
++        
+     # If we still don't have gasPrice, and it's not EIP-1559, we might need to set defaults
+     if 'gas_price' not in transaction_copy and 'gasPrice' not in transaction_copy:
+         # Default to 0 for legacy transactions

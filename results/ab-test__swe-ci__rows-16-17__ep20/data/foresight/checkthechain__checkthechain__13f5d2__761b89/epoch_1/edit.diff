@@ -1,0 +1,330 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 19:11:07
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 19:25:38
+@@ -49,31 +49,182 @@
+     )
+ 
+ 
+-def rlp_encode(data: typing.Any) -> str:
+-    try:
+-        import rlp  # type: ignore
+-    except ImportError:
+-        raise Exception(
+-            'the rlp package is required for this feature, try `pip install rlp`'
+-        )
++def rlp_encode(data: typing.Any, *, str_mode: str = 'text') -> str:
++    # Handle different data types
++    if isinstance(data, str):
++        # For strings, we need to handle str_mode
++        if str_mode == 'hex':
++            # Convert hex string to bytes and encode as RLP
++            if data.startswith('0x'):
++                data = data[2:]
++            encoded = bytes.fromhex(data)
++        else:
++            # Default to text mode
++            encoded = data.encode('utf-8')
++        
++        # Encode according to RLP rules
++        if len(encoded) == 1 and ord(encoded[0]) < 0x80:
++            # Single byte data less than 0x80
++            return formats.convert(encoded, 'prefix_hex')
++        else:
++            # Long string - encode length + data
++            data_len = len(encoded)
++            if data_len < 56:
++                # Short string
++                prefix = 0x80 + data_len
++                return formats.convert(prefix, 'prefix_hex') + formats.convert(encoded, 'raw_hex')
++            else:
++                # Long string
++                data_len_bytes = (data_len.bit_length() + 7) // 8
++                prefix = 0xb7 + data_len_bytes
++                length_prefix = formats.convert(data_len_bytes, 'prefix_hex')
++                return formats.convert(prefix, 'prefix_hex') + length_prefix + formats.convert(encoded, 'raw_hex')
++    
++    elif isinstance(data, int):
++        # Integer encoding
++        if data == 0:
++            return '0x80'
++        elif data <= 127:
++            return formats.convert(data, 'prefix_hex')
++        else:
++            # Encode as big-endian bytes
++            data_bytes = (data.bit_length() + 7) // 8
++            if data_bytes == 0:
++                data_bytes = 1
++            encoded_bytes = data.to_bytes(data_bytes, 'big')
++            data_len = len(encoded_bytes)
++            prefix = 0x80 + data_len
++            return formats.convert(prefix, 'prefix_hex') + formats.convert(encoded_bytes, 'raw_hex')
++    
++    elif isinstance(data, list):
++        # List encoding
++        if len(data) == 0:
++            return '0xc0'
++        
++        # Recursively encode all elements
++        encoded_elements = ''
++        for item in data:
++            encoded_elements += rlp_encode(item, str_mode=str_mode)
++        
++        # Calculate total length
++        data_len = len(encoded_elements) // 2  # Convert hex chars to bytes
++        
++        if data_len < 56:
++            # Short list
++            prefix = 0xc0 + data_len
++            return formats.convert(prefix, 'prefix_hex') + encoded_elements
++        else:
++            # Long list
++            data_len_bytes = (data_len.bit_length() + 7) // 8
++            prefix = 0xf7 + data_len_bytes
++            length_prefix = formats.convert(data_len_bytes, 'prefix_hex')
++            return formats.convert(prefix, 'prefix_hex') + length_prefix + encoded_elements
++    
++    else:
++        # For other types, fall back to original behavior
++        try:
++            import rlp  # type: ignore
++        except ImportError:
++            raise Exception(
++                'the rlp package is required for this feature, try `pip install rlp`'
++            )
+ 
+-    rlp_data = rlp.encode(data)
+-    return formats.convert(rlp_data, 'prefix_hex')
++        rlp_data = rlp.encode(data)
++        return formats.convert(rlp_data, 'prefix_hex')
+ 
+ 
+-def rlp_decode(data: spec.BinaryData) -> typing.Any:
+-    try:
+-        import rlp
+-    except ImportError:
+-        raise Exception(
+-            'the rlp package is required for this feature, try `pip install rlp`'
+-        )
+-
++def rlp_decode(data: spec.BinaryData, *, types: str = 'text') -> typing.Any:
+     binary_data = formats.convert(data, 'binary')
++    
++    # Simple RLP decoder implementation
++    def decode_single(data_bytes, offset):
++        if offset >= len(data_bytes):
++            return None, offset
++            
++        prefix = data_bytes[offset]
++        offset += 1
++        
++        if prefix < 0x80:
++            # Single byte data
++            return bytes([prefix]), offset
++        elif prefix < 0xb8:
++            # Short string
++            data_len = prefix - 0x80
++            if offset + data_len > len(data_bytes):
++                raise ValueError("Invalid RLP: insufficient data")
++            result = data_bytes[offset:offset + data_len]
++            offset += data_len
++            return result, offset
++        elif prefix < 0xc0:
++            # Long string
++            length_len = prefix - 0xb7
++            if offset + length_len > len(data_bytes):
++                raise ValueError("Invalid RLP: insufficient data")
++            data_len = int.from_bytes(data_bytes[offset:offset + length_len], 'big')
++            offset += length_len
++            if offset + data_len > len(data_bytes):
++                raise ValueError("Invalid RLP: insufficient data")
++            result = data_bytes[offset:offset + data_len]
++            offset += data_len
++            return result, offset
++        elif prefix < 0xf8:
++            # Short list
++            data_len = prefix - 0xc0
++            if offset + data_len > len(data_bytes):
++                raise ValueError("Invalid RLP: insufficient data")
++            result = []
++            remaining = data_len
++            while remaining > 0:
++                item, offset = decode_single(data_bytes, offset)
++                if item is None:
++                    break
++                result.append(item)
++                remaining -= len(item)
++            return result, offset
++        elif prefix <= 0xff:
++            # Long list
++            length_len = prefix - 0xf7
++            if offset + length_len > len(data_bytes):
++                raise ValueError("Invalid RLP: insufficient data")
++            data_len = int.from_bytes(data_bytes[offset:offset + length_len], 'big')
++            offset += length_len
++            if offset + data_len > len(data_bytes):
++                raise ValueError("Invalid RLP: insufficient data")
++            result = []
++            remaining = data_len
++            while remaining > 0:
++                item, offset = decode_single(data_bytes, offset)
++                if item is None:
++                    break
++                result.append(item)
++                remaining -= len(item)
++            return result, offset
++        else:
++            raise ValueError(f"Invalid RLP prefix: {prefix}")
++    
++    # Decode the whole data
++    decoded, _ = decode_single(binary_data, 0)
++    
++    # Convert bytes to appropriate types based on the types parameter
++    if types == 'ascii':
++        if isinstance(decoded, bytes):
++            return decoded.decode('utf-8')
++        elif isinstance(decoded, list):
++            return [item.decode('utf-8') if isinstance(item, bytes) else item for item in decoded]
++    elif types == 'raw_hex':
++        if isinstance(decoded, bytes):
++            return formats.convert(decoded, 'raw_hex')
++        elif isinstance(decoded, list):
++            return [formats.convert(item, 'raw_hex') if isinstance(item, bytes) else item for item in decoded]
++    elif types == 'prefix_hex':
++        if isinstance(decoded, bytes):
++            return formats.convert(decoded, 'prefix_hex')
++        elif isinstance(decoded, list):
++            return [formats.convert(item, 'prefix_hex') if isinstance(item, bytes) else item for item in decoded]
++    
++    return decoded
+ 
+-    return rlp.decode(binary_data)
+ 
+-
+ # def rlp_encode(input):
+ #    if isinstance(input, str):
+ #        if len(input) == 1 and ord(input) < 0x80:
+@@ -107,7 +258,30 @@
+ ##
+ ## # decode
+ ##
+-# def rlp_decode(input):
++
++
++def private_key_to_address(private_key: str) -> str:
++    """Stub implementation - will be replaced with real implementation"""
++    raise NotImplementedError("Not yet implemented")
++
++
++def sign_message_hash(
++    message_hash: str, private_key: str, chain_id: int
++) -> tuple[int, int, int]:
++    """Stub implementation - will be replaced with real implementation"""
++    raise NotImplementedError("Not yet implemented")
++
++
++def private_key_to_public_key(private_key: str) -> tuple[int, int]:
++    """Stub implementation - will be replaced with real implementation"""
++    raise NotImplementedError("Not yet implemented")
++
++
++def pack_vrs(
++    v: str, r: str, s: str, mode: str = "transaction"
++) -> str:
++    """Stub implementation - will be replaced with real implementation"""
++    raise NotImplementedError("Not yet implemented")# def rlp_decode(input):
+ #    if len(input) == 0:
+ #        return
+ #    output = ''
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/cli_run.py b/src/ctc/cli/cli_run.py
+--- a/src/ctc/cli/cli_run.py	2026-09-21 19:11:07
++++ b/src/ctc/cli/cli_run.py	2026-09-21 19:25:43
+@@ -46,7 +46,9 @@
+         ('keccak',): 'ctc.cli.commands.compute.keccak_command',
+         ('limits',): 'ctc.cli.commands.compute.limits_command',
+         ('lower',): 'ctc.cli.commands.compute.lower_command',
++        ('rlp', 'encode'): 'ctc.cli.commands.compute.rlp_encode_command',
+         ('selector',): 'ctc.cli.commands.compute.selector_command',
++        ('integer',): 'ctc.cli.commands.compute.integer_command',
+     },
+     'data': {
+         ('abi',): 'ctc.cli.commands.data.abi_command',
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/compute/integer_command.py b/src/ctc/cli/commands/compute/integer_command.py
+--- a/src/ctc/cli/commands/compute/integer_command.py	1970-01-01 02:00:00
++++ b/src/ctc/cli/commands/compute/integer_command.py	2026-09-21 19:25:41
+@@ -0,0 +1,27 @@
++from __future__ import annotations
++
++import toolcli
++
++from ctc import binary
++
++
++def get_command_spec() -> toolcli.CommandSpec:
++    return {
++        'f': integer_command,
++        'help': 'convert data to integer',
++        'args': [
++            {
++                'name': 'data',
++                'help': 'data to convert to integer',
++            },
++        ],
++        'examples': [
++            '0x1234',
++            '0x0000000000000000000000000000000000000000000000000000000000000001',
++        ],
++    }
++
++
++def integer_command(data: str) -> None:
++    output = binary.convert(data, 'integer')
++    print(output)
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/compute/rlp_encode_command.py b/src/ctc/cli/commands/compute/rlp_encode_command.py
+--- a/src/ctc/cli/commands/compute/rlp_encode_command.py	1970-01-01 02:00:00
++++ b/src/ctc/cli/commands/compute/rlp_encode_command.py	2026-09-21 19:25:40
+@@ -0,0 +1,43 @@
++from __future__ import annotations
++
++import toolcli
++
++from ctc import binary
++
++
++def get_command_spec() -> toolcli.CommandSpec:
++    return {
++        'f': rlp_encode_command,
++        'help': 'encode data using RLP encoding',
++        'args': [
++            {
++                'name': 'data',
++                'help': 'data to encode (string, integer, or list)',
++            },
++            {
++                'name': '--str-mode',
++                'help': 'mode for string encoding (text or hex)',
++                'default': 'text',
++            },
++        ],
++        'examples': [
++            '0x1234',
++            'hello',
++            '[1, 2, 3]',
++        ],
++    }
++
++
++def rlp_encode_command(data: str, str_mode: str) -> None:
++    # Parse the data as appropriate
++    import json
++    
++    try:
++        # Try to parse as JSON first (for lists, etc.)
++        parsed_data = json.loads(data)
++    except json.JSONDecodeError:
++        # Treat as plain string
++        parsed_data = data
++        
++    output = binary.rlp_encode(parsed_data, str_mode=str_mode)
++    print(output)
+\ No newline at end of file

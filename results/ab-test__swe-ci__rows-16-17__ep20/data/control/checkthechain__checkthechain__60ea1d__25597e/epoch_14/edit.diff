@@ -1,0 +1,121 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/eip712_utils.py b/src/ctc/binary/signatures/eip712_utils.py
+--- a/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:16:38
++++ b/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:20:56
+@@ -11,19 +11,22 @@
+ def get_domain_separator(domain: spec.Domain) -> str:
+     """Generate the domain separator for EIP-712 typed data signatures."""
+     # Create the domain hash using the EIP-712 specification
+-    domain_hash = hashes.keccak(
+-        json.dumps(
+-            {
+-                "name": domain.get("name", ""),
+-                "version": domain.get("version", ""),
+-                "chainId": domain.get("chainId", 0),
+-                "verifyingContract": domain.get("verifyingContract", ""),
+-            },
+-            sort_keys=True,
+-            separators=(',', ':'),
+-        ).encode('utf-8'),
+-        output_format='binary'
+-    )
++    domain_data = {
++        "name": domain.get("name", ""),
++        "version": domain.get("version", ""),
++        "chainId": domain.get("chainId", 0),
++        "verifyingContract": domain.get("verifyingContract", ""),
++    }
++    
++    # Ensure proper sorting and formatting as per EIP-712
++    domain_json = json.dumps(
++        domain_data,
++        sort_keys=True,
++        separators=(',', ':'),
++        ensure_ascii=False
++    ).encode('utf-8')
++    
++    domain_hash = hashes.keccak(domain_json, output_format='binary')
+     
+     # Prepend the EIP-712 domain separator prefix
+     domain_separator = b'\x19\x01' + domain_hash
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 18:12:16
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 18:20:54
+@@ -72,23 +72,41 @@
+     # Handle EIP-1559 transactions properly by ensuring required fields exist
+     transaction_copy = unsigned_transaction.copy()
+     
+-    # For EIP-1559, we need to make sure maxFeePerGas and maxPriorityFeePerGas exist
+-    if 'maxFeePerGas' not in transaction_copy and 'max_fee_per_gas' in transaction_copy:
++    # Normalize field names for consistency
++    if 'max_fee_per_gas' in transaction_copy:
+         transaction_copy['maxFeePerGas'] = transaction_copy.pop('max_fee_per_gas')
+-    if 'maxPriorityFeePerGas' not in transaction_copy and 'max_priority_fee_per_gas' in transaction_copy:
++    if 'max_priority_fee_per_gas' in transaction_copy:
+         transaction_copy['maxPriorityFeePerGas'] = transaction_copy.pop('max_priority_fee_per_gas')
+-        
+-    # Ensure gas_limit exists with default value if missing
+-    if 'gas_limit' not in transaction_copy and 'gas' in transaction_copy:
++    if 'gas' in transaction_copy:
+         transaction_copy['gas_limit'] = transaction_copy.pop('gas')
+-    elif 'gas_limit' not in transaction_copy:
+-        transaction_copy['gas_limit'] = 0
++    if 'input' in transaction_copy:
++        transaction_copy['data'] = transaction_copy.pop('input')
+         
+-    # If we still don't have gasPrice, and it's not EIP-1559, we might need to set defaults
+-    if 'gas_price' not in transaction_copy and 'gasPrice' not in transaction_copy:
+-        # Default to 0 for legacy transactions
+-        transaction_copy['gas_price'] = 0
+-        
++    # Ensure all required fields exist with defaults
++    required_fields = {
++        'nonce': 0,
++        'gas_limit': 0,
++        'gas_price': 0,
++        'to': '',
++        'value': 0,
++        'data': '0x',
++        'maxFeePerGas': 0,
++        'maxPriorityFeePerGas': 0,
++    }
++    
++    for field, default_value in required_fields.items():
++        if field not in transaction_copy:
++            transaction_copy[field] = default_value
++    
++    # For EIP-1559 transactions, ensure all required fields are properly set
++    if 'type' in transaction_copy and transaction_copy['type'] == '0x2':
++        # Ensure maxFeePerGas and maxPriorityFeePerGas are set for EIP-1559
++        if 'maxFeePerGas' not in transaction_copy:
++            transaction_copy['maxFeePerGas'] = 0
++        if 'maxPriorityFeePerGas' not in transaction_copy:
++            transaction_copy['maxPriorityFeePerGas'] = 0
++    
++    # Convert to list in proper order
+     as_list = [transaction_copy[key] for key in unsigned_transaction_keys]  # type: ignore
+     if chain_id is not None:
+         as_list.append(chain_id)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balance_command.py b/src/ctc/cli/commands/data/eth/balance_command.py
+--- a/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 18:03:04
++++ b/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 18:20:58
+@@ -22,6 +22,8 @@
+             },
+         ],
+         'alias': 'bal',
++        'category': 'data',
++        'subcategory': 'eth',
+     }
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balances_command.py b/src/ctc/cli/commands/data/eth/balances_command.py
+--- a/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 18:03:06
++++ b/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 18:21:00
+@@ -22,6 +22,8 @@
+             },
+         ],
+         'alias': 'bals',
++        'category': 'data',
++        'subcategory': 'eth',
+     }
+ 
+ 

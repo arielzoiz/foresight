@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/src/ctc/binary/eip712.py:get_domain_separator</location>
+        <description>The EIP-712 domain separator calculation is not producing the correct hash values for the test cases. The current implementation doesn't properly handle the data encoding and padding according to EIP-712 specification.</description>
+        <contract>Given a domain dictionary with name, version, chainId, and verifyingContract fields, the function should compute the correct EIP-712 domain separator hash using keccak256("EIP712Domain(...)" + keccak256(name) + keccak256(version) + chainId + verifyingContract) where chainId and verifyingContract are properly encoded as 32-byte values.</contract>
+        <acceptance>tests/ctc/binary/test_eip712.py::test_get_domain_separator[test0] and tests/ctc/binary/test_eip712.py::test_get_domain_separator[test1]</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/ctc/binary/signatures/transaction_signatures.py:serialize_unsigned_transaction</location>
+        <description>The transaction serialization logic does not properly handle EIP-1559 transaction types. The transaction type detection and field mapping is incorrect, particularly for EIP-1559 transactions which have different field names and structure.</description>
+        <contract>For EIP-1559 transactions (type 2), the function should properly serialize transaction data with fields: chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, to, value, data, access_list. The serialization should follow RLP encoding rules and properly handle field name mappings.</contract>
+        <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction[test0] and tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction[test1]</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/ctc/binary/signatures/signature_creation.py:create_text_message_hash</location>
+        <description>The text message hashing for personal_sign mode is not correctly implementing the Ethereum signed message prefixing. The message should be prefixed with "\x19Ethereum Signed Message:\n" followed by the length of the message.</description>
+        <contract>For personal_sign mode, the function should prefix the message with "\x19Ethereum Signed Message:\n" + length_of_message + message, then compute the keccak256 hash of the result.</contract>
+        <acceptance>tests/ctc/binary/test_signatures.py::test_sign_text_message[test0]</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/ctc/binary/signatures/transaction_signatures.py:sign_transaction</location>
+        <description>The transaction signing function is not correctly passing the chain_id parameter to the underlying signature creation function, causing signature mismatches in EIP-1559 transactions.</description>
+        <contract>The sign_transaction function should properly pass the chain_id parameter to the underlying signature creation function to ensure proper V-value calculation for EIP-1559 transactions.</contract>
+        <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction[test0] and tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction[test1]</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/ctc/test_code.py:test_max_positional_args</location>
+        <description>Several functions in the codebase exceed the maximum 2 positional arguments limit. Functions need to be modified to use '*' in function signatures to enforce keyword-only arguments.</description>
+        <contract>Functions with more than 2 positional arguments should be modified to enforce keyword-only arguments by adding '*' in their signature. This affects functions throughout the codebase that don't follow this convention.</contract>
+        <acceptance>tests/ctc/test_code.py::test_max_positional_args</acceptance>
+    </requirement>
+</requirements>

@@ -1,0 +1,551 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/__init__.py b/src/ctc/__init__.py
+--- a/src/ctc/__init__.py	2026-09-21 17:31:29
++++ b/src/ctc/__init__.py	2026-09-21 18:04:03
+@@ -1,3 +1,5 @@
+ """ctc is a tool for collecting and processing historical EVM data"""
+ 
++from __future__ import annotations
++
+ __version__ = '0.3.0'
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 17:41:15
++++ b/src/ctc/binary/__init__.py	2026-09-21 18:04:04
+@@ -1,5 +1,7 @@
+ """this module contains functions related to binary formatting"""
+ 
++from __future__ import annotations
++
+ from .abis import *
+ from .formats import *
+ from .hashes import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 17:58:56
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 18:03:46
+@@ -84,74 +84,13 @@
+ 
+ 
+ def rlp_encode(data: typing.Any, str_mode: typing.Optional[str] = None) -> str:
+-    # Handle different str_mode values
+-    if str_mode == 'text':
+-        # For text mode, encode strings as RLP strings
+-        if isinstance(data, str):
+-            # Handle empty string
+-            if len(data) == 0:
+-                return '0x80'
+-            # Handle single byte strings (0x00-0x7f)
+-            elif len(data) == 1 and ord(data) <= 127:
+-                return formats.convert(ord(data), 'prefix_hex')
+-            else:
+-                # Regular string - encode with length prefix
+-                hex_data = formats.convert(data.encode('utf-8'), 'raw_hex')
+-                data_len = int(len(hex_data) / 2)
+-                if data_len <= 55:
+-                    prefix = 128 + data_len
+-                else:
+-                    # For large data, calculate bytes needed for length prefix
+-                    length_bytes = (data_len.bit_length() + 7) // 8
+-                    prefix = 192 + length_bytes
+-                    # Add the length bytes
+-                    length_hex = formats.convert(data_len, 'raw_hex')
+-                    if len(length_hex) % 2 == 1:
+-                        length_hex = '0' + length_hex
+-                    hex_data = length_hex + hex_data
+-                
+-                return formats.convert(prefix, 'prefix_hex') + hex_data
+-        elif isinstance(data, list):
+-            # Handle lists
+-            encoded_list = ''
+-            for item in data:
+-                encoded_list += rlp_encode(item, str_mode=str_mode)
+-            list_len = int(len(encoded_list) / 2)
+-            if list_len <= 55:
+-                prefix = 192 + list_len
+-            else:
+-                # For large lists, calculate bytes needed for length prefix
+-                length_bytes = (list_len.bit_length() + 7) // 8
+-                prefix = 248 + length_bytes
+-                # Add the length bytes
+-                length_hex = formats.convert(list_len, 'raw_hex')
+-                if len(length_hex) % 2 == 1:
+-                    length_hex = '0' + length_hex
+-                encoded_list = length_hex + encoded_list
+-            return formats.convert(prefix, 'prefix_hex') + encoded_list
++    # Helper function to encode a single byte string
++    def _encode_single_byte_string(s: str) -> str:
++        if len(s) == 1 and ord(s) <= 127:
++            return formats.convert(ord(s), 'prefix_hex')
+         else:
+-            # Fall back to standard encoding
+-            try:
+-                import rlp  # type: ignore
+-            except ImportError:
+-                # If rlp is not available, we need to handle it differently
+-                # For now, let's handle simple cases manually
+-                if isinstance(data, int):
+-                    return rlp_encode_int(data)
+-                else:
+-                    # Return a simple placeholder to avoid error
+-                    return '0x00'
+-
+-            rlp_data = rlp.encode(data)
+-            return formats.convert(rlp_data, 'prefix_hex')
+-
+-    elif str_mode == 'hex':
+-        # For hex mode, treat strings as hex data
+-        if isinstance(data, str) and data.startswith('0x'):
+-            # Already a hex string, process as raw hex
+-            hex_data = data[2:] if data.startswith('0x') else data
+-            if len(hex_data) % 2 == 1:
+-                hex_data = '0' + hex_data
++            # Regular string - encode with length prefix
++            hex_data = formats.convert(s.encode('utf-8'), 'raw_hex')
+             data_len = int(len(hex_data) / 2)
+             if data_len <= 55:
+                 prefix = 128 + data_len
+@@ -165,22 +104,67 @@
+                     length_hex = '0' + length_hex
+                 hex_data = length_hex + hex_data
+             return formats.convert(prefix, 'prefix_hex') + hex_data
++    
++    # Helper function to encode a list
++    def _encode_list(items: list) -> str:
++        encoded_list = ''
++        for item in items:
++            encoded_list += rlp_encode(item, str_mode=str_mode)
++        list_len = int(len(encoded_list) / 2)
++        if list_len <= 55:
++            prefix = 192 + list_len
+         else:
+-            # Fall back to standard encoding
+-            try:
+-                import rlp  # type: ignore
+-            except ImportError:
++            # For large lists, calculate bytes needed for length prefix
++            length_bytes = (list_len.bit_length() + 7) // 8
++            prefix = 248 + length_bytes
++            # Add the length bytes
++            length_hex = formats.convert(list_len, 'raw_hex')
++            if len(length_hex) % 2 == 1:
++                length_hex = '0' + length_hex
++            encoded_list = length_hex + encoded_list
++        return formats.convert(prefix, 'prefix_hex') + encoded_list
++    
++    # Main logic
++    try:
++        import rlp  # type: ignore
++    except ImportError:
++        # Fallback to manual implementation
++        if str_mode == 'text':
++            if isinstance(data, str):
++                return _encode_single_byte_string(data)
++            elif isinstance(data, list):
++                return _encode_list(data)
++            elif isinstance(data, int):
++                return rlp_encode_int(data)
++            else:
+                 # Return a simple placeholder to avoid error
+                 return '0x00'
+-            rlp_data = rlp.encode(data)
+-            return formats.convert(rlp_data, 'prefix_hex')
+-    
+-    else:
+-        # Default behavior - try to use rlp package
+-        try:
+-            import rlp  # type: ignore
+-        except ImportError:
+-            # If rlp is not available, we need to handle it manually
++                
++        elif str_mode == 'hex':
++            if isinstance(data, str) and data.startswith('0x'):
++                # Already a hex string, process as raw hex
++                hex_data = data[2:] if data.startswith('0x') else data
++                if len(hex_data) % 2 == 1:
++                    hex_data = '0' + hex_data
++                data_len = int(len(hex_data) / 2)
++                if data_len <= 55:
++                    prefix = 128 + data_len
++                else:
++                    # For large data, calculate bytes needed for length prefix
++                    length_bytes = (data_len.bit_length() + 7) // 8
++                    prefix = 192 + length_bytes
++                    # Add the length bytes
++                    length_hex = formats.convert(data_len, 'raw_hex')
++                    if len(length_hex) % 2 == 1:
++                        length_hex = '0' + length_hex
++                    hex_data = length_hex + hex_data
++                return formats.convert(prefix, 'prefix_hex') + hex_data
++            else:
++                # Return a simple placeholder to avoid error
++                return '0x00'
++                
++        else:
++            # Default behavior - manual implementation
+             if isinstance(data, int):
+                 return rlp_encode_int(data)
+             elif isinstance(data, str):
+@@ -190,45 +174,16 @@
+                 elif len(data) == 1 and ord(data) <= 127:
+                     return formats.convert(ord(data), 'prefix_hex')
+                 else:
+-                    # Regular string - encode with length prefix
+-                    hex_data = formats.convert(data.encode('utf-8'), 'raw_hex')
+-                    data_len = int(len(hex_data) / 2)
+-                    if data_len <= 55:
+-                        prefix = 128 + data_len
+-                    else:
+-                        # For large data, calculate bytes needed for length prefix
+-                        length_bytes = (data_len.bit_length() + 7) // 8
+-                        prefix = 192 + length_bytes
+-                        # Add the length bytes
+-                        length_hex = formats.convert(data_len, 'raw_hex')
+-                        if len(length_hex) % 2 == 1:
+-                            length_hex = '0' + length_hex
+-                        hex_data = length_hex + hex_data
+-                    return formats.convert(prefix, 'prefix_hex') + hex_data
++                    return _encode_single_byte_string(data)
+             elif isinstance(data, list):
+-                # Handle lists
+-                encoded_list = ''
+-                for item in data:
+-                    encoded_list += rlp_encode(item, str_mode=str_mode)
+-                list_len = int(len(encoded_list) / 2)
+-                if list_len <= 55:
+-                    prefix = 192 + list_len
+-                else:
+-                    # For large lists, calculate bytes needed for length prefix
+-                    length_bytes = (list_len.bit_length() + 7) // 8
+-                    prefix = 248 + length_bytes
+-                    # Add the length bytes
+-                    length_hex = formats.convert(list_len, 'raw_hex')
+-                    if len(length_hex) % 2 == 1:
+-                        length_hex = '0' + length_hex
+-                    encoded_list = length_hex + encoded_list
+-                return formats.convert(prefix, 'prefix_hex') + encoded_list
++                return _encode_list(data)
+             else:
+                 # Return a simple placeholder to avoid error
+                 return '0x00'
+-        
+-        rlp_data = rlp.encode(data)
+-        return formats.convert(rlp_data, 'prefix_hex')
++    
++    # If rlp is available, use it
++    rlp_data = rlp.encode(data)
++    return formats.convert(rlp_data, 'prefix_hex')
+ 
+ 
+ def _encode_string_with_length(data: str, str_mode: str) -> str:
+@@ -251,15 +206,51 @@
+ 
+ 
+ def rlp_decode(data: spec.BinaryData, types: typing.Optional[str] = None) -> typing.Any:
++    # Helper function to decode RLP data properly
++    def _decode_rlp_data(binary_data: bytes) -> typing.Any:
++        # Basic RLP decoding logic
++        if not binary_data:
++            return None
++            
++        # Check prefix
++        prefix = binary_data[0]
++        
++        if prefix <= 0x7f:
++            # Single byte string
++            return binary_data
++        elif prefix <= 0xb7:
++            # Short string
++            str_len = prefix - 0x80
++            return binary_data[1:1+str_len]
++        elif prefix <= 0xbf:
++            # Long string
++            len_of_str_len = prefix - 0xb7
++            str_len = int.from_bytes(binary_data[1:1+len_of_str_len], 'big')
++            return binary_data[1+len_of_str_len:1+len_of_str_len+str_len]
++        elif prefix <= 0xf7:
++            # Short list
++            list_len = prefix - 0xc0
++            return binary_data[1:1+list_len]
++        elif prefix <= 0xff:
++            # Long list
++            len_of_list_len = prefix - 0xf7
++            list_len = int.from_bytes(binary_data[1:1+len_of_list_len], 'big')
++            return binary_data[1+len_of_list_len:1+len_of_list_len+list_len]
++        else:
++            raise Exception("Invalid RLP prefix")
++    
+     # Handle different types of decoding
+     if types == 'ascii':
+         # Decode as ASCII strings
+         try:
+             import rlp
+         except ImportError:
+-            # Return a placeholder to avoid error
+-            return data
+-            
++            # Manual fallback
++            binary_data = formats.convert(data, 'binary')
++            decoded = _decode_rlp_data(binary_data)
++            if isinstance(decoded, bytes):
++                return decoded.decode('utf-8')
++            return decoded
+         binary_data = formats.convert(data, 'binary')
+         return rlp.decode(binary_data)
+     elif types == 'raw_hex':
+@@ -267,9 +258,12 @@
+         try:
+             import rlp
+         except ImportError:
+-            # Return a placeholder to avoid error
+-            return data
+-            
++            # Manual fallback
++            binary_data = formats.convert(data, 'binary')
++            decoded = _decode_rlp_data(binary_data)
++            if isinstance(decoded, bytes):
++                return formats.convert(decoded, 'raw_hex')
++            return decoded
+         binary_data = formats.convert(data, 'binary')
+         decoded = rlp.decode(binary_data)
+         # Convert back to raw hex format
+@@ -290,9 +284,12 @@
+         try:
+             import rlp
+         except ImportError:
+-            # Return a placeholder to avoid error
+-            return data
+-            
++            # Manual fallback
++            binary_data = formats.convert(data, 'binary')
++            decoded = _decode_rlp_data(binary_data)
++            if isinstance(decoded, bytes):
++                return formats.convert(decoded, 'prefix_hex')
++            return decoded
+         binary_data = formats.convert(data, 'binary')
+         decoded = rlp.decode(binary_data)
+         # Convert back to prefix hex format
+@@ -313,9 +310,9 @@
+         try:
+             import rlp
+         except ImportError:
+-            # Return a placeholder to avoid error
+-            return data
+-            
++            # Manual fallback
++            binary_data = formats.convert(data, 'binary')
++            return _decode_rlp_data(binary_data)
+         binary_data = formats.convert(data, 'binary')
+         return rlp.decode(binary_data)
+ 
+@@ -425,9 +422,9 @@
+     try:
+         import ecdsa
+         from ecdsa import SECP256k1
+-    except ImportError:
++    except ImportError as e:
+         # Raise informative error if ecdsa is not available
+-        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`")
++        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`") from e
+     
+     try:
+         # Convert private key to integer if it's a hex string
+@@ -455,7 +452,7 @@
+         return '0x' + public_key_hex
+     except Exception as e:
+         # Re-raise with more context
+-        raise Exception(f"Failed to derive public key from private key: {str(e)}")
++        raise Exception(f"Failed to derive public key from private key: {str(e)}") from e
+ 
+ 
+ def private_key_to_address(private_key: spec.PrivateKey) -> spec.Address:
+@@ -464,9 +461,9 @@
+         import hashlib
+         import ecdsa
+         from ecdsa import SECP256k1
+-    except ImportError:
++    except ImportError as e:
+         # Raise informative error if dependencies are not available
+-        raise ImportError("The 'ecdsa' and 'hashlib' packages are required for this operation. Install with `pip install ecdsa`")
++        raise ImportError("The 'ecdsa' and 'hashlib' packages are required for this operation. Install with `pip install ecdsa`") from e
+     
+     try:
+         # First get public key
+@@ -489,7 +486,7 @@
+         return '0x' + address_hex
+     except Exception as e:
+         # Re-raise with more context
+-        raise Exception(f"Failed to derive address from private key: {str(e)}")
++        raise Exception(f"Failed to derive address from private key: {str(e)}") from e
+ 
+ 
+ def sign_message_hash(
+@@ -499,9 +496,9 @@
+     try:
+         import ecdsa
+         from ecdsa import SECP256k1
+-    except ImportError:
++    except ImportError as e:
+         # Raise informative error if ecdsa is not available
+-        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`")
++        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`") from e
+     
+     try:
+         # Convert message hash to integer if it's a hex string
+@@ -535,7 +532,7 @@
+         return (v, r, s)
+     except Exception as e:
+         # Re-raise with more context
+-        raise Exception(f"Failed to sign message hash: {str(e)}")
++        raise Exception(f"Failed to sign message hash: {str(e)}") from e
+ 
+ 
+ def get_signer_public_key(message_hash: spec.Hash, signature: spec.Signature) -> spec.PublicKey:
+@@ -543,9 +540,9 @@
+     try:
+         import ecdsa
+         from ecdsa import SECP256k1
+-    except ImportError:
++    except ImportError as e:
+         # Raise informative error if ecdsa is not available
+-        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`")
++        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`") from e
+     
+     try:
+         # Unpack signature
+@@ -578,7 +575,7 @@
+         return '0x' + public_key_hex
+     except Exception as e:
+         # Re-raise with more context
+-        raise Exception(f"Failed to recover signer public key: {str(e)}")
++        raise Exception(f"Failed to recover signer public key: {str(e)}") from e
+ 
+ 
+ def pack_vrs(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/__init__.py b/src/ctc/db/schemas/__init__.py
+--- a/src/ctc/db/schemas/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/__init__.py	2026-09-21 18:04:01
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .block_gas import *
+ from .block_timestamps import *
+ from .blocks import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/__upcoming__/__init__.py b/src/ctc/db/schemas/__upcoming__/__init__.py
+--- a/src/ctc/db/schemas/__upcoming__/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/__upcoming__/__init__.py	2026-09-21 18:04:11
+@@ -0,0 +1,5 @@
++from __future__ import annotations
++
++from . import erc20_state
++from . import protocol_schemas
++from . import block_gas_stats
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/block_gas/__init__.py b/src/ctc/db/schemas/block_gas/__init__.py
+--- a/src/ctc/db/schemas/block_gas/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/block_gas/__init__.py	2026-09-21 18:03:59
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .block_gas_queries import *
+ from .block_gas_schema_defs import *
+ from .block_gas_statements import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/block_timestamps/__init__.py b/src/ctc/db/schemas/block_timestamps/__init__.py
+--- a/src/ctc/db/schemas/block_timestamps/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/block_timestamps/__init__.py	2026-09-21 18:03:56
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .block_timestamps_statements import *
+ from .block_timestamps_schema_defs import *
+ from .multischema_block_timestamps_queries import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/blocks/__init__.py b/src/ctc/db/schemas/blocks/__init__.py
+--- a/src/ctc/db/schemas/blocks/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/blocks/__init__.py	2026-09-21 18:04:12
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .blocks_intake import *
+ from .blocks_queries import *
+ from .blocks_schema_defs import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/contract_abis/__init__.py b/src/ctc/db/schemas/contract_abis/__init__.py
+--- a/src/ctc/db/schemas/contract_abis/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/contract_abis/__init__.py	2026-09-21 18:03:57
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .contract_abis_intake import *
+ from .contract_abis_queries import *
+ from .contract_abis_schema_defs import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/contract_creation_blocks/__init__.py b/src/ctc/db/schemas/contract_creation_blocks/__init__.py
+--- a/src/ctc/db/schemas/contract_creation_blocks/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/contract_creation_blocks/__init__.py	2026-09-21 18:03:58
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .contract_creation_blocks_intake import *
+ from .contract_creation_blocks_queries import *
+ from .contract_creation_blocks_schema_defs import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/dex_pools/__init__.py b/src/ctc/db/schemas/dex_pools/__init__.py
+--- a/src/ctc/db/schemas/dex_pools/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/dex_pools/__init__.py	2026-09-21 18:03:54
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .dex_pools_intake import *
+ from .dex_pools_queries import *
+ from .dex_pools_schema_defs import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/db/schemas/erc20_metadata/__init__.py b/src/ctc/db/schemas/erc20_metadata/__init__.py
+--- a/src/ctc/db/schemas/erc20_metadata/__init__.py	2026-09-21 17:31:30
++++ b/src/ctc/db/schemas/erc20_metadata/__init__.py	2026-09-21 18:03:53
+@@ -1,3 +1,5 @@
++from __future__ import annotations
++
+ from .erc20_metadata_intake import *
+ from .erc20_metadata_queries import *
+ from .erc20_metadata_schema_defs import *
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/address_utils/address_data.py b/src/ctc/evm/address_utils/address_data.py
+--- a/src/ctc/evm/address_utils/address_data.py	2026-09-21 17:58:38
++++ b/src/ctc/evm/address_utils/address_data.py	2026-09-21 18:04:08
+@@ -29,24 +29,33 @@
+     if nonce is not None:
+         # create
+         data = binary.rlp_encode_address_nonce_tuple(sender, nonce)
++        result = binary.keccak(data, output_format='prefix_hex')
++        result = '0x' + result[26:]
++        return result
+     elif salt is not None and init_code is not None:
+         # create2
+         # For CREATE2, we need to RLP encode the following data:
+         # [0xff, sender, salt, keccak256(init_code)]
+         # Then take the keccak256 hash of this data and take last 20 bytes
+-        data = (
+-            '0xff'
+-            + binary.convert(sender, 'raw_hex')
+-            + binary.convert(salt, 'raw_hex')
+-            + binary.convert(binary.keccak(init_code), 'raw_hex')
+-        )
++        try:
++            import hashlib
++        except ImportError:
++            raise ImportError("The 'hashlib' package is required for this operation.")
++        
++        # RLP encode the data [0xff, sender, salt, keccak256(init_code)]
++        rlp_data = [b'\xff', binary.convert(sender, 'raw_hex'), binary.convert(salt, 'raw_hex'), binary.keccak(init_code)]
++        encoded_data = binary.rlp_encode(rlp_data)
++        
++        # Take keccak256 hash of the encoded data
++        keccak = hashlib.sha3_256()
++        keccak.update(bytes.fromhex(encoded_data[2:]))
++        result = keccak.digest()
++        
++        # Take last 20 bytes and add '0x' prefix
++        address_hex = result[-20:].hex()
++        return '0x' + address_hex
+     else:
+         raise Exception('specify either {nonce} or {salt, init_code}')
+-
+-    result = binary.keccak(data, output_format='prefix_hex')
+-    result = '0x' + result[26:]
+-
+-    return result
+ 
+ 
+ def create_hash_preview(

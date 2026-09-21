@@ -1,0 +1,63 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 22:37:48
++++ b/src/ctc/binary/eip712.py	2026-09-21 22:46:01
+@@ -31,8 +31,8 @@
+     type_hash = hashes.keccak256(domain_type)
+     
+     # Prepare domain values
+-    name_hash = hashes.keccak256(domain["name"])
+-    version_hash = hashes.keccak256(domain["version"])
++    name_hash = hashes.keccak256(str(domain["name"]))
++    version_hash = hashes.keccak256(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+     verifying_contract = formats.convert(domain["verifyingContract"], "address")
+     
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/signature_recovery.py b/src/ctc/binary/signatures/signature_recovery.py
+--- a/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 22:42:02
++++ b/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 22:45:55
+@@ -85,13 +85,13 @@
+ def verify_signature(
+     message_hash: spec.Data,
+     signature: spec.Data,
+-    address: spec.Address,
++    public_key: spec.Data,
+ ) -> bool:
+     """
+-    Verify that a signature is valid for a given message hash and address
++    Verify that a signature is valid for a given message hash and public key
+     """
+-    signer_address = get_signer_address(
++    signer_public_key = get_signer_public_key(
+         message_hash=message_hash,
+         signature=signature,
+     )
+-    return signer_address.lower() == address.lower()
++    return signer_public_key.lower() == public_key.lower()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:37:52
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:46:06
+@@ -40,6 +40,24 @@
+     return standardized
+ 
+ 
++def sign_transaction(
++    transaction: spec.Transaction,
++    private_key: spec.PrivateKey,
++) -> spec.Signature:
++    """Sign an Ethereum transaction with a private key"""
++    # Import here to avoid circular dependencies
++    from ctc import binary
++    
++    # Standardize the transaction first
++    standardized = standardize_transaction(transaction)
++    
++    # Sign the transaction using the private key
++    return binary.sign_transaction(
++        transaction=standardized,
++        private_key=private_key,
++    )
++
++
+ async def async_get_transaction(transaction_hash: str) -> spec.Transaction:
+     return await rpc.async_eth_get_transaction_by_hash(transaction_hash)  # type: ignore
+ 

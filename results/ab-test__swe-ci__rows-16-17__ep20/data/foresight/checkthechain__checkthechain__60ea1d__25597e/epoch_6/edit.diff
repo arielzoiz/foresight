@@ -1,0 +1,61 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 22:37:54
++++ b/src/ctc/binary/__init__.py	2026-09-21 22:42:00
+@@ -5,7 +5,7 @@
+ from .hashes import *
+ from .rlp_coding import *
+ from .signatures import *
+-from .signatures.signature_recovery import get_signer_public_key, get_signature_network_id
++from .signatures.signature_recovery import get_signer_public_key, get_signature_network_id, get_signer_address
+ from .signatures.signature_creation import sign_message_hash, sign_text_message
+ from .signatures.transaction_signatures import sign_transaction
+ from .eip712 import get_domain_separator
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 19:17:32
++++ b/src/ctc/binary/hashes.py	2026-09-21 22:41:58
+@@ -116,3 +116,13 @@
+         text = text.encode()
+ 
+     return keccak(text, output_format=output_format, library=library)
++
++
++def keccak256(
++    data: spec.BinaryInteger,
++    output_format: typing.Optional[spec.BinaryFormat] = 'prefix_hex',
++    *,
++    library: typing.Optional[typing.Literal['pysha3', 'pycryptodome']] = None,
++) -> spec.BinaryInteger:
++    """return keccack-256 hash of hex or binary data (alias for keccak)"""
++    return keccak(data, output_format=output_format, library=library)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/signature_recovery.py b/src/ctc/binary/signatures/signature_recovery.py
+--- a/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 22:38:00
++++ b/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 22:42:02
+@@ -80,3 +80,18 @@
+         s=s,
+     )
+     return key_crud.public_key_to_address(public_key)
++
++
++def verify_signature(
++    message_hash: spec.Data,
++    signature: spec.Data,
++    address: spec.Address,
++) -> bool:
++    """
++    Verify that a signature is valid for a given message hash and address
++    """
++    signer_address = get_signer_address(
++        message_hash=message_hash,
++        signature=signature,
++    )
++    return signer_address.lower() == address.lower()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/spec/__init__.py b/src/ctc/spec/__init__.py
+--- a/src/ctc/spec/__init__.py	2026-09-21 22:37:53
++++ b/src/ctc/spec/__init__.py	2026-09-21 22:42:03
+@@ -8,3 +8,6 @@
+ # Define config_keys and block_keys attributes
+ config_keys = list(Config.__annotations__.keys()) + list(PartialConfig.__annotations__.keys()) + list(JsonConfig.__annotations__.keys())
+ block_keys = list(Block.__annotations__.keys())
++
++# Import and expose conversion utilities
++from ..binary.formats import convert

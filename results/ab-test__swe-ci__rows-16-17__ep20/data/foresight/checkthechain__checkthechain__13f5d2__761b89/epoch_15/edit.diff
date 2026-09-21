@@ -1,0 +1,89 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/formats.py b/src/ctc/binary/formats.py
+--- a/src/ctc/binary/formats.py	2026-09-21 21:20:45
++++ b/src/ctc/binary/formats.py	2026-09-21 21:31:25
+@@ -56,7 +56,11 @@
+     if isinstance(data, str):
+         if data.startswith('0x'):
+             # Hex string
+-            binary_data = bytes.fromhex(data[2:])
++            try:
++                binary_data = bytes.fromhex(data[2:])
++            except ValueError:
++                # If it's not valid hex, treat as text
++                binary_data = data.encode('utf-8')
+         else:
+             # Text string
+             binary_data = data.encode('utf-8')
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 21:27:09
++++ b/src/ctc/binary/hashes.py	2026-09-21 21:31:29
+@@ -88,19 +88,12 @@
+                 try:
+                     binary = hashlib.sha3_256(data).digest()
+                 except AttributeError:
+-                    # Final fallback - try to use the alternative method
++                    # Final fallback - try the newer hashlib with digest_size parameter
+                     try:
+-                        # Alternative: use the newer hashlib.sha3_256 with digest_size parameter
+                         binary = hashlib.new('sha3_256', data).digest()
+                     except Exception:
+-                        # Last resort - try the old method that worked in many Python versions
+-                        try:
+-                            # For Python < 3.9, try the old way with sha3_256
+-                            import hashlib
+-                            binary = hashlib.sha3_256(data).digest()
+-                        except Exception:
+-                            # If nothing works, raise error with helpful message
+-                            raise Exception("No suitable keccak library available. Please install 'pysha3' or 'pycryptodome' packages.")
++                        # If nothing works, raise error with helpful message
++                        raise Exception("No suitable keccak library available. Please install 'pysha3' or 'pycryptodome' packages.")
+     else:
+         raise Exception(
+             'must choose valid library, either \'pysha3\', \'pycryptodome\', or \'hashlib\''
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 21:21:07
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 21:31:40
+@@ -30,9 +30,15 @@
+     if isinstance(address, str) and address.startswith('0x'):
+         address = address[2:]
+     
+-    # Ensure it's 20 bytes (40 hex chars)  
+-    if len(address) != 40:
++    # Validate that address is a valid hex string with 40 characters
++    if not isinstance(address, str) or len(address) != 40:
+         raise ValueError("Address must be 20 bytes (40 hex characters)")
++    
++    # Additional validation to ensure it's valid hex
++    try:
++        int(address, 16)
++    except ValueError:
++        raise ValueError("Address contains invalid hex characters")
+         
+     return '0x94' + address
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/compute/rlp_encode_command.py b/src/ctc/cli/commands/compute/rlp_encode_command.py
+--- a/src/ctc/cli/commands/compute/rlp_encode_command.py	2026-09-21 19:25:40
++++ b/src/ctc/cli/commands/compute/rlp_encode_command.py	2026-09-21 21:31:41
+@@ -32,12 +32,17 @@
+     # Parse the data as appropriate
+     import json
+     
++    # Try to parse as JSON first (for lists, etc.)
+     try:
+-        # Try to parse as JSON first (for lists, etc.)
+         parsed_data = json.loads(data)
+     except json.JSONDecodeError:
+-        # Treat as plain string
+-        parsed_data = data
+-        
++        # If that fails, try to interpret as hex string
++        if data.startswith('0x') and len(data) > 2:
++            # Valid hex string - treat as hex
++            parsed_data = data
++        else:
++            # Treat as plain string
++            parsed_data = data
++            
+     output = binary.rlp_encode(parsed_data, str_mode=str_mode)
+     print(output)
+\ No newline at end of file

@@ -1,0 +1,32 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 23:08:28
++++ b/src/ctc/binary/eip712.py	2026-09-21 23:13:41
+@@ -34,22 +34,20 @@
+     name_hash = hashes.keccak_text(str(domain["name"]))
+     version_hash = hashes.keccak_text(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+-    # Convert chain_id to 32-byte hex string
+-    chain_id_bytes = formats.convert(chain_id, "binary")
+-    chain_id_hex = formats.convert(chain_id_bytes, "raw_hex").rjust(64, "0")
++    # Convert chain_id to 32-byte hex string (right-aligned)
++    chain_id_hex = chain_id.to_bytes(32, byteorder='big').hex()
+     
+     verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
+     # Convert address to 20-byte hex (32-byte padded)
+     verifying_contract_bytes = formats.convert(verifying_contract, "binary")
+-    verifying_contract_hex = formats.convert(verifying_contract_bytes, "raw_hex").rjust(64, "0")
++    verifying_contract_hex = verifying_contract_bytes.rjust(64, "0")
+     
+-    # Concatenate all the 32-byte hashes
+-    # We need to concatenate the raw bytes, not the hex strings
++    # Concatenate all the 32-byte values in proper order
+     domain_data = (
+         name_hash[2:] +  # Remove 0x prefix
+         version_hash[2:] +  # Remove 0x prefix
+-        chain_id_hex +  # Already padded to 64 chars (32 bytes)
+-        verifying_contract_hex  # Already padded to 64 chars (32 bytes)
++        chain_id_hex +  # 32-byte representation
++        verifying_contract_hex  # 32-byte representation (20 bytes + 12 padding)
+     )
+     
+     # Calculate domain separator

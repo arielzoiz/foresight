@@ -1,0 +1,52 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 22:54:52
++++ b/src/ctc/binary/eip712.py	2026-09-21 22:59:44
+@@ -27,26 +27,26 @@
+         ")"
+     )
+     
+-    # Calculate type hash
+-    type_hash = hashes.keccak256(domain_type)
++    # Calculate type hash - need to convert to bytes first
++    type_hash = hashes.keccak_text(domain_type)
+     
+     # Prepare domain values
+-    name_hash = hashes.keccak256(str(domain["name"]))
+-    version_hash = hashes.keccak256(str(domain["version"]))
++    name_hash = hashes.keccak_text(str(domain["name"]))
++    version_hash = hashes.keccak_text(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+     # Convert chain_id to proper hex string representation
+     if isinstance(chain_id, int):
+         chain_id = formats.convert(chain_id, "raw_hex")
+     else:
+         chain_id = formats.convert(chain_id, "raw_hex")
+-    verifying_contract = formats.convert(domain["verifyingContract"], "address")
++    verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
+     
+-    # Pack domain values
++    # Pack domain values - strip 0x prefixes for proper concatenation
+     packed_values = (
+-        name_hash +
+-        version_hash +
++        name_hash[2:] +  # Remove 0x prefix
++        version_hash[2:] +  # Remove 0x prefix
+         chain_id.rjust(64, "0") +
+-        verifying_contract.rjust(64, "0")
++        verifying_contract[2:].rjust(64, "0")
+     )
+     
+     # Calculate domain separator
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:54:55
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:59:14
+@@ -15,6 +15,9 @@
+     if 'type' not in standardized:
+         standardized['type'] = 0
+         
++    # Remove None values to prevent RLP encoding issues
++    standardized = {k: v for k, v in standardized.items() if v is not None}
++    
+     # Convert values to standard format
+     if 'value' in standardized:
+         standardized['value'] = spec.convert(standardized['value'], 'integer')

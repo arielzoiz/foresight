@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/src/ctc/binary/signatures/eip712_utils.py</location>
+    <description>The test is failing due to an AttributeError: module 'hashlib' has no attribute 'keccak_256'. This indicates that the code is trying to use hashlib.keccak_256 which doesn't exist in older Python versions.</description>
+    <contract>Replace the usage of hashlib.keccak_256 with a fallback mechanism that uses hashlib.sha3_256 when keccak_256 is not available, or use an external library like pysha3 or pycryptodome.</contract>
+    <acceptance>tests/ctc/binary/test_eip712.py::test_get_domain_separator</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/evm/transaction_utils/transaction_crud.py</location>
+    <description>The test is failing with KeyError: 'gas_price' which indicates that the transaction object being processed doesn't contain the expected 'gas_price' field. Looking at the test examples, they are using 'max_fee_per_gas' and 'max_priority_fee_per_gas' instead of 'gas_price' for EIP-1559 transactions.</description>
+    <contract>Ensure that the transaction standardization process correctly handles EIP-1559 transactions and properly maps 'max_fee_per_gas' and 'max_priority_fee_per_gas' to the expected fields, or ensure that the signing function handles both transaction formats.</contract>
+    <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/binary/signatures/transaction_signatures.py</location>
+    <description>The transaction signing function expects certain fields to be present in the transaction dictionary. However, some tests are passing transactions with different field names or missing fields, causing KeyError exceptions.</description>
+    <contract>Modify the transaction signing function to handle various transaction formats properly and ensure that all required fields are present with correct names before processing.</contract>
+    <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/cli/cli_run.py</location>
+    <description>Some CLI commands are failing because they don't have proper command specifications. The test shows that command specs are missing expected keys like 'alias', 'args', 'examples', 'help', 'name'.</description>
+    <contract>Ensure that all CLI commands have proper command specifications with all required keys. The function toolcli.resolve_command_spec should return a complete spec with all expected keys.</contract>
+    <acceptance>tests/ctc/cli/test_cli_subcommands.py::test_subcommands_have_spec</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/binary/hashes.py</location>
+    <description>The keccak function tries to fallback to hashlib.sha3_256 but this might not be available in all environments, causing ImportError when pysha3 and pycryptodome are not installed.</description>
+    <contract>Improve the keccak function to handle cases where hashlib.sha3_256 is also not available by providing a more robust fallback mechanism or clearer error messages.</contract>
+    <acceptance>tests/ctc/binary/test_eip712.py::test_get_domain_separator</acceptance>
+  </requirement>
+</requirements>

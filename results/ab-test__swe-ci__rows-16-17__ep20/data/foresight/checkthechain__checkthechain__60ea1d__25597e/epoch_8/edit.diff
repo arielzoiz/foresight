@@ -1,0 +1,33 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 22:46:01
++++ b/src/ctc/binary/eip712.py	2026-09-21 22:50:20
+@@ -34,6 +34,9 @@
+     name_hash = hashes.keccak256(str(domain["name"]))
+     version_hash = hashes.keccak256(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
++    # Convert chain_id to hex if it's not already
++    if isinstance(chain_id, int):
++        chain_id = hex(chain_id)[2:]  # Remove '0x' prefix
+     verifying_contract = formats.convert(domain["verifyingContract"], "address")
+     
+     # Pack domain values
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:46:06
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:50:22
+@@ -43,6 +43,8 @@
+ def sign_transaction(
+     transaction: spec.Transaction,
+     private_key: spec.PrivateKey,
++    *,
++    chain_id: int | None = None,
+ ) -> spec.Signature:
+     """Sign an Ethereum transaction with a private key"""
+     # Import here to avoid circular dependencies
+@@ -55,6 +57,7 @@
+     return binary.sign_transaction(
+         transaction=standardized,
+         private_key=private_key,
++        chain_id=chain_id,
+     )
+ 
+ 

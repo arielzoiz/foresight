@@ -1,0 +1,100 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 22:50:20
++++ b/src/ctc/binary/eip712.py	2026-09-21 22:54:52
+@@ -34,9 +34,11 @@
+     name_hash = hashes.keccak256(str(domain["name"]))
+     version_hash = hashes.keccak256(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+-    # Convert chain_id to hex if it's not already
++    # Convert chain_id to proper hex string representation
+     if isinstance(chain_id, int):
+-        chain_id = hex(chain_id)[2:]  # Remove '0x' prefix
++        chain_id = formats.convert(chain_id, "raw_hex")
++    else:
++        chain_id = formats.convert(chain_id, "raw_hex")
+     verifying_contract = formats.convert(domain["verifyingContract"], "address")
+     
+     # Pack domain values
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 19:17:32
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 22:55:00
+@@ -68,7 +68,40 @@
+     unsigned_transaction: spec.UnsignedTransaction,
+     chain_id: int | None,
+ ) -> spec.PrefixHexData:
+-    as_list = [unsigned_transaction[key] for key in unsigned_transaction_keys]  # type: ignore
++    # Determine transaction type to use appropriate keys
++    transaction_type = unsigned_transaction.get('type', 0)
++    
++    if transaction_type == 0:
++        # Legacy transaction
++        keys = unsigned_transaction_keys
++    elif transaction_type == 1:
++        # EIP-2930 transaction
++        keys = eip_2930_transaction_keys
++    elif transaction_type == 2:
++        # EIP-1559 transaction
++        keys = eip1559_transaction_keys
++    else:
++        # Default to legacy if unknown type
++        keys = unsigned_transaction_keys
++    
++    # Handle field name inconsistencies
++    as_list = []
++    for key in keys:
++        if key == 'gas_limit' and 'gas' in unsigned_transaction:
++            # Map gas to gas_limit for legacy transactions
++            as_list.append(unsigned_transaction['gas'])
++        elif key == 'gas_price' and 'gas_price' in unsigned_transaction:
++            as_list.append(unsigned_transaction['gas_price'])
++        elif key == 'max_priority_fee_per_gas' and 'max_priority_fee_per_gas' in unsigned_transaction:
++            as_list.append(unsigned_transaction['max_priority_fee_per_gas'])
++        elif key == 'max_fee_per_gas' and 'max_fee_per_gas' in unsigned_transaction:
++            as_list.append(unsigned_transaction['max_fee_per_gas'])
++        elif key in unsigned_transaction:
++            as_list.append(unsigned_transaction[key])
++        else:
++            # Handle missing fields gracefully
++            as_list.append(None)
++    
+     if chain_id is not None:
+         as_list.append(chain_id)
+         as_list.append(0)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:50:22
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:54:55
+@@ -25,17 +25,34 @@
+     if 'gas' in standardized:
+         standardized['gas'] = spec.convert(standardized['gas'], 'integer')
+         
++    # Handle gas-related fields gracefully
+     if 'gasPrice' in standardized:
+         standardized['gasPrice'] = spec.convert(standardized['gasPrice'], 'integer')
++    elif 'gas_price' in standardized:
++        # Handle case where gas_price is provided instead of gasPrice
++        standardized['gasPrice'] = spec.convert(standardized['gas_price'], 'integer')
++        del standardized['gas_price']
+         
+     if 'maxFeePerGas' in standardized:
+         standardized['maxFeePerGas'] = spec.convert(standardized['maxFeePerGas'], 'integer')
++    elif 'max_fee_per_gas' in standardized:
++        # Handle case where max_fee_per_gas is provided instead of maxFeePerGas
++        standardized['maxFeePerGas'] = spec.convert(standardized['max_fee_per_gas'], 'integer')
++        del standardized['max_fee_per_gas']
+         
+     if 'maxPriorityFeePerGas' in standardized:
+         standardized['maxPriorityFeePerGas'] = spec.convert(standardized['maxPriorityFeePerGas'], 'integer')
++    elif 'max_priority_fee_per_gas' in standardized:
++        # Handle case where max_priority_fee_per_gas is provided instead of maxPriorityFeePerGas
++        standardized['maxPriorityFeePerGas'] = spec.convert(standardized['max_priority_fee_per_gas'], 'integer')
++        del standardized['max_priority_fee_per_gas']
+         
+     if 'chainId' in standardized:
+         standardized['chainId'] = spec.convert(standardized['chainId'], 'integer')
++    elif 'chain_id' in standardized:
++        # Handle case where chain_id is provided instead of chainId
++        standardized['chainId'] = spec.convert(standardized['chain_id'], 'integer')
++        del standardized['chain_id']
+         
+     return standardized
+ 

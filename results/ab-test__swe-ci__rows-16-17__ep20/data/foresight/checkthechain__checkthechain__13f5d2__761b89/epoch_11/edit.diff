@@ -1,0 +1,46 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 21:02:56
++++ b/src/ctc/binary/hashes.py	2026-09-21 21:11:34
+@@ -75,25 +75,21 @@
+         # Fallback to hashlib
+         import hashlib
+ 
+-        # Check if hashlib has keccak_256 (Python 3.9+) - try to use it directly
++        # Try to use keccak_256 directly (Python 3.9+)
+         try:
+             binary = hashlib.keccak_256(data).digest()
+         except AttributeError:
+-            # Fallback for older Python versions - use sha3
++            # Fallback for older Python versions - try sha3_256 or pysha3
+             try:
+                 import sha3
+                 binary = sha3.keccak_256(data).digest()
+             except ImportError:
+-                # Last resort: try using hashlib.sha3_256 (if available)
++                # Try hashlib.sha3_256 as fallback
+                 try:
+                     binary = hashlib.sha3_256(data).digest()
+                 except AttributeError:
+-                    # Final fallback - use pysha3 if available
+-                    try:
+-                        import sha3
+-                        binary = sha3.keccak_256(data).digest()
+-                    except ImportError:
+-                        raise Exception("No suitable keccak library available")
++                    # Final fallback - raise error
++                    raise Exception("No suitable keccak library available")
+     else:
+         raise Exception(
+             'must choose valid library, either \'pysha3\', \'pycryptodome\', or \'hashlib\''
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 21:03:18
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 21:11:59
+@@ -27,7 +27,7 @@
+     if isinstance(address, str) and address.startswith('0x'):
+         address = address[2:]
+     
+-    # Ensure it's 20 bytes (40 hex chars)
++    # Ensure it's 20 bytes (40 hex chars)  
+     if len(address) != 40:
+         raise ValueError("Address must be 20 bytes (40 hex characters)")
+         

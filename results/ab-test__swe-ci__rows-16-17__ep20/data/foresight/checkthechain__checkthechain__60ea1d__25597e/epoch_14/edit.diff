@@ -1,0 +1,50 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 23:13:41
++++ b/src/ctc/binary/eip712.py	2026-09-21 23:17:54
+@@ -40,7 +40,7 @@
+     verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
+     # Convert address to 20-byte hex (32-byte padded)
+     verifying_contract_bytes = formats.convert(verifying_contract, "binary")
+-    verifying_contract_hex = verifying_contract_bytes.rjust(64, "0")
++    verifying_contract_hex = verifying_contract_bytes.rjust(64, b"0").decode('utf-8')
+     
+     # Concatenate all the 32-byte values in proper order
+     domain_data = (
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:08:46
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:17:58
+@@ -99,6 +99,9 @@
+         elif key == 'input' and 'data' in unsigned_transaction:
+             # Map data to input for legacy transactions
+             value = unsigned_transaction['data']
++        elif key == 'gas' and 'gas_limit' in unsigned_transaction:
++            # Map gas_limit to gas for legacy transactions
++            value = unsigned_transaction['gas_limit']
+         elif key in unsigned_transaction:
+             value = unsigned_transaction[key]
+         else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/spec/typedefs/binary_types.py b/src/ctc/spec/typedefs/binary_types.py
+--- a/src/ctc/spec/typedefs/binary_types.py	2026-09-21 19:17:32
++++ b/src/ctc/spec/typedefs/binary_types.py	2026-09-21 23:17:56
+@@ -1,7 +1,7 @@
+ from __future__ import annotations
+ 
+ import typing
+-from typing_extensions import Literal
++from typing_extensions import Literal, TypedDict
+ 
+ 
+ BinaryData = typing.Union[bytes, str]
+@@ -20,3 +20,12 @@
+ HexData = typing.Union[PrefixHexData, RawHexData]
+ 
+ Data = typing.Union[IntegerData, BinaryData, HexData]
++
++# Domain and Hash type definitions
++class Domain(TypedDict):
++    name: str
++    version: str
++    chainId: int
++    verifyingContract: str
++
++Hash = str

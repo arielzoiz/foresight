@@ -1,0 +1,87 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 23:03:49
++++ b/src/ctc/binary/eip712.py	2026-09-21 23:08:28
+@@ -27,30 +27,32 @@
+         ")"
+     )
+     
+-    # Calculate type hash - need to convert to bytes first
++    # Calculate type hash
+     type_hash = hashes.keccak_text(domain_type)
+     
+-    # Prepare domain values
++    # Prepare domain values with proper 32-byte padding
+     name_hash = hashes.keccak_text(str(domain["name"]))
+     version_hash = hashes.keccak_text(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+-    # Convert chain_id to proper hex string representation (32 bytes)
+-    chain_id_hex = formats.convert(chain_id, "raw_hex")
+-    chain_id_hex = chain_id_hex.rjust(64, "0")  # Pad to 32 bytes
++    # Convert chain_id to 32-byte hex string
++    chain_id_bytes = formats.convert(chain_id, "binary")
++    chain_id_hex = formats.convert(chain_id_bytes, "raw_hex").rjust(64, "0")
+     
+     verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
+-    # Convert address to 20-byte hex (remove 0x prefix and pad to 40 chars)
+-    verifying_contract_hex = verifying_contract[2:].rjust(64, "0")
++    # Convert address to 20-byte hex (32-byte padded)
++    verifying_contract_bytes = formats.convert(verifying_contract, "binary")
++    verifying_contract_hex = formats.convert(verifying_contract_bytes, "raw_hex").rjust(64, "0")
+     
+-    # Pack domain values - concatenate all hashes
+-    packed_values = (
++    # Concatenate all the 32-byte hashes
++    # We need to concatenate the raw bytes, not the hex strings
++    domain_data = (
+         name_hash[2:] +  # Remove 0x prefix
+         version_hash[2:] +  # Remove 0x prefix
+-        chain_id_hex +  # Already padded to 64 chars
+-        verifying_contract_hex  # Already padded to 64 chars
++        chain_id_hex +  # Already padded to 64 chars (32 bytes)
++        verifying_contract_hex  # Already padded to 64 chars (32 bytes)
+     )
+     
+     # Calculate domain separator
+-    domain_separator = hashes.keccak256(packed_values)
++    domain_separator = hashes.keccak256(domain_data)
+     
+     return domain_separator
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:03:53
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:08:46
+@@ -60,7 +60,7 @@
+ ]
+ 
+ #
+-# # tranaction serialization
++# # transaction serialization
+ #
+ 
+ 
+@@ -96,6 +96,9 @@
+             value = unsigned_transaction['max_priority_fee_per_gas']
+         elif key == 'max_fee_per_gas' and 'max_fee_per_gas' in unsigned_transaction:
+             value = unsigned_transaction['max_fee_per_gas']
++        elif key == 'input' and 'data' in unsigned_transaction:
++            # Map data to input for legacy transactions
++            value = unsigned_transaction['data']
+         elif key in unsigned_transaction:
+             value = unsigned_transaction[key]
+         else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:59:14
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 23:08:33
+@@ -57,6 +57,12 @@
+         standardized['chainId'] = spec.convert(standardized['chain_id'], 'integer')
+         del standardized['chain_id']
+         
++    # Handle field name mapping for transaction types
++    if 'gas' in standardized and 'gas_limit' not in standardized:
++        # For legacy transactions, map 'gas' to 'gas_limit'
++        standardized['gas_limit'] = standardized['gas']
++        del standardized['gas']
++        
+     return standardized
+ 
+ 

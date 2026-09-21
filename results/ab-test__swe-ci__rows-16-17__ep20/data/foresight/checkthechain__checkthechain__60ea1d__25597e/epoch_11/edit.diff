@@ -1,0 +1,81 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 22:59:44
++++ b/src/ctc/binary/eip712.py	2026-09-21 23:03:49
+@@ -34,19 +34,20 @@
+     name_hash = hashes.keccak_text(str(domain["name"]))
+     version_hash = hashes.keccak_text(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+-    # Convert chain_id to proper hex string representation
+-    if isinstance(chain_id, int):
+-        chain_id = formats.convert(chain_id, "raw_hex")
+-    else:
+-        chain_id = formats.convert(chain_id, "raw_hex")
++    # Convert chain_id to proper hex string representation (32 bytes)
++    chain_id_hex = formats.convert(chain_id, "raw_hex")
++    chain_id_hex = chain_id_hex.rjust(64, "0")  # Pad to 32 bytes
++    
+     verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
++    # Convert address to 20-byte hex (remove 0x prefix and pad to 40 chars)
++    verifying_contract_hex = verifying_contract[2:].rjust(64, "0")
+     
+-    # Pack domain values - strip 0x prefixes for proper concatenation
++    # Pack domain values - concatenate all hashes
+     packed_values = (
+         name_hash[2:] +  # Remove 0x prefix
+         version_hash[2:] +  # Remove 0x prefix
+-        chain_id.rjust(64, "0") +
+-        verifying_contract[2:].rjust(64, "0")
++        chain_id_hex +  # Already padded to 64 chars
++        verifying_contract_hex  # Already padded to 64 chars
+     )
+     
+     # Calculate domain separator
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 22:55:00
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:03:53
+@@ -84,28 +84,38 @@
+         # Default to legacy if unknown type
+         keys = unsigned_transaction_keys
+     
+-    # Handle field name inconsistencies
++    # Handle field name inconsistencies and filter out None values
+     as_list = []
+     for key in keys:
+         if key == 'gas_limit' and 'gas' in unsigned_transaction:
+             # Map gas to gas_limit for legacy transactions
+-            as_list.append(unsigned_transaction['gas'])
++            value = unsigned_transaction['gas']
+         elif key == 'gas_price' and 'gas_price' in unsigned_transaction:
+-            as_list.append(unsigned_transaction['gas_price'])
++            value = unsigned_transaction['gas_price']
+         elif key == 'max_priority_fee_per_gas' and 'max_priority_fee_per_gas' in unsigned_transaction:
+-            as_list.append(unsigned_transaction['max_priority_fee_per_gas'])
++            value = unsigned_transaction['max_priority_fee_per_gas']
+         elif key == 'max_fee_per_gas' and 'max_fee_per_gas' in unsigned_transaction:
+-            as_list.append(unsigned_transaction['max_fee_per_gas'])
++            value = unsigned_transaction['max_fee_per_gas']
+         elif key in unsigned_transaction:
+-            as_list.append(unsigned_transaction[key])
++            value = unsigned_transaction[key]
+         else:
+             # Handle missing fields gracefully
+-            as_list.append(None)
++            value = None
++            
++        # Skip None values for RLP encoding
++        if value is not None:
++            as_list.append(value)
+     
++    # Add chain ID components for EIP-155 compatibility
+     if chain_id is not None:
+         as_list.append(chain_id)
+         as_list.append(0)
+         as_list.append(0)
++        
++    # Validate that we have valid data to encode
++    if not as_list:
++        raise ValueError("No valid transaction data to serialize")
++        
+     return rlp_coding.rlp_encode(as_list)
+ 
+ 

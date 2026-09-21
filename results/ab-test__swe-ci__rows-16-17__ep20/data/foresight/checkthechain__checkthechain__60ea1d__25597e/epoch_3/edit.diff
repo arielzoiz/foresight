@@ -1,0 +1,557 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/__init__.py b/src/ctc/__init__.py
+--- a/src/ctc/__init__.py	2026-09-21 23:27:03
++++ b/src/ctc/__init__.py	2026-09-21 19:17:32
+@@ -1,5 +1,3 @@
+ """ctc is a tool for collecting and processing historical EVM data"""
+ 
+-from __future__ import annotations
+-
+ __version__ = '0.3.0'
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 22:42:00
++++ b/src/ctc/binary/__init__.py	2026-09-21 19:17:32
+@@ -5,7 +5,3 @@
+ from .hashes import *
+ from .rlp_coding import *
+ from .signatures import *
+-from .signatures.signature_recovery import get_signer_public_key, get_signature_network_id, get_signer_address
+-from .signatures.signature_creation import sign_message_hash, sign_text_message
+-from .signatures.transaction_signatures import sign_transaction
+-from .eip712 import get_domain_separator
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 23:45:55
++++ b/src/ctc/binary/eip712.py	2026-09-21 22:04:36
+@@ -1,59 +1,34 @@
+ from __future__ import annotations
+ 
++import typing
++
+ from ctc import spec
+-from . import hashes
+-from . import formats
++from .. import hashes
++from .. import formats
+ 
+ 
+-def get_domain_separator(domain: spec.Domain) -> spec.Hash:
+-    """
+-    Compute EIP-712 domain separator from domain data
++def get_domain_separator(domain: typing.Mapping[str, typing.Any]) -> str:
++    """Compute the domain separator hash according to EIP-712 specifications."""
+     
+-    Implements EIP-712 domain separator calculation:
+-    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)" + 
+-              keccak256(name) + 
+-              keccak256(version) + 
+-              chainId + 
+-              verifyingContract)
+-    """
++    # Build the domain hash according to EIP-712 specification
++    domain_items = []
+     
+-    # EIP-712 domain type definition
+-    domain_type = (
+-        "EIP712Domain("
+-        "string name,"
+-        "string version,"
+-        "uint256 chainId,"
+-        "address verifyingContract"
+-        ")"
+-    )
++    # Process each field in the domain object in a specific order
++    fields_order = ['name', 'version', 'chainId', 'verifyingContract']
++    for field in fields_order:
++        if field in domain:
++            value = domain[field]
++            # Handle special cases for values
++            if field == 'chainId':
++                # Chain ID should be formatted as hex
++                value = formats.convert(value, 'hex')
++            domain_items.append(f'{field}:{value}')
+     
+-    # Calculate type hash
+-    type_hash = hashes.keccak_text(domain_type)
+-    
+-    # Prepare domain values with proper 32-byte padding
+-    name_hash = hashes.keccak_text(str(domain["name"]))
+-    version_hash = hashes.keccak_text(str(domain["version"]))
+-    chain_id = formats.convert(domain["chainId"], "integer")
+-    
+-    # Convert chain_id to 32-byte big-endian hex string (left-padded with zeros)
+-    chain_id_hex = format(chain_id, '064x')
+-    
+-    verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
+-    # Convert address to 20-byte hex (32-byte padded)
+-    verifying_contract_bytes = formats.convert(verifying_contract, "binary")
+-    # Pad to 32 bytes (20 bytes address + 12 zero bytes padding)  
+-    verifying_contract_bytes = verifying_contract_bytes.rjust(32, b'\x00')
+-    verifying_contract_hex = verifying_contract_bytes.hex()
+-    
+-    # Concatenate all the 32-byte values in proper order
+-    domain_data = (
+-        name_hash[2:] +  # Remove 0x prefix
+-        version_hash[2:] +  # Remove 0x prefix
+-        chain_id_hex +  # 32-byte representation (left-aligned)
+-        verifying_contract_hex  # 32-byte representation (20 bytes + 12 padding)
++    # Create the domain hash using keccak256
++    domain_string = 'EIP712Domain(' + ','.join(domain_items) + ')'
++    domain_hash = hashes.keccak_text(
++        domain_string,
++        output_format='binary'
+     )
+     
+-    # Calculate domain separator
+-    domain_separator = hashes.keccak256(domain_data)
+-    
+-    return domain_separator
+\ No newline at end of file
++    return formats.convert(domain_hash, 'prefix_hex')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 22:41:58
++++ b/src/ctc/binary/hashes.py	2026-09-21 19:17:32
+@@ -116,13 +116,3 @@
+         text = text.encode()
+ 
+     return keccak(text, output_format=output_format, library=library)
+-
+-
+-def keccak256(
+-    data: spec.BinaryInteger,
+-    output_format: typing.Optional[spec.BinaryFormat] = 'prefix_hex',
+-    *,
+-    library: typing.Optional[typing.Literal['pysha3', 'pycryptodome']] = None,
+-) -> spec.BinaryInteger:
+-    """return keccack-256 hash of hex or binary data (alias for keccak)"""
+-    return keccak(data, output_format=output_format, library=library)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/signature_creation.py b/src/ctc/binary/signatures/signature_creation.py
+--- a/src/ctc/binary/signatures/signature_creation.py	2026-09-21 23:41:24
++++ b/src/ctc/binary/signatures/signature_creation.py	2026-09-21 19:17:32
+@@ -60,7 +60,9 @@
+     if mode == 'eth_sign':
+         full_message = message
+     elif mode == 'personal_sign':
+-        full_message = '\x19Ethereum Signed Message:\n' + str(len(message)) + message
++        full_message = (
++            '\x19Ethereum Signed Message:\n' + str(len(message)) + message
++        )
+     else:
+         raise Exception('unrecognized signing mode: ' + str(mode))
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/signature_recovery.py b/src/ctc/binary/signatures/signature_recovery.py
+--- a/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 22:59:27
++++ b/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 22:04:22
+@@ -57,7 +57,7 @@
+     message_hash: spec.Data,
+     signature: spec.Data,
+ ) -> str:
+-    """Recover public key from message hash and signature"""
++    """Recover the public key from a signed message hash and signature."""
+     return get_signer_public_key(
+         message_hash=message_hash,
+         signature=signature,
+@@ -80,18 +80,3 @@
+         s=s,
+     )
+     return key_crud.public_key_to_address(public_key)
+-
+-
+-def verify_signature(
+-    message_hash: spec.Data,
+-    signature: spec.Data,
+-    public_key: spec.Data,
+-) -> bool:
+-    """
+-    Verify that a signature is valid for a given message hash and public key
+-    """
+-    signer_public_key = get_signer_public_key(
+-        message_hash=message_hash,
+-        signature=signature,
+-    )
+-    return signer_public_key.lower() == public_key.lower()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:46:01
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 19:17:32
+@@ -21,10 +21,10 @@
+ legacy_transaction_keys = (
+     'nonce',
+     'gas_price',
+-    'gas_limit',
++    'gas',
+     'to',
+     'value',
+-    'data',
++    'input',
+     'v',
+     'r',
+     's',
+@@ -34,10 +34,10 @@
+     'chain_id',
+     'nonce',
+     'gas_price',
+-    'gas_limit',
++    'gas',
+     'to',
+     'value',
+-    'data',
++    'input',
+     'access_list',
+     'v',
+     'r',
+@@ -49,10 +49,10 @@
+     'nonce',
+     'max_priority_fee_per_gas',
+     'max_fee_per_gas',
+-    'gas_limit',
++    'gas',
+     'to',
+     'value',
+-    'data',
++    'input',
+     'access_list',
+     'v',
+     'r',
+@@ -60,7 +60,7 @@
+ ]
+ 
+ #
+-# # transaction serialization
++# # tranaction serialization
+ #
+ 
+ 
+@@ -68,68 +68,11 @@
+     unsigned_transaction: spec.UnsignedTransaction,
+     chain_id: int | None,
+ ) -> spec.PrefixHexData:
+-    # Determine transaction type to use appropriate keys
+-    transaction_type = unsigned_transaction.get('type', 0)
+-    
+-    if transaction_type == 0:
+-        # Legacy transaction
+-        keys = legacy_transaction_keys
+-    elif transaction_type == 1:
+-        # EIP-2930 transaction
+-        keys = eip_2930_transaction_keys
+-    elif transaction_type == 2:
+-        # EIP-1559 transaction
+-        keys = eip1559_transaction_keys
+-    else:
+-        # Default to legacy if unknown type
+-        keys = legacy_transaction_keys
+-    
+-    # Handle field name inconsistencies and filter out None values
+-    as_list = []
+-    for key in keys:
+-        if key == 'gas_limit' and 'gas' in unsigned_transaction:
+-            # Map gas to gas_limit for legacy transactions
+-            value = unsigned_transaction['gas']
+-        elif key == 'gas_price' and 'gas_price' in unsigned_transaction:
+-            value = unsigned_transaction['gas_price']
+-        elif key == 'max_priority_fee_per_gas' and 'max_priority_fee_per_gas' in unsigned_transaction:
+-            value = unsigned_transaction['max_priority_fee_per_gas']
+-        elif key == 'max_fee_per_gas' and 'max_fee_per_gas' in unsigned_transaction:
+-            value = unsigned_transaction['max_fee_per_gas']
+-        elif key == 'data' and 'input' in unsigned_transaction:
+-            # Map input to data for legacy transactions
+-            value = unsigned_transaction['input']
+-        elif key == 'gas' and 'gas_limit' in unsigned_transaction:
+-            # Map gas_limit to gas for legacy transactions
+-            value = unsigned_transaction['gas_limit']
+-        elif key in unsigned_transaction:
+-            value = unsigned_transaction[key]
+-        else:
+-            # Handle missing fields gracefully
+-            value = None
+-            
+-        # Skip None values for RLP encoding
+-        if value is not None:
+-            as_list.append(value)
+-    
+-    # Add chain ID components for EIP-155 compatibility
+-    if chain_id is not None and transaction_type == 0:
+-        # For legacy transactions, add chainID components for EIP-155
++    as_list = [unsigned_transaction[key] for key in unsigned_transaction_keys]  # type: ignore
++    if chain_id is not None:
+         as_list.append(chain_id)
+         as_list.append(0)
+         as_list.append(0)
+-    elif chain_id is not None and transaction_type == 2:
+-        # For EIP-1559 transactions, chain_id should be included in the data
+-        # But we need to ensure it's properly positioned - it should be at index 0 for EIP-1559
+-        # We need to check if chain_id is already included in the data
+-        if 'chain_id' not in unsigned_transaction:
+-            # Insert chain_id at the beginning for EIP-1559
+-            as_list.insert(0, chain_id)
+-        
+-    # Validate that we have valid data to encode
+-    if not as_list:
+-        raise ValueError("No valid transaction data to serialize")
+-        
+     return rlp_coding.rlp_encode(as_list)
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/__init__.py b/src/ctc/evm/transaction_utils/__init__.py
+--- a/src/ctc/evm/transaction_utils/__init__.py	2026-09-21 22:37:49
++++ b/src/ctc/evm/transaction_utils/__init__.py	2026-09-21 19:17:32
+@@ -1,3 +1,2 @@
+ from .transaction_crud import *
+ from .transaction_summary import *
+-from .transaction_crud import standardize_transaction
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 23:45:49
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 22:04:27
+@@ -4,99 +4,9 @@
+ 
+ from ctc import rpc
+ from ctc import spec
++from .. import formats
+ 
+ 
+-def standardize_transaction(transaction: spec.Transaction) -> spec.Transaction:
+-    """Standardize transaction format to ensure consistency"""
+-    # Make a copy to avoid modifying original
+-    standardized = transaction.copy()
+-    
+-    # Ensure standard fields are present
+-    if 'type' not in standardized:
+-        standardized['type'] = 0
+-        
+-    # Remove None values to prevent RLP encoding issues
+-    standardized = {k: v for k, v in standardized.items() if v is not None}
+-    
+-    # Convert values to standard format
+-    if 'value' in standardized:
+-        standardized['value'] = spec.convert(standardized['value'], 'integer')
+-        
+-    if 'nonce' in standardized:
+-        standardized['nonce'] = spec.convert(standardized['nonce'], 'integer')
+-        
+-    if 'gas' in standardized:
+-        standardized['gas'] = spec.convert(standardized['gas'], 'integer')
+-        
+-    # Handle gas-related fields gracefully
+-    if 'gasPrice' in standardized:
+-        standardized['gasPrice'] = spec.convert(standardized['gasPrice'], 'integer')
+-    elif 'gas_price' in standardized:
+-        # Handle case where gas_price is provided instead of gasPrice
+-        standardized['gasPrice'] = spec.convert(standardized['gas_price'], 'integer')
+-        del standardized['gas_price']
+-        
+-    if 'maxFeePerGas' in standardized:
+-        standardized['maxFeePerGas'] = spec.convert(standardized['maxFeePerGas'], 'integer')
+-    elif 'max_fee_per_gas' in standardized:
+-        # Handle case where max_fee_per_gas is provided instead of maxFeePerGas
+-        standardized['maxFeePerGas'] = spec.convert(standardized['max_fee_per_gas'], 'integer')
+-        del standardized['max_fee_per_gas']
+-        
+-    if 'maxPriorityFeePerGas' in standardized:
+-        standardized['maxPriorityFeePerGas'] = spec.convert(standardized['maxPriorityFeePerGas'], 'integer')
+-    elif 'max_priority_fee_per_gas' in standardized:
+-        # Handle case where max_priority_fee_per_gas is provided instead of maxPriorityFeePerGas
+-        standardized['maxPriorityFeePerGas'] = spec.convert(standardized['max_priority_fee_per_gas'], 'integer')
+-        del standardized['max_priority_fee_per_gas']
+-        
+-    if 'chainId' in standardized:
+-        standardized['chainId'] = spec.convert(standardized['chainId'], 'integer')
+-    elif 'chain_id' in standardized:
+-        # Handle case where chain_id is provided instead of chainId
+-        standardized['chainId'] = spec.convert(standardized['chain_id'], 'integer')
+-        del standardized['chain_id']
+-        
+-    # Handle field name mapping for transaction types
+-    if 'gas' in standardized and 'gas_limit' not in standardized:
+-        # For legacy transactions, map 'gas' to 'gas_limit'
+-        standardized['gas_limit'] = standardized['gas']
+-        del standardized['gas']
+-        
+-    # For EIP-1559 transactions, ensure max_fee_per_gas and max_priority_fee_per_gas are mapped properly
+-    if standardized.get('type') == 2:
+-        # Make sure maxFeePerGas and maxPriorityFeePerGas are properly named
+-        if 'max_fee_per_gas' in standardized and 'maxFeePerGas' not in standardized:
+-            standardized['maxFeePerGas'] = standardized['max_fee_per_gas']
+-            del standardized['max_fee_per_gas']
+-        if 'max_priority_fee_per_gas' in standardized and 'maxPriorityFeePerGas' not in standardized:
+-            standardized['maxPriorityFeePerGas'] = standardized['max_priority_fee_per_gas']
+-            del standardized['max_priority_fee_per_gas']
+-            
+-    return standardized
+-
+-
+-def sign_transaction(
+-    transaction: spec.Transaction,
+-    private_key: spec.PrivateKey,
+-    *,
+-    chain_id: int | None = None,
+-) -> spec.Signature:
+-    """Sign an Ethereum transaction with a private key"""
+-    # Import here to avoid circular dependencies
+-    from ctc import binary
+-    
+-    # Standardize the transaction first
+-    standardized = standardize_transaction(transaction)
+-    
+-    # Sign the transaction using the private key
+-    return binary.sign_transaction(
+-        transaction=standardized,
+-        private_key=private_key,
+-        chain_id=chain_id,
+-    )
+-
+-
+ async def async_get_transaction(transaction_hash: str) -> spec.Transaction:
+     return await rpc.async_eth_get_transaction_by_hash(transaction_hash)  # type: ignore
+ 
+@@ -118,3 +28,108 @@
+         for transaction_hash in transaction_hashes
+     ]
+     return await asyncio.gather(*coroutines)
++
++
++def standardize_transaction(transaction: typing.Mapping[str, typing.Any]) -> spec.Transaction:
++    """Normalize transaction dictionary to a standard format."""
++    # Create a standardized transaction dict with all expected fields
++    standardized = {}
++    
++    # Map common field names to standard names
++    field_mapping = {
++        'hash': 'hash',
++        'block_hash': 'block_hash',
++        'block_number': 'block_number',
++        'chain_id': 'chain_id',
++        'from': 'from',
++        'gas': 'gas',
++        'gas_price': 'gas_price',
++        'input': 'input',
++        'nonce': 'nonce',
++        'r': 'r',
++        's': 's',
++        'to': 'to',
++        'transaction_index': 'transaction_index',
++        'type': 'type',
++        'v': 'v',
++        'value': 'value',
++        # Handle variations in field names
++        'gasLimit': 'gas_limit',
++        'gasPrice': 'gas_price',
++        'data': 'input',
++        'transactionHash': 'hash',
++        'blockHash': 'block_hash',
++        'blockNumber': 'block_number',
++        'transactionIndex': 'transaction_index',
++        'value': 'value',
++    }
++    
++    # Populate standardized fields
++    for key, value in transaction.items():
++        if key in field_mapping:
++            standardized[field_mapping[key]] = value
++        else:
++            standardized[key] = value
++    
++    # Ensure all required fields are present with defaults
++    required_fields = {
++        'hash': None,
++        'block_hash': None,
++        'block_number': 0,
++        'chain_id': None,
++        'from': None,
++        'gas': 0,
++        'gas_price': 0,
++        'input': '0x',
++        'nonce': 0,
++        'r': None,
++        's': None,
++        'to': None,
++        'transaction_index': 0,
++        'type': '0x0',
++        'v': 0,
++        'value': 0,
++    }
++    
++    # Merge required fields with standardized transaction
++    for field, default_value in required_fields.items():
++        if field not in standardized:
++            standardized[field] = default_value
++            
++    # Convert values to appropriate types
++    if 'gas' in standardized and standardized['gas'] is not None:
++        standardized['gas'] = formats.convert(standardized['gas'], 'integer')
++        
++    if 'gas_price' in standardized and standardized['gas_price'] is not None:
++        standardized['gas_price'] = formats.convert(standardized['gas_price'], 'integer')
++        
++    if 'nonce' in standardized and standardized['nonce'] is not None:
++        standardized['nonce'] = formats.convert(standardized['nonce'], 'integer')
++        
++    if 'value' in standardized and standardized['value'] is not None:
++        standardized['value'] = formats.convert(standardized['value'], 'integer')
++        
++    if 'block_number' in standardized and standardized['block_number'] is not None:
++        standardized['block_number'] = formats.convert(standardized['block_number'], 'integer')
++        
++    if 'v' in standardized and standardized['v'] is not None:
++        standardized['v'] = formats.convert(standardized['v'], 'integer')
++        
++    if 'type' in standardized and standardized['type'] is not None:
++        standardized['type'] = formats.convert(standardized['type'], 'hex')
++        
++    if 'chain_id' in standardized and standardized['chain_id'] is not None:
++        standardized['chain_id'] = formats.convert(standardized['chain_id'], 'hex')
++        
++    # Ensure hex prefixes for binary data
++    if 'input' in standardized and standardized['input'] is not None:
++        standardized['input'] = formats.convert(standardized['input'], 'prefix_hex')
++        
++    if 'r' in standardized and standardized['r'] is not None:
++        standardized['r'] = formats.convert(standardized['r'], 'prefix_hex')
++        
++    if 's' in standardized and standardized['s'] is not None:
++        standardized['s'] = formats.convert(standardized['s'], 'prefix_hex')
++        
++    # Convert to TypedDict format
++    return typing.cast(spec.Transaction, standardized)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/spec/__init__.py b/src/ctc/spec/__init__.py
+--- a/src/ctc/spec/__init__.py	2026-09-21 22:42:03
++++ b/src/ctc/spec/__init__.py	2026-09-21 22:04:28
+@@ -2,12 +2,8 @@
+ from .typedefs import *
+ from .typeguards import *
+ 
+-# Import config and block keys from typedefs
+-from .typedefs import Config, Block, PartialConfig, JsonConfig
++# Define keys from type definitions for validation
++from .typedefs import Block, Config, PartialConfig, JsonConfig
+ 
+-# Define config_keys and block_keys attributes
+-config_keys = list(Config.__annotations__.keys()) + list(PartialConfig.__annotations__.keys()) + list(JsonConfig.__annotations__.keys())
+ block_keys = list(Block.__annotations__.keys())
+-
+-# Import and expose conversion utilities
+-from ..binary.formats import convert
++config_keys = list(Config.__annotations__.keys())
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/spec/typedefs/binary_types.py b/src/ctc/spec/typedefs/binary_types.py
+--- a/src/ctc/spec/typedefs/binary_types.py	2026-09-21 23:17:56
++++ b/src/ctc/spec/typedefs/binary_types.py	2026-09-21 19:17:32
+@@ -1,7 +1,7 @@
+ from __future__ import annotations
+ 
+ import typing
+-from typing_extensions import Literal, TypedDict
++from typing_extensions import Literal
+ 
+ 
+ BinaryData = typing.Union[bytes, str]
+@@ -20,12 +20,3 @@
+ HexData = typing.Union[PrefixHexData, RawHexData]
+ 
+ Data = typing.Union[IntegerData, BinaryData, HexData]
+-
+-# Domain and Hash type definitions
+-class Domain(TypedDict):
+-    name: str
+-    version: str
+-    chainId: int
+-    verifyingContract: str
+-
+-Hash = str

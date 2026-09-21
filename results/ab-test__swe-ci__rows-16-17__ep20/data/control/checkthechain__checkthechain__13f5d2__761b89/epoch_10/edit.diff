@@ -1,0 +1,102 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 18:15:47
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 18:20:29
+@@ -86,24 +86,21 @@
+ def rlp_encode(data: typing.Any, str_mode: typing.Optional[str] = None) -> str:
+     # Helper function to encode a single byte string
+     def _encode_single_byte_string(s: str) -> str:
+-        if len(s) == 1 and ord(s) <= 127:
+-            return formats.convert(ord(s), 'prefix_hex')
++        # Encode a single byte string with proper RLP encoding
++        hex_data = formats.convert(s.encode('utf-8'), 'raw_hex')
++        data_len = int(len(hex_data) / 2)
++        if data_len <= 55:
++            prefix = 128 + data_len
+         else:
+-            # Regular string - encode with length prefix
+-            hex_data = formats.convert(s.encode('utf-8'), 'raw_hex')
+-            data_len = int(len(hex_data) / 2)
+-            if data_len <= 55:
+-                prefix = 128 + data_len
+-            else:
+-                # For large data, calculate bytes needed for length prefix
+-                length_bytes = (data_len.bit_length() + 7) // 8
+-                prefix = 192 + length_bytes
+-                # Add the length bytes
+-                length_hex = formats.convert(data_len, 'raw_hex')
+-                if len(length_hex) % 2 == 1:
+-                    length_hex = '0' + length_hex
+-                hex_data = length_hex + hex_data
+-            return formats.convert(prefix, 'prefix_hex') + hex_data
++            # For large data, calculate bytes needed for length prefix
++            length_bytes = (data_len.bit_length() + 7) // 8
++            prefix = 192 + length_bytes
++            # Add the length bytes
++            length_hex = formats.convert(data_len, 'raw_hex')
++            if len(length_hex) % 2 == 1:
++                length_hex = '0' + length_hex
++            hex_data = length_hex + hex_data
++        return formats.convert(prefix, 'prefix_hex') + hex_data
+     
+     # Helper function to encode a list
+     def _encode_list(items: list) -> str:
+@@ -255,7 +252,19 @@
+                 return decoded.decode('utf-8')
+             return decoded
+         binary_data = formats.convert(data, 'binary')
+-        return rlp.decode(binary_data)
++        decoded = rlp.decode(binary_data)
++        if isinstance(decoded, bytes):
++            return decoded.decode('utf-8')
++        elif isinstance(decoded, list):
++            # Handle list elements recursively
++            result = []
++            for item in decoded:
++                if isinstance(item, bytes):
++                    result.append(item.decode('utf-8'))
++                else:
++                    result.append(item)
++            return result
++        return decoded
+     elif types == 'raw_hex':
+         # Decode as raw hex
+         try:
+@@ -579,6 +588,38 @@
+     except Exception as e:
+         # Re-raise with more context
+         raise Exception(f"Failed to recover signer public key: {str(e)}") from e
++
++
++def rlp_encode_address_nonce_tuple(
++    address: spec.Address, nonce: int, *, mode: str = 'default'
++) -> spec.PrefixHexData:
++    rlp_address = rlp_encode_address(address)[2:]
++    rlp_integer = rlp_encode_int(nonce)[2:]
++    data_len = int(len(rlp_address) / 2 + len(rlp_integer) / 2)
++
++    if data_len <= 55:
++        pre_offset = 192
++        return (
++            '0x'
++            + formats.convert(pre_offset + data_len, 'raw_hex')
++            + rlp_address
++            + rlp_integer
++        )
++    else:
++        # For large data, calculate bytes needed for length prefix
++        length_bytes = (data_len.bit_length() + 7) // 8
++        pre_offset = 248 + length_bytes
++        # Add the length bytes
++        length_hex = formats.convert(data_len, 'raw_hex')
++        if len(length_hex) % 2 == 1:
++            length_hex = '0' + length_hex
++        return (
++            '0x'
++            + formats.convert(pre_offset, 'raw_hex')
++            + length_hex
++            + rlp_address
++            + rlp_integer
++        )
+ 
+ 
+ def pack_vrs(

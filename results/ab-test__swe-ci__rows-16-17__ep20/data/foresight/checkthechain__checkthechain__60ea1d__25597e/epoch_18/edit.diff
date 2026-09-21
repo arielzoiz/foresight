@@ -1,0 +1,43 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 23:31:55
++++ b/src/ctc/binary/eip712.py	2026-09-21 23:36:11
+@@ -34,14 +34,16 @@
+     name_hash = hashes.keccak_text(str(domain["name"]))
+     version_hash = hashes.keccak_text(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+-    # Convert chain_id to 32-byte hex string (left-aligned)
+-    chain_id_hex = chain_id.to_bytes(32, byteorder='big').hex()
++    # Convert chain_id to 32-byte big-endian hex string
++    chain_id_bytes = chain_id.to_bytes(32, byteorder='big')
++    chain_id_hex = chain_id_bytes.hex()
+     
+     verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
+     # Convert address to 20-byte hex (32-byte padded)
+     verifying_contract_bytes = formats.convert(verifying_contract, "binary")
+     # Pad to 32 bytes (20 bytes address + 12 zero bytes padding)  
+-    verifying_contract_hex = verifying_contract_bytes.rjust(64, b'\x00').hex()
++    verifying_contract_bytes = verifying_contract_bytes.rjust(32, b'\x00')
++    verifying_contract_hex = verifying_contract_bytes.hex()
+     
+     # Concatenate all the 32-byte values in proper order
+     domain_data = (
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 23:31:39
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 23:36:27
+@@ -63,6 +63,16 @@
+         standardized['gas_limit'] = standardized['gas']
+         del standardized['gas']
+         
++    # For EIP-1559 transactions, ensure max_fee_per_gas and max_priority_fee_per_gas are mapped properly
++    if standardized.get('type') == 2:
++        # Make sure maxFeePerGas and maxPriorityFeePerGas are properly named
++        if 'max_fee_per_gas' in standardized and 'maxFeePerGas' not in standardized:
++            standardized['maxFeePerGas'] = standardized['max_fee_per_gas']
++            del standardized['max_fee_per_gas']
++        if 'max_priority_fee_per_gas' in standardized and 'maxPriorityFeePerGas' not in standardized:
++            standardized['maxPriorityFeePerGas'] = standardized['max_priority_fee_per_gas']
++            del standardized['max_priority_fee_per_gas']
++            
+     return standardized
+ 
+ 

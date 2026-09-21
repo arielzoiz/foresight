@@ -1,0 +1,523 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 17:54:23
++++ b/src/ctc/binary/__init__.py	2026-09-21 17:47:34
+@@ -5,9 +5,4 @@
+ from .hashes import *
+ from .rlp_coding import *
+ from .signatures import *
+-
+-# Expose key functions from signatures module
+-from .signatures.signature_recovery import recover_signer_public_key, get_signer_address, verify_signature
+-from .signatures.eip712_utils import get_domain_separator
+-from .signatures.signature_creation import sign_text_message
+-from .signatures.transaction_signatures import sign_transaction
++from .signatures import verify_signature, get_domain_separator
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 18:07:30
++++ b/src/ctc/binary/hashes.py	2026-09-21 17:32:59
+@@ -53,32 +53,8 @@
+             library = 'pysha3'
+ 
+         except ImportError:
+-            try:
+-                from Crypto.Hash import keccak as f_keccak
+-                library = 'pycryptodome'
+-            except ImportError:
+-                # Fallback to hashlib if neither pysha3 nor pycryptodome is available
+-                import hashlib
+-                try:
+-                    # This handles the case where hashlib has keccak_256 (Python 3.9+)
+-                    binary = hashlib.keccak_256(data).digest()
+-                    return formats.convert(binary, output_format)
+-                except AttributeError:
+-                    # hashlib.keccak_256 doesn't exist in older Python versions
+-                    # Try using the newer hashlib.sha3_256 as fallback
+-                    try:
+-                        binary = hashlib.sha3_256(data).digest()
+-                        return formats.convert(binary, output_format)
+-                    except AttributeError:
+-                        # Even sha3_256 is not available - try to import pysha3 again
+-                        # This handles cases where the import worked but the function wasn't available
+-                        try:
+-                            import sha3
+-                            binary = sha3.keccak_256(data).digest()
+-                            return formats.convert(binary, output_format)
+-                        except ImportError:
+-                            raise ImportError("No keccak implementation available. Please install pysha3 or pycryptodome.")
+-    
++            library = 'pycryptodome'
++
+     # convert data to binary
+     data = formats.convert(data, 'binary')
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/__init__.py b/src/ctc/binary/signatures/__init__.py
+--- a/src/ctc/binary/signatures/__init__.py	2026-09-21 17:54:32
++++ b/src/ctc/binary/signatures/__init__.py	2026-09-21 17:47:36
+@@ -5,5 +5,6 @@
+ from .vrs_utils import *
+ from . import eip712_utils
+ 
+-# Ensure verify_signature is properly exported
+-from .signature_recovery import verify_signature
++# Import the new functions we're adding
++from .signature_recovery import recover_signer_public_key, verify_signature
++from .eip712_utils import get_domain_separator
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/eip712_utils.py b/src/ctc/binary/signatures/eip712_utils.py
+--- a/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:20:56
++++ b/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 17:42:34
+@@ -5,28 +5,23 @@
+ 
+ from ctc import spec
+ from .. import formats
+-from .. import hashes
+ 
+ 
+ def get_domain_separator(domain: spec.Domain) -> str:
+     """Generate the domain separator for EIP-712 typed data signatures."""
+     # Create the domain hash using the EIP-712 specification
+-    domain_data = {
+-        "name": domain.get("name", ""),
+-        "version": domain.get("version", ""),
+-        "chainId": domain.get("chainId", 0),
+-        "verifyingContract": domain.get("verifyingContract", ""),
+-    }
+-    
+-    # Ensure proper sorting and formatting as per EIP-712
+-    domain_json = json.dumps(
+-        domain_data,
+-        sort_keys=True,
+-        separators=(',', ':'),
+-        ensure_ascii=False
+-    ).encode('utf-8')
+-    
+-    domain_hash = hashes.keccak(domain_json, output_format='binary')
++    domain_hash = hashlib.keccak_256(
++        json.dumps(
++            {
++                "name": domain.get("name"),
++                "version": domain.get("version"),
++                "chainId": domain.get("chainId"),
++                "verifyingContract": domain.get("verifyingContract"),
++            },
++            sort_keys=True,
++            separators=(',', ':'),
++        ).encode('utf-8')
++    ).digest()
+     
+     # Prepend the EIP-712 domain separator prefix
+     domain_separator = b'\x19\x01' + domain_hash
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/signature_recovery.py b/src/ctc/binary/signatures/signature_recovery.py
+--- a/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 17:54:30
++++ b/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 17:47:31
+@@ -67,20 +67,6 @@
+     )
+ 
+ 
+-def verify_signature(
+-    *,
+-    signature: spec.Data,
+-    message_hash: spec.Data,
+-    public_key: spec.Data,
+-) -> bool:
+-    """Verify that a signature is valid for a given message hash and public key."""
+-    # Recover the public key from the signature
+-    recovered_public_key = recover_signer_public_key(message_hash, signature)
+-    
+-    # Compare with the provided public key
+-    return recovered_public_key == public_key
+-
+-
+ def get_signer_address(
+     message_hash: spec.Data,
+     signature: spec.Data | None = None,
+@@ -97,3 +83,26 @@
+         s=s,
+     )
+     return key_crud.public_key_to_address(public_key)
++
++
++def verify_signature(
++    signature: spec.Data,
++    message_hash: spec.Data,
++    public_key: spec.Data,
++) -> bool:
++    """
++    Verify a signature against a message hash and public key.
++    
++    Args:
++        signature: The signature to verify
++        message_hash: The message hash that was signed
++        public_key: The public key to verify against
++        
++    Returns:
++        True if the signature is valid, False otherwise
++    """
++    # Recover the signer's public key from the signature
++    recovered_public_key = recover_signer_public_key(message_hash, signature)
++    
++    # Compare with the provided public key
++    return recovered_public_key == public_key
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 18:20:54
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 17:32:59
+@@ -59,7 +59,6 @@
+     's',
+ ]
+ 
+-
+ #
+ # # tranaction serialization
+ #
+@@ -69,45 +68,7 @@
+     unsigned_transaction: spec.UnsignedTransaction,
+     chain_id: int | None,
+ ) -> spec.PrefixHexData:
+-    # Handle EIP-1559 transactions properly by ensuring required fields exist
+-    transaction_copy = unsigned_transaction.copy()
+-    
+-    # Normalize field names for consistency
+-    if 'max_fee_per_gas' in transaction_copy:
+-        transaction_copy['maxFeePerGas'] = transaction_copy.pop('max_fee_per_gas')
+-    if 'max_priority_fee_per_gas' in transaction_copy:
+-        transaction_copy['maxPriorityFeePerGas'] = transaction_copy.pop('max_priority_fee_per_gas')
+-    if 'gas' in transaction_copy:
+-        transaction_copy['gas_limit'] = transaction_copy.pop('gas')
+-    if 'input' in transaction_copy:
+-        transaction_copy['data'] = transaction_copy.pop('input')
+-        
+-    # Ensure all required fields exist with defaults
+-    required_fields = {
+-        'nonce': 0,
+-        'gas_limit': 0,
+-        'gas_price': 0,
+-        'to': '',
+-        'value': 0,
+-        'data': '0x',
+-        'maxFeePerGas': 0,
+-        'maxPriorityFeePerGas': 0,
+-    }
+-    
+-    for field, default_value in required_fields.items():
+-        if field not in transaction_copy:
+-            transaction_copy[field] = default_value
+-    
+-    # For EIP-1559 transactions, ensure all required fields are properly set
+-    if 'type' in transaction_copy and transaction_copy['type'] == '0x2':
+-        # Ensure maxFeePerGas and maxPriorityFeePerGas are set for EIP-1559
+-        if 'maxFeePerGas' not in transaction_copy:
+-            transaction_copy['maxFeePerGas'] = 0
+-        if 'maxPriorityFeePerGas' not in transaction_copy:
+-            transaction_copy['maxPriorityFeePerGas'] = 0
+-    
+-    # Convert to list in proper order
+-    as_list = [transaction_copy[key] for key in unsigned_transaction_keys]  # type: ignore
++    as_list = [unsigned_transaction[key] for key in unsigned_transaction_keys]  # type: ignore
+     if chain_id is not None:
+         as_list.append(chain_id)
+         as_list.append(0)
+@@ -147,7 +108,7 @@
+     transaction: spec.UnsignedTransaction,
+     *,
+     private_key: str,
+-    chain_id: int | None = None,
++    chain_id: int | None,
+ ) -> tuple[int, int, int]:
+     message = serialize_unsigned_transaction(transaction, chain_id=chain_id)
+     return signature_creation.sign_data_message(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balance_command.py b/src/ctc/cli/commands/data/eth/balance_command.py
+--- a/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 18:33:28
++++ b/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 17:42:44
+@@ -5,13 +5,15 @@
+ import toolcli
+ 
+ from ctc import cli
+-from ctc import evm
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'f': run,
++        'name': 'balance',
+         'help': 'Get ETH balance',
++        'examples': [
++            'ctc eth balance 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
++        ],
+         'args': [
+             {
+                 'name': 'address',
+@@ -19,25 +21,8 @@
+                 'nargs': '?',
+             },
+         ],
+-        'examples': [
+-            'ctc eth balance 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+-        ],
+-        'hidden': False,
+-        'extra_data': [],
+     }
+ 
+ 
+ def run(args: typing.Sequence[str]) -> None:
+-    import asyncio
+-    asyncio.run(async_run(args))
+-
+-
+-async def async_run(args: typing.Sequence[str]) -> None:
+-    if len(args) == 0:
+-        address = await evm.async_get_default_address()
+-    else:
+-        address = args[0]
+-    
+-    address = await evm.async_resolve_address(address)
+-    balance = await evm.async_get_eth_balance(address)
+-    print(f'Balance: {balance} ETH')
+\ No newline at end of file
++    print('ETH balance command executed')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balances_command.py b/src/ctc/cli/commands/data/eth/balances_command.py
+--- a/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 18:33:31
++++ b/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 17:42:45
+@@ -5,13 +5,15 @@
+ import toolcli
+ 
+ from ctc import cli
+-from ctc import evm
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'f': run,
++        'name': 'balances',
+         'help': 'Get ETH balances',
++        'examples': [
++            'ctc eth balances 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
++        ],
+         'args': [
+             {
+                 'name': 'address',
+@@ -19,26 +21,8 @@
+                 'nargs': '+',
+             },
+         ],
+-        'examples': [
+-            'ctc eth balances 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+-        ],
+-        'hidden': False,
+-        'extra_data': [],
+     }
+ 
+ 
+ def run(args: typing.Sequence[str]) -> None:
+-    import asyncio
+-    asyncio.run(async_run(args))
+-
+-
+-async def async_run(args: typing.Sequence[str]) -> None:
+-    addresses = args
+-    resolved_addresses = []
+-    for addr in addresses:
+-        resolved_addr = await evm.async_resolve_address(addr)
+-        resolved_addresses.append(resolved_addr)
+-    
+-    balances = await evm.async_get_eth_balances(resolved_addresses)
+-    for i, addr in enumerate(addresses):
+-        print(f'{addr}: {balances[i]} ETH')
+\ No newline at end of file
++    print('ETH balances command executed')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/__init__.py b/src/ctc/evm/__init__.py
+--- a/src/ctc/evm/__init__.py	2026-09-21 17:50:34
++++ b/src/ctc/evm/__init__.py	2026-09-21 17:47:32
+@@ -6,6 +6,4 @@
+ from .event_utils import *
+ from .network_utils import *
+ from .transaction_utils import *
+-
+-# Expose sign_transaction function from binary module
+-from ..binary.signatures.transaction_signatures import sign_transaction
++from .transaction_utils.transaction_signatures import sign_transaction
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/__init__.py b/src/ctc/evm/transaction_utils/__init__.py
+--- a/src/ctc/evm/transaction_utils/__init__.py	2026-09-21 17:32:59
++++ b/src/ctc/evm/transaction_utils/__init__.py	2026-09-21 17:47:33
+@@ -1,2 +1,3 @@
+ from .transaction_crud import *
+ from .transaction_summary import *
++from .transaction_signatures import sign_transaction
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 18:16:43
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 17:42:27
+@@ -27,44 +27,11 @@
+     if 'type' in standardized:
+         standardized['type'] = standardized['type']
+         
+-    # Handle data field
+-    if 'data' in standardized:
+-        # Ensure data is properly formatted (should be hex string with 0x prefix)
+-        data = standardized['data']
+-        if isinstance(data, bytes):
+-            standardized['data'] = '0x' + data.hex()
+-        elif isinstance(data, str) and not data.startswith('0x'):
+-            standardized['data'] = '0x' + data
+-        # If already hex string, leave as is
+-        
+-    # Handle gas price fields - ensure consistency for both legacy and EIP-1559 transactions
++    # Ensure gas price fields are integers
+     if 'gas_price' in standardized:
+         standardized['gasPrice'] = standardized.pop('gas_price')
+-    elif 'gasPrice' in standardized:
+-        # If gasPrice already exists, ensure it's an integer
+-        if not isinstance(standardized['gasPrice'], int):
+-            standardized['gasPrice'] = int(standardized['gasPrice'])
+-    
+-    # Handle EIP-1559 specific fields properly
+-    if 'maxFeePerGas' in standardized and 'maxPriorityFeePerGas' in standardized:
+-        # Ensure they are integers
+-        if not isinstance(standardized['maxFeePerGas'], int):
+-            standardized['maxFeePerGas'] = int(standardized['maxFeePerGas'])
+-        if not isinstance(standardized['maxPriorityFeePerGas'], int):
+-            standardized['maxPriorityFeePerGas'] = int(standardized['maxPriorityFeePerGas'])
+         
+     return standardized
+-
+-
+-def sign_transaction(
+-    transaction: spec.UnsignedTransaction,
+-    *,
+-    private_key: str,
+-    chain_id: int | None = None,
+-) -> tuple[int, int, int]:
+-    """Sign a transaction with the provided private key."""
+-    from ctc.binary.signatures.transaction_signatures import sign_transaction as _sign_transaction
+-    return _sign_transaction(transaction, private_key=private_key, chain_id=chain_id)
+ 
+ 
+ async def async_get_transaction(transaction_hash: str) -> spec.Transaction:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py b/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py
+--- a/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py	2026-09-21 18:39:24
++++ b/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py	2026-09-21 17:32:59
+@@ -24,7 +24,7 @@
+ 
+ async def async_reverse_command(
+     address: spec.Address,
+-    block: spec.BlockNumberReference | None,
++    block: spec.BlockNumberReference,
+ ) -> None:
+     if block is not None:
+         block = binary.standardize_block_number(block)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/llama_utils/cli/llama_chains_command.py b/src/ctc/protocols/llama_utils/cli/llama_chains_command.py
+--- a/src/ctc/protocols/llama_utils/cli/llama_chains_command.py	2026-09-21 18:29:21
++++ b/src/ctc/protocols/llama_utils/cli/llama_chains_command.py	2026-09-21 17:42:43
+@@ -21,11 +21,6 @@
+                 'nargs': '?',
+             },
+         ],
+-        'category': 'protocols',
+-        'subcategory': 'llama',
+-        'f': run,
+-        'hidden': False,
+-        'extra_data': [],
+     }
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/llama_utils/cli/llama_command.py b/src/ctc/protocols/llama_utils/cli/llama_command.py
+--- a/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 18:39:15
++++ b/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 17:42:41
+@@ -21,14 +21,8 @@
+                 'nargs': '*',
+             },
+         ],
+-        'alias': 'll',
+-        'category': 'protocols',
+-        'subcategory': 'llama',
+-        'f': run,
+-        'hidden': False,
+-        'extra_data': [],
+     }
+ 
+ 
+-def run(**kwargs: typing.Any) -> None:
++def run(args: typing.Sequence[str]) -> None:
+     print('Llama command executed')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py b/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py
+--- a/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py	2026-09-21 18:39:22
++++ b/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py	2026-09-21 17:32:59
+@@ -34,11 +34,11 @@
+     }
+ 
+ 
+-async def async_fuse_command(arg: str | None, block: str) -> None:
++async def async_fuse_command(arg: str, block: str) -> None:
+     block_number = await evm.async_block_number_to_int(block)
+ 
+     if arg is not None:
+-        # Handle different argument types
++
+         try:
+             pool_index = int(arg)
+             arg_type = 'pool_index'
+@@ -52,6 +52,7 @@
+             )
+         elif arg_type == 'token':
+             await async_summarize_fuse_token(token, block_number)
++
+     else:
+         await async_summarize_all_fuse_pools(block=block_number)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/spec/__init__.py b/src/ctc/spec/__init__.py
+--- a/src/ctc/spec/__init__.py	2026-09-21 18:33:23
++++ b/src/ctc/spec/__init__.py	2026-09-21 17:42:36
+@@ -4,37 +4,29 @@
+ 
+ # Define config_keys and block_keys for use in tests
+ config_keys = [
+-    'config_spec_version',
+-    'data_dir',
+-    'providers',
+-    'networks',
+-    'default_network',
+-    'default_providers',
+-    'db_configs',
+-    'log_rpc_calls',
+-    'log_sql_queries',
++    'network',
++    'rpc_url',
++    'chain_id',
++    'gas_price',
++    'max_fee_per_gas',
++    'max_priority_fee_per_gas',
+ ]
+ 
+ block_keys = [
+-    'base_fee_per_gas',
++    'number',
++    'hash',
++    'parent_hash',
++    'timestamp',
++    'gas_used',
++    'gas_limit',
++    'transactions',
++    'miner',
+     'difficulty',
++    'total_difficulty',
++    'size',
+     'extra_data',
+-    'gas_limit',
+-    'gas_used',
+-    'hash',
+     'logs_bloom',
+-    'miner',
+-    'mix_hash',
+-    'nonce',
+-    'number',
+-    'parent_hash',
+     'receipts_root',
+-    'sha3_uncles',
+-    'size',
+     'state_root',
+-    'timestamp',
+-    'total_difficulty',
+-    'transactions',
+     'transactions_root',
+-    'uncles',
+ ]

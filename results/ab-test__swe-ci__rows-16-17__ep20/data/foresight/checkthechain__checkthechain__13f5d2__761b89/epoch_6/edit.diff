@@ -1,0 +1,104 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 19:44:11
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 19:48:17
+@@ -257,100 +257,6 @@
+     return decoded
+ 
+ 
+-def rlp_decode(data: spec.BinaryData, *, types: str = 'text') -> typing.Any:
+-    binary_data = formats.convert(data, 'binary')
+-    
+-    # Simple RLP decoder implementation
+-    def decode_single(data_bytes, offset):
+-        if offset >= len(data_bytes):
+-            return None, offset
+-            
+-        prefix = data_bytes[offset]
+-        offset += 1
+-        
+-        if prefix < 0x80:
+-            # Single byte data
+-            return bytes([prefix]), offset
+-        elif prefix < 0xb8:
+-            # Short string
+-            data_len = prefix - 0x80
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = data_bytes[offset:offset + data_len]
+-            offset += data_len
+-            return result, offset
+-        elif prefix < 0xc0:
+-            # Long string
+-            length_len = prefix - 0xb7
+-            if offset + length_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            data_len = int.from_bytes(data_bytes[offset:offset + length_len], 'big')
+-            offset += length_len
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = data_bytes[offset:offset + data_len]
+-            offset += data_len
+-            return result, offset
+-        elif prefix < 0xf8:
+-            # Short list
+-            data_len = prefix - 0xc0
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = []
+-            remaining = data_len
+-            while remaining > 0:
+-                item, offset = decode_single(data_bytes, offset)
+-                if item is None:
+-                    break
+-                result.append(item)
+-                # Calculate remaining bytes based on item length
+-                remaining -= len(item)
+-            return result, offset
+-        elif prefix <= 0xff:
+-            # Long list
+-            length_len = prefix - 0xf7
+-            if offset + length_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            data_len = int.from_bytes(data_bytes[offset:offset + length_len], 'big')
+-            offset += length_len
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = []
+-            remaining = data_len
+-            while remaining > 0:
+-                item, offset = decode_single(data_bytes, offset)
+-                if item is None:
+-                    break
+-                result.append(item)
+-                # Calculate remaining bytes based on item length
+-                remaining -= len(item)
+-            return result, offset
+-        else:
+-            raise ValueError(f"Invalid RLP prefix: {prefix}")
+-    
+-    # Decode the whole data
+-    decoded, _ = decode_single(binary_data, 0)
+-    
+-    # Convert bytes to appropriate types based on the types parameter
+-    if types == 'ascii':
+-        if isinstance(decoded, bytes):
+-            return decoded.decode('utf-8')
+-        elif isinstance(decoded, list):
+-            return [item.decode('utf-8') if isinstance(item, bytes) else item for item in decoded]
+-    elif types == 'raw_hex':
+-        if isinstance(decoded, bytes):
+-            return formats.convert(decoded, 'raw_hex')
+-        elif isinstance(decoded, list):
+-            return [formats.convert(item, 'raw_hex') if isinstance(item, bytes) else item for item in decoded]
+-    elif types == 'prefix_hex':
+-        if isinstance(decoded, bytes):
+-            return formats.convert(decoded, 'prefix_hex')
+-        elif isinstance(decoded, list):
+-            return [formats.convert(item, 'prefix_hex') if isinstance(item, bytes) else item for item in decoded]
+-    
+-    return decoded
+-
+-
+ # def rlp_encode(input):
+ #    if isinstance(input, str):
+ #        if len(input) == 1 and ord(input) < 0x80:

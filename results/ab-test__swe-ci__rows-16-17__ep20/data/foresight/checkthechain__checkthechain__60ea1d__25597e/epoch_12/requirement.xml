@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/src/ctc/binary/eip712.py</location>
+        <description>The EIP-712 domain separator calculation is incorrect. The current implementation has issues with how domain values are hashed and packed for the final keccak256 calculation. The test failure shows that computed domain separators don't match expected values.</description>
+        <contract>Implement EIP-712 domain separator according to the official specification. The domain separator should be calculated as: keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)" + keccak256(name) + keccak256(version) + chainId + verifyingContract). All values must be properly encoded and padded to 32-byte boundaries.</contract>
+        <acceptance>tests/ctc/binary/test_eip712.py::test_get_domain_separator</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/src/ctc/evm/transaction_utils/transaction_crud.py</location>
+        <description>The transaction standardization logic has field name inconsistency issues. The test expects certain field names but the implementation doesn't correctly map them. Specifically, there are issues with mapping gasPrice/gas_price, maxFeePerGas/max_fee_per_gas, etc. to standard field names.</description>
+        <contract>Ensure all transaction fields are consistently mapped to standard names. Fields like 'gasPrice' should be converted to 'gasPrice', 'maxFeePerGas' to 'maxFeePerGas', etc. Handle all field name variations properly during standardization.</contract>
+        <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/src/ctc/binary/signatures/transaction_signatures.py</location>
+        <description>The transaction serialization logic has issues with handling transaction types and field mappings. The serialization process doesn't correctly handle field name differences between transaction types and lacks proper validation for required fields.</description>
+        <contract>Improve transaction serialization to correctly handle all transaction types (legacy, EIP-2930, EIP-1559) and ensure field name consistency. Fix the mapping of field names like 'gas' to 'gas_limit' for legacy transactions and ensure proper handling of optional fields.</contract>
+        <acceptance>tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/src/ctc/binary/formats.py</location>
+        <description>Missing or incomplete implementation of the convert function needed for proper data type conversions. The EIP-712 implementation depends on formats.convert() for converting chainId to integer and verifyingContract to prefix_hex, but this function may not be properly implemented.</description>
+        <contract>Implement or fix the convert function in formats module to properly handle type conversions for integers, hex strings, and other data types needed by EIP-712 and transaction processing.</contract>
+        <acceptance>tests/ctc/binary/test_eip712.py::test_get_domain_separator</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/src/ctc/binary/hashes.py</location>
+        <description>Missing or incomplete implementation of keccak256 and keccak_text functions needed for EIP-712 domain separator calculation. These functions are essential for computing hashes of domain type definitions and values.</description>
+        <contract>Implement or fix the keccak256 and keccak_text functions to properly compute keccak256 hashes of strings and data for EIP-712 domain separator calculation.</contract>
+        <acceptance>tests/ctc/binary/test_eip712.py::test_get_domain_separator</acceptance>
+    </requirement>
+</requirement_document>

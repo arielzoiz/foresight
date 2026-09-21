@@ -1,0 +1,1018 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 17:54:23
++++ b/src/ctc/binary/__init__.py	2026-09-21 17:32:59
+@@ -5,9 +5,3 @@
+ from .hashes import *
+ from .rlp_coding import *
+ from .signatures import *
+-
+-# Expose key functions from signatures module
+-from .signatures.signature_recovery import recover_signer_public_key, get_signer_address, verify_signature
+-from .signatures.eip712_utils import get_domain_separator
+-from .signatures.signature_creation import sign_text_message
+-from .signatures.transaction_signatures import sign_transaction
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 18:07:30
++++ b/src/ctc/binary/hashes.py	2026-09-21 17:32:59
+@@ -53,32 +53,8 @@
+             library = 'pysha3'
+ 
+         except ImportError:
+-            try:
+-                from Crypto.Hash import keccak as f_keccak
+-                library = 'pycryptodome'
+-            except ImportError:
+-                # Fallback to hashlib if neither pysha3 nor pycryptodome is available
+-                import hashlib
+-                try:
+-                    # This handles the case where hashlib has keccak_256 (Python 3.9+)
+-                    binary = hashlib.keccak_256(data).digest()
+-                    return formats.convert(binary, output_format)
+-                except AttributeError:
+-                    # hashlib.keccak_256 doesn't exist in older Python versions
+-                    # Try using the newer hashlib.sha3_256 as fallback
+-                    try:
+-                        binary = hashlib.sha3_256(data).digest()
+-                        return formats.convert(binary, output_format)
+-                    except AttributeError:
+-                        # Even sha3_256 is not available - try to import pysha3 again
+-                        # This handles cases where the import worked but the function wasn't available
+-                        try:
+-                            import sha3
+-                            binary = sha3.keccak_256(data).digest()
+-                            return formats.convert(binary, output_format)
+-                        except ImportError:
+-                            raise ImportError("No keccak implementation available. Please install pysha3 or pycryptodome.")
+-    
++            library = 'pycryptodome'
++
+     # convert data to binary
+     data = formats.convert(data, 'binary')
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/__init__.py b/src/ctc/binary/signatures/__init__.py
+--- a/src/ctc/binary/signatures/__init__.py	2026-09-21 17:54:32
++++ b/src/ctc/binary/signatures/__init__.py	2026-09-21 17:32:59
+@@ -3,7 +3,3 @@
+ from .signature_creation import *
+ from .transaction_signatures import *
+ from .vrs_utils import *
+-from . import eip712_utils
+-
+-# Ensure verify_signature is properly exported
+-from .signature_recovery import verify_signature
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/eip712_utils.py b/src/ctc/binary/signatures/eip712_utils.py
+--- a/src/ctc/binary/signatures/eip712_utils.py	2026-09-21 18:20:56
++++ b/src/ctc/binary/signatures/eip712_utils.py	1970-01-01 02:00:00
+@@ -1,34 +0,0 @@
+-from __future__ import annotations
+-
+-import hashlib
+-import json
+-
+-from ctc import spec
+-from .. import formats
+-from .. import hashes
+-
+-
+-def get_domain_separator(domain: spec.Domain) -> str:
+-    """Generate the domain separator for EIP-712 typed data signatures."""
+-    # Create the domain hash using the EIP-712 specification
+-    domain_data = {
+-        "name": domain.get("name", ""),
+-        "version": domain.get("version", ""),
+-        "chainId": domain.get("chainId", 0),
+-        "verifyingContract": domain.get("verifyingContract", ""),
+-    }
+-    
+-    # Ensure proper sorting and formatting as per EIP-712
+-    domain_json = json.dumps(
+-        domain_data,
+-        sort_keys=True,
+-        separators=(',', ':'),
+-        ensure_ascii=False
+-    ).encode('utf-8')
+-    
+-    domain_hash = hashes.keccak(domain_json, output_format='binary')
+-    
+-    # Prepend the EIP-712 domain separator prefix
+-    domain_separator = b'\x19\x01' + domain_hash
+-    
+-    return formats.convert(domain_separator, 'prefix_hex')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/signature_recovery.py b/src/ctc/binary/signatures/signature_recovery.py
+--- a/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 17:54:30
++++ b/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 17:41:25
+@@ -12,6 +12,41 @@
+     return vrs_utils.vrs_to_network_id(v=v, r=r, s=s)
+ 
+ 
++def recover_signer_public_key(
++    message_hash: spec.Data,
++    signature: spec.Data,
++) -> str:
++    """
++    Recover the public key from a message hash and signature.
++    
++    Supports both v,r,s signature tuples and packed signatures.
++    """
++    # unpack vrs if needed
++    if isinstance(signature, tuple) and len(signature) == 3:
++        v, r, s = signature
++    else:
++        v, r, s = vrs_utils.unpack_vrs(signature)
++        
++    # convert to integers
++    v = formats.convert(v, 'integer')
++    r = formats.convert(r, 'integer')
++    s = formats.convert(s, 'integer')
++    
++    # handle network id in v value
++    if v >= 37:
++        network_id = vrs_utils.vrs_to_network_id(v=v, r=r, s=s)
++        if network_id is None:
++            raise Exception('could not parse valid network_id')
++        v = v - network_id * 2 - 8
++
++    # get signer
++    message_hash = formats.convert(message_hash, 'binary')
++    x, y = secp256k1_utils.ecdsa_raw_recover(message_hash, (v, r, s))
++    signer = x.to_bytes(32, byteorder='big') + y.to_bytes(32, byteorder='big')
++
++    return formats.convert(signer, 'prefix_hex')
++
++
+ def get_signer_public_key(
+     message_hash: spec.Data,
+     *,
+@@ -23,7 +58,7 @@
+     """
+     
+     must either provide signature or (v, r, s)
+-
++    
+     adapted from https://github.com/ethereum/pyethereum/blob/ecb14c937a0b6cb0a0dc4f06be3a88e6d53dcce3/ethereum/utils.py#L87
+     """
+ 
+@@ -51,34 +86,6 @@
+     signer = x.to_bytes(32, byteorder='big') + y.to_bytes(32, byteorder='big')
+ 
+     return formats.convert(signer, 'prefix_hex')
+-
+-
+-def recover_signer_public_key(
+-    message_hash: spec.Data,
+-    signature: spec.Data,
+-) -> str:
+-    """Recover the public key from a message hash and signature."""
+-    v, r, s = vrs_utils.unpack_vrs(signature)
+-    return get_signer_public_key(
+-        message_hash=message_hash,
+-        v=v,
+-        r=r,
+-        s=s,
+-    )
+-
+-
+-def verify_signature(
+-    *,
+-    signature: spec.Data,
+-    message_hash: spec.Data,
+-    public_key: spec.Data,
+-) -> bool:
+-    """Verify that a signature is valid for a given message hash and public key."""
+-    # Recover the public key from the signature
+-    recovered_public_key = recover_signer_public_key(message_hash, signature)
+-    
+-    # Compare with the provided public key
+-    return recovered_public_key == public_key
+ 
+ 
+ def get_signer_address(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 18:20:54
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 17:41:38
+@@ -1,5 +1,7 @@
+ from __future__ import annotations
+ 
++import typing
++
+ from ctc import spec
+ from .. import hashes
+ from .. import rlp_coding
+@@ -59,7 +61,6 @@
+     's',
+ ]
+ 
+-
+ #
+ # # tranaction serialization
+ #
+@@ -69,45 +70,7 @@
+     unsigned_transaction: spec.UnsignedTransaction,
+     chain_id: int | None,
+ ) -> spec.PrefixHexData:
+-    # Handle EIP-1559 transactions properly by ensuring required fields exist
+-    transaction_copy = unsigned_transaction.copy()
+-    
+-    # Normalize field names for consistency
+-    if 'max_fee_per_gas' in transaction_copy:
+-        transaction_copy['maxFeePerGas'] = transaction_copy.pop('max_fee_per_gas')
+-    if 'max_priority_fee_per_gas' in transaction_copy:
+-        transaction_copy['maxPriorityFeePerGas'] = transaction_copy.pop('max_priority_fee_per_gas')
+-    if 'gas' in transaction_copy:
+-        transaction_copy['gas_limit'] = transaction_copy.pop('gas')
+-    if 'input' in transaction_copy:
+-        transaction_copy['data'] = transaction_copy.pop('input')
+-        
+-    # Ensure all required fields exist with defaults
+-    required_fields = {
+-        'nonce': 0,
+-        'gas_limit': 0,
+-        'gas_price': 0,
+-        'to': '',
+-        'value': 0,
+-        'data': '0x',
+-        'maxFeePerGas': 0,
+-        'maxPriorityFeePerGas': 0,
+-    }
+-    
+-    for field, default_value in required_fields.items():
+-        if field not in transaction_copy:
+-            transaction_copy[field] = default_value
+-    
+-    # For EIP-1559 transactions, ensure all required fields are properly set
+-    if 'type' in transaction_copy and transaction_copy['type'] == '0x2':
+-        # Ensure maxFeePerGas and maxPriorityFeePerGas are set for EIP-1559
+-        if 'maxFeePerGas' not in transaction_copy:
+-            transaction_copy['maxFeePerGas'] = 0
+-        if 'maxPriorityFeePerGas' not in transaction_copy:
+-            transaction_copy['maxPriorityFeePerGas'] = 0
+-    
+-    # Convert to list in proper order
+-    as_list = [transaction_copy[key] for key in unsigned_transaction_keys]  # type: ignore
++    as_list = [unsigned_transaction[key] for key in unsigned_transaction_keys]  # type: ignore
+     if chain_id is not None:
+         as_list.append(chain_id)
+         as_list.append(0)
+@@ -147,7 +110,7 @@
+     transaction: spec.UnsignedTransaction,
+     *,
+     private_key: str,
+-    chain_id: int | None = None,
++    chain_id: int | None,
+ ) -> tuple[int, int, int]:
+     message = serialize_unsigned_transaction(transaction, chain_id=chain_id)
+     return signature_creation.sign_data_message(
+@@ -224,3 +187,55 @@
+     else:
+         serialized = serialize_unsigned_transaction(transaction)
+     return hashes.keccak(serialized)
++
++
++#
++# # EIP-712 domain separator
++#
++
++
++def get_domain_separator(domain: dict[str, typing.Any]) -> spec.PrefixHexData:
++    """
++    Compute the EIP-712 domain separator hash according to EIP-712 specifications.
++    
++    Args:
++        domain: Dictionary containing domain fields like name, version, chainId, etc.
++        
++    Returns:
++        The domain separator hash as a hex string.
++    """
++    # Prepare the domain data in the correct order
++    domain_fields = [
++        ('name', 'string'),
++        ('version', 'string'),
++        ('chainId', 'uint256'),
++        ('verifyingContract', 'address'),
++        ('salt', 'bytes32'),
++    ]
++    
++    # Create the domain struct data
++    domain_struct = []
++    for field_name, field_type in domain_fields:
++        if field_name in domain:
++            value = domain[field_name]
++            if field_type == 'string':
++                # For strings, we need to keccak hash the string
++                domain_struct.append(hashes.keccak(value))
++            elif field_type == 'uint256':
++                # For uint256, we need to pad to 32 bytes
++                domain_struct.append(value.to_bytes(32, byteorder='big'))
++            elif field_type == 'address':
++                # For addresses, we need to pad to 32 bytes
++                domain_struct.append(value[-40:].zfill(64).lower().encode())
++            elif field_type == 'bytes32':
++                # For bytes32, we use as-is
++                domain_struct.append(value)
++            else:
++                # Default case
++                domain_struct.append(value)
++    
++    # Encode the domain struct using RLP
++    domain_rlp = rlp_coding.rlp_encode(domain_struct)
++    
++    # Hash the encoded domain struct
++    return hashes.keccak(domain_rlp)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balance_command.py b/src/ctc/cli/commands/data/eth/balance_command.py
+--- a/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 18:33:28
++++ b/src/ctc/cli/commands/data/eth/balance_command.py	2026-09-21 17:32:59
+@@ -3,41 +3,51 @@
+ import typing
+ 
+ import toolcli
++import toolstr
+ 
+-from ctc import cli
+ from ctc import evm
++from ctc import spec
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'f': run,
+-        'help': 'Get ETH balance',
++        'f': async_balance_command,
++        'help': 'output ETH balance of address',
+         'args': [
++            {'name': 'address', 'help': 'address of wallet'},
++            {'name': '--block', 'help': 'block number'},
+             {
+-                'name': 'address',
+-                'help': 'Address to get balance for',
+-                'nargs': '?',
++                'name': '--raw',
++                'action': 'store_true',
++                'help': 'skip normalizing balance by 1e18 decimals',
+             },
+         ],
+         'examples': [
+-            'ctc eth balance 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
++            '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
++            '0xd8da6bf26964af9d7eed9e03e53415d37aa96045 --raw',
++            '0xd8da6bf26964af9d7eed9e03e53415d37aa96045 --block 14000000',
+         ],
+-        'hidden': False,
+-        'extra_data': [],
+     }
+ 
+ 
+-def run(args: typing.Sequence[str]) -> None:
+-    import asyncio
+-    asyncio.run(async_run(args))
++async def async_balance_command(
++    *,
++    address: str,
++    block: typing.Optional[spec.BlockNumberReference],
++    raw: bool,
++) -> None:
+ 
++    address = await evm.async_resolve_address(address, block=block)
+ 
+-async def async_run(args: typing.Sequence[str]) -> None:
+-    if len(args) == 0:
+-        address = await evm.async_get_default_address()
++    if block is not None:
++        block = await evm.async_block_number_to_int(block)
++
++    balance = await evm.async_get_eth_balance(
++        address=address,
++        block=block,
++        normalize=(not raw),
++    )
++    if raw:
++        print(balance)
+     else:
+-        address = args[0]
+-    
+-    address = await evm.async_resolve_address(address)
+-    balance = await evm.async_get_eth_balance(address)
+-    print(f'Balance: {balance} ETH')
+\ No newline at end of file
++        print(toolstr.format(balance))
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/cli/commands/data/eth/balances_command.py b/src/ctc/cli/commands/data/eth/balances_command.py
+--- a/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 18:33:31
++++ b/src/ctc/cli/commands/data/eth/balances_command.py	2026-09-21 17:32:59
+@@ -1,44 +1,243 @@
++"""
++# balances of wallets within single block
++ctc eth balances <wallets> [--block <block>]
++
++# balance of single wallet across multiple blocks
++ctc eth balances <wallet> [--blocks <block>]
++"""
++
+ from __future__ import annotations
+ 
+ import typing
+ 
+ import toolcli
++import toolstr
+ 
+-from ctc import cli
+ from ctc import evm
++from ctc import spec
++from ctc.cli import cli_utils
++from ctc.cli import cli_run
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'f': run,
+-        'help': 'Get ETH balances',
++        'f': async_balances_command,
++        'help': 'output ETH balance across blocks or addresses',
+         'args': [
+             {
+-                'name': 'address',
+-                'help': 'Address to get balances for',
++                'name': 'wallets',
+                 'nargs': '+',
++                'help': 'wallet addresses to get balances of',
+             },
++            {'name': '--block', 'help': 'block number'},
++            {
++                'name': '--blocks',
++                'nargs': '+',
++                'help': 'block numbers to get balances in',
++            },
++            #
++            {
++                'name': '--raw',
++                'action': 'store_true',
++                'help': 'skip normalizing by 1e18 decimals',
++            },
++            {
++                'name': '--output',
++                'default': 'stdout',
++                'help': 'file path for output (.json or .csv)',
++            },
++            {
++                'name': '--overwrite',
++                'action': 'store_true',
++                'help': 'specify that output path can be overwritten',
++            },
++            {
++                'name': ['-v', '--verbose'],
++                'action': 'store_true',
++                'help': 'display additional information',
++            },
+         ],
+-        'examples': [
+-            'ctc eth balances 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
+-        ],
+-        'hidden': False,
+-        'extra_data': [],
++        'examples': {
++            '0xd8da6bf26964af9d7eed9e03e53415d37aa96045 0xea674fdde714fd979de3edf0f56aa9716b898ec8 0xbe0eb53f46cd790cd13851d5eff43d12404d33e8': 'multiple wallets',
++            '0xd8da6bf26964af9d7eed9e03e53415d37aa96045 --blocks 14000000:14000100': 'multiple blocks',
++            '0xd8da6bf26964af9d7eed9e03e53415d37aa96045 -v --blocks 14000000:14100000:1000': 'multiple blocks with USD values',
++        },
+     }
+ 
+ 
+-def run(args: typing.Sequence[str]) -> None:
+-    import asyncio
+-    asyncio.run(async_run(args))
++async def async_balances_command(
++    *,
++    wallets: typing.Sequence[str],
++    block: typing.Optional[spec.BlockNumberReference],
++    blocks: typing.Optional[typing.Sequence[str]],
++    raw: bool,
++    output: str,
++    overwrite: bool,
++    verbose: bool,
++) -> None:
+ 
++    # REMOVE this
++    import pandas as pd
+ 
+-async def async_run(args: typing.Sequence[str]) -> None:
+-    addresses = args
+-    resolved_addresses = []
+-    for addr in addresses:
+-        resolved_addr = await evm.async_resolve_address(addr)
+-        resolved_addresses.append(resolved_addr)
+-    
+-    balances = await evm.async_get_eth_balances(resolved_addresses)
+-    for i, addr in enumerate(addresses):
+-        print(f'{addr}: {balances[i]} ETH')
+\ No newline at end of file
++    indent = None
++    wallets = [wallet.lower() for wallet in wallets]
++
++    if blocks is not None:
++        # single wallet, multiple blocks
++        if len(wallets) > 1:
++            raise Exception(
++                'cannot specify multiple wallets and multiple blocks'
++            )
++
++        resolved_blocks = await cli_utils.async_resolve_block_sample(blocks)
++        if verbose:
++            import asyncio
++            from ctc.protocols import chainlink_utils
++
++            eth_usd_coroutine = chainlink_utils.async_get_feed_data(
++                'ETH_USD',
++                blocks=resolved_blocks,
++            )
++            eth_usd_task = asyncio.create_task(eth_usd_coroutine)
++
++        wallet = wallets[0]
++        wallet = await evm.async_resolve_address(wallet, block=blocks[-1])
++        balances = await evm.async_get_eth_balance_by_block(
++            address=wallet,
++            blocks=resolved_blocks,
++            normalize=(not raw),
++        )
++
++        styles = cli_run.get_cli_styles()
++
++        toolstr.print_text_box(
++            'ETH Balances for ' + wallet, style=styles['title']
++        )
++        print()
++
++        if verbose:
++            eth_usd = (await eth_usd_task).values
++            usd_balances = [
++                balance * eth_price
++                for balance, eth_price in zip(balances, eth_usd)
++            ]
++        rows = []
++        for b in range(len(resolved_blocks)):
++            row = [
++                resolved_blocks[b],
++                balances[b],
++            ]
++            if verbose:
++                row.append(usd_balances[b])
++                row.append(eth_usd[b])
++            rows.append(row)
++
++        labels = ['block', 'balance']
++        if verbose:
++            labels.append('$ balance')
++            labels.append('ETH price')
++
++        toolstr.print_table(
++            rows=rows,
++            labels=labels,
++            border=styles['comment'],
++            label_style=styles['title'],
++            column_styles={
++                'block': styles['metavar'],
++                'balance': styles['description'],
++                '$ balance': styles['description'],
++                'ETH price': styles['description'],
++            },
++            column_formats={
++                '$ balance': {
++                    'prefix': '$',
++                    'trailing_zeros': True,
++                    'order_of_magnitude': True,
++                },
++                'ETH price': {'prefix': '$', 'trailing_zeros': True},
++            },
++            indent=4,
++        )
++
++        def formatter(xval: typing.Any) -> str:
++            return toolstr.format(round(xval))
++
++        xvals = resolved_blocks
++        yvals = balances
++        plot = toolstr.render_line_plot(
++            xvals=xvals,
++            yvals=yvals,
++            n_rows=40,
++            n_columns=120,
++            line_style=styles['description'],
++            chrome_style=styles['comment'],
++            tick_label_style=styles['metavar'],
++            xaxis_kwargs={'formatter': formatter},
++        )
++        print()
++        print()
++        toolstr.print(
++            toolstr.hjustify('ETH balance over time', 'center', 70),
++            indent=4,
++            style=styles['title'],
++        )
++        toolstr.print(plot, indent=4)
++
++        if verbose:
++            xvals = resolved_blocks
++            yvals = usd_balances
++            plot = toolstr.render_line_plot(
++                xvals=xvals,
++                yvals=yvals,
++                n_rows=40,
++                n_columns=120,
++                line_style=styles['description'],
++                chrome_style=styles['comment'],
++                tick_label_style=styles['metavar'],
++                xaxis_kwargs={'formatter': formatter},
++                yaxis_kwargs={'tick_label_format': {'prefix': '$'}},
++            )
++            print()
++            print()
++            toolstr.print(
++                toolstr.hjustify('ETH balance over time (USD)', 'center', 70),
++                indent=4,
++                style=styles['title'],
++            )
++            toolstr.print(plot, indent=4)
++
++        if output != 'stdout':
++            df = pd.DataFrame(balances, index=resolved_blocks)
++            df.index.name = 'block'
++            df.columns = ['balance']
++            output_data: typing.Union[spec.DataFrame, spec.Series] = df
++            cli_utils.output_data(
++                output_data, output, overwrite=overwrite, indent=indent, raw=raw
++            )
++    else:
++        # multiple wallets, single block
++        if blocks is not None:
++            raise Exception(
++                'cannot specify multiple wallets and multiple blocks'
++            )
++
++        if block is None:
++            block = 'latest'
++        block = await evm.async_block_number_to_int(block)
++
++        if wallets is not None:
++            wallets = await evm.async_resolve_addresses(wallets, block=block)
++            balances = await evm.async_get_eth_balance_of_addresses(
++                addresses=wallets,
++                block=block,
++                normalize=(not raw),
++            )
++
++            series = pd.Series(balances, index=wallets)
++            series.name = 'balance'
++            series.index.name = 'address'
++            output_data = series
++
++        cli_utils.output_data(
++            output_data, output, overwrite=overwrite, indent=indent, raw=raw
++        )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/__init__.py b/src/ctc/evm/__init__.py
+--- a/src/ctc/evm/__init__.py	2026-09-21 17:50:34
++++ b/src/ctc/evm/__init__.py	2026-09-21 17:32:59
+@@ -6,6 +6,3 @@
+ from .event_utils import *
+ from .network_utils import *
+ from .transaction_utils import *
+-
+-# Expose sign_transaction function from binary module
+-from ..binary.signatures.transaction_signatures import sign_transaction
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/__init__.py b/src/ctc/evm/transaction_utils/__init__.py
+--- a/src/ctc/evm/transaction_utils/__init__.py	2026-09-21 17:32:59
++++ b/src/ctc/evm/transaction_utils/__init__.py	2026-09-21 17:41:40
+@@ -1,2 +1,3 @@
+ from .transaction_crud import *
+ from .transaction_summary import *
++from .transaction_utils import standardize_transaction
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 18:16:43
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 17:32:59
+@@ -6,67 +6,6 @@
+ from ctc import spec
+ 
+ 
+-def standardize_transaction(transaction: spec.Transaction) -> spec.Transaction:
+-    """Standardize transaction format according to Ethereum specifications."""
+-    # Ensure all standard fields are present and properly formatted
+-    standardized = transaction.copy()
+-    
+-    # Convert common fields to consistent format
+-    if 'chain_id' in standardized:
+-        standardized['chainId'] = standardized.pop('chain_id')
+-        
+-    if 'max_fee_per_gas' in standardized:
+-        standardized['maxFeePerGas'] = standardized.pop('max_fee_per_gas')
+-        
+-    if 'max_priority_fee_per_gas' in standardized:
+-        standardized['maxPriorityFeePerGas'] = standardized.pop('max_priority_fee_per_gas')
+-        
+-    if 'access_list' in standardized:
+-        standardized['accessList'] = standardized.pop('access_list')
+-        
+-    if 'type' in standardized:
+-        standardized['type'] = standardized['type']
+-        
+-    # Handle data field
+-    if 'data' in standardized:
+-        # Ensure data is properly formatted (should be hex string with 0x prefix)
+-        data = standardized['data']
+-        if isinstance(data, bytes):
+-            standardized['data'] = '0x' + data.hex()
+-        elif isinstance(data, str) and not data.startswith('0x'):
+-            standardized['data'] = '0x' + data
+-        # If already hex string, leave as is
+-        
+-    # Handle gas price fields - ensure consistency for both legacy and EIP-1559 transactions
+-    if 'gas_price' in standardized:
+-        standardized['gasPrice'] = standardized.pop('gas_price')
+-    elif 'gasPrice' in standardized:
+-        # If gasPrice already exists, ensure it's an integer
+-        if not isinstance(standardized['gasPrice'], int):
+-            standardized['gasPrice'] = int(standardized['gasPrice'])
+-    
+-    # Handle EIP-1559 specific fields properly
+-    if 'maxFeePerGas' in standardized and 'maxPriorityFeePerGas' in standardized:
+-        # Ensure they are integers
+-        if not isinstance(standardized['maxFeePerGas'], int):
+-            standardized['maxFeePerGas'] = int(standardized['maxFeePerGas'])
+-        if not isinstance(standardized['maxPriorityFeePerGas'], int):
+-            standardized['maxPriorityFeePerGas'] = int(standardized['maxPriorityFeePerGas'])
+-        
+-    return standardized
+-
+-
+-def sign_transaction(
+-    transaction: spec.UnsignedTransaction,
+-    *,
+-    private_key: str,
+-    chain_id: int | None = None,
+-) -> tuple[int, int, int]:
+-    """Sign a transaction with the provided private key."""
+-    from ctc.binary.signatures.transaction_signatures import sign_transaction as _sign_transaction
+-    return _sign_transaction(transaction, private_key=private_key, chain_id=chain_id)
+-
+-
+ async def async_get_transaction(transaction_hash: str) -> spec.Transaction:
+     return await rpc.async_eth_get_transaction_by_hash(transaction_hash)  # type: ignore
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_utils.py b/src/ctc/evm/transaction_utils/transaction_utils.py
+--- a/src/ctc/evm/transaction_utils/transaction_utils.py	1970-01-01 02:00:00
++++ b/src/ctc/evm/transaction_utils/transaction_utils.py	2026-09-21 17:41:19
+@@ -0,0 +1,44 @@
++from __future__ import annotations
++
++import typing
++
++from ctc import spec
++from .. import formats
++
++
++def standardize_transaction(transaction: spec.Transaction) -> spec.Transaction:
++    """Normalize transaction dictionary into a consistent format."""
++    
++    # Handle different transaction formats
++    standardized = {}
++    
++    # Copy over common fields
++    for key in ['nonce', 'gas_price', 'gas_limit', 'to', 'value', 'data']:
++        if key in transaction:
++            standardized[key] = transaction[key]
++    
++    # Handle field renames for consistency
++    if 'input' in transaction:
++        standardized['data'] = transaction['input']
++    if 'gas' in transaction:
++        standardized['gas_limit'] = transaction['gas']
++    
++    # Handle transaction type and signature fields
++    if 'type' in transaction:
++        standardized['type'] = transaction['type']
++    if 'v' in transaction and 'r' in transaction and 's' in transaction:
++        standardized['v'] = transaction['v']
++        standardized['r'] = transaction['r']
++        standardized['s'] = transaction['s']
++    
++    # Ensure proper types
++    if 'nonce' in standardized:
++        standardized['nonce'] = int(standardized['nonce'])
++    if 'gas_price' in standardized:
++        standardized['gas_price'] = int(standardized['gas_price'])
++    if 'gas_limit' in standardized:
++        standardized['gas_limit'] = int(standardized['gas_limit'])
++    if 'value' in standardized:
++        standardized['value'] = int(standardized['value'])
++        
++    return standardized
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py b/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py
+--- a/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py	2026-09-21 18:39:24
++++ b/src/ctc/protocols/ens_utils/cli/ens/reverse_command.py	2026-09-21 17:32:59
+@@ -24,7 +24,7 @@
+ 
+ async def async_reverse_command(
+     address: spec.Address,
+-    block: spec.BlockNumberReference | None,
++    block: spec.BlockNumberReference,
+ ) -> None:
+     if block is not None:
+         block = binary.standardize_block_number(block)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/llama_utils/cli/llama_chains_command.py b/src/ctc/protocols/llama_utils/cli/llama_chains_command.py
+--- a/src/ctc/protocols/llama_utils/cli/llama_chains_command.py	2026-09-21 18:29:21
++++ b/src/ctc/protocols/llama_utils/cli/llama_chains_command.py	2026-09-21 17:32:59
+@@ -1,33 +1,28 @@
+ from __future__ import annotations
+ 
+-import typing
+-
+ import toolcli
+ 
+-from ctc import cli
++from .. import llama_tvls
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'name': 'chains',
+-        'help': 'Show Llama chains',
+-        'examples': [
+-            'ctc llama chains',
+-        ],
++        'f': async_llama_chains_command,
++        'help': 'output data about chains tracked by Defi Llama',
+         'args': [
+             {
+-                'name': 'chain_name',
+-                'help': 'Specific chain to show',
+-                'nargs': '?',
++                'name': '-n',
++                'type': int,
++                'default': 15,
++                'help': 'number of chains to display',
+             },
+         ],
+-        'category': 'protocols',
+-        'subcategory': 'llama',
+-        'f': run,
+-        'hidden': False,
+-        'extra_data': [],
++        'examples': [
++            '',
++            '-n 50',
++        ],
+     }
+ 
+ 
+-def run(args: typing.Sequence[str]) -> None:
+-    print('Llama chains command executed')
+\ No newline at end of file
++async def async_llama_chains_command(n: int = 15) -> None:
++    await llama_tvls.async_summarize_chains_tvls(n=n)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/llama_utils/cli/llama_command.py b/src/ctc/protocols/llama_utils/cli/llama_command.py
+--- a/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 18:39:15
++++ b/src/ctc/protocols/llama_utils/cli/llama_command.py	2026-09-21 17:32:59
+@@ -1,34 +1,17 @@
+ from __future__ import annotations
+ 
+-import typing
+-
+ import toolcli
+ 
+-from ctc import cli
++from .. import llama_tvls
+ 
+ 
+ def get_command_spec() -> toolcli.CommandSpec:
+     return {
+-        'name': 'llama',
+-        'help': 'Llama protocol related commands',
+-        'examples': [
+-            'ctc llama chains',
+-        ],
+-        'args': [
+-            {
+-                'name': 'chains',
+-                'help': 'Show Llama chains',
+-                'nargs': '*',
+-            },
+-        ],
+-        'alias': 'll',
+-        'category': 'protocols',
+-        'subcategory': 'llama',
+-        'f': run,
+-        'hidden': False,
+-        'extra_data': [],
++        'f': async_llama_command,
++        'help': 'output data from Defi Llama api',
++        'examples': [''],
+     }
+ 
+ 
+-def run(**kwargs: typing.Any) -> None:
+-    print('Llama command executed')
+\ No newline at end of file
++async def async_llama_command() -> None:
++    await llama_tvls.async_summarize_historical_defi_tvl()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/rari_utils/cli/pools_command.py b/src/ctc/protocols/rari_utils/cli/pools_command.py
+--- a/src/ctc/protocols/rari_utils/cli/pools_command.py	2026-09-21 17:42:42
++++ b/src/ctc/protocols/rari_utils/cli/pools_command.py	1970-01-01 02:00:00
+@@ -1,28 +0,0 @@
+-from __future__ import annotations
+-
+-import typing
+-
+-import toolcli
+-
+-from ctc import cli
+-
+-
+-def get_command_spec() -> toolcli.CommandSpec:
+-    return {
+-        'name': 'pools',
+-        'help': 'Show Rari pools',
+-        'examples': [
+-            'ctc rari pools',
+-        ],
+-        'args': [
+-            {
+-                'name': 'pool_id',
+-                'help': 'Specific pool ID to show',
+-                'nargs': '?',
+-            },
+-        ],
+-    }
+-
+-
+-def run(args: typing.Sequence[str]) -> None:
+-    print('Rari pools command executed')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py b/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py
+--- a/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py	2026-09-21 18:39:22
++++ b/src/ctc/protocols/rari_utils/cli/rari/fuse_command.py	2026-09-21 17:32:59
+@@ -34,11 +34,11 @@
+     }
+ 
+ 
+-async def async_fuse_command(arg: str | None, block: str) -> None:
++async def async_fuse_command(arg: str, block: str) -> None:
+     block_number = await evm.async_block_number_to_int(block)
+ 
+     if arg is not None:
+-        # Handle different argument types
++
+         try:
+             pool_index = int(arg)
+             arg_type = 'pool_index'
+@@ -52,6 +52,7 @@
+             )
+         elif arg_type == 'token':
+             await async_summarize_fuse_token(token, block_number)
++
+     else:
+         await async_summarize_all_fuse_pools(block=block_number)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/protocols/rari_utils/cli/rari_command.py b/src/ctc/protocols/rari_utils/cli/rari_command.py
+--- a/src/ctc/protocols/rari_utils/cli/rari_command.py	2026-09-21 17:42:40
++++ b/src/ctc/protocols/rari_utils/cli/rari_command.py	1970-01-01 02:00:00
+@@ -1,28 +0,0 @@
+-from __future__ import annotations
+-
+-import typing
+-
+-import toolcli
+-
+-from ctc import cli
+-
+-
+-def get_command_spec() -> toolcli.CommandSpec:
+-    return {
+-        'name': 'rari',
+-        'help': 'Rari protocol related commands',
+-        'examples': [
+-            'ctc rari pools',
+-        ],
+-        'args': [
+-            {
+-                'name': 'pools',
+-                'help': 'Show Rari pools',
+-                'nargs': '*',
+-            },
+-        ],
+-    }
+-
+-
+-def run(args: typing.Sequence[str]) -> None:
+-    print('Rari command executed')
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/spec/__init__.py b/src/ctc/spec/__init__.py
+--- a/src/ctc/spec/__init__.py	2026-09-21 18:33:23
++++ b/src/ctc/spec/__init__.py	2026-09-21 17:41:40
+@@ -2,7 +2,9 @@
+ from .typedefs import *
+ from .typeguards import *
+ 
+-# Define config_keys and block_keys for use in tests
++from .typedefs.config_types import Config, PartialConfig, JsonConfig
++from .typedefs.block_types import Block
++
+ config_keys = [
+     'config_spec_version',
+     'data_dir',

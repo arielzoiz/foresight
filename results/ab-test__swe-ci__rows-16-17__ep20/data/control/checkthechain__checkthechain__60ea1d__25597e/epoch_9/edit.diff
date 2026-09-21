@@ -1,0 +1,39 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 17:54:19
++++ b/src/ctc/binary/hashes.py	2026-09-21 17:58:58
+@@ -59,11 +59,12 @@
+             except ImportError:
+                 # Fallback to hashlib if neither pysha3 nor pycryptodome is available
+                 import hashlib
+-                if hasattr(hashlib, 'keccak_256'):
++                try:
+                     # This handles the case where hashlib has keccak_256 (Python 3.9+)
+                     binary = hashlib.keccak_256(data).digest()
+                     return formats.convert(binary, output_format)
+-                else:
++                except AttributeError:
++                    # hashlib.keccak_256 doesn't exist in older Python versions
+                     raise ImportError("No keccak implementation available. Please install pysha3 or pycryptodome.")
+ 
+     # convert data to binary
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 17:42:27
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 17:59:02
+@@ -34,6 +34,17 @@
+     return standardized
+ 
+ 
++def sign_transaction(
++    transaction: spec.UnsignedTransaction,
++    *,
++    private_key: str,
++    chain_id: int | None = None,
++) -> tuple[int, int, int]:
++    """Sign a transaction with the provided private key."""
++    from ctc.binary.signatures.transaction_signatures import sign_transaction as _sign_transaction
++    return _sign_transaction(transaction, private_key=private_key, chain_id=chain_id)
++
++
+ async def async_get_transaction(transaction_hash: str) -> spec.Transaction:
+     return await rpc.async_eth_get_transaction_by_hash(transaction_hash)  # type: ignore
+ 

@@ -1,0 +1,37 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 21:31:40
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 21:41:37
+@@ -47,24 +47,28 @@
+     address: spec.Address, nonce: int
+ ) -> spec.PrefixHexData:
+     # Encode address
+-    rlp_address = rlp_encode_address(address)[2:]  # Remove '0x' prefix
++    rlp_address = rlp_encode_address(address)
+     
+     # Encode nonce
+-    rlp_integer = rlp_encode_int(nonce)[2:]  # Remove '0x' prefix
++    rlp_integer = rlp_encode_int(nonce)
+     
++    # Combine the encoded parts
++    combined = rlp_address[2:] + rlp_integer[2:]  # Remove '0x' prefixes
++    
+     # Calculate total data length in bytes
+-    data_len = int(len(rlp_address) / 2) + int(len(rlp_integer) / 2)
++    data_len = len(combined) // 2  # Convert hex chars to bytes
+     
+     # Build the result
+     if data_len <= 55:
+         # Short form - prefix is 0xc0 + data_len
+-        return '0x' + formats.convert(192 + data_len, 'raw_hex') + rlp_address + rlp_integer
++        prefix = 192 + data_len
++        return '0x' + formats.convert(prefix, 'raw_hex') + combined
+     else:
+         # Long form - prefix is 0xf7 + length_bytes_needed
+         length_bytes_needed = (data_len.bit_length() + 7) // 8
+         prefix = 247 + length_bytes_needed
+         length_prefix = formats.convert(length_bytes_needed, 'raw_hex')
+-        return '0x' + formats.convert(prefix, 'raw_hex') + length_prefix + rlp_address + rlp_integer
++        return '0x' + formats.convert(prefix, 'raw_hex') + length_prefix + combined
+ 
+ 
+ def rlp_encode(data: typing.Any, *, str_mode: str = 'text') -> str:

@@ -1,0 +1,81 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 17:50:31
++++ b/src/ctc/binary/__init__.py	2026-09-21 17:54:23
+@@ -7,7 +7,7 @@
+ from .signatures import *
+ 
+ # Expose key functions from signatures module
+-from .signatures.signature_recovery import recover_signer_public_key, get_signer_address
++from .signatures.signature_recovery import recover_signer_public_key, get_signer_address, verify_signature
+ from .signatures.eip712_utils import get_domain_separator
+ from .signatures.signature_creation import sign_text_message
+ from .signatures.transaction_signatures import sign_transaction
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 17:32:59
++++ b/src/ctc/binary/hashes.py	2026-09-21 17:54:19
+@@ -53,7 +53,18 @@
+             library = 'pysha3'
+ 
+         except ImportError:
+-            library = 'pycryptodome'
++            try:
++                from Crypto.Hash import keccak as f_keccak
++                library = 'pycryptodome'
++            except ImportError:
++                # Fallback to hashlib if neither pysha3 nor pycryptodome is available
++                import hashlib
++                if hasattr(hashlib, 'keccak_256'):
++                    # This handles the case where hashlib has keccak_256 (Python 3.9+)
++                    binary = hashlib.keccak_256(data).digest()
++                    return formats.convert(binary, output_format)
++                else:
++                    raise ImportError("No keccak implementation available. Please install pysha3 or pycryptodome.")
+ 
+     # convert data to binary
+     data = formats.convert(data, 'binary')
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/__init__.py b/src/ctc/binary/signatures/__init__.py
+--- a/src/ctc/binary/signatures/__init__.py	2026-09-21 17:42:33
++++ b/src/ctc/binary/signatures/__init__.py	2026-09-21 17:54:32
+@@ -4,3 +4,6 @@
+ from .transaction_signatures import *
+ from .vrs_utils import *
+ from . import eip712_utils
++
++# Ensure verify_signature is properly exported
++from .signature_recovery import verify_signature
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/signature_recovery.py b/src/ctc/binary/signatures/signature_recovery.py
+--- a/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 17:42:32
++++ b/src/ctc/binary/signatures/signature_recovery.py	2026-09-21 17:54:30
+@@ -67,6 +67,20 @@
+     )
+ 
+ 
++def verify_signature(
++    *,
++    signature: spec.Data,
++    message_hash: spec.Data,
++    public_key: spec.Data,
++) -> bool:
++    """Verify that a signature is valid for a given message hash and public key."""
++    # Recover the public key from the signature
++    recovered_public_key = recover_signer_public_key(message_hash, signature)
++    
++    # Compare with the provided public key
++    return recovered_public_key == public_key
++
++
+ def get_signer_address(
+     message_hash: spec.Data,
+     signature: spec.Data | None = None,
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 17:32:59
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 17:54:20
+@@ -108,7 +108,7 @@
+     transaction: spec.UnsignedTransaction,
+     *,
+     private_key: str,
+-    chain_id: int | None,
++    chain_id: int | None = None,
+ ) -> tuple[int, int, int]:
+     message = serialize_unsigned_transaction(transaction, chain_id=chain_id)
+     return signature_creation.sign_data_message(

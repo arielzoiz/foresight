@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement id="1">
+        <location>/app/code/src/ctc/binary/eip712.py:get_domain_separator</location>
+        <description>The function fails with "ValueError: non-hexadecimal number found in fromhex() arg" when processing domain data fields like chainId or verifyingContract. This suggests improper hex conversion when handling integer values that aren't properly formatted as hexadecimal strings.</description>
+        <contract>The function should properly convert domain data fields to hexadecimal format for keccak256 hashing. Specifically, chainId should be converted to a proper hex string representation, and verifyingContract should be normalized to a standard address format before hashing.</contract>
+        <acceptance>Tests in tests/ctc/binary/test_eip712.py::test_get_domain_separator should pass with both test0 and test1.</acceptance>
+    </requirement>
+    <requirement id="2">
+        <location>/app/code/src/ctc/evm/transaction_utils/transaction_crud.py:standardize_transaction</location>
+        <description>The function raises KeyError: 'gas_price' when trying to process transactions that don't have gas_price field. The function assumes certain fields are always present but they may vary between transaction types (legacy vs EIP-1559 vs EIP-2930).</description>
+        <contract>The function should handle missing gas-related fields gracefully and ensure consistent field presence across all transaction types. It should normalize gas-related fields ('gasPrice', 'maxFeePerGas', 'maxPriorityFeePerGas') to standard representations.</contract>
+        <acceptance>Tests in tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction should pass for both test0 and test1.</acceptance>
+    </requirement>
+    <requirement id="3">
+        <location>/app/code/src/ctc/binary/signatures/transaction_signatures.py:serialize_unsigned_transaction</location>
+        <description>The function uses hardcoded field names that don't match the actual transaction field names. For example, 'gas_price' should be 'gasPrice' in the transaction dictionary.</description>
+        <contract>The function should correctly map transaction fields to their expected names in the serialization process. It should properly handle different transaction types (legacy, EIP-2930, EIP-1559) with appropriate field mappings.</contract>
+        <acceptance>Tests in tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction should pass for both test0 and test1.</acceptance>
+    </requirement>
+</requirement_document>

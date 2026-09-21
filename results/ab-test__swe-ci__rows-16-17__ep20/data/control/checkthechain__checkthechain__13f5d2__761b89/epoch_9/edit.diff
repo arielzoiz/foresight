@@ -1,0 +1,42 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 18:08:41
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 18:15:47
+@@ -141,27 +141,12 @@
+                 return _encode_single_byte_string(str(data))
+                 
+         elif str_mode == 'hex':
+-            if isinstance(data, str) and data.startswith('0x'):
+-                # Already a hex string, process as raw hex
+-                hex_data = data[2:] if data.startswith('0x') else data
+-                if len(hex_data) % 2 == 1:
+-                    hex_data = '0' + hex_data
+-                data_len = int(len(hex_data) / 2)
+-                if data_len <= 55:
+-                    prefix = 128 + data_len
++            if isinstance(data, str):
++                # Handle hex strings properly - strip '0x' if present
++                if data.startswith('0x'):
++                    hex_data = data[2:]
+                 else:
+-                    # For large data, calculate bytes needed for length prefix
+-                    length_bytes = (data_len.bit_length() + 7) // 8
+-                    prefix = 192 + length_bytes
+-                    # Add the length bytes
+-                    length_hex = formats.convert(data_len, 'raw_hex')
+-                    if len(length_hex) % 2 == 1:
+-                        length_hex = '0' + length_hex
+-                    hex_data = length_hex + hex_data
+-                return formats.convert(prefix, 'prefix_hex') + hex_data
+-            elif isinstance(data, str):
+-                # Treat as raw hex string
+-                hex_data = data
++                    hex_data = data
+                 if len(hex_data) % 2 == 1:
+                     hex_data = '0' + hex_data
+                 data_len = int(len(hex_data) / 2)
+@@ -628,4 +613,4 @@
+         return '0x' + packed_hex
+     except Exception as e:
+         # Re-raise with more context
+-        raise Exception(f"Failed to pack VRS values: {str(e)}")
++        raise Exception(f"Failed to pack VRS values: {str(e)}") from e

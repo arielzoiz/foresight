@@ -1,0 +1,61 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 17:49:49
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 17:54:19
+@@ -19,7 +19,18 @@
+         if len(integer_hex) % 2 == 1:
+             integer_hex = '0' + integer_hex
+         integer_bytes = int(len(integer_hex) / 2)
+-        return formats.convert(128 + integer_bytes, 'prefix_hex') + integer_hex
++        if integer_bytes <= 55:
++            prefix = 128 + integer_bytes
++        else:
++            # For large integers, calculate bytes needed for length prefix
++            length_bytes = (integer_bytes.bit_length() + 7) // 8
++            prefix = 192 + length_bytes
++            # Add the length bytes
++            length_hex = formats.convert(integer_bytes, 'raw_hex')
++            if len(length_hex) % 2 == 1:
++                length_hex = '0' + length_hex
++            integer_hex = length_hex + integer_hex
++        return formats.convert(prefix, 'prefix_hex') + integer_hex
+ 
+ 
+ def public_key_tuple_to_hex(public_key_tuple: tuple[int, int]) -> spec.PrefixHexData:
+@@ -49,7 +60,20 @@
+     if data_len <= 55:
+         pre_offset = 192
+     else:
+-        pre_offset = 247
++        # For large data, calculate bytes needed for length prefix
++        length_bytes = (data_len.bit_length() + 7) // 8
++        pre_offset = 248 + length_bytes
++        # Add the length bytes
++        length_hex = formats.convert(data_len, 'raw_hex')
++        if len(length_hex) % 2 == 1:
++            length_hex = '0' + length_hex
++        return (
++            '0x'
++            + formats.convert(pre_offset, 'raw_hex')
++            + length_hex
++            + rlp_address
++            + rlp_integer
++        )
+ 
+     return (
+         '0x'
+@@ -64,9 +88,12 @@
+     if str_mode == 'text':
+         # For text mode, encode strings as RLP strings
+         if isinstance(data, str):
+-            if len(data) == 1 and ord(data) < 128:
+-                # Single byte string that fits in the range 0x00-0x7f
+-                return formats.convert(data, 'prefix_hex')
++            # Handle empty string
++            if len(data) == 0:
++                return '0x80'
++            # Handle single byte strings (0x00-0x7f)
++            elif len(data) == 1 and ord(data) <= 127:
++                return formats.convert(ord(data), 'prefix_hex')
+             else:
+                 # Regular string - encode with length prefix
+                 hex_data = formats.convert(data.encode('utf-8'), 'raw_hex')

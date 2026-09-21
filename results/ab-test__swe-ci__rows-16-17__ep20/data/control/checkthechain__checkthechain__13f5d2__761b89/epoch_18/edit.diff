@@ -1,0 +1,22 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 18:54:20
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 18:58:28
+@@ -203,9 +203,15 @@
+             rlp_data = rlp.encode(data)
+             return formats.convert(rlp_data, 'prefix_hex')
+         except ImportError:
+-            raise Exception(
+-                'the rlp package is required for this feature, try `pip install rlp`'
+-            )
++            # If rlp package is not available, we still need to encode manually
++            # Fall back to our own implementation
++            length_bytes = (data_len.bit_length() + 7) // 8
++            prefix = 192 + length_bytes
++            # Add the length bytes
++            length_hex = formats.convert(length_bytes, 'raw_hex')
++            if len(length_hex) % 2 == 1:
++                length_hex = '0' + length_hex
++            hex_data = length_hex + hex_data
+     return formats.convert(prefix, 'prefix_hex') + hex_data
+ 
+ 

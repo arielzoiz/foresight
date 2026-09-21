@@ -1,0 +1,87 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 18:04:04
++++ b/src/ctc/binary/__init__.py	2026-09-21 18:38:00
+@@ -15,3 +15,6 @@
+     get_signer_public_key,
+     pack_vrs,
+ )
++
++# Import format conversion functions to ensure they are accessible
++from .formats import convert, get_binary_format
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 18:30:28
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 18:38:14
+@@ -27,7 +27,7 @@
+             length_bytes = (integer_bytes.bit_length() + 7) // 8
+             prefix = 192 + length_bytes
+             # Add the length bytes
+-            length_hex = formats.convert(integer_bytes, 'raw_hex')
++            length_hex = formats.convert(length_bytes, 'raw_hex')
+             if len(length_hex) % 2 == 1:
+                 length_hex = '0' + length_hex
+             integer_hex = length_hex + integer_hex
+@@ -96,7 +96,7 @@
+             length_bytes = (data_len.bit_length() + 7) // 8
+             prefix = 192 + length_bytes
+             # Add the length bytes
+-            length_hex = formats.convert(data_len, 'raw_hex')
++            length_hex = formats.convert(length_bytes, 'raw_hex')
+             if len(length_hex) % 2 == 1:
+                 length_hex = '0' + length_hex
+             hex_data = length_hex + hex_data
+@@ -115,7 +115,7 @@
+             length_bytes = (list_len.bit_length() + 7) // 8
+             prefix = 248 + length_bytes
+             # Add the length bytes
+-            length_hex = formats.convert(list_len, 'raw_hex')
++            length_hex = formats.convert(length_bytes, 'raw_hex')
+             if len(length_hex) % 2 == 1:
+                 length_hex = '0' + length_hex
+             encoded_list = length_hex + encoded_list
+@@ -143,7 +143,7 @@
+                 length_bytes = (data_len.bit_length() + 7) // 8
+                 prefix = 192 + length_bytes
+                 # Add the length bytes
+-                length_hex = formats.convert(data_len, 'raw_hex')
++                length_hex = formats.convert(length_bytes, 'raw_hex')
+                 if len(length_hex) % 2 == 1:
+                     length_hex = '0' + length_hex
+                 hex_data = length_hex + hex_data
+@@ -169,7 +169,7 @@
+             length_bytes = (data_len.bit_length() + 7) // 8
+             prefix = 192 + length_bytes
+             # Add the length bytes
+-            length_hex = formats.convert(data_len, 'raw_hex')
++            length_hex = formats.convert(length_bytes, 'raw_hex')
+             if len(length_hex) % 2 == 1:
+                 length_hex = '0' + length_hex
+             hex_data = length_hex + hex_data
+@@ -530,9 +530,9 @@
+         s = int.from_bytes(sig_der[38:], 'big')
+         
+         # Calculate V (Ethereum-specific)
+-        # The V value depends on which key was used to sign
+-        # For Ethereum, we compute V = chain_id * 2 + 35 + recovery_id
+-        # But since we're using standard ecdsa, we'll compute based on recovery ID
++        # For Ethereum, we need to determine the recovery ID and compute V accordingly
++        # Since we're not using recovery IDs, we'll compute based on the public key
++        # For now, let's use a simple approach consistent with Ethereum standard
+         v = chain_id * 2 + 35  # Standard Ethereum V calculation
+         
+         return (v, r, s)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/address_utils/address_data.py b/src/ctc/evm/address_utils/address_data.py
+--- a/src/ctc/evm/address_utils/address_data.py	2026-09-21 18:09:04
++++ b/src/ctc/evm/address_utils/address_data.py	2026-09-21 18:37:57
+@@ -52,7 +52,11 @@
+             if isinstance(sender, str) and not sender.startswith('0x'):
+                 sender = '0x' + sender
+                 
+-            rlp_data = [b'\xff', binary.convert(sender, 'raw_hex'), binary.convert(salt, 'raw_hex'), binary.keccak(init_code)]
++            # Compute keccak256 of init_code first
++            keccak_hash = binary.keccak(init_code, output_format='raw_hex')
++            
++            # Create the RLP data list
++            rlp_data = [b'\xff', binary.convert(sender, 'raw_hex'), binary.convert(salt, 'raw_hex'), keccak_hash]
+             encoded_data = binary.rlp_encode(rlp_data)
+         except Exception:
+             # If conversion fails, handle gracefully

@@ -1,0 +1,232 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 17:54:19
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 17:58:56
+@@ -21,6 +21,7 @@
+         integer_bytes = int(len(integer_hex) / 2)
+         if integer_bytes <= 55:
+             prefix = 128 + integer_bytes
++            return formats.convert(prefix, 'prefix_hex') + integer_hex
+         else:
+             # For large integers, calculate bytes needed for length prefix
+             length_bytes = (integer_bytes.bit_length() + 7) // 8
+@@ -30,7 +31,7 @@
+             if len(length_hex) % 2 == 1:
+                 length_hex = '0' + length_hex
+             integer_hex = length_hex + integer_hex
+-        return formats.convert(prefix, 'prefix_hex') + integer_hex
++            return formats.convert(prefix, 'prefix_hex') + integer_hex
+ 
+ 
+ def public_key_tuple_to_hex(public_key_tuple: tuple[int, int]) -> spec.PrefixHexData:
+@@ -59,6 +60,12 @@
+ 
+     if data_len <= 55:
+         pre_offset = 192
++        return (
++            '0x'
++            + formats.convert(pre_offset + data_len, 'raw_hex')
++            + rlp_address
++            + rlp_integer
++        )
+     else:
+         # For large data, calculate bytes needed for length prefix
+         length_bytes = (data_len.bit_length() + 7) // 8
+@@ -75,14 +82,7 @@
+             + rlp_integer
+         )
+ 
+-    return (
+-        '0x'
+-        + formats.convert(pre_offset + data_len, 'raw_hex')
+-        + rlp_address
+-        + rlp_integer
+-    )
+ 
+-
+ def rlp_encode(data: typing.Any, str_mode: typing.Optional[str] = None) -> str:
+     # Handle different str_mode values
+     if str_mode == 'text':
+@@ -130,7 +130,7 @@
+                 encoded_list = length_hex + encoded_list
+             return formats.convert(prefix, 'prefix_hex') + encoded_list
+         else:
+-            # Fall back to original implementation for other types
++            # Fall back to standard encoding
+             try:
+                 import rlp  # type: ignore
+             except ImportError:
+@@ -180,10 +180,51 @@
+         try:
+             import rlp  # type: ignore
+         except ImportError:
+-            # Return a simple placeholder to avoid error
++            # If rlp is not available, we need to handle it manually
+             if isinstance(data, int):
+                 return rlp_encode_int(data)
++            elif isinstance(data, str):
++                # For string data, encode as RLP string
++                if len(data) == 0:
++                    return '0x80'
++                elif len(data) == 1 and ord(data) <= 127:
++                    return formats.convert(ord(data), 'prefix_hex')
++                else:
++                    # Regular string - encode with length prefix
++                    hex_data = formats.convert(data.encode('utf-8'), 'raw_hex')
++                    data_len = int(len(hex_data) / 2)
++                    if data_len <= 55:
++                        prefix = 128 + data_len
++                    else:
++                        # For large data, calculate bytes needed for length prefix
++                        length_bytes = (data_len.bit_length() + 7) // 8
++                        prefix = 192 + length_bytes
++                        # Add the length bytes
++                        length_hex = formats.convert(data_len, 'raw_hex')
++                        if len(length_hex) % 2 == 1:
++                            length_hex = '0' + length_hex
++                        hex_data = length_hex + hex_data
++                    return formats.convert(prefix, 'prefix_hex') + hex_data
++            elif isinstance(data, list):
++                # Handle lists
++                encoded_list = ''
++                for item in data:
++                    encoded_list += rlp_encode(item, str_mode=str_mode)
++                list_len = int(len(encoded_list) / 2)
++                if list_len <= 55:
++                    prefix = 192 + list_len
++                else:
++                    # For large lists, calculate bytes needed for length prefix
++                    length_bytes = (list_len.bit_length() + 7) // 8
++                    prefix = 248 + length_bytes
++                    # Add the length bytes
++                    length_hex = formats.convert(list_len, 'raw_hex')
++                    if len(length_hex) % 2 == 1:
++                        length_hex = '0' + length_hex
++                    encoded_list = length_hex + encoded_list
++                return formats.convert(prefix, 'prefix_hex') + encoded_list
+             else:
++                # Return a simple placeholder to avoid error
+                 return '0x00'
+         
+         rlp_data = rlp.encode(data)
+@@ -385,8 +426,8 @@
+         import ecdsa
+         from ecdsa import SECP256k1
+     except ImportError:
+-        # Fallback to mock return value if ecdsa is not available
+-        return '0x00'  # Mock return value
++        # Raise informative error if ecdsa is not available
++        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`")
+     
+     try:
+         # Convert private key to integer if it's a hex string
+@@ -412,9 +453,9 @@
+         public_key_hex = '04' + x_hex + y_hex
+         
+         return '0x' + public_key_hex
+-    except Exception:
+-        # Return mock value on error
+-        return '0x00'
++    except Exception as e:
++        # Re-raise with more context
++        raise Exception(f"Failed to derive public key from private key: {str(e)}")
+ 
+ 
+ def private_key_to_address(private_key: spec.PrivateKey) -> spec.Address:
+@@ -424,8 +465,8 @@
+         import ecdsa
+         from ecdsa import SECP256k1
+     except ImportError:
+-        # Fallback to mock return value if dependencies are not available
+-        return '0x0000000000000000000000000000000000000000'  # Mock return value
++        # Raise informative error if dependencies are not available
++        raise ImportError("The 'ecdsa' and 'hashlib' packages are required for this operation. Install with `pip install ecdsa`")
+     
+     try:
+         # First get public key
+@@ -446,9 +487,9 @@
+         # Take last 20 bytes and add '0x' prefix
+         address_hex = address_bytes[-20:].hex()
+         return '0x' + address_hex
+-    except Exception:
+-        # Return mock value on error
+-        return '0x0000000000000000000000000000000000000000'
++    except Exception as e:
++        # Re-raise with more context
++        raise Exception(f"Failed to derive address from private key: {str(e)}")
+ 
+ 
+ def sign_message_hash(
+@@ -459,8 +500,8 @@
+         import ecdsa
+         from ecdsa import SECP256k1
+     except ImportError:
+-        # Fallback to mock return value if ecdsa is not available
+-        return (0, 0, 0)  # Mock return value
++        # Raise informative error if ecdsa is not available
++        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`")
+     
+     try:
+         # Convert message hash to integer if it's a hex string
+@@ -492,9 +533,9 @@
+         v = chain_id * 2 + 35  # Standard Ethereum V calculation
+         
+         return (v, r, s)
+-    except Exception:
+-        # Return mock value on error
+-        return (0, 0, 0)
++    except Exception as e:
++        # Re-raise with more context
++        raise Exception(f"Failed to sign message hash: {str(e)}")
+ 
+ 
+ def get_signer_public_key(message_hash: spec.Hash, signature: spec.Signature) -> spec.PublicKey:
+@@ -503,8 +544,8 @@
+         import ecdsa
+         from ecdsa import SECP256k1
+     except ImportError:
+-        # Fallback to mock return value if ecdsa is not available
+-        return '0x00'  # Mock return value
++        # Raise informative error if ecdsa is not available
++        raise ImportError("The 'ecdsa' package is required for this operation. Install with `pip install ecdsa`")
+     
+     try:
+         # Unpack signature
+@@ -535,9 +576,9 @@
+         public_key_hex = '04' + x_hex + y_hex
+         
+         return '0x' + public_key_hex
+-    except Exception:
+-        # Return mock value on error
+-        return '0x00'
++    except Exception as e:
++        # Re-raise with more context
++        raise Exception(f"Failed to recover signer public key: {str(e)}")
+ 
+ 
+ def pack_vrs(
+@@ -570,6 +611,6 @@
+         packed_hex = v_hex + r_hex + s_hex
+         
+         return '0x' + packed_hex
+-    except Exception:
+-        # Return mock value on error
+-        return '0x00'
++    except Exception as e:
++        # Re-raise with more context
++        raise Exception(f"Failed to pack VRS values: {str(e)}")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/address_utils/address_data.py b/src/ctc/evm/address_utils/address_data.py
+--- a/src/ctc/evm/address_utils/address_data.py	2026-09-21 17:31:30
++++ b/src/ctc/evm/address_utils/address_data.py	2026-09-21 17:58:38
+@@ -31,8 +31,11 @@
+         data = binary.rlp_encode_address_nonce_tuple(sender, nonce)
+     elif salt is not None and init_code is not None:
+         # create2
++        # For CREATE2, we need to RLP encode the following data:
++        # [0xff, sender, salt, keccak256(init_code)]
++        # Then take the keccak256 hash of this data and take last 20 bytes
+         data = (
+-            binary.convert('0xff', 'raw_hex')
++            '0xff'
+             + binary.convert(sender, 'raw_hex')
+             + binary.convert(salt, 'raw_hex')
+             + binary.convert(binary.keccak(init_code), 'raw_hex')

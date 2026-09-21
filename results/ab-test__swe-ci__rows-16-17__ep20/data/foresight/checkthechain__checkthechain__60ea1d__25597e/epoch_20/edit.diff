@@ -1,0 +1,62 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/eip712.py b/src/ctc/binary/eip712.py
+--- a/src/ctc/binary/eip712.py	2026-09-21 23:36:11
++++ b/src/ctc/binary/eip712.py	2026-09-21 23:45:55
+@@ -34,9 +34,9 @@
+     name_hash = hashes.keccak_text(str(domain["name"]))
+     version_hash = hashes.keccak_text(str(domain["version"]))
+     chain_id = formats.convert(domain["chainId"], "integer")
+-    # Convert chain_id to 32-byte big-endian hex string
+-    chain_id_bytes = chain_id.to_bytes(32, byteorder='big')
+-    chain_id_hex = chain_id_bytes.hex()
++    
++    # Convert chain_id to 32-byte big-endian hex string (left-padded with zeros)
++    chain_id_hex = format(chain_id, '064x')
+     
+     verifying_contract = formats.convert(domain["verifyingContract"], "prefix_hex")
+     # Convert address to 20-byte hex (32-byte padded)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures/transaction_signatures.py b/src/ctc/binary/signatures/transaction_signatures.py
+--- a/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:41:23
++++ b/src/ctc/binary/signatures/transaction_signatures.py	2026-09-21 23:46:01
+@@ -120,8 +120,11 @@
+         as_list.append(0)
+     elif chain_id is not None and transaction_type == 2:
+         # For EIP-1559 transactions, chain_id should be included in the data
+-        # But we need to ensure it's properly positioned
+-        pass
++        # But we need to ensure it's properly positioned - it should be at index 0 for EIP-1559
++        # We need to check if chain_id is already included in the data
++        if 'chain_id' not in unsigned_transaction:
++            # Insert chain_id at the beginning for EIP-1559
++            as_list.insert(0, chain_id)
+         
+     # Validate that we have valid data to encode
+     if not as_list:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/transaction_utils/transaction_crud.py b/src/ctc/evm/transaction_utils/transaction_crud.py
+--- a/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 23:36:27
++++ b/src/ctc/evm/transaction_utils/transaction_crud.py	2026-09-21 23:45:49
+@@ -90,20 +90,11 @@
+     standardized = standardize_transaction(transaction)
+     
+     # Sign the transaction using the private key
+-    # For EIP-1559 transactions, we need to make sure chain_id is properly passed
+-    if standardized.get('type', 0) == 2:
+-        return binary.sign_transaction(
+-            transaction=standardized,
+-            private_key=private_key,
+-            chain_id=chain_id,
+-        )
+-    else:
+-        # For legacy and EIP-2930 transactions, we pass chain_id=None to match test expectation
+-        return binary.sign_transaction(
+-            transaction=standardized,
+-            private_key=private_key,
+-            chain_id=chain_id,
+-        )
++    return binary.sign_transaction(
++        transaction=standardized,
++        private_key=private_key,
++        chain_id=chain_id,
++    )
+ 
+ 
+ async def async_get_transaction(transaction_hash: str) -> spec.Transaction:

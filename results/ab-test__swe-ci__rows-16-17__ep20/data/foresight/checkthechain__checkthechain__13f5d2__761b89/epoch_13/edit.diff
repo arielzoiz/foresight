@@ -1,0 +1,247 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/formats.py b/src/ctc/binary/formats.py
+--- a/src/ctc/binary/formats.py	2026-09-21 21:15:48
++++ b/src/ctc/binary/formats.py	2026-09-21 21:20:45
+@@ -8,6 +8,42 @@
+ from ctc import spec
+ 
+ 
++def get_binary_format(data: spec.BinaryData) -> spec.BinaryFormat:
++    """Get the format of binary data"""
++    if isinstance(data, str):
++        if data.startswith('0x'):
++            return 'prefix_hex'
++        else:
++            return 'raw_hex'
++    elif isinstance(data, bytes):
++        return 'binary'
++    elif isinstance(data, int):
++        return 'integer'
++    else:
++        raise ValueError(f"Unknown data type: {type(data)}")
++
++
++def get_binary_n_bytes(data: spec.BinaryData) -> int:
++    """Get the number of bytes in binary data"""
++    if isinstance(data, str):
++        if data.startswith('0x'):
++            return len(data[2:]) // 2
++        else:
++            return len(data) // 2
++    elif isinstance(data, bytes):
++        return len(data)
++    elif isinstance(data, int):
++        return (data.bit_length() + 7) // 8
++    else:
++        raise ValueError(f"Unknown data type: {type(data)}")
++
++
++def match_format(format_this: spec.BinaryData, like_this: spec.BinaryData) -> spec.BinaryData:
++    """Match the format of format_this to like_this"""
++    target_format = get_binary_format(like_this)
++    return convert(format_this, target_format)
++
++
+ def convert(
+     data: spec.BinaryData,
+     output_format: spec.BinaryFormat,
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 21:11:34
++++ b/src/ctc/binary/hashes.py	2026-09-21 21:21:16
+@@ -88,8 +88,13 @@
+                 try:
+                     binary = hashlib.sha3_256(data).digest()
+                 except AttributeError:
+-                    # Final fallback - raise error
+-                    raise Exception("No suitable keccak library available")
++                    # Final fallback - try to use the alternative method
++                    try:
++                        # Alternative: use the newer hashlib.sha3_256 with digest_size parameter
++                        binary = hashlib.new('sha3_256', data).digest()
++                    except Exception:
++                        # Last resort - raise error with helpful message
++                        raise Exception("No suitable keccak library available. Please install 'pysha3' or 'pycryptodome' packages.")
+     else:
+         raise Exception(
+             'must choose valid library, either \'pysha3\', \'pycryptodome\', or \'hashlib\''
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 21:16:03
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 21:21:07
+@@ -245,98 +245,4 @@
+         elif isinstance(decoded, list):
+             return [formats.convert(item, 'prefix_hex') if isinstance(item, bytes) else item for item in decoded]
+     
+-    return decoded
+-
+-
+-def rlp_decode(data: spec.BinaryData, *, types: str = 'text') -> typing.Any:
+-    binary_data = formats.convert(data, 'binary')
+-    
+-    # Simple RLP decoder implementation
+-    def decode_single(data_bytes, offset):
+-        if offset >= len(data_bytes):
+-            return None, offset
+-            
+-        prefix = data_bytes[offset]
+-        offset += 1
+-        
+-        if prefix < 0x80:
+-            # Single byte data
+-            return bytes([prefix]), offset
+-        elif prefix < 0xb8:
+-            # Short string
+-            data_len = prefix - 0x80
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = data_bytes[offset:offset + data_len]
+-            offset += data_len
+-            return result, offset
+-        elif prefix < 0xc0:
+-            # Long string
+-            length_len = prefix - 0xb7
+-            if offset + length_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            data_len = int.from_bytes(data_bytes[offset:offset + length_len], 'big')
+-            offset += length_len
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = data_bytes[offset:offset + data_len]
+-            offset += data_len
+-            return result, offset
+-        elif prefix < 0xf8:
+-            # Short list
+-            data_len = prefix - 0xc0
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = []
+-            remaining = data_len
+-            while remaining > 0:
+-                item, offset = decode_single(data_bytes, offset)
+-                if item is None:
+-                    break
+-                result.append(item)
+-                # Calculate remaining bytes based on item length
+-                remaining -= len(item)
+-            return result, offset
+-        elif prefix <= 0xff:
+-            # Long list
+-            length_len = prefix - 0xf7
+-            if offset + length_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            data_len = int.from_bytes(data_bytes[offset:offset + length_len], 'big')
+-            offset += length_len
+-            if offset + data_len > len(data_bytes):
+-                raise ValueError("Invalid RLP: insufficient data")
+-            result = []
+-            remaining = data_len
+-            while remaining > 0:
+-                item, offset = decode_single(data_bytes, offset)
+-                if item is None:
+-                    break
+-                result.append(item)
+-                # Calculate remaining bytes based on item length
+-                remaining -= len(item)
+-            return result, offset
+-        else:
+-            raise ValueError(f"Invalid RLP prefix: {prefix}")
+-    
+-    # Decode the whole data
+-    decoded, _ = decode_single(binary_data, 0)
+-    
+-    # Convert bytes to appropriate types based on the types parameter
+-    if types == 'ascii':
+-        if isinstance(decoded, bytes):
+-            return decoded.decode('utf-8')
+-        elif isinstance(decoded, list):
+-            return [item.decode('utf-8') if isinstance(item, bytes) else item for item in decoded]
+-    elif types == 'raw_hex':
+-        if isinstance(decoded, bytes):
+-            return formats.convert(decoded, 'raw_hex')
+-        elif isinstance(decoded, list):
+-            return [formats.convert(item, 'raw_hex') if isinstance(item, bytes) else item for item in decoded]
+-    elif types == 'prefix_hex':
+-        if isinstance(decoded, bytes):
+-            return formats.convert(decoded, 'prefix_hex')
+-        elif isinstance(decoded, list):
+-            return [formats.convert(item, 'prefix_hex') if isinstance(item, bytes) else item for item in decoded]
+-    
+-    return decoded
+\ No newline at end of file
++    return decoded
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/evm/address_utils/address_resolution.py b/src/ctc/evm/address_utils/address_resolution.py
+--- a/src/ctc/evm/address_utils/address_resolution.py	2026-09-21 19:39:16
++++ b/src/ctc/evm/address_utils/address_resolution.py	2026-09-21 21:21:27
+@@ -3,6 +3,12 @@
+ 
+ import typing
+ 
++try:
++    import rlp
++except ImportError:
++    # Handle case where rlp is not available
++    rlp = None
++
+ if typing.TYPE_CHECKING:
+     from ctc import spec
+ 
+@@ -90,60 +96,6 @@
+     ]
+ 
+     return await asyncio.gather(*coroutines)
+-
+-
+-def get_created_address(
+-    sender: str, 
+-    salt: str = None, 
+-    init_code: str = None, 
+-    nonce: int = None
+-) -> str:
+-    """
+-    Derive Ethereum address for CREATE or CREATE2 operations
+-    
+-    For CREATE2:
+-    - sender: address that initiates the creation
+-    - salt: 32-byte salt for CREATE2
+-    - init_code: initialization code for CREATE2
+-    
+-    For CREATE:
+-    - sender: address that initiates the creation
+-    - nonce: transaction nonce for CREATE
+-    """
+-    # Remove '0x' prefix if present from sender
+-    if sender.startswith('0x'):
+-        sender = sender[2:]
+-    
+-    # Handle CREATE2 case
+-    if salt is not None and init_code is not None:
+-        # Remove '0x' prefix if present from salt and init_code
+-        if salt.startswith('0x'):
+-            salt = salt[2:]
+-        if init_code.startswith('0x'):
+-            init_code = init_code[2:]
+-            
+-        # Perform CREATE2 address derivation
+-        import hashlib
+-        # Keccak256(0xff + sender + salt + keccak256(init_code))
+-        prefix = b'\xff'
+-        data = prefix + bytes.fromhex(sender) + bytes.fromhex(salt) + hashlib.keccak_256(bytes.fromhex(init_code)).digest()
+-        address = hashlib.keccak_256(data).digest()[-20:]
+-        return '0x' + address.hex()
+-    
+-    # Handle CREATE case
+-    elif nonce is not None:
+-        # Perform CREATE address derivation
+-        import rlp
+-        import hashlib
+-        
+-        # RLP encode [sender, nonce]
+-        rlp_encoded = rlp.encode([bytes.fromhex(sender), nonce])
+-        # Keccak256 of RLP encoded data
+-        address = hashlib.keccak_256(rlp_encoded).digest()[-20:]
+-        return '0x' + address.hex()
+-    
+-    else:
+-        raise ValueError('Either salt and init_code (for CREATE2) or nonce (for CREATE) must be provided')
+ 
+ 
+ def get_created_address(

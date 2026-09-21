@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/src/ctc/binary/rlp_coding.py</location>
+        <description>The RLP encoding implementation has incomplete or incorrect handling of various data types, causing multiple test failures in test_rlp_encode_address_integer_tuples and test_rlp_encoding.</description>
+        <contract>
+            <behavior>
+                The rlp_encode function must correctly encode different data types according to the RLP standard:
+                - Integers: encode with proper prefix based on value range
+                - Strings/bytes: encode with length prefix and data
+                - Lists: encode with list prefix and concatenated encoded elements
+                - Addresses: encode with 0x94 prefix followed by 20 bytes
+                - Address-nonce tuples: combine encoded address and nonce with proper list encoding
+            </behavior>
+            <inputs>
+                Data of various types (int, str, bytes, list) and str_mode parameter
+            </inputs>
+            <outputs>
+                Properly encoded RLP string in prefix_hex format
+            </outputs>
+        </contract>
+        <acceptance>
+            <test_case>tests/ctc/binary/test_rlp_encoding.py::test_rlp_encode_address_integer_tuples</test_case>
+            <test_case>tests/ctc/binary/test_rlp_encoding.py::test_rlp_encoding</test_case>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/ctc/binary/hashes.py</location>
+        <description>The keccak function fails when trying to access hashlib.keccak_256 because it's not available in older Python versions, causing failures in address creation tests.</description>
+        <contract>
+            <behavior>
+                The keccak function must provide fallback mechanisms when the preferred keccak library is not available:
+                - Try pysha3 first (preferred)
+                - Fall back to pycryptodome if available
+                - Finally fall back to hashlib with appropriate fallbacks (sha3_256, new('sha3_256'))
+                - Raise clear error message if no library works
+            </behavior>
+            <inputs>
+                Binary data and output format
+            </inputs>
+            <outputs>
+                Keccak-256 hash in specified format
+            </outputs>
+        </contract>
+        <acceptance>
+            <test_case>tests/ctc/evm/test_address_utils.py::test_create_address_create</test_case>
+            <test_case>tests/ctc/evm/test_address_utils.py::test_get_reated_address</test_case>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/ctc/binary/signatures.py</location>
+        <description>The signatures module is missing required imports for the ecdsa library, causing import errors in signature tests.</description>
+        <contract>
+            <behavior>
+                The signatures module must properly handle ecdsa library imports and provide all required functions:
+                - Ensure ecdsa library is imported properly
+                - Implement all signature-related functions (private_key_to_public_key, sign_message_hash, etc.)
+                - Raise clear ImportError when ecdsa is not available
+            </behavior>
+            <inputs>
+                Private keys, message hashes, etc.
+            </inputs>
+            <outputs>
+                Public keys, signatures, addresses, etc.
+            </outputs>
+        </contract>
+        <acceptance>
+            <test_case>tests/ctc/binary/test_signatures.py::test_private_key_to_public_key</test_case>
+            <test_case>tests/ctc/binary/test_signatures.py::test_sign_message_hash</test_case>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/ctc/evm/address_utils/address_data.py</location>
+        <description>Some functions in address_utils are not properly exposed in the main evm module, causing AttributeError when tests try to access them.</description>
+        <contract>
+            <behavior>
+                Functions like get_created_address, get_address_checksum, is_address_str, create_reverse_address_map must be accessible via the evm module
+                - Make sure these functions are exported in the evm module's __init__.py
+                - Ensure proper function signatures match what tests expect
+            </behavior>
+            <inputs>
+                Various address-related inputs (addresses, nonces, etc.)
+            </inputs>
+            <outputs>
+                Processed address data according to EVM specifications
+            </outputs>
+        </contract>
+        <acceptance>
+            <test_case>tests/ctc/evm/test_address_utils.py::test_create_address_create</test_case>
+            <test_case>tests/ctc/evm/test_address_utils.py::test_get_address_checksum</test_case>
+        </acceptance>
+    </requirement>
+</requirement_document>

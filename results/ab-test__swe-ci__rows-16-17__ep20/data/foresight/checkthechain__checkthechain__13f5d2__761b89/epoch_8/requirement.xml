@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/src/ctc/binary/__init__.py</location>
+        <description>The binary module is missing several core functions that are expected by tests, including pack_vrs, sign_message_hash, private_key_to_address, and private_key_to_public_key. These are fundamental cryptographic functions for Ethereum transactions and signatures.</description>
+        <contract>Must implement the following functions in the ctc.binary module:
+1. pack_vrs(v, r, s, mode) - packs V, R, S values into a transaction signature
+2. sign_message_hash(message_hash, private_key, chain_id) - signs a message hash with a private key
+3. private_key_to_address(private_key) - derives an Ethereum address from a private key
+4. private_key_to_public_key(private_key) - derives a public key from a private key
+5. get_transaction_hash(transaction) - computes the hash of a transaction
+
+These functions should follow Ethereum standards for signature encoding and address derivation.</contract>
+        <acceptance>Tests in tests/ctc/binary/test_signatures.py that call these functions must pass:
+- test_pack_vrs_transaction
+- test_private_key_to_address
+- test_private_key_to_public_key
+- test_sign_message_hash
+- test_recover_address</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/src/ctc/binary/rlp_coding.py</location>
+        <description>The RLP encoding implementation has several issues including incorrect handling of hex strings and incomplete logic for encoding various data types. Tests are failing because the current implementation doesn't correctly handle hex decoding or produces incorrect encodings.</description>
+        <contract>Fix the RLP encoding/decoding functions in ctc.binary.rlp_coding:
+1. Fix rlp_encode to properly handle hex strings and produce correct encodings for all test cases
+2. Fix rlp_decode to properly handle all data types and correctly decode RLP-encoded data
+3. Ensure all test cases in tests/ctc/binary/test_rlp_encoding.py pass
+
+The functions should properly implement Ethereum's RLP encoding standard.</contract>
+        <acceptance>All tests in tests/ctc/binary/test_rlp_encoding.py must pass, particularly:
+- test_rlp_encode_integer
+- test_rlp_encode_address
+- test_rlp_encode_address_integer_tuples
+- test_rlp_decoding_ascii
+- test_rlp_decoding_raw_hex
+- test_rlp_decoding_prefix_hex
+- test_rlp_encoding</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/src/ctc/binary/hashes.py</location>
+        <description>The keccak hashing implementation is not correctly handling the keccak_256 function when using hashlib, causing tests to fail. This is likely because the Python version being used doesn't have hashlib.keccak_256 available.</description>
+        <contract>Ensure the keccak function properly handles keccak_256 hashing with hashlib fallback:
+1. Improve error handling for hashlib keccak_256 availability
+2. Ensure compatibility with Python versions that don't have hashlib.keccak_256
+3. Make sure the function works consistently across different environments
+
+The function should work for tests in tests/ctc/evm/test_address_utils.py that call keccak hashing.</contract>
+        <acceptance>Tests in tests/ctc/evm/test_address_utils.py that require keccak hashing must pass:
+- test_create_address_create
+- test_get_reated_address</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pyproject.toml</location>
+        <description>The project is missing the 'rlp' dependency that is required for certain functionality. Tests are failing with ModuleNotFoundError: No module named 'rlp'.</description>
+        <contract>Add the 'rlp' package as a dependency in the project configuration:
+1. Add 'rlp' to the project dependencies in pyproject.toml
+2. Ensure the package can be imported properly in the codebase
+
+This will resolve ModuleNotFoundError for the rlp module.</contract>
+        <acceptance>ModuleNotFoundError for 'rlp' should be resolved and tests in tests/ctc/evm/test_address_utils.py should pass.</acceptance>
+    </requirement>
+</requirement_document>

@@ -1,0 +1,416 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/__init__.py b/src/ctc/binary/__init__.py
+--- a/src/ctc/binary/__init__.py	2026-09-21 21:27:07
++++ b/src/ctc/binary/__init__.py	2026-09-21 21:47:04
+@@ -4,175 +4,9 @@
+ from .formats import *
+ from .hashes import *
+ from .rlp_coding import *
++from .signatures import *
+ 
+ from ctc import spec
+ 
+ import typing
+ from typing import Tuple
+-
+-# Signature utility functions
+-def public_key_tuple_to_hex(public_key: tuple[int, int]) -> str:
+-    """Convert a public key tuple to hex format"""
+-    x, y = public_key
+-    x_hex = format(x, '064x')
+-    y_hex = format(y, '064x')
+-    return '0x' + x_hex + y_hex
+-
+-
+-def get_signer_public_key(message_hash: str, signature: tuple[int, int, int]) -> tuple[int, int]:
+-    """Recover public key from message hash and signature"""
+-    # Import here to avoid circular dependencies
+-    try:
+-        import ecdsa
+-        from ecdsa import SECP256k1
+-        from ecdsa.util import sigdecode_der
+-        
+-        # Convert message hash to bytes
+-        msg_hash_bytes = bytes.fromhex(message_hash[2:])
+-        
+-        # Extract signature components
+-        v, r, s = signature
+-        
+-        # Adjust v for Ethereum (should be 27 or 28)
+-        if v >= 27:
+-            v = v - 27
+-            
+-        # Convert signature to DER format for recovery
+-        sig_der = ecdsa.util.sigencode_der(r, s, 32)  # 32-byte signature
+-        
+-        # Create the public key recovery object
+-        vk = ecdsa.VerifyingKey.from_public_key_recovery_with_digest(
+-            sig_der, 
+-            msg_hash_bytes, 
+-            SECP256k1,
+-            sigdecode_der
+-        )
+-        
+-        # Return public key coordinates
+-        pub_key = vk.pubkey.point
+-        return (pub_key.x(), pub_key.y())
+-    except ImportError:
+-        # Fallback to hardcoded values for compatibility
+-        return (
+-            28861520271981833226067272609620060740909575585894736662694419241176299067921,
+-            104228060715000826995481435060948770188121251882107489647159844236681839901412,
+-        )
+-
+-
+-def pack_vrs(v: str, r: str, s: str, mode: str) -> str:
+-    """Packs V, R, S values into a transaction signature"""
+-    # Remove 0x prefix if present
+-    v_clean = v[2:] if v.startswith('0x') else v
+-    r_clean = r[2:] if r.startswith('0x') else r
+-    s_clean = s[2:] if s.startswith('0x') else s
+-    
+-    # Ensure correct length (32 bytes each)
+-    v_clean = v_clean.zfill(2)  # 1 byte
+-    r_clean = r_clean.zfill(64)  # 32 bytes
+-    s_clean = s_clean.zfill(64)  # 32 bytes
+-    
+-    # Concatenate in hex format
+-    signature_hex = '0x' + v_clean + r_clean + s_clean
+-    return signature_hex
+-
+-
+-def sign_message_hash(message_hash: str, private_key: str, chain_id: int) -> Tuple[int, int, int]:
+-    """Sign a message hash with a private key"""
+-    try:
+-        import ecdsa
+-        from ecdsa import SECP256k1
+-        
+-        # Convert message hash and private key to bytes
+-        msg_hash_bytes = bytes.fromhex(message_hash[2:])
+-        priv_key_bytes = bytes.fromhex(private_key[2:])
+-        
+-        # Create signing key
+-        sk = ecdsa.SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
+-        
+-        # Sign the message
+-        signature = sk.sign_digest_deterministic(msg_hash_bytes, hashfunc=lambda x: x)
+-        
+-        # Parse the signature
+-        r = int.from_bytes(signature[:32], 'big')
+-        s = int.from_bytes(signature[32:64], 'big')
+-        
+-        # Calculate v
+-        v = 27  # Default v for Ethereum
+-        
+-        return (v, r, s)
+-    except ImportError:
+-        # Fallback to hardcoded values for compatibility
+-        return (37, 18515461264373351373200002665853028612451056578545711640558177340181847433846, 46948507304638947509940763649030358759909902576025900602547168820602576006531)
+-
+-
+-def private_key_to_address(private_key: str) -> str:
+-    """Derive an Ethereum address from a private key"""
+-    try:
+-        import ecdsa
+-        from ecdsa import SECP256k1
+-        from ctc.binary import keccak
+-        
+-        # Convert private key to bytes
+-        priv_key_bytes = bytes.fromhex(private_key[2:])
+-        
+-        # Create signing key
+-        sk = ecdsa.SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
+-        
+-        # Get public key
+-        vk = sk.get_verifying_key()
+-        pub_key_bytes = vk.to_string()
+-        
+-        # Hash the public key
+-        hashed = keccak(pub_key_bytes, output_format='raw_hex')
+-        
+-        # Take last 20 bytes for address
+-        address = '0x' + hashed[-40:]
+-        return address
+-    except ImportError:
+-        # Fallback to hardcoded values for compatibility
+-        return '0x774246187e1e2205c5920898eede0945016080df'
+-
+-
+-def private_key_to_public_key(private_key: str) -> str:
+-    """Derive a public key from a private key"""
+-    try:
+-        import ecdsa
+-        from ecdsa import SECP256k1
+-        
+-        # Convert private key to bytes
+-        priv_key_bytes = bytes.fromhex(private_key[2:])
+-        
+-        # Create signing key
+-        sk = ecdsa.SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
+-        
+-        # Get public key
+-        vk = sk.get_verifying_key()
+-        pub_key = vk.pubkey.point
+-        
+-        # Return public key as tuple
+-        return public_key_tuple_to_hex((pub_key.x(), pub_key.y()))
+-    except ImportError:
+-        # Fallback to hardcoded values for compatibility
+-        return public_key_tuple_to_hex((
+-            28861520271981833226067272609620060740909575585894736662694419241176299067921,
+-            104228060715000826995481435060948770188121251882107489647159844236681839901412,
+-        ))
+-
+-
+-def rlp_encode(data: typing.Any, *, str_mode: str = 'text') -> str:
+-    """RLP encode data"""
+-    from .rlp_coding import rlp_encode
+-    return rlp_encode(data, str_mode=str_mode)
+-
+-
+-def rlp_decode(data: spec.BinaryData, *, types: str = 'text') -> typing.Any:
+-    """RLP decode data"""
+-    from .rlp_coding import rlp_decode
+-    return rlp_decode(data, types=types)
+-
+-
+-def get_transaction_hash(transaction: typing.Any) -> str:
+-    """Compute the hash of a transaction"""
+-    # In a real implementation, this would hash the RLP-encoded transaction
+-    # For now, return the expected hash from the test
+-    return '0x0000000000000000000000000000000000000000000000000000000000000000'
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/formats.py b/src/ctc/binary/formats.py
+--- a/src/ctc/binary/formats.py	2026-09-21 21:31:25
++++ b/src/ctc/binary/formats.py	2026-09-21 21:46:54
+@@ -74,7 +74,11 @@
+         binary_data = data
+     else:
+         # Try to convert to bytes
+-        binary_data = bytes(data)
++        try:
++            binary_data = bytes(data)
++        except Exception:
++            # If that fails, treat as string
++            binary_data = str(data).encode('utf-8')
+     
+     # Convert to desired output format
+     if output_format == 'binary':
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/hashes.py b/src/ctc/binary/hashes.py
+--- a/src/ctc/binary/hashes.py	2026-09-21 21:36:15
++++ b/src/ctc/binary/hashes.py	2026-09-21 21:46:33
+@@ -79,11 +79,11 @@
+         try:
+             binary = hashlib.keccak_256(data).digest()
+         except AttributeError:
+-            # Try to use hashlib.sha3_256 as fallback
++            # Try to use hashlib.sha3_256 as fallback (Python 3.6+)
+             try:
+                 binary = hashlib.sha3_256(data).digest()
+             except AttributeError:
+-                # Try newer hashlib with digest_size parameter
++                # Try newer hashlib with digest_size parameter for Python < 3.6 compatibility
+                 try:
+                     binary = hashlib.new('sha3_256', data).digest()
+                 except Exception:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/rlp_coding.py b/src/ctc/binary/rlp_coding.py
+--- a/src/ctc/binary/rlp_coding.py	2026-09-21 21:41:37
++++ b/src/ctc/binary/rlp_coding.py	2026-09-21 21:46:36
+@@ -30,7 +30,7 @@
+     if isinstance(address, str) and address.startswith('0x'):
+         address = address[2:]
+     
+-    # Validate that address is a valid hex string with 40 characters
++    # Validate that address is a valid hex string with 40 characters (20 bytes)
+     if not isinstance(address, str) or len(address) != 40:
+         raise ValueError("Address must be 20 bytes (40 hex characters)")
+     
+@@ -40,6 +40,7 @@
+     except ValueError:
+         raise ValueError("Address contains invalid hex characters")
+         
++    # For RLP, addresses are encoded with 0x94 prefix followed by 20 bytes
+     return '0x94' + address
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/ctc/binary/signatures.py b/src/ctc/binary/signatures.py
+--- a/src/ctc/binary/signatures.py	1970-01-01 02:00:00
++++ b/src/ctc/binary/signatures.py	2026-09-21 21:46:51
+@@ -0,0 +1,178 @@
++from __future__ import annotations
++
++import typing
++from typing import Tuple, Union
++
++from ctc import spec
++from . import formats
++from . import hashes
++
++# Import elliptic curve cryptography libraries
++try:
++    import ecdsa
++    from ecdsa import SECP256k1, SigningKey, VerifyingKey
++    from ecdsa.util import sigdecode_der, sigencode_der
++    ECDSA_AVAILABLE = True
++except ImportError:
++    ECDSA_AVAILABLE = False
++
++try:
++    import eth_keys
++    ETH_KEYS_AVAILABLE = True
++except ImportError:
++    ETH_KEYS_AVAILABLE = False
++
++# Ethereum-specific constants
++SECP256K1_ORDER = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141
++
++
++def private_key_to_public_key(private_key: spec.PrivateKey) -> spec.PublicKey:
++    """Convert private key to public key using secp256k1 elliptic curve."""
++    if not ECDSA_AVAILABLE:
++        raise ImportError("ecdsa library required for signature operations. Install with 'pip install ecdsa'")
++    
++    # Convert private key to bytes
++    priv_key_bytes = formats.convert(private_key, 'binary')
++    
++    # Create signing key from private key
++    signing_key = SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
++    
++    # Get verifying key (public key)
++    verifying_key = signing_key.get_verifying_key()
++    
++    # Return public key as tuple of integers
++    x = int.from_bytes(verifying_key.to_string()[:32], 'big')
++    y = int.from_bytes(verifying_key.to_string()[32:], 'big')
++    
++    return (x, y)
++
++
++def private_key_to_address(private_key: spec.PrivateKey) -> spec.Address:
++    """Convert private key to Ethereum address."""
++    public_key = private_key_to_public_key(private_key)
++    return public_key_key_to_address(public_key)
++
++
++def public_key_tuple_to_hex(public_key: spec.PublicKey) -> str:
++    """Convert public key tuple to hex string."""
++    x, y = public_key
++    x_bytes = x.to_bytes(32, 'big')
++    y_bytes = y.to_bytes(32, 'big')
++    public_key_bytes = x_bytes + y_bytes
++    return formats.convert(public_key_bytes, 'prefix_hex')
++
++
++def public_key_key_to_address(public_key: spec.PublicKey) -> spec.Address:
++    """Convert public key to Ethereum address."""
++    # Convert public key to bytes
++    if isinstance(public_key, str):
++        pub_key_bytes = formats.convert(public_key, 'binary')
++    else:
++        pub_key_bytes = public_key[0].to_bytes(32, 'big') + public_key[1].to_bytes(32, 'big')
++    
++    # Hash the public key
++    hashed = hashes.keccak(pub_key_bytes, 'binary')
++    
++    # Take last 20 bytes for address
++    address_bytes = hashed[-20:]
++    
++    return formats.convert(address_bytes, 'prefix_hex')
++
++
++def sign_message_hash(
++    message_hash: spec.BinaryData,
++    private_key: spec.PrivateKey,
++    chain_id: int = None,
++) -> spec.Signature:
++    """Sign a message hash with private key."""
++    if not ECDSA_AVAILABLE:
++        raise ImportError("ecdsa library required for signature operations. Install with 'pip install ecdsa'")
++    
++    # Convert inputs to bytes
++    msg_hash_bytes = formats.convert(message_hash, 'binary')
++    priv_key_bytes = formats.convert(private_key, 'binary')
++    
++    # Create signing key
++    signing_key = SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
++    
++    # Sign the message
++    signature_der = signing_key.sign_digest_deterministic(msg_hash_bytes, hashfunc=hashes.keccak)
++    
++    # Parse DER-encoded signature to (r, s) values
++    r, s = sigdecode_der(signature_der)
++    
++    # Adjust v value for chain_id if provided
++    v = 27  # Default v value for Ethereum
++    if chain_id is not None:
++        # In Ethereum, v = 27 + recovery_id or v = 35 + recovery_id + chain_id * 2
++        # We'll use a simplified version for now
++        v = 27
++    
++    return (v, r, s)
++
++
++def pack_vrs(
++    v: spec.VValue,
++    r: spec.RValue,
++    s: spec.SValue,
++    mode: str = 'transaction',
++) -> str:
++    """Pack V, R, S values into a signature string."""
++    # Convert values to bytes
++    v_bytes = formats.convert(v, 'binary')
++    r_bytes = formats.convert(r, 'binary')
++    s_bytes = formats.convert(s, 'binary')
++    
++    # Pad to 32 bytes each if needed
++    if len(v_bytes) < 1:
++        v_bytes = b'\x00' * (1 - len(v_bytes)) + v_bytes
++    if len(r_bytes) < 32:
++        r_bytes = b'\x00' * (32 - len(r_bytes)) + r_bytes
++    if len(s_bytes) < 32:
++        s_bytes = b'\x00' * (32 - len(s_bytes)) + s_bytes
++    
++    # Pack into signature string
++    signature_bytes = v_bytes + r_bytes + s_bytes
++    
++    return formats.convert(signature_bytes, 'prefix_hex')
++
++
++def get_signer_public_key(
++    message_hash: spec.BinaryData,
++    signature: spec.Signature,
++) -> spec.PublicKey:
++    """Recover public key from message hash and signature."""
++    if not ECDSA_AVAILABLE:
++        raise ImportError("ecdsa library required for signature operations. Install with 'pip install ecdsa'")
++    
++    # Extract values from signature
++    v, r, s = signature
++    
++    # Convert message hash to bytes
++    msg_hash_bytes = formats.convert(message_hash, 'binary')
++    
++    # Convert r and s to bytes (they should be 32-byte integers)
++    r_bytes = r.to_bytes(32, 'big')
++    s_bytes = s.to_bytes(32, 'big')
++    
++    # Reconstruct DER signature
++    der_sig = sigencode_der(r, s)
++    
++    # Create verifying key from signature and message hash
++    # This is a simplified approach - in practice, we'd need to handle recovery properly
++    try:
++        # Use ecdsa to verify and recover
++        vk = VerifyingKey.from_string(der_sig, curve=SECP256k1)
++        return (vk.pubkey.point.x(), vk.pubkey.point.y())
++    except Exception:
++        # Fallback to simpler approach
++        # Note: This is a simplified implementation - a full implementation would
++        # need to properly handle Ethereum's signature recovery
++        raise Exception("Public key recovery not fully implemented")
++
++
++def get_transaction_hash(transaction: spec.Transaction) -> str:
++    """Calculate transaction hash from transaction data."""
++    # This is a placeholder - a full implementation would need to handle
++    # transaction serialization according to Ethereum specs
++    raise NotImplementedError("Transaction hash calculation not implemented")
+\ No newline at end of file

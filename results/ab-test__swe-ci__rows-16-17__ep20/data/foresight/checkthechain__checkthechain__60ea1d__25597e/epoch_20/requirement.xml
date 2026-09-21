@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/ctc/binary/eip712.py</location>
+    <description>The get_domain_separator function in eip712.py has incorrect implementation for calculating EIP-712 domain separators. The function is producing wrong hash values compared to expected test results, indicating issues with domain type definition, hashing, or value padding.</description>
+    <contract>The function should correctly implement EIP-712 domain separator calculation by:
+1. Properly defining the EIP-712 domain type with exact field names and types
+2. Computing the type hash using keccak256 of the type definition
+3. Correctly hashing and padding all domain values according to EIP-712 specification
+4. Properly concatenating all 32-byte values for final domain separator calculation
+5. Return a 32-byte hex string with 0x prefix</contract>
+    <acceptance>Tests in tests/ctc/binary/test_eip712.py::test_get_domain_separator should pass for both test cases</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/binary/signatures/transaction_signatures.py</location>
+    <description>The sign_transaction function in transaction_signatures.py has incorrect implementation for signing Ethereum transactions. The function is not properly handling transaction data serialization or signature creation, causing test failures in transaction signing.</description>
+    <contract>The function should correctly:
+1. Serialize unsigned transactions according to EIP-155, EIP-2930, and EIP-1559 specifications
+2. Properly handle field name mappings between different transaction formats
+3. Create valid ECDSA signatures for transaction data
+4. Return the signature as a tuple of (v, r, s) integers</contract>
+    <acceptance>Tests in tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction should pass for both test cases</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/binary/signatures/signature_creation.py</location>
+    <description>The sign_text_message function in signature_creation.py has incorrect implementation for signing text messages. The function is not properly handling message hashing or signature creation for personal_sign mode.</description>
+    <contract>The function should correctly:
+1. Apply proper Ethereum message prefixes for personal_sign mode
+2. Generate correct keccak256 hashes of messages
+3. Create valid ECDSA signatures for signed messages
+4. Return signature as tuple of (v, r, s) integers</contract>
+    <acceptance>Tests in tests/ctc/binary/test_signatures.py::test_sign_text_message should pass</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/evm/transaction_utils/transaction_crud.py</location>
+    <description>The sign_transaction function in transaction_crud.py has incorrect parameter handling. The function signature doesn't match expected behavior from tests and doesn't properly forward parameters to the underlying signing function.</description>
+    <contract>The function should:
+1. Accept transaction and private_key parameters with chain_id as optional keyword argument
+2. Properly forward all parameters to the underlying binary.sign_transaction function
+3. Maintain consistent parameter handling with test expectations</contract>
+    <acceptance>Tests in tests/ctc/evm/test_transaction_utils/test_transaction_utils.py::test_sign_transaction should pass</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/ctc/cli/cli_run.py</location>
+    <description>The CLI command execution failures occur due to missing or improperly configured command specifications in the CLI command index. Commands like 'rari pools', 'llama pool', 'ens owner', etc. are failing during execution, likely due to missing command definitions or incorrect argument parsing.</description>
+    <contract>The CLI system should:
+1. Have proper command specifications for all documented CLI commands
+2. Handle command execution without throwing exceptions
+3. Support all documented command examples in test suite</contract>
+    <acceptance>Tests in tests/ctc/cli/test_cli_subcommands.py::test_subcommand_examples should pass for all example commands</acceptance>
+  </requirement>
+</requirement_document>
