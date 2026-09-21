@@ -36,7 +36,14 @@ Gap per epoch (starting state first; lower is better; `x` = pytest could not run
 | Task | control | foresight |
 |---|---|---|
 | yarl 576b5e | 31.8, 31.4, 31.4, 31.3, 31.3, 31.1, 31.0, 31.0, 30.9, 30.9, 30.7, 30.6, 30.5, 30.4, 30.0, 30.0, 29.8, 29.7, 29.7, 29.8, 29.8 | 31.8, 31.6, 31.5, 31.0, 31.0, 31.0, 31.5, 31.5, 31.5, 31.3, 31.5, 31.5, 31.5, 31.5, 31.4, 31.4, 31.3, 31.3, 31.4, 31.1, 31.0 |
-| amaranth 3e6e78 | 29.0, 28.8, 28.8, 28.5, 28.5, 28.7, 28.6, 28.7, 28.7, 28.7, 28.6, 28.7, 28.6, 28.6, 28.6, 28.6, 28.6, 28.6, 28.5, 28.5, 28.5 | 29.0, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.9, 28.9, 28.8, 28.8, 28.8 |
+| amaranth 3e6e78 | 29.0, 28.8, 28.8, 28.5, 28.5, 28.7, 28.6, 28.7, 28.7, 28.7, 28.6, 28.7, 28.6, 28.6, 28.6, 28.6, 28.6, -, -, 28.5, 28.5 | 29.0, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.8, 28.9, 28.9, 28.8, 28.8, 28.8 |
+
+## pylint note after each epoch (0 = start; 0-10, higher is better)
+
+| Task | control | foresight |
+|---|---|---|
+| yarl 576b5e | 5.71, 5.78, 5.79, 5.79, 5.81, 5.82, 5.83, 5.87, 5.87, 5.88, 5.88, 5.89, 5.89, 5.89, 5.95, 5.89, 5.89, 5.89, 5.89, 5.89, 5.89 | 5.71, 5.73, 5.78, 5.83, 5.83, 5.83, 5.77, 5.77, 5.77, 5.78, 5.81, 5.81, 5.81, 5.80, 5.80, 5.80, 5.80, 5.79, 5.79, 5.83, 5.83 |
+| amaranth 3e6e78 | 4.45, 4.74, 4.73, 4.87, 4.87, 4.79, 4.70, 4.84, 4.85, 4.85, 4.89, 4.88, 4.88, 4.88, 4.88, 4.88, 4.88, -, -, 4.88, 4.87 | 4.45, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.71, 4.72, 4.71, 4.71, 4.71 |
 
 Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; both exclude `tests/`. Only the change between epochs is meaningful, not the absolute value (see `tools/swe_ci_score_helper.py`).
 
@@ -91,4 +98,5 @@ Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; bo
 
 - control: swe_ci.summarize produced no table (exit 1)
 - foresight: swe_ci.summarize produced no table (exit 1)
+- 2 snapshot(s) could not be scored, e.g. amaranth-lang__amaranth__3e6e78__8c65a7/2026-09-20-18-32-58: timed out after 1800s
 - plots skipped: matplotlib is not installed
