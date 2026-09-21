@@ -1,0 +1,101 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 17:17:35
++++ b/pypeln/sync/api.py	2026-09-21 17:19:57
+@@ -2,6 +2,7 @@
+ The `sync` module lets you create pipelines using synchronous operations according to Pypeln's general [architecture](https://cgarciae.github.io/pypeln/advanced/#architecture). Use this module when you are in need to perform some synchronous operations and DONT need to perform heavy CPU operations.
+ """
+ import typing
++import inspect
+ from collections import deque
+ 
+ from pypeln import utils as pypeln_utils
+@@ -431,36 +432,7 @@
+ 
+ 
+ class Concat(Stage):
+-    def to_iterable(self, maxsize: int = 0):
+-        # For Concat, we need to iterate through all dependencies
+-        # and yield items from each in sequence
+-        if self.dependencies:
+-            # For each dependency, we get its iterable and yield items
+-            for dep in self.dependencies:
+-                # Get the input iterable from each dependency
+-                if hasattr(dep, 'to_iterable'):
+-                    input_iterable = dep.to_iterable(maxsize=maxsize)
+-                else:
+-                    input_iterable = dep
+-                    
+-                # Ensure input is iterable
+-                if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
+-                    input_iterable = [input_iterable]
+-                    
+-                # Process each item from this dependency and put it into output queues
+-                # for proper synchronization with other stages
+-                for item in input_iterable:
+-                    # Put item in the output queue for this stage
+-                    self.output_queues.put(item)
+-                    
+-        # Now yield all items from our output queue
+-        # This ensures proper coordination with other stages
+-        while not self.output_queues.empty():
+-            try:
+-                item = self.output_queues.get()
+-                yield item
+-            except IndexError:
+-                break
++    pass
+ 
+ 
+ def concat(stages: typing.List[Stage], maxsize: int = 0) -> Stage:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 17:17:28
++++ b/pypeln/sync/stage.py	2026-09-21 17:19:52
+@@ -77,9 +77,8 @@
+                         result_kwargs = {}
+                     kwargs = result_kwargs
+                 
+-                # Process the item using the apply method for subclasses like FlatMap
+                 try:
+-                    # Call apply method for subclasses that override it (like FlatMap)
++                    # Process the item using the apply method for subclasses like FlatMap
+                     # But only if the class is not the base Stage class itself
+                     if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
+                         # For subclasses like FlatMap, use apply method
+@@ -91,15 +90,15 @@
+                             
+                             # Handle generator/iterable results (important for flat_map)
+                             if hasattr(result, '__iter__') and not isinstance(result, str):
+-                                # Yield each item from the iterable
++                                # Put each item from the iterable into output queues
+                                 for item in result:
+-                                    yield item
++                                    self.output_queues.put(item)
+                             else:
+-                                # Yield single item
+-                                yield result
++                                # Put single item
++                                self.output_queues.put(result)
+                         else:
+-                            # For concat-like operations, yield the item directly
+-                            yield item
++                            # For concat-like operations, put the item directly
++                            self.output_queues.put(item)
+                 except Exception as e:
+                     # Store the error in the pipeline namespace
+                     if self.pipeline_namespace.error is None:
+@@ -114,6 +113,15 @@
+                         except Exception:
+                             # Silently ignore errors in on_done callbacks
+                             pass
++            
++            # Now yield all items from our output queue
++            # This ensures proper coordination with other stages
++            while not self.output_queues.empty():
++                try:
++                    item = self.output_queues.get()
++                    yield item
++                except IndexError:
++                    break
+         else:
+             # Direct iterable for from_iterable
+             if hasattr(self, 'iterable'):

@@ -1,0 +1,68 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 17:01:03
++++ b/pypeln/sync/stage.py	2026-09-21 17:03:30
+@@ -57,7 +57,7 @@
+             if self.workers > 1:
+                 # Process items concurrently using ThreadPoolExecutor
+                 def process_item(item, worker_index):
+-                    # Handle on_start callback
++                    # Handle on_start callback - execute once per worker
+                     kwargs = {}
+                     if self.on_start:
+                         try:
+@@ -69,7 +69,8 @@
+                             else:
+                                 result_kwargs = self.on_start()
+                         except Exception:
+-                            result_kwargs = self.on_start()
++                            # Fallback to default if on_start fails
++                            result_kwargs = {}
+                         
+                         if result_kwargs is None:
+                             result_kwargs = {}
+@@ -95,27 +96,30 @@
+                         self.pipeline_namespace.error = e
+                         raise
+                     finally:
+-                        # Handle on_done callback
++                        # Handle on_done callback - execute once per worker
+                         if self.on_done:
+                             try:
+                                 self.on_done(**kwargs)
+                             except:
+                                 pass
+                 
+-                # Track worker indices for proper on_start/on_done execution
+-                worker_indices = list(range(self.workers))
++                # Create a wrapper function to properly collect results
++                def worker_wrapper(item, worker_index):
++                    return list(process_item(item, worker_index))
+                 
+                 with ThreadPoolExecutor(max_workers=self.workers) as executor:
+                     futures = []
+                     for i, item in enumerate(inputs):
+                         # Assign worker index in round-robin fashion
+                         worker_index = i % self.workers
+-                        future = executor.submit(process_item, item, worker_index)
++                        future = executor.submit(worker_wrapper, item, worker_index)
+                         futures.append(future)
+                     
++                    # Collect results and yield them in order
+                     for future in futures:
+                         try:
+-                            for item in future.result():
++                            result_items = future.result()
++                            for item in result_items:
+                                 yield item
+                         except Exception as e:
+                             # Re-raise the exception to ensure proper propagation
+@@ -137,7 +141,8 @@
+                             else:
+                                 result_kwargs = self.on_start()
+                         except Exception:
+-                            result_kwargs = self.on_start()
++                            # Fallback to default if on_start fails
++                            result_kwargs = {}
+                         
+                         if result_kwargs is None:
+                             result_kwargs = {}

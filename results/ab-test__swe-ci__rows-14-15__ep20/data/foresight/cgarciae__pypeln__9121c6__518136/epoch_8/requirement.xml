@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/pypeln/sync/stage.py</location>
+    <description>The Stage base class in the sync module doesn't properly handle the on_start and on_done callback mechanisms. The tests show that these callbacks are not being executed correctly for map operations, and the worker lifecycle management isn't working properly with multiple workers.</description>
+    <contract>Fix the Stage.to_iterable method to properly execute on_start and on_done callbacks for each worker. The on_start callback should be executed once per worker at the beginning, and the on_done callback should be executed once per worker when finishing. The callbacks should receive appropriate parameters (worker_info for on_start, stage_status for on_done) and properly propagate the returned kwargs to the processing function.</contract>
+    <acceptance>test_map_square_event_start, test_map_square_event_end, test_flat_map_square_filter_workers, test_flat_map_square_filter_workers_pipe</acceptance>
+  </item>
+  <item>
+    <location>/app/code/pypeln/sync/stage.py</location>
+    <description>The worker lifecycle management for multi-worker stages is flawed. The tests show that when using multiple workers with flat_map and filter operations, there are issues with worker coordination and cleanup.</description>
+    <contract>Ensure proper worker lifecycle management in multi-worker scenarios. Workers should be properly initialized and cleaned up, and the stage should wait for all workers to complete before finishing. Error handling should be improved to properly propagate exceptions through the pipeline.</contract>
+    <acceptance>test_flat_map_square_filter_workers, test_flat_map_square_filter_workers_pipe</acceptance>
+  </item>
+  <item>
+    <location>/app/code/pypeln/sync/api.py</location>
+    <description>The each function execution flow has issues. When run=True, the function should execute immediately and return None, but the implementation seems to have problems with proper execution flow.</description>
+    <contract>Fix the each function to properly execute stages when run=True. The function should either return a stage when run=False or execute the stage immediately and return None when run=True.</contract>
+    <acceptance>test_error_handling</acceptance>
+  </item>
+  <item>
+    <location>/app/code/pypeln/sync/stage.py</location>
+    <description>Error handling in the Stage.to_iterable method needs improvement. Exceptions during processing should be properly caught and re-raised to ensure proper pipeline behavior.</description>
+    <contract>Improve error handling in the Stage.to_iterable method to ensure exceptions are properly propagated through the pipeline. When an exception occurs, it should be stored in pipeline_namespace.error and re-raised to prevent further processing.</contract>
+    <acceptance>test_error_handling</acceptance>
+  </item>
+  <item>
+    <location>/app/code/pypeln/sync/stage.py</location>
+    <description>The Stage.to_iterable method doesn't properly support the workers parameter for stages with dependencies. The implementation needs to be updated to correctly handle concurrent execution with the specified number of workers.</description>
+    <contract>Update the Stage.to_iterable method to properly utilize the workers parameter for concurrent execution when dependencies exist. The method should create the correct number of workers and distribute tasks among them appropriately.</contract>
+    <acceptance>test_map_square_workers, test_flat_map_square_workers</acceptance>
+  </item>
+</requirement>

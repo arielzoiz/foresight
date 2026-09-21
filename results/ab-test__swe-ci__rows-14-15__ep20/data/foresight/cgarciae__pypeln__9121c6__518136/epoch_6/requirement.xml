@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/pypeln/sync/stage.py</location>
+        <description>The Stage.to_iterable method has several issues with event handling for on_start and on_done callbacks. The current implementation doesn't properly execute lifecycle callbacks for workers, particularly when workers &gt; 1. Additionally, the error handling in the concurrent execution path isn't correctly propagating exceptions from worker functions.</description>
+        <contract>
+            <behavior>
+                When workers &gt; 1, the on_start callback should be executed once per worker with appropriate worker_info argument.
+                When workers &gt; 1, the on_done callback should be executed once per worker when processing completes.
+                Exceptions raised in worker functions should be properly caught and re-raised to the calling thread.
+                The stage should properly handle worker lifecycle events and maintain correct state throughout execution.
+            </behavior>
+            <inputs>
+                <input>workers parameter must be correctly respected for concurrent execution</input>
+                <input>on_start and on_done callbacks must be properly invoked with correct arguments</input>
+                <input>Exception handling must propagate exceptions from worker functions</input>
+            </inputs>
+            <outputs>
+                <output>Proper execution of lifecycle callbacks for each worker</output>
+                <output>Correct exception propagation from worker functions</output>
+                <output>Consistent behavior regardless of worker count</output>
+            </outputs>
+        </contract>
+        <acceptance>
+            <test>tests/test_sync.py::test_map_square_event_start</test>
+            <test>tests/test_sync.py::test_map_square_event_end</test>
+            <test>tests/test_sync.py::test_flat_map_square_filter_workers</test>
+            <test>tests/test_sync.py::test_flat_map_square_filter_workers_pipe</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/pypeln/sync/api.py</location>
+        <description>The Each class implementation has an issue with the run=True parameter. When run=True, the stage should execute immediately and return None, but the current implementation doesn't properly integrate with the stage execution mechanism.</description>
+        <contract>
+            <behavior>
+                When run=True is specified in the each function, the stage should be executed immediately and return None.
+                The stage execution should properly handle all lifecycle callbacks and worker management.
+                The execution should behave consistently with other stage types.
+            </behavior>
+            <inputs>
+                <input>run=True parameter must trigger immediate execution</input>
+                <input>All standard parameters (workers, on_start, on_done) must be respected</input>
+            </inputs>
+            <outputs>
+                <output>Immediate execution of stage when run=True</output>
+                <output>Return of None after execution</output>
+                <output>Proper lifecycle handling during execution</output>
+            </outputs>
+        </contract>
+        <acceptance>
+            <test>tests/test_sync.py::test_worker_info</test>
+            <test>tests/test_sync.py::test_kwargs</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/pypeln/sync/api.py</location>
+        <description>The Concat class implementation in to_iterable method has incomplete logic for properly yielding items from dependencies. The current implementation doesn't correctly handle iteration over dependencies and yield items in the expected manner.</description>
+        <contract>
+            <behavior>
+                The to_iterable method should properly iterate over all dependencies and yield their items.
+                Items from each dependency should be yielded in sequence.
+                The method should support maxsize parameter for controlling buffering.
+            </behavior>
+            <inputs>
+                <input>List of stages/iterables as dependencies</input>
+                <input>maxsize parameter for buffer control</input>
+            </inputs>
+            <outputs>
+                <output>Iterable that yields items from all dependencies in order</output>
+                <output>Proper handling of dependency types (stages vs iterables)</output>
+                <output>Respect for maxsize parameter</output>
+            </outputs>
+        </contract>
+        <acceptance>
+            <test>tests/test_sync.py::test_concat_basic</test>
+            <test>tests/test_sync.py::test_concat_multiple</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/pypeln/sync/stage.py</location>
+        <description>The Stage.to_iterable method's concurrent execution path needs to be corrected to properly handle the worker lifecycle and ensure that the correct number of workers are utilized for processing.</description>
+        <contract>
+            <behavior>
+                When workers > 1, the stage should utilize the specified number of workers for concurrent processing.
+                All items from dependencies should be processed concurrently with proper worker distribution.
+                Worker threads should be properly managed and cleaned up.
+            </behavior>
+            <inputs>
+                <input>workers parameter &gt; 1</input>
+                <input>Dependencies with iterable data</input>
+            </inputs>
+            <outputs>
+                <output>Concurrent processing with specified number of workers</output>
+                <output>Proper worker thread management</output>
+                <output>Correct handling of all dependency items</output>
+            </outputs>
+        </contract>
+        <acceptance>
+            <test>tests/test_sync.py::test_flat_map_square_filter_workers</test>
+            <test>tests/test_sync.py::test_flat_map_square_filter_workers_pipe</test>
+            <test>tests/test_sync.py::test_map_square_workers</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/pypeln/sync/stage.py</location>
+        <description>The Stage.to_iterable method needs to correctly handle the error propagation from worker functions to ensure that errors in worker threads are properly reported to the main thread.</description>
+        <contract>
+            <behavior>
+                Exceptions raised in worker functions should be caught and re-raised in the main thread.
+                Error handling should be consistent between single-threaded and multi-threaded execution paths.
+                The pipeline namespace should track errors properly for termination.
+            </behavior>
+            <inputs>
+                <input>Worker functions that raise exceptions</input>
+                <input>Multi-threaded execution context</input>
+            </inputs>
+            <outputs>
+                <output>Proper exception propagation to main thread</output>
+                <output>Consistent error handling behavior</output>
+                <output>Correct error state tracking</output>
+            </outputs>
+        </contract>
+        <acceptance>
+            <test>tests/test_sync.py::test_error_handling</test>
+        </acceptance>
+    </requirement>
+</requirement_document>

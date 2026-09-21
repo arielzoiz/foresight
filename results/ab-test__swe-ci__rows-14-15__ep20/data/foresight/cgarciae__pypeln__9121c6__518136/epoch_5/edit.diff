@@ -1,0 +1,129 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 16:50:44
++++ b/pypeln/sync/stage.py	2026-09-21 16:58:26
+@@ -1,6 +1,8 @@
+ import typing
+ from collections import deque
+ from threading import Lock
++from concurrent.futures import ThreadPoolExecutor
++import inspect
+ 
+ from pypeln import utils as pypeln_utils
+ 
+@@ -36,41 +38,39 @@
+ 
+     def to_iterable(self, maxsize: int = 0):
+         # Simple synchronous processing for sync module
++        # Now we properly respect the workers parameter
+         if self.dependencies:
+-            # Process all dependencies
++            # Collect all inputs from dependencies
++            inputs = []
+             for dep in self.dependencies:
+-                # Get input from each dependency
+-                # Get the input iterable
+                 if hasattr(dep, 'to_iterable'):
+                     input_iterable = dep.to_iterable(maxsize=maxsize)
+                 else:
+                     input_iterable = dep
+                     
+-                # Ensure input is iterable
+                 if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
+                     input_iterable = [input_iterable]
+-                    
+-                # Process each item
+-                for item in input_iterable:
++                
++                inputs.extend(input_iterable)
++            
++            # For concurrent execution when workers > 1
++            if self.workers > 1:
++                # Process items concurrently using ThreadPoolExecutor
++                def process_item(item):
+                     # Handle on_start callback
+                     kwargs = {}
+                     if self.on_start:
+-                        # Try to detect if on_start expects worker_info
+                         try:
+-                            import inspect
+                             sig = inspect.signature(self.on_start)
+                             if 'worker_info' in sig.parameters:
+-                                # Create a simple worker info for sync
+                                 from .utils import WorkerInfo
+-                                worker_info = WorkerInfo(index=0)
++                                worker_info = WorkerInfo(index=0)  # Simplified for sync
+                                 result_kwargs = self.on_start(worker_info)
+                             else:
+                                 result_kwargs = self.on_start()
+                         except Exception:
+-                            # Fallback to simple call
+                             result_kwargs = self.on_start()
+                         
+-                        # Ensure result_kwargs is a dict (some on_start functions may return None)
+                         if result_kwargs is None:
+                             result_kwargs = {}
+                         kwargs = result_kwargs
+@@ -91,7 +91,63 @@
+                         else:
+                             # For concat-like operations, yield the item directly
+                             yield item
++                    except Exception as e:
++                        self.pipeline_namespace.error = e
++                        raise
++                    finally:
++                        # Handle on_done callback
++                        if self.on_done:
++                            try:
++                                self.on_done(**kwargs)
++                            except:
++                                pass
++                
++                with ThreadPoolExecutor(max_workers=self.workers) as executor:
++                    futures = [executor.submit(process_item, item) for item in inputs]
++                    for future in futures:
++                        try:
++                            for item in future.result():
++                                yield item
++                        except Exception as e:
++                            self.pipeline_namespace.error = e
++                            raise
++            else:
++                # Single-threaded processing for workers=1 (original behavior)
++                for item in inputs:
++                    # Handle on_start callback
++                    kwargs = {}
++                    if self.on_start:
++                        try:
++                            sig = inspect.signature(self.on_start)
++                            if 'worker_info' in sig.parameters:
++                                from .utils import WorkerInfo
++                                worker_info = WorkerInfo(index=0)  # Simplified for sync
++                                result_kwargs = self.on_start(worker_info)
++                            else:
++                                result_kwargs = self.on_start()
++                        except Exception:
++                            result_kwargs = self.on_start()
++                        
++                        if result_kwargs is None:
++                            result_kwargs = {}
++                        kwargs = result_kwargs
++                    
++                    # Process the item
++                    try:
++                        if self.f is not None:
++                            result = self.f(item, **kwargs)
+                             
++                            # Handle generator/iterable results (important for flat_map)
++                            if hasattr(result, '__iter__') and not isinstance(result, str):
++                                # Yield each item from the iterable
++                                for item in result:
++                                    yield item
++                            else:
++                                # Yield single item
++                                yield result
++                        else:
++                            # For concat-like operations, yield the item directly
++                            yield item
+                     except Exception as e:
+                         self.pipeline_namespace.error = e
+                         raise

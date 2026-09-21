@@ -1,0 +1,65 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 16:50:39
++++ b/pypeln/sync/api.py	2026-09-21 17:00:53
+@@ -414,8 +414,11 @@
+     if not run:
+         return stage
+ 
+-    for _ in stage:
++    # Execute the stage immediately when run=True
++    for _ in stage.to_iterable():
+         pass
++    
++    return None
+ 
+ 
+ #############################################################
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 16:58:26
++++ b/pypeln/sync/stage.py	2026-09-21 17:01:03
+@@ -56,7 +56,7 @@
+             # For concurrent execution when workers > 1
+             if self.workers > 1:
+                 # Process items concurrently using ThreadPoolExecutor
+-                def process_item(item):
++                def process_item(item, worker_index):
+                     # Handle on_start callback
+                     kwargs = {}
+                     if self.on_start:
+@@ -64,7 +64,7 @@
+                             sig = inspect.signature(self.on_start)
+                             if 'worker_info' in sig.parameters:
+                                 from .utils import WorkerInfo
+-                                worker_info = WorkerInfo(index=0)  # Simplified for sync
++                                worker_info = WorkerInfo(index=worker_index)
+                                 result_kwargs = self.on_start(worker_info)
+                             else:
+                                 result_kwargs = self.on_start()
+@@ -102,14 +102,25 @@
+                             except:
+                                 pass
+                 
++                # Track worker indices for proper on_start/on_done execution
++                worker_indices = list(range(self.workers))
++                
+                 with ThreadPoolExecutor(max_workers=self.workers) as executor:
+-                    futures = [executor.submit(process_item, item) for item in inputs]
++                    futures = []
++                    for i, item in enumerate(inputs):
++                        # Assign worker index in round-robin fashion
++                        worker_index = i % self.workers
++                        future = executor.submit(process_item, item, worker_index)
++                        futures.append(future)
++                    
+                     for future in futures:
+                         try:
+                             for item in future.result():
+                                 yield item
+                         except Exception as e:
+-                            self.pipeline_namespace.error = e
++                            # Re-raise the exception to ensure proper propagation
++                            if self.pipeline_namespace.error is None:
++                                self.pipeline_namespace.error = e
+                             raise
+             else:
+                 # Single-threaded processing for workers=1 (original behavior)

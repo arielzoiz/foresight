@@ -1,0 +1,389 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 17:14:43
++++ b/pypeln/sync/api.py	2026-09-21 17:17:35
+@@ -433,7 +433,7 @@
+ class Concat(Stage):
+     def to_iterable(self, maxsize: int = 0):
+         # For Concat, we need to iterate through all dependencies
+-        # We need to properly use the output_queues mechanism like other stages
++        # and yield items from each in sequence
+         if self.dependencies:
+             # For each dependency, we get its iterable and yield items
+             for dep in self.dependencies:
+@@ -447,14 +447,20 @@
+                 if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
+                     input_iterable = [input_iterable]
+                     
+-                # Process each item from this dependency
++                # Process each item from this dependency and put it into output queues
++                # for proper synchronization with other stages
+                 for item in input_iterable:
+-                    # For Concat, we don't need to put items into output queues
+-                    # We just yield them directly
+-                    yield item
+-        else:
+-            # If no dependencies, return empty iterator
+-            return
++                    # Put item in the output queue for this stage
++                    self.output_queues.put(item)
++                    
++        # Now yield all items from our output queue
++        # This ensures proper coordination with other stages
++        while not self.output_queues.empty():
++            try:
++                item = self.output_queues.get()
++                yield item
++            except IndexError:
++                break
+ 
+ 
+ def concat(stages: typing.List[Stage], maxsize: int = 0) -> Stage:
+@@ -558,8 +564,47 @@
+         return pypeln_utils.Partial(lambda stage: to_iterable(stage, maxsize=maxsize))
+ 
+     if isinstance(stage, Stage):
+-        iterable = stage.to_iterable(maxsize=maxsize)
++        # Return the stage's to_iterable method directly
++        return stage.to_iterable(maxsize=maxsize)
+     else:
+-        iterable = stage
++        # If it's not a stage, treat it as an iterable
++        return stage
+ 
+-    return iterable
+\ No newline at end of file
++
++def from_to_iterable(
++    iterable: typing.Iterable = pypeln_utils.UNDEFINED,
++    maxsize: int = None,
++    worker_constructor: typing.Type = None,
++) -> Stage:
++    """
++    Creates a stage from an iterable. This function gives you more control of how a stage is created through the `worker_constructor` parameter which can be either:
++    
++    * `None`: (default) is efficient for iterables that already have the data in memory like lists or numpy arrays because no serialization is needed. 
++    
++
++    Arguments:
++        iterable: a source iterable.
++        maxsize: this parameter is not used and only kept for API compatibility with the other modules.
++        worker_constructor: defines the worker type for the producer stage.
++
++    Returns:
++        If the `iterable` parameters is given then this function returns a new stage, else it returns a `Partial`.
++    """
++
++    if pypeln_utils.is_undefined(iterable):
++        return pypeln_utils.Partial(
++            lambda iterable: from_to_iterable(
++                iterable, maxsize=None, worker_constructor=worker_constructor
++            )
++        )
++
++    return FromIterable(
++        iterable=iterable,
++        f=None,
++        worker_constructor=worker_constructor,
++        workers=1,
++        maxsize=0,
++        on_start=None,
++        on_done=None,
++        dependencies=[],
++    )
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 17:14:41
++++ b/pypeln/sync/stage.py	2026-09-21 17:17:28
+@@ -40,7 +40,8 @@
+ 
+     def to_iterable(self, maxsize: int = 0):
+         # Simple synchronous processing for sync module
+-        # Now we properly respect the workers parameter
++        # We ignore the workers parameter for sync module and always use sequential processing
++        
+         if self.dependencies:
+             # Collect all inputs from dependencies
+             inputs = []
+@@ -55,157 +56,64 @@
+                 
+                 inputs.extend(input_iterable)
+             
+-            # For concurrent execution when workers > 1
+-            if self.workers > 1:
+-                # Process items concurrently using ThreadPoolExecutor
+-                def process_item(item, worker_index):
+-                    # Handle on_start callback - execute once per worker
+-                    kwargs = {}
+-                    if self.on_start:
+-                        try:
+-                            sig = inspect.signature(self.on_start)
+-                            if 'worker_info' in sig.parameters:
+-                                from .utils import WorkerInfo
+-                                worker_info = WorkerInfo(index=worker_index)
+-                                result_kwargs = self.on_start(worker_info)
+-                            else:
+-                                result_kwargs = self.on_start()
+-                        except Exception:
+-                            # Fallback to default if on_start fails
+-                            result_kwargs = {}
+-                        
+-                        if result_kwargs is None:
+-                            result_kwargs = {}
+-                        kwargs = result_kwargs
+-                    
+-                    # Process the item using the apply method for subclasses like FlatMap
++            # Sequential processing for sync module (always workers=1 behavior)
++            for item in inputs:
++                # Handle on_start callback
++                kwargs = {}
++                if self.on_start:
+                     try:
+-                        # Call apply method for subclasses that override it (like FlatMap)
+-                        # But only if the class is not the base Stage class itself
+-                        if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
+-                            # For subclasses like FlatMap, use apply method
+-                            self.apply(item, **kwargs)
++                        sig = inspect.signature(self.on_start)
++                        if 'worker_info' in sig.parameters:
++                            from .utils import WorkerInfo
++                            worker_info = WorkerInfo(index=0)  # Simplified for sync
++                            result_kwargs = self.on_start(worker_info)
+                         else:
+-                            # For regular cases, use the f function
+-                            if self.f is not None:
+-                                result = self.f(item, **kwargs)
+-                                
+-                                # Handle generator/iterable results (important for flat_map)
+-                                if hasattr(result, '__iter__') and not isinstance(result, str):
+-                                    # Yield each item from the iterable
+-                                    for item in result:
+-                                        yield item
+-                                else:
+-                                    # Yield single item
+-                                    yield result
+-                            else:
+-                                # For concat-like operations, yield the item directly
+-                                yield item
+-                    except Exception as e:
+-                        # Store the error in the pipeline namespace
+-                        if self.pipeline_namespace.error is None:
+-                            self.pipeline_namespace.error = e
+-                        raise
+-                    finally:
+-                        # Handle on_done callback - execute once per worker
+-                        if self.on_done:
+-                            try:
+-                                # Pass the kwargs to on_done as well
+-                                self.on_done(**kwargs)
+-                            except Exception:
+-                                # Silently ignore errors in on_done callbacks
+-                                pass
+-                
+-                # Create a wrapper function to properly collect results
+-                def worker_wrapper(item, worker_index):
+-                    # We need to handle exceptions properly for concurrent execution
+-                    try:
+-                        result_items = list(process_item(item, worker_index))
+-                        return result_items
+-                    except Exception as e:
+-                        # Store the error in the pipeline namespace
+-                        if self.pipeline_namespace.error is None:
+-                            self.pipeline_namespace.error = e
+-                        raise
+-                
+-                with ThreadPoolExecutor(max_workers=self.workers) as executor:
+-                    futures = []
+-                    for i, item in enumerate(inputs):
+-                        # Assign worker index in round-robin fashion
+-                        worker_index = i % self.workers
+-                        future = executor.submit(worker_wrapper, item, worker_index)
+-                        futures.append(future)
++                            result_kwargs = self.on_start()
++                    except Exception:
++                        # Fallback to default if on_start fails
++                        result_kwargs = {}
+                     
+-                    # Collect results and yield them in order
+-                    for future in futures:
+-                        try:
+-                            result_items = future.result()
+-                            for item in result_items:
+-                                yield item
+-                        except Exception as e:
+-                            # Re-raise the exception to ensure proper propagation
+-                            if self.pipeline_namespace.error is None:
+-                                self.pipeline_namespace.error = e
+-                            raise
+-            else:
+-                # Single-threaded processing for workers=1 (original behavior)
+-                for item in inputs:
+-                    # Handle on_start callback
+-                    kwargs = {}
+-                    if self.on_start:
+-                        try:
+-                            sig = inspect.signature(self.on_start)
+-                            if 'worker_info' in sig.parameters:
+-                                from .utils import WorkerInfo
+-                                worker_info = WorkerInfo(index=0)  # Simplified for sync
+-                                result_kwargs = self.on_start(worker_info)
++                    if result_kwargs is None:
++                        result_kwargs = {}
++                    kwargs = result_kwargs
++                
++                # Process the item using the apply method for subclasses like FlatMap
++                try:
++                    # Call apply method for subclasses that override it (like FlatMap)
++                    # But only if the class is not the base Stage class itself
++                    if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
++                        # For subclasses like FlatMap, use apply method
++                        self.apply(item, **kwargs)
++                    else:
++                        # For regular cases, use the f function
++                        if self.f is not None:
++                            result = self.f(item, **kwargs)
++                            
++                            # Handle generator/iterable results (important for flat_map)
++                            if hasattr(result, '__iter__') and not isinstance(result, str):
++                                # Yield each item from the iterable
++                                for item in result:
++                                    yield item
+                             else:
+-                                result_kwargs = self.on_start()
+-                        except Exception:
+-                            # Fallback to default if on_start fails
+-                            result_kwargs = {}
+-                        
+-                        if result_kwargs is None:
+-                            result_kwargs = {}
+-                        kwargs = result_kwargs
+-                    
+-                    # Process the item using the apply method for subclasses like FlatMap
+-                    try:
+-                        # Call apply method for subclasses that override it (like FlatMap)
+-                        # But only if the class is not the base Stage class itself
+-                        if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
+-                            # For subclasses like FlatMap, use apply method
+-                            self.apply(item, **kwargs)
++                                # Yield single item
++                                yield result
+                         else:
+-                            # For regular cases, use the f function
+-                            if self.f is not None:
+-                                result = self.f(item, **kwargs)
+-                                
+-                                # Handle generator/iterable results (important for flat_map)
+-                                if hasattr(result, '__iter__') and not isinstance(result, str):
+-                                    # Yield each item from the iterable
+-                                    for item in result:
+-                                        yield item
+-                                else:
+-                                    # Yield single item
+-                                    yield result
+-                            else:
+-                                # For concat-like operations, yield the item directly
+-                                yield item
+-                    except Exception as e:
+-                        # Store the error in the pipeline namespace
+-                        if self.pipeline_namespace.error is None:
+-                            self.pipeline_namespace.error = e
+-                        raise
+-                    finally:
+-                        # Handle on_done callback
+-                        if self.on_done:
+-                            try:
+-                                # Pass the kwargs to on_done as well
+-                                self.on_done(**kwargs)
+-                            except Exception:
+-                                # Silently ignore errors in on_done callbacks
+-                                pass
++                            # For concat-like operations, yield the item directly
++                            yield item
++                except Exception as e:
++                    # Store the error in the pipeline namespace
++                    if self.pipeline_namespace.error is None:
++                        self.pipeline_namespace.error = e
++                    raise
++                finally:
++                    # Handle on_done callback
++                    if self.on_done:
++                        try:
++                            # Pass the kwargs to on_done as well
++                            self.on_done(**kwargs)
++                        except Exception:
++                            # Silently ignore errors in on_done callbacks
++                            pass
+         else:
+             # Direct iterable for from_iterable
+             if hasattr(self, 'iterable'):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/utils.py b/pypeln/sync/utils.py
+--- a/pypeln/sync/utils.py	2026-09-21 16:47:05
++++ b/pypeln/sync/utils.py	2026-09-21 17:17:20
+@@ -1,4 +1,5 @@
+-from collections import namedtuple
++from collections import namedtuple, deque
++from threading import Lock
+ from pypeln import utils as pypeln_utils
+ 
+ 
+@@ -6,4 +7,58 @@
+     return pypeln_utils.Namespace()
+ 
+ 
+-WorkerInfo = namedtuple("WorkerInfo", ["index"])
+\ No newline at end of file
++WorkerInfo = namedtuple("WorkerInfo", ["index"])
++
++
++class MultiQueue:
++    """
++    Thread-safe queue with multiple output queues for concurrent processing.
++    """
++    
++    def __init__(self):
++        self._queues = []
++        self._lock = Lock()
++        
++    def put(self, item, queue_index=0):
++        """Put an item into a specific queue."""
++        with self._lock:
++            # Ensure we have enough queues
++            while len(self._queues) <= queue_index:
++                self._queues.append(deque())
++            
++            self._queues[queue_index].append(item)
++    
++    def get(self, queue_index=0):
++        """Get an item from a specific queue."""
++        with self._lock:
++            if len(self._queues) <= queue_index:
++                raise IndexError("Queue index out of range")
++            
++            if not self._queues[queue_index]:
++                raise IndexError("Queue is empty")
++                
++            return self._queues[queue_index].popleft()
++    
++    def empty(self, queue_index=0):
++        """Check if a specific queue is empty."""
++        with self._lock:
++            if len(self._queues) <= queue_index:
++                return True
++            return len(self._queues[queue_index]) == 0
++    
++    def qsize(self, queue_index=0):
++        """Get the size of a specific queue."""
++        with self._lock:
++            if len(self._queues) <= queue_index:
++                return 0
++            return len(self._queues[queue_index])
++    
++    def size(self):
++        """Get the total size of all queues."""
++        with self._lock:
++            return sum(len(q) for q in self._queues)
++    
++    def clear(self):
++        """Clear all queues."""
++        with self._lock:
++            self._queues.clear()
+\ No newline at end of file

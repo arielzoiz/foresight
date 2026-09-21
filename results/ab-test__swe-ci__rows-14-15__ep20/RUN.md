@@ -20,7 +20,7 @@ Gap per epoch (starting state first; lower is better; `x` = pytest could not run
 | Task | control gaps | foresight gaps |
 |---|---|---|
 | apprise ebbe26 | 11, 11, 11, 11, 10, x, 10, 9, 10, 10, 10, 10, 10, 13, 12, 12, 12, 12, 12, 12, 16 | 11, 14, 11, 11, 11, 10, 10, 130, 131, 130, 130, 130, 130, 132, 131, 131, 142, 141, 141, 146, 141 |
-| pypeln 9121c6 | 19, x, 0 | 18, x, x |
+| pypeln 9121c6 | 19, x, 0 | 18, x, x, 6, 4, 4, 4, 4, 4, 4, 15, 18, 14, 2, 1, x, 1, 0 |
 
 ## Code change per epoch
 
@@ -29,14 +29,14 @@ Gap per epoch (starting state first; lower is better; `x` = pytest could not run
 | Task | control | foresight |
 |---|---|---|
 | apprise ebbe26 | +6/-1, +13/-1, +28/-3, +425/-13, +98/-299!, +35/-95, +22/-6, +20/-83, +6/-4, +20/-3, +16/-1, +6/-0, +27/-1, +50/-29, +25/-23, +6/-0, +20/-10, +0/-0, +18/-15, +27/-2 | +18/-7, +16/-9, +10/-1, +2/-1, +115/-3, +8/-12, +24/-9, +3/-3, +10/-3, +36/-3, +21/-5, +73/-1, +33/-2, +59/-6, +18/-18, +31/-4, +16/-11, +5/-0, +19/-0, +6/-3 |
-| pypeln 9121c6 | +38/-87!, +826/-1 | - |
+| pypeln 9121c6 | +38/-87!, +826/-1 | +283/-392!, +103/-447!, +778/-1, +79/-65, +69/-13, +19/-5, +13/-8, +27/-7, +9/-4, +40/-28, +26/-14, +168/-160, +18/-38, +145/-67, +124/-60!, +25/-5, +28/-11 |
 
 ## Maintainability index after each epoch (0 = start; higher is better)
 
 | Task | control | foresight |
 |---|---|---|
 | apprise ebbe26 | 48.7, 48.7, 48.7, 48.7, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5 | 48.7, 48.7, 48.7, 48.7, 48.7, 48.6, 48.6, 48.6, 48.6, 48.6, 48.6, 48.6, 48.6, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5 |
-| pypeln 9121c6 | 52.9, 52.9, 52.9 | - |
+| pypeln 9121c6 | 52.9, 52.9, 52.9 | 53.4, 53.4, 53.4, 53.4, 53.2, 53.1, 53.1, 53.1, 53.1, 53.1, 53.1, 53.0, 53.3, 53.5, 53.4, 53.4, 53.4, 53.4 |
 
 Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; both exclude `tests/`. Only the change between epochs is meaningful, not the absolute value (see `tools/swe_ci_score_helper.py`).
 
@@ -45,27 +45,27 @@ Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; bo
 | Arm | Start | End | Elapsed |
 |---|---|---|---|
 | control | 2026-09-21 10:03:11 | 2026-09-21 11:42:59 | 1:39:48 |
-| foresight | 2026-09-21 11:43:45 | 2026-09-21 13:32:58 | 1:49:13 |
+| foresight | 2026-09-21 11:43:45 | 2026-09-21 17:30:01 | 5:46:16 |
 
 ## SWE-CI cost (from iteration.jsonl)
 
 | Arm | architect in/out tokens | programmer in/out tokens | agent seconds |
 |---|---|---|---|
 | control | 15,120,019 / 46,540 | 27,611,724 / 140,300 | 1335 |
-| foresight | 17,490,097 / 36,513 | 25,189,461 / 143,258 | 2011 |
+| foresight | 23,768,884 / 83,946 | 31,748,401 / 257,136 | 3508 |
 
 ## Foresight / aux provenance (foresight)
 
-- trace rows: 1,351; aux runs: 46; joined to a task and epoch: 44
-- resolved_by: {'sole_container': 46}
-- fallback: {None: 46} (any `body_only` run must be excluded from analysis)
-- usable: {True: 46}; guard: {'intact': 46}
-- aux run time: mean 9.1 s, max 23.2 s
-- prompt growth: mean 1866 chars, max 2920
-- aux model calls in trace: 321, prompt tokens 5,422,066, completion tokens 24,068
-- target model calls in trace: 1,030, prompt tokens 43,386,983, completion tokens 188,936
-- target replies logged: 1,030 of 1,030 target rows (text and tool calls, in the trace)
-- aux transcripts exported: 46 session(s), 0 export error(s)
+- trace rows: 2,313; aux runs: 77; joined to a task and epoch: 75
+- resolved_by: {'sole_container': 77}
+- fallback: {None: 77} (any `body_only` run must be excluded from analysis)
+- usable: {True: 77}; guard: {'intact': 77}
+- aux run time: mean 8.7 s, max 23.2 s
+- prompt growth: mean 1813 chars, max 3414
+- aux model calls in trace: 598, prompt tokens 8,520,222, completion tokens 46,222
+- target model calls in trace: 1,715, prompt tokens 56,673,425, completion tokens 356,217
+- target replies logged: 1,714 of 1,715 target rows (text and tool calls, in the trace)
+- aux transcripts exported: 77 session(s), 0 export error(s)
 
 ## Incidents (warnings, errors, retries, early exits from task.log)
 
@@ -74,6 +74,9 @@ Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; bo
 - `control` pypeln 9121c6: 2026-09-21 10:09:40 | WARNING | cgarciae__pypeln__9121c6__518136 | (4/7) ⚠️ pytest was not executed correctly. returncode=2, has_report=True
 - `foresight` pypeln 9121c6: 2026-09-21 14:37:43 | WARNING | cgarciae__pypeln__9121c6__518136 | (4/7) ⚠️ pytest timeout. TimeoutExpired(['docker', 'exec', '-w', '/app/code', '-e', 'PYTHONPATH=src:.', '93111c55c515446e', 'python',
 - `foresight` pypeln 9121c6: 2026-09-21 14:39:35 | WARNING | cgarciae__pypeln__9121c6__518136 | (4/7) ⚠️ pytest was not executed correctly. returncode=2, has_report=True
+- `foresight` pypeln 9121c6: 2026-09-21 16:45:56 | ERROR | cgarciae__pypeln__9121c6__518136 | (2/7) (Attempt 1/3) ⚠️ Error occurred when calling architect agent: FileNotFoundError('File not found: /app/requirement.xml')
+- `foresight` pypeln 9121c6: 2026-09-21 16:46:22 | INFO | cgarciae__pypeln__9121c6__518136 | (2/7) (Attempt 2/3) ✅ The architect agent has generated the requirements.
+- `foresight` pypeln 9121c6: 2026-09-21 17:25:14 | WARNING | cgarciae__pypeln__9121c6__518136 | (4/7) ⚠️ pytest was not executed correctly. returncode=2, has_report=True
 
 ## Collector notes
 

@@ -1,0 +1,174 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 16:47:01
++++ b/pypeln/sync/api.py	2026-09-21 16:50:39
+@@ -424,8 +424,22 @@
+ 
+ 
+ class Concat(Stage):
+-    def apply(self, x):
+-        self.output_queues.put(x)
++    def to_iterable(self, maxsize: int = 0):
++        # For Concat, we need to iterate through all dependencies
++        for dep in self.dependencies:
++            # Get the input iterable from each dependency
++            if hasattr(dep, 'to_iterable'):
++                input_iterable = dep.to_iterable(maxsize=maxsize)
++            else:
++                input_iterable = dep
++                
++            # Ensure input is iterable
++            if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
++                input_iterable = [input_iterable]
++                
++            # Process each item from this dependency
++            for item in input_iterable:
++                yield item
+ 
+ 
+ def concat(stages: typing.List[Stage], maxsize: int = 0) -> Stage:
+@@ -497,7 +511,7 @@
+ 
+     stage = to_iterable(stage, maxsize=maxsize)
+ 
+-    for _ in stages:
++    for _ in stage:
+         pass
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 16:48:09
++++ b/pypeln/sync/stage.py	2026-09-21 16:50:44
+@@ -37,71 +37,71 @@
+     def to_iterable(self, maxsize: int = 0):
+         # Simple synchronous processing for sync module
+         if self.dependencies:
+-            # Get input from first dependency
+-            dep = self.dependencies[0]
+-            
+-            # Get the input iterable
+-            if hasattr(dep, 'to_iterable'):
+-                input_iterable = dep.to_iterable(maxsize=maxsize)
+-            else:
+-                input_iterable = dep
+-                
+-            # Ensure input is iterable
+-            if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
+-                input_iterable = [input_iterable]
+-                
+-            # Process each item
+-            for item in input_iterable:
+-                # Handle on_start callback
+-                kwargs = {}
+-                if self.on_start:
+-                    # Try to detect if on_start expects worker_info
+-                    try:
+-                        import inspect
+-                        sig = inspect.signature(self.on_start)
+-                        if 'worker_info' in sig.parameters:
+-                            # Create a simple worker info for sync
+-                            from .utils import WorkerInfo
+-                            worker_info = WorkerInfo(index=0)
+-                            result_kwargs = self.on_start(worker_info)
+-                        else:
+-                            result_kwargs = self.on_start()
+-                    except Exception:
+-                        # Fallback to simple call
+-                        result_kwargs = self.on_start()
++            # Process all dependencies
++            for dep in self.dependencies:
++                # Get input from each dependency
++                # Get the input iterable
++                if hasattr(dep, 'to_iterable'):
++                    input_iterable = dep.to_iterable(maxsize=maxsize)
++                else:
++                    input_iterable = dep
+                     
+-                    # Ensure result_kwargs is a dict (some on_start functions may return None)
+-                    if result_kwargs is None:
+-                        result_kwargs = {}
+-                    kwargs = result_kwargs
+-                
+-                # Process the item
+-                try:
+-                    if self.f is not None:
+-                        result = self.f(item, **kwargs)
++                # Ensure input is iterable
++                if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
++                    input_iterable = [input_iterable]
++                    
++                # Process each item
++                for item in input_iterable:
++                    # Handle on_start callback
++                    kwargs = {}
++                    if self.on_start:
++                        # Try to detect if on_start expects worker_info
++                        try:
++                            import inspect
++                            sig = inspect.signature(self.on_start)
++                            if 'worker_info' in sig.parameters:
++                                # Create a simple worker info for sync
++                                from .utils import WorkerInfo
++                                worker_info = WorkerInfo(index=0)
++                                result_kwargs = self.on_start(worker_info)
++                            else:
++                                result_kwargs = self.on_start()
++                        except Exception:
++                            # Fallback to simple call
++                            result_kwargs = self.on_start()
+                         
+-                        # Handle generator/iterable results (important for flat_map)
+-                        if hasattr(result, '__iter__') and not isinstance(result, str):
+-                            # Yield each item from the iterable
+-                            for item in result:
+-                                yield item
++                        # Ensure result_kwargs is a dict (some on_start functions may return None)
++                        if result_kwargs is None:
++                            result_kwargs = {}
++                        kwargs = result_kwargs
++                    
++                    # Process the item
++                    try:
++                        if self.f is not None:
++                            result = self.f(item, **kwargs)
++                            
++                            # Handle generator/iterable results (important for flat_map)
++                            if hasattr(result, '__iter__') and not isinstance(result, str):
++                                # Yield each item from the iterable
++                                for item in result:
++                                    yield item
++                            else:
++                                # Yield single item
++                                yield result
+                         else:
+-                            # Yield single item
+-                            yield result
+-                    else:
+-                        # For concat-like operations, yield the item directly
+-                        yield item
+-                        
+-                except Exception as e:
+-                    self.pipeline_namespace.error = e
+-                    raise
+-                finally:
+-                    # Handle on_done callback
+-                    if self.on_done:
+-                        try:
+-                            self.on_done(**kwargs)
+-                        except:
+-                            pass
++                            # For concat-like operations, yield the item directly
++                            yield item
++                            
++                    except Exception as e:
++                        self.pipeline_namespace.error = e
++                        raise
++                    finally:
++                        # Handle on_done callback
++                        if self.on_done:
++                            try:
++                                self.on_done(**kwargs)
++                            except:
++                                pass
+         else:
+             # Direct iterable for from_iterable
+             if hasattr(self, 'iterable'):

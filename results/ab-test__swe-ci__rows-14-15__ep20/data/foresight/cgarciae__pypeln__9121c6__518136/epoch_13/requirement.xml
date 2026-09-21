@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/pypeln/sync/api.py</location>
+        <description>The base Stage class in stage.py has a flawed to_iterable implementation that doesn't properly handle the apply method for subclasses like FlatMap. The current implementation tries to call apply() on all stage classes but doesn't properly manage the execution flow for processing dependencies.</description>
+        <contract>The Stage.to_iterable method should properly execute the apply method for subclasses that override it, correctly handle dependency processing, and properly coordinate with the MultiQueue mechanism for output delivery.</contract>
+        <acceptance>tests/test_sync.py::test_map_id, tests/test_sync.py::test_map_square, tests/test_sync.py::test_map_square_workers, tests/test_sync.py::test_flat_map_square, tests/test_sync.py::test_flat_map_square_workers</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pypeln/sync/api.py</location>
+        <description>The FlatMap class doesn't properly handle iteration in the to_iterable method. It should properly yield items from the generator function when processing elements.</description>
+        <contract>The FlatMap.to_iterable method should correctly process each input item by applying the function and yielding all items from the resulting iterable, handling the MultiQueue mechanism properly.</contract>
+        <acceptance>tests/test_sync.py::test_flat_map_square, tests/test_sync.py::test_flat_map_square_workers, tests/test_sync.py::test_flat_map_square_filter_workers</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pypeln/sync/api.py</location>
+        <description>The Concat class has an incomplete to_iterable implementation that doesn't properly iterate through dependencies and doesn't use the MultiQueue mechanism correctly.</description>
+        <contract>The Concat.to_iterable method should properly iterate through all dependencies and yield their items in sequence, ensuring proper coordination with the MultiQueue system.</contract>
+        <acceptance>tests/test_sync.py::test_concat_basic, tests/test_sync.py::test_concat_multiple</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pypeln/sync/api.py</location>
+        <description>The Stage base class lacks proper handling of on_start and on_done callbacks for the sync module. The current implementation in stage.py doesn't correctly pass worker_info to on_start or stage_status to on_done.</description>
+        <contract>The Stage.to_iterable method should correctly invoke on_start and on_done callbacks with appropriate parameters (worker_info for on_start, stage_status for on_done) when they are provided.</contract>
+        <acceptance>tests/test_sync.py::test_map_square_event_start, tests/test_sync.py::test_map_square_event_end</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pypeln/sync/api.py</location>
+        <description>The from_iterable function should properly create a FromIterable stage that correctly handles iteration through the provided iterable and puts items into the output queue.</description>
+        <contract>The FromIterable class and its process method should correctly iterate through the provided iterable and put each item into the output queue via self.output_queues.put().</contract>
+        <acceptance>tests/test_sync.py::test_from_to_iterable</acceptance>
+    </requirement>
+</requirement_document>

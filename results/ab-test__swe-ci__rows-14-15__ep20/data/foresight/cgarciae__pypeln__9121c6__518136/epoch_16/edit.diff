@@ -1,0 +1,70 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 17:19:57
++++ b/pypeln/sync/api.py	2026-09-21 17:26:10
+@@ -432,7 +432,23 @@
+ 
+ 
+ class Concat(Stage):
+-    pass
++    def process(self):
++        # For sync module, we process each dependency sequentially
++        for dep in self.dependencies:
++            if hasattr(dep, 'to_iterable'):
++                dep_iterable = dep.to_iterable()
++            else:
++                dep_iterable = dep
++                
++            try:
++                for item in dep_iterable:
++                    if self.pipeline_namespace.error:
++                        return
++                    self.output_queues.put(item)
++            except Exception as e:
++                if self.pipeline_namespace.error is None:
++                    self.pipeline_namespace.error = e
++                raise
+ 
+ 
+ def concat(stages: typing.List[Stage], maxsize: int = 0) -> Stage:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 17:22:02
++++ b/pypeln/sync/stage.py	2026-09-21 17:26:21
+@@ -1,13 +1,15 @@
+ import typing
+-from collections import deque
++from collections import deque, namedtuple
+ from threading import Lock
+ from concurrent.futures import ThreadPoolExecutor
+ import inspect
+ 
+ from pypeln import utils as pypeln_utils
+-from . import utils
++from . import utils as sync_utils
+ 
++StageStatus = namedtuple("StageStatus", ["active_workers", "done"])
+ 
++
+ class Stage:
+     def __init__(
+         self,
+@@ -27,7 +29,7 @@
+         self.on_done = on_done
+         self.dependencies = dependencies
+         self.worker_constructor = worker_constructor
+-        self.output_queues = utils.MultiQueue()
++        self.output_queues = sync_utils.MultiQueue()
+ 
+         self.pipeline_namespace = pypeln_utils.Namespace()
+         self.pipeline_namespace.error = None
+@@ -109,8 +111,10 @@
+                 # Handle on_done callback - executed once at the end
+                 if self.on_done:
+                     try:
++                        # Create stage_status object for sync module
++                        stage_status = StageStatus(active_workers=0, done=True)
+                         # Pass the kwargs to on_done as well
+-                        self.on_done(**kwargs)
++                        self.on_done(stage_status, **kwargs)
+                     except Exception:
+                         # Silently ignore errors in on_done callbacks
+                         pass

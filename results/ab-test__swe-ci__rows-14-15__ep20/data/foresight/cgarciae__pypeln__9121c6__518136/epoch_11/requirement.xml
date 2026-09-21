@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/pypeln/sync/stage.py</location>
+        <description>The Stage base class in the sync module is missing the initialization of output_queues attribute that is expected by subclasses like Map when they call self.output_queues.put(). This causes AttributeError when running tests that use map with workers > 1.</description>
+        <contract>The Stage base class constructor must initialize an output_queues attribute to support concurrent processing in subclasses. The attribute should be initialized similar to how it's done in the thread module.</contract>
+        <acceptance>test_worker_info, test_kwargs - These tests should pass without AttributeError: 'Map' object has no attribute 'output_queues'</acceptance>
+    </item>
+    <item>
+        <location>/app/code/pypeln/sync/stage.py</location>
+        <description>The to_iterable method in the sync Stage class doesn't properly handle the case when dependencies exist but the stage doesn't have an apply method. The code attempts to call apply() method directly on the stage, but this doesn't work correctly for stages that don't override apply.</description>
+        <contract>The to_iterable method should properly delegate to the f function when apply is not overridden, and should handle the output_queues correctly for all stage types.</contract>
+        <acceptance>test_map_id, test_map_square, test_map_square_workers - These tests should pass by correctly processing items through the stage's function and using output_queues</acceptance>
+    </item>
+    <item>
+        <location>/app/code/pypeln/sync/stage.py</location>
+        <description>The Concat class in sync module has an incomplete to_iterable implementation that doesn't properly handle iteration over dependencies and doesn't use the output_queues mechanism.</description>
+        <contract>The Concat.to_iterable method should properly iterate through all dependencies and yield items correctly, following the same pattern as other stages.</contract>
+        <acceptance>test_concat_basic, test_concat_multiple - These tests should pass by correctly concatenating items from multiple stages</acceptance>
+    </item>
+</requirement>

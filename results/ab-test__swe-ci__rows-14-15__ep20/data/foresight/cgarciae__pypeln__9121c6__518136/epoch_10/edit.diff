@@ -1,0 +1,89 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 17:05:54
++++ b/pypeln/sync/stage.py	2026-09-21 17:11:50
+@@ -76,22 +76,28 @@
+                             result_kwargs = {}
+                         kwargs = result_kwargs
+                     
+-                    # Process the item
++                    # Process the item using the apply method for subclasses like FlatMap
+                     try:
+-                        if self.f is not None:
+-                            result = self.f(item, **kwargs)
+-                            
+-                            # Handle generator/iterable results (important for flat_map)
+-                            if hasattr(result, '__iter__') and not isinstance(result, str):
+-                                # Yield each item from the iterable
+-                                for item in result:
+-                                    yield item
+-                            else:
+-                                # Yield single item
+-                                yield result
++                        # Call apply method for subclasses that override it (like FlatMap)
++                        if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
++                            # For subclasses like FlatMap, use apply method
++                            self.apply(item, **kwargs)
+                         else:
+-                            # For concat-like operations, yield the item directly
+-                            yield item
++                            # For regular cases, use the f function
++                            if self.f is not None:
++                                result = self.f(item, **kwargs)
++                                
++                                # Handle generator/iterable results (important for flat_map)
++                                if hasattr(result, '__iter__') and not isinstance(result, str):
++                                    # Yield each item from the iterable
++                                    for item in result:
++                                        yield item
++                                else:
++                                    # Yield single item
++                                    yield result
++                            else:
++                                # For concat-like operations, yield the item directly
++                                yield item
+                     except Exception as e:
+                         # Store the error in the pipeline namespace
+                         if self.pipeline_namespace.error is None:
+@@ -160,22 +166,28 @@
+                             result_kwargs = {}
+                         kwargs = result_kwargs
+                     
+-                    # Process the item
++                    # Process the item using the apply method for subclasses like FlatMap
+                     try:
+-                        if self.f is not None:
+-                            result = self.f(item, **kwargs)
+-                            
+-                            # Handle generator/iterable results (important for flat_map)
+-                            if hasattr(result, '__iter__') and not isinstance(result, str):
+-                                # Yield each item from the iterable
+-                                for item in result:
+-                                    yield item
+-                            else:
+-                                # Yield single item
+-                                yield result
++                        # Call apply method for subclasses that override it (like FlatMap)
++                        if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
++                            # For subclasses like FlatMap, use apply method
++                            self.apply(item, **kwargs)
+                         else:
+-                            # For concat-like operations, yield the item directly
+-                            yield item
++                            # For regular cases, use the f function
++                            if self.f is not None:
++                                result = self.f(item, **kwargs)
++                                
++                                # Handle generator/iterable results (important for flat_map)
++                                if hasattr(result, '__iter__') and not isinstance(result, str):
++                                    # Yield each item from the iterable
++                                    for item in result:
++                                        yield item
++                                else:
++                                    # Yield single item
++                                    yield result
++                            else:
++                                # For concat-like operations, yield the item directly
++                                yield item
+                     except Exception as e:
+                         # Store the error in the pipeline namespace
+                         if self.pipeline_namespace.error is None:

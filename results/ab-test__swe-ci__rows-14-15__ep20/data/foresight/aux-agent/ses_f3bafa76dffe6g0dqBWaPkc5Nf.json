@@ -1,0 +1,1308 @@
+{
+  "info": {
+    "id": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+    "slug": "eager-engine",
+    "projectID": "global",
+    "directory": "/app",
+    "path": "app",
+    "title": "Python project task planning and requirement analysis",
+    "agent": "build",
+    "model": {
+      "id": "aux-model",
+      "providerID": "custom",
+      "variant": "default"
+    },
+    "version": "1.18.31",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 188142,
+      "output": 666,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1789999995027,
+      "updated": 1790000003460
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1789999995103
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "custom",
+          "modelID": "aux-model"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_0c45058df001diYHzJM2AgySEs",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"You are inspecting a Python project inside a container at /app.\n\nREAD ONLY. Do not create, modify or delete any file under /app.\nAny write there invalidates this run.\n\nA developer is about to work on the task described below.\n\n\\\"\n<prompt>\n    <role_setting>\n        <identity>You are a senior software architect proficient in Python software engineering and Test-Driven Development (TDD).</identity>\n        <expertise>You excel at accurately identifying functional gaps from test feedback and writing high-quality software development requirement documents.</expertise>\n        <scene>You are collaborating closely with a senior programmer and plan to complete the development of a Python software incrementally through multiple rounds of \\\\\"planning-coding\\\\\" in small, rapid steps.</scene>\n        <responsibilities>Your responsibility is to analyze functional gaps in the code based on the currently non-passed test cases and write a clear, specific incremental development requirement document for the programmer.</responsibilities>\n    </role_setting>\n\n    <input>\n        <permission>You are allowed to browse all content in the current working directory.</permission>\n        <item name=\\\\\"/app/code/\\\\\">The folder containing all source code for this Python project.</item>\n        <item name=\\\\\"/app/code/tests/\\\\\">The folder containing all unit tests for this Python project.</item>\n        <item name=\\\\\"/app/non-passed/\\\\\">The folder containing full information for all test cases that are expected to pass but currently non-passed in the current implementation.</item>\n        <item name=\\\\\"/app/non-passed/summary.jsonl\\\\\">A file that records the meta-information of all test cases that are expected to pass but currently non-passed.</item>\n    </input>\n\n    <workflow>\n        <rule>You MUST strictly follow the workflow below:</rule>\n        <step index=\\\\\"1\\\\\" action=\\\\\"summary\\\\\">\n            Consult the file /app/non-passed/summary.jsonl to grasp the meta-information of all non-passed test cases, and locate and summarize the core reasons leading to the test failures. If necessary, you may consult other JSON files in /app/non-passed/ to obtain detailed report information for the failed tests.\n        </step>\n        <step index=\\\\\"2\\\\\" action=\\\\\"trace\\\\\">\n            Consult the corresponding test files in /app/code/tests/ to analyze environmental dependencies, assertion intentions, inputs and outputs, exception handling, and boundary conditions of the non-passed tests, and determine the involved source code modules and interface contracts.\n        </step>\n        <step index=\\\\\"3\\\\\" action=\\\\\"attribute\\\\\">\n            Consult the relevant source code in /app/code/ and, combined with the test results and detailed report information, locate the root causes of the failures within the source code.\n        </step>\n        <step index=\\\\\"4\\\\\" action=\\\\\"filter\\\\\">\n            From all identified reasons, filter out the most critical code change requirements, limited to **1 to 5 items**. Follow the principle of small-step iterations and consider the programmer's workload; do not attempt to fix too many failed tests or propose too many requirements at once.\n            You MUST use the following priority rules for filtering and sorting:\n            <priority_rules>\n                <rule>Prioritize changes that enable the highest number of non-passed tests to pass.</rule>\n                <rule>When benefits are similar, prioritize fixing error/collection/import issues, followed by failed, and then missing.</rule>\n                <rule>When benefits are similar, prioritize fixes for low-level common modules/interfaces over fixes for specific test case exceptions.</rule>\n                <rule>If a clear dependency chain exists, fix downstream base capabilities before fixing upper-level behaviors.</rule>\n            </priority_rules>\n        </step>\n        <step index=\\\\\"5\\\\\" action=\\\\\"document\\\\\">\n            Based on the filtered change requirements, create a clear, specific, and verifiable requirement document in XML format and save it to /app/requirement.xml. As an architect, you MUST focus on \\\\\"what needs to be achieved\\\\\" and avoid excessive involvement in implementation details.\n        </step>\n    </workflow>\n\n    <output>\n        <product>A single, independent XML requirement document saved at /app/requirement.xml</product>\n        <content>\n            The document should contain 1 to 5 code change requirements. Each item MUST include the following:\n            <item name=\\\\\"location\\\\\">Specify the source file path and its corresponding class or function scope (if it does not exist yet, specify the expected location).</item>\n            <item name=\\\\\"description\\\\\">Detail the current state and the type of problem (e.g., collection/import blockages, missing logic, undefined interfaces, return values/exception handling inconsistent with expectations, etc.).</item>\n            <item name=\\\\\"contract\\\\\">Define the expected behavioral goals in detail (interface inputs/outputs, exception types, data structure fields, boundary conditions, and business constraints, etc.). Describe \\\\\"what to achieve\\\\\" in detail and avoid over-describing \\\\\"how specifically to do it.\\\\\" You are allowed to describe function/method signature-level information and return value structures, but should not involve specific implementation details.</item>\n            <item name=\\\\\"acceptance\\\\\">Detail the acceptance criteria that can verify whether this code change is successful. This can be the nodeid of specific test cases in the tests folder or your custom criteria.</item>\n        </content>\n    </output>\n\n    <constraints>\n        <operation>Strictly PROHIBITED from modifying, deleting, or creating any other files except for the generated requirement.xml.</operation>\n        <test_integrity>Strictly PROHIBITED from guiding the programmer to make any modifications to the test case folder /app/code/tests/.</test_integrity>\n        <granularity>You MUST focus on the core contradictions of the current code and select the most urgent requirements.</granularity>\n        <non_implementation>As an architect, you MUST focus on behavioral contracts and verifiable results, and avoid providing specific code implementations in the requirement document.</non_implementation>\n        <no_execution>You are strictly PROHIBITED from actively executing pytest, unittest, or any other test commands or scripts.</no_execution>\n    </constraints>\n</prompt>\n\n\\\"\n\nRead enough of /app/code to answer concretely, then name 3 to 5\nplausible FUTURE tasks that could reasonably follow this one in THIS codebase.\nRefer to real files, functions or modules you actually read. Do not solve the\ntask, and do not write any file.\"",
+          "id": "prt_0c45058ef001d4Iyy1zkss4JTn",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c45058df001diYHzJM2AgySEs"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8752,
+          "input": 8724,
+          "output": 28,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789999995676,
+          "completed": 1789999996741
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4505b1c001r13hY7JMMcxiDK",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4505eea001jPoX6MzTGvUhQR",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4505b1c001r13hY7JMMcxiDK"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-b4eacc066518a162",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/non-passed/summary.jsonl"
+            },
+            "output": "<path>/app/non-passed/summary.jsonl</path>\n<type>file</type>\n<content>\n1: {\"test\": \"tests/test_sync.py::test_map_id\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_id\"}\n2: {\"test\": \"tests/test_sync.py::test_map_square_workers\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_workers\"}\n3: {\"test\": \"tests/test_sync.py::test_concat_basic\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_concat_basic\"}\n4: {\"test\": \"tests/test_sync.py::test_flat_map_square_filter_workers_pipe\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_filter_workers_pipe\"}\n5: {\"test\": \"tests/test_sync.py::test_map_square_event_end\", \"description\": \"Test failed at call stage. Reason:     +------------------------------------. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_event_end\"}\n6: {\"test\": \"tests/test_sync.py::test_flat_map_square_workers\", \"description\": \"Test failed at call stage. Reason: E           /app/code/tests/test_sync.py:206. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_workers\"}\n7: {\"test\": \"tests/test_sync.py::test_flat_map_square\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square\"}\n8: {\"test\": \"tests/test_sync.py::test_map_square_event_start\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_event_start\"}\n9: {\"test\": \"tests/test_sync.py::test_concat_multiple\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_concat_multiple\"}\n10: {\"test\": \"tests/test_sync.py::test_map_square\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square\"}\n11: {\"test\": \"tests/test_sync.py::test_worker_info\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'Map' object has no attribute 'output_queues'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_worker_info\"}\n12: {\"test\": \"tests/test_sync.py::test_from_to_iterable\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_from_to_iterable\"}\n13: {\"test\": \"tests/test_sync.py::test_kwargs\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'Map' object has no attribute 'output_queues'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_kwargs\"}\n14: {\"test\": \"tests/test_sync.py::test_flat_map_square_filter_workers\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_filter_workers\"}\n15: {\"test\": \"tests/test_sync.py::test_map_id_pipe\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_id_pipe\"}\n\n(End of file - total 15 lines)\n</content>",
+            "metadata": {
+              "preview": "{\"test\": \"tests/test_sync.py::test_map_id\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_id\"}\n{\"test\": \"tests/test_sync.py::test_map_square_workers\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_workers\"}\n{\"test\": \"tests/test_sync.py::test_concat_basic\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_concat_basic\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square_filter_workers_pipe\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_filter_workers_pipe\"}\n{\"test\": \"tests/test_sync.py::test_map_square_event_end\", \"description\": \"Test failed at call stage. Reason:     +------------------------------------. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_event_end\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square_workers\", \"description\": \"Test failed at call stage. Reason: E           /app/code/tests/test_sync.py:206. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_workers\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square\"}\n{\"test\": \"tests/test_sync.py::test_map_square_event_start\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_event_start\"}\n{\"test\": \"tests/test_sync.py::test_concat_multiple\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_concat_multiple\"}\n{\"test\": \"tests/test_sync.py::test_map_square\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square\"}\n{\"test\": \"tests/test_sync.py::test_worker_info\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'Map' object has no attribute 'output_queues'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_worker_info\"}\n{\"test\": \"tests/test_sync.py::test_from_to_iterable\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_from_to_iterable\"}\n{\"test\": \"tests/test_sync.py::test_kwargs\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'Map' object has no attribute 'output_queues'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_kwargs\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square_filter_workers\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_filter_workers\"}\n{\"test\": \"tests/test_sync.py::test_map_id_pipe\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_id_pipe\"}",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/non-passed/summary.jsonl",
+                "text": "{\"test\": \"tests/test_sync.py::test_map_id\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_id\"}\n{\"test\": \"tests/test_sync.py::test_map_square_workers\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_workers\"}\n{\"test\": \"tests/test_sync.py::test_concat_basic\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_concat_basic\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square_filter_workers_pipe\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_filter_workers_pipe\"}\n{\"test\": \"tests/test_sync.py::test_map_square_event_end\", \"description\": \"Test failed at call stage. Reason:     +------------------------------------. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_event_end\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square_workers\", \"description\": \"Test failed at call stage. Reason: E           /app/code/tests/test_sync.py:206. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_workers\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square\"}\n{\"test\": \"tests/test_sync.py::test_map_square_event_start\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square_event_start\"}\n{\"test\": \"tests/test_sync.py::test_concat_multiple\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_concat_multiple\"}\n{\"test\": \"tests/test_sync.py::test_map_square\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_square\"}\n{\"test\": \"tests/test_sync.py::test_worker_info\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'Map' object has no attribute 'output_queues'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_worker_info\"}\n{\"test\": \"tests/test_sync.py::test_from_to_iterable\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_from_to_iterable\"}\n{\"test\": \"tests/test_sync.py::test_kwargs\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'Map' object has no attribute 'output_queues'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_kwargs\"}\n{\"test\": \"tests/test_sync.py::test_flat_map_square_filter_workers\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_flat_map_square_filter_workers\"}\n{\"test\": \"tests/test_sync.py::test_map_id_pipe\", \"description\": \"Test failed at call stage. Reason: E   ). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-14-15__ep20/cgarciae__pypeln__9121c6__518136/tmp/non-passed/tests_test_sync.py__test_map_id_pipe\"}",
+                "lineStart": 1,
+                "lineEnd": 15,
+                "totalLines": 15,
+                "truncated": false
+              }
+            },
+            "title": "app/non-passed/summary.jsonl",
+            "time": {
+              "start": 1789999996682,
+              "end": 1789999996728
+            }
+          },
+          "id": "prt_0c4505eef001bvx7IsSUeJc9fU",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4505b1c001r13hY7JMMcxiDK"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 8752,
+            "input": 8724,
+            "output": 28,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4505f3e001mWmTrzJgOgqALT",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4505b1c001r13hY7JMMcxiDK"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10314,
+          "input": 10289,
+          "output": 25,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789999996746,
+          "completed": 1789999998316
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4505f4a001pKPqWMGP4hKExb",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4505fff001RPR9MPe7dNE3El",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4505f4a001pKPqWMGP4hKExb"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-a333441f019e2c19",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789999997001,
+              "end": 1789999998290
+            }
+          },
+          "id": "prt_0c450600f001247K4MTFuhHAoN",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4505f4a001pKPqWMGP4hKExb"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10314,
+            "input": 10289,
+            "output": 25,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506557001bdMxggUO8x027X",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4505f4a001pKPqWMGP4hKExb"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10355,
+          "input": 10331,
+          "output": 24,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789999998331,
+          "completed": 1789999999124
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c450657b001huf1RxnzT1eBRc",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c45066ee001gQl0C9d0vzbMsO",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450657b001huf1RxnzT1eBRc"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-9c56adefebec0a72",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/*"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789999998820,
+              "end": 1789999998851
+            }
+          },
+          "id": "prt_0c450670a0012tqVu1A0lCLAUt",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450657b001huf1RxnzT1eBRc"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10355,
+            "input": 10331,
+            "output": 24,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506889001UfwZWPUK03AcpB",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450657b001huf1RxnzT1eBRc"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10394,
+          "input": 10372,
+          "output": 22,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789999999129,
+          "completed": 1789999999354
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4506899001yK1vx1UxOVCxBV",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4506925001z0V3t5lc1xDvAB",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506899001yK1vx1UxOVCxBV"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-b72a9b8e87581d28",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code"
+            },
+            "output": "<path>/app/code</path>\n<type>directory</type>\n<entries>\n.hypothesis/\n.pytest_cache/\nbenchmarks/\ndocs/\nexamples/\nLICENSE\nmkdocs.yml\npoetry.lock\npypeln/\npyproject.toml\nREADME.md\nscripts/\ntests/\n\n(13 entries)\n</entries>",
+            "metadata": {
+              "preview": ".hypothesis/\n.pytest_cache/\nbenchmarks/\ndocs/\nexamples/\nLICENSE\nmkdocs.yml\npoetry.lock\npypeln/\npyproject.toml\nREADME.md\nscripts/\ntests/",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "directory",
+                "path": "/app/code",
+                "entries": [
+                  ".hypothesis/",
+                  ".pytest_cache/",
+                  "benchmarks/",
+                  "docs/",
+                  "examples/",
+                  "LICENSE",
+                  "mkdocs.yml",
+                  "poetry.lock",
+                  "pypeln/",
+                  "pyproject.toml",
+                  "README.md",
+                  "scripts/",
+                  "tests/"
+                ],
+                "offset": 1,
+                "totalEntries": 13,
+                "truncated": false
+              }
+            },
+            "title": "app/code",
+            "time": {
+              "start": 1789999999338,
+              "end": 1789999999346
+            }
+          },
+          "id": "prt_0c4506937001hvxxV9amrqurFS",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506899001yK1vx1UxOVCxBV"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10394,
+            "input": 10372,
+            "output": 22,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506975001Nl7Ond5PnALAKC",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506899001yK1vx1UxOVCxBV"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10498,
+          "input": 10473,
+          "output": 25,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789999999358,
+          "completed": 1789999999601
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c450697e001F3sDIlZQs6ON6V",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4506a2d0013Y9fo6ahFi3uPX",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450697e001F3sDIlZQs6ON6V"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-bfaed1810bac70f6",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/pypeln"
+            },
+            "output": "<path>/app/code/pypeln</path>\n<type>directory</type>\n<entries>\n__init__.py\nprocess/\nsync/\ntask/\nthread/\nutils.py\n\n(6 entries)\n</entries>",
+            "metadata": {
+              "preview": "__init__.py\nprocess/\nsync/\ntask/\nthread/\nutils.py",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "directory",
+                "path": "/app/code/pypeln",
+                "entries": [
+                  "__init__.py",
+                  "process/",
+                  "sync/",
+                  "task/",
+                  "thread/",
+                  "utils.py"
+                ],
+                "offset": 1,
+                "totalEntries": 6,
+                "truncated": false
+              }
+            },
+            "title": "app/code/pypeln",
+            "time": {
+              "start": 1789999999585,
+              "end": 1789999999591
+            }
+          },
+          "id": "prt_0c4506a35001FaZDfrr3PUBH3C",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450697e001F3sDIlZQs6ON6V"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10498,
+            "input": 10473,
+            "output": 25,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506a6a001uNxUBfpMIJpw7v",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450697e001F3sDIlZQs6ON6V"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10581,
+          "input": 10554,
+          "output": 27,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789999999605,
+          "completed": 1789999999852
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4506a7500172g2rhEudiJF54",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4506b0d001rr4KLvZepRHmHv",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506a7500172g2rhEudiJF54"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9055384acd7e2fd8",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/pypeln/sync"
+            },
+            "output": "<path>/app/code/pypeln/sync</path>\n<type>directory</type>\n<entries>\n__init__.py\napi.py\nstage.py\nutils.py\n\n(4 entries)\n</entries>",
+            "metadata": {
+              "preview": "__init__.py\napi.py\nstage.py\nutils.py",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "directory",
+                "path": "/app/code/pypeln/sync",
+                "entries": [
+                  "__init__.py",
+                  "api.py",
+                  "stage.py",
+                  "utils.py"
+                ],
+                "offset": 1,
+                "totalEntries": 4,
+                "truncated": false
+              }
+            },
+            "title": "app/code/pypeln/sync",
+            "time": {
+              "start": 1789999999837,
+              "end": 1789999999843
+            }
+          },
+          "id": "prt_0c4506b1e001zRtrhF3urB464X",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506a7500172g2rhEudiJF54"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10581,
+            "input": 10554,
+            "output": 27,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506b66001zbVrrqPpneLB01",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506a7500172g2rhEudiJF54"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10660,
+          "input": 10637,
+          "output": 23,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789999999856,
+          "completed": 1790000000058
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4506b70001vbhSRsUrQEJaEF",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4506be8001bm2U1rioTZJqFG",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506b70001vbhSRsUrQEJaEF"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-b2dfc51cc0eca205",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests"
+            },
+            "output": "<path>/app/code/tests</path>\n<type>directory</type>\n<entries>\ntest_process.py\ntest_sync.py\ntest_task.py\ntest_thread.py\nutils_io.py\n\n(5 entries)\n</entries>",
+            "metadata": {
+              "preview": "test_process.py\ntest_sync.py\ntest_task.py\ntest_thread.py\nutils_io.py",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "directory",
+                "path": "/app/code/tests",
+                "entries": [
+                  "test_process.py",
+                  "test_sync.py",
+                  "test_task.py",
+                  "test_thread.py",
+                  "utils_io.py"
+                ],
+                "offset": 1,
+                "totalEntries": 5,
+                "truncated": false
+              }
+            },
+            "title": "app/code/tests",
+            "time": {
+              "start": 1790000000042,
+              "end": 1790000000048
+            }
+          },
+          "id": "prt_0c4506bf7001djPUpfGUWjlUpw",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506b70001vbhSRsUrQEJaEF"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10660,
+            "input": 10637,
+            "output": 23,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506c3500141bDXJXico61ri",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506b70001vbhSRsUrQEJaEF"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10747,
+          "input": 10718,
+          "output": 29,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790000000062,
+          "completed": 1790000000351
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4506c3e001wnvyhme0iHf6px",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4506cd1001AuNdXBjZD32tbk",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506c3e001wnvyhme0iHf6px"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-ade0bfae72df93f8",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/pypeln/sync/api.py"
+            },
+            "output": "<path>/app/code/pypeln/sync/api.py</path>\n<type>file</type>\n<content>\n1: \"\"\"\n2: The `sync` module lets you create pipelines using synchronous operations according to Pypeln's general [architecture](https://cgarciae.github.io/pypeln/advanced/#architecture). Use this module when you are in need to perform some synchronous operations and DONT need to perform heavy CPU operations.\n3: \"\"\"\n4: import typing\n5: from collections import deque\n6: \n7: from pypeln import utils as pypeln_utils\n8: \n9: from . import utils\n10: from .stage import Stage\n11: \n12: #############################################################\n13: # from_iterable\n14: #############################################################\n15: \n16: \n17: class FromIterable(Stage):\n18:     def __init__(self, iterable, *args, **kwargs):\n19:         super().__init__(*args, **kwargs)\n20: \n21:         self.iterable = iterable\n22: \n23:     def process(self):\n24: \n25:         for x in self.iterable:\n26:             if self.pipeline_namespace.error:\n27:                 return\n28: \n29:             self.output_queues.put(x)\n30: \n31: \n32: def from_iterable(\n33:     iterable: typing.Iterable = pypeln_utils.UNDEFINED,\n34:     maxsize: int = None,\n35:     worker_constructor: typing.Type = None,\n36: ) -> Stage:\n37:     \"\"\"\n38:     Creates a stage from an iterable. This function gives you more control of how a stage is created through the `worker_constructor` parameter which can be either:\n39:     \n40:     * `None`: (default) is efficient for iterables that already have the data in memory like lists or numpy arrays because no serialization is needed. \n41:     \n42: \n43:     Arguments:\n44:         iterable: a source iterable.\n45:         maxsize: this parameter is not used and only kept for API compatibility with the other modules.\n46:         worker_constructor: defines the worker type for the producer stage.\n47: \n48:     Returns:\n49:         If the `iterable` parameters is given then this function returns a new stage, else it returns a `Partial`.\n50:     \"\"\"\n51: \n52:     if pypeln_utils.is_undefined(iterable):\n53:         return pypeln_utils.Partial(\n54:             lambda iterable: from_iterable(\n55:                 iterable, maxsize=None, worker_constructor=worker_constructor\n56:             )\n57:         )\n58: \n59:     return FromIterable(\n60:         iterable=iterable,\n61:         f=None,\n62:         worker_constructor=worker_constructor,\n63:         workers=1,\n64:         maxsize=0,\n65:         on_start=None,\n66:         on_done=None,\n67:         dependencies=[],\n68:     )\n69: \n70: \n71: #############################################################\n72: # to_stage\n73: #############################################################\n74: \n75: \n76: def to_stage(obj):\n77: \n78:     if isinstance(obj, Stage):\n79:         return obj\n80: \n81:     elif hasattr(obj, \"__iter__\"):\n82:         return from_iterable(obj)\n83: \n84:     else:\n85:         raise ValueError(f\"Object {obj} is not a Stage or iterable\")\n86: \n87: \n88: #############################################################\n89: # map\n90: #############################################################\n91: \n92: \n93: class Map(Stage):\n94:     def apply(self, x, **kwargs):\n95:         y = self.f(x, **kwargs)\n96:         self.output_queues.put(y)\n97: \n98: \n99: def map(\n100:     f: typing.Callable,\n101:     stage: Stage = pypeln_utils.UNDEFINED,\n102:     workers: int = 1,\n103:     maxsize: int = 0,\n104:     on_start: typing.Callable = None,\n105:     on_done: typing.Callable = None,\n106: ) -> Stage:\n107:     \"\"\"\n108:     Creates a stage that maps a function `f` over the data. Its intended to behave like python's built-in `map` function but with the added concurrency.\n109: \n110:     ```python\n111:     import pypeln as pl\n112:     import time\n113:     from random import random\n114: \n115:     def slow_add1(x):\n116:         time.sleep(random()) # <= some slow computation\n117:         return x + 1\n118: \n119:     data = range(10) # [0, 1, 2, ..., 9]\n120:     stage = pl.sync.map(slow_add1, data, workers=3, maxsize=4)\n121: \n122:     data = list(stage) # e.g. [2, 1, 5, 6, 3, 4, 7, 8, 9, 10]\n123:     ```\n124: \n125:     !!! note\n126:         Because of concurrency order is not guaranteed. \n127: \n128:     Arguments:\n129:         f: A function with signature `f(x, **kwargs) -> y`, where `kwargs` is the return of `on_start` if present.\n130:         stage: A stage or iterable.\n131:         workers: The number of workers the stage should contain.\n132:         maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n133:         on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n134:         on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n135: \n136:     Returns:\n137:         If the `stage` parameters is given then this function returns a new stage, else it returns a `Partial`.\n138:     \"\"\"\n139: \n140:     if pypeln_utils.is_undefined(stage):\n141:         return pypeln_utils.Partial(\n142:             lambda stage: map(\n143:                 f,\n144:                 stage=stage,\n145:                 workers=workers,\n146:                 maxsize=maxsize,\n147:                 on_start=on_start,\n148:                 on_done=on_done,\n149:             )\n150:         )\n151: \n152:     stage = to_stage(stage)\n153: \n154:     return Map(\n155:         f=f,\n156:         workers=workers,\n157:         maxsize=maxsize,\n158:         on_start=on_start,\n159:         on_done=on_done,\n160:         dependencies=[stage],\n161:     )\n162: \n163: \n164: #############################################################\n165: # flat_map\n166: #############################################################\n167: \n168: \n169: class FlatMap(Stage):\n170:     def apply(self, x, **kwargs):\n171:         for y in self.f(x, **kwargs):\n172:             self.output_queues.put(y)\n173: \n174: \n175: def flat_map(\n176:     f: typing.Callable,\n177:     stage: Stage = pypeln_utils.UNDEFINED,\n178:     workers: int = 1,\n179:     maxsize: int = 0,\n180:     on_start: typing.Callable = None,\n181:     on_done: typing.Callable = None,\n182: ) -> Stage:\n183:     \"\"\"\n184:     Creates a stage that maps a function `f` over the data, however unlike `pypeln.process.map` in this case `f` returns an iterable. As its name implies, `flat_map` will flatten out these iterables so the resulting stage just contains their elements.\n185: \n186:     ```python\n187:     import pypeln as pl\n188:     import time\n189:     from random import random\n190: \n191:     def slow_integer_pair(x):\n192:         time.sleep(random()) # <= some slow computation\n193: \n194:         if x == 0:\n195:             yield x\n196:         else:\n197:             yield x\n198:             yield -x\n199: \n200:     data = range(10) # [0, 1, 2, ..., 9]\n201:     stage = pl.sync.flat_map(slow_integer_pair, data, workers=3, maxsize=4)\n202: \n203:     list(stage) # e.g. [2, -2, 3, -3, 0, 1, -1, 6, -6, 4, -4, ...]\n204:     ```\n205: \n206:     !!! note\n207:         Because of concurrency order is not guaranteed. \n208:         \n209:     `flat_map` is a more general operation, you can actually implement `pypeln.process.map` and `pypeln.process.filter` with it, for example:\n210: \n211:     ```python\n212:     import pypeln as pl\n213: \n214:     pl.sync.map(f, stage) = pl.sync.flat_map(lambda x: [f(x)], stage)\n215:     pl.sync.filter(f, stage) = pl.sync.flat_map(lambda x: [x] if f(x) else [], stage)\n216:     ```\n217: \n218:     Using `flat_map` with a generator function is very useful as e.g. you are able to filter out unwanted elements when there are exceptions, missing data, etc.\n219: \n220:     Arguments:\n221:         f: A function with signature `f(x, **kwargs) -> Iterable`, where `kwargs` is the return of `on_start` if present.\n222:         stage: A stage or iterable.\n223:         workers: The number of workers the stage should contain.\n224:         maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n225:         on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n226:         on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n227: \n228:     Returns:\n229:         If the `stage` parameters is given then this function returns a new stage, else it returns a `Partial`.\n230:     \"\"\"\n231: \n232:     if pypeln_utils.is_undefined(stage):\n233:         return pypeln_utils.Partial(\n234:             lambda stage: flat_map(\n235:                 f,\n236:                 stage=stage,\n237:                 workers=workers,\n238:                 maxsize=maxsize,\n239:                 on_start=on_start,\n240:                 on_done=on_done,\n241:             )\n242:         )\n243: \n244:     stage = to_stage(stage)\n245: \n246:     return FlatMap(\n247:         f=f,\n248:         workers=workers,\n249:         maxsize=maxsize,\n250:         on_start=on_start,\n251:         on_done=on_done,\n252:         dependencies=[stage],\n253:     )\n254: \n255: \n256: #############################################################\n257: # filter\n258: #############################################################\n259: \n260: \n261: class Filter(Stage):\n262:     def apply(self, x, **kwargs):\n263:         if self.f(x, **kwargs):\n264:             self.output_queues.put(x)\n265: \n266: \n267: def filter(\n268:     f: typing.Callable,\n269:     stage: Stage = pypeln_utils.UNDEFINED,\n270:     workers: int = 1,\n271:     maxsize: int = 0,\n272:     on_start: typing.Callable = None,\n273:     on_done: typing.Callable = None,\n274: ) -> Stage:\n275:     \"\"\"\n276:     Creates a stage that filter the data given a predicate function `f`. It is intended to behave like python's built-in `filter` function but with the added concurrency.\n277: \n278:     ```python\n279:     import pypeln as pl\n280:     import time\n281:     from random import random\n282: \n283:     def slow_gt3(x):\n284:         time.sleep(random()) # <= some slow computation\n285:         return x > 3\n286: \n287:     data = range(10) # [0, 1, 2, ..., 9]\n288:     stage = pl.sync.filter(slow_gt3, data, workers=3, maxsize=4)\n289: \n290:     data = list(stage) # e.g. [5, 6, 3, 4, 7, 8, 9]\n291:     ```\n292: \n293:     !!! note\n294:         Because of concurrency order is not guaranteed.\n295: \n296:     Arguments:\n297:         f: A function with signature `f(x, **kwargs) -> bool`, where `kwargs` is the return of `on_start` if present.\n298:         stage: A stage or iterable.\n299:         workers: The number of workers the stage should contain.\n300:         maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n301:         on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n302:         on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n303: \n304:     Returns:\n305:         If the `stage` parameters is given then this function returns a new stage, else it returns a `Partial`.\n306:     \"\"\"\n307: \n308:     if pypeln_utils.is_undefined(stage):\n309:         return pypeln_utils.Partial(\n310:             lambda stage: filter(\n311:                 f,\n312:                 stage=stage,\n313:                 workers=workers,\n314:                 maxsize=maxsize,\n315:                 on_start=on_start,\n316:                 on_done=on_done,\n317:             )\n318:         )\n319: \n320:     stage = to_stage(stage)\n321: \n322:     return Filter(\n323:         f=f,\n324:         workers=workers,\n325:         maxsize=maxsize,\n326:         on_start=on_start,\n327:         on_done=on_done,\n328:         dependencies=[stage],\n329:     )\n330: \n331: \n332: #############################################################\n333: # each\n334: #############################################################\n335: \n336: \n337: class Each(Stage):\n338:     def apply(self, x, **kwargs):\n339:         self.f(x, **kwargs)\n340: \n341: \n342: def each(\n343:     f: typing.Callable,\n344:     stage: Stage = pypeln_utils.UNDEFINED,\n345:     workers: int = 1,\n346:     maxsize: int = 0,\n347:     on_start: typing.Callable = None,\n348:     on_done: typing.Callable = None,\n349:     run: bool = False,\n350: ) -> Stage:\n351:     \"\"\"\n352:     Creates a stage that runs the function `f` for each element in the data but the stage itself yields no elements. Its useful for sink stages that perform certain actions such as writting to disk, saving to a database, etc, and dont produce any results. For example:\n353: \n354:     ```python\n355:     import pypeln as pl\n356: \n357:     def process_image(image_path):\n358:         image = load_image(image_path)\n359:         image = transform_image(image)\n360:         save_image(image_path, image)\n361: \n362:     files_paths = get_file_paths()\n363:     stage = pl.sync.each(process_image, file_paths, workers=4)\n364:     pl.sync.run(stage)\n365: \n366:     ```\n367: \n368:     or alternatively\n369: \n370:     ```python\n371:     files_paths = get_file_paths()\n372:     pl.sync.each(process_image, file_paths, workers=4, run=True)\n373:     ```\n374: \n375:     !!! note\n376:         Because of concurrency order is not guaranteed.\n377: \n378:     Arguments:\n379:         f: A function with signature `f(x, **kwargs) -> None`, where `kwargs` is the return of `on_start` if present.\n380:         stage: A stage or iterable.\n381:         workers: The number of workers the stage should contain.\n382:         maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n383:         on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n384:         on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n385:         run: Whether or not to execute the stage immediately.\n386: \n387:     Returns:\n388:         If the `stage` parameters is not given then this function returns a `Partial`, else if `run=False` (default) it return a new stage, if `run=True` then it runs the stage and returns `None`.\n389:     \"\"\"\n390: \n391:     if pypeln_utils.is_undefined(stage):\n392:         return pypeln_utils.Partial(\n393:             lambda stage: each(\n394:                 f,\n395:                 stage=stage,\n396:                 workers=workers,\n397:                 maxsize=maxsize,\n398:                 on_start=on_start,\n399:                 on_done=on_done,\n400:             )\n401:         )\n402: \n403:     stage = to_stage(stage)\n404: \n405:     stage = Each(\n406:         f=f,\n407:         workers=workers,\n408:         maxsize=maxsize,\n409:         on_start=on_start,\n410:         on_done=on_done,\n411:         dependencies=[stage],\n412:     )\n413: \n414:     if not run:\n415:         return stage\n416: \n417:     # Execute the stage immediately when run=True\n418:     try:\n419:         for _ in stage.to_iterable():\n420:             pass\n421:     except Exception:\n422:         # Re-raise the exception to ensure proper error handling\n423:         raise\n424:     \n425:     return None\n426: \n427: \n428: #############################################################\n429: # concat\n430: #############################################################\n431: \n432: \n433: class Concat(Stage):\n434:     def to_iterable(self, maxsize: int = 0):\n435:         # For Concat, we need to iterate through all dependencies\n436:         for dep in self.dependencies:\n437:             # Get the input iterable from each dependency\n438:             if hasattr(dep, 'to_iterable'):\n439:                 input_iterable = dep.to_iterable(maxsize=maxsize)\n440:             else:\n441:                 input_iterable = dep\n442:                 \n443:             # Ensure input is iterable\n444:             if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):\n445:                 input_iterable = [input_iterable]\n446:                 \n447:             # Process each item from this dependency\n448:             for item in input_iterable:\n449:                 yield item\n450: \n451: \n452: def concat(stages: typing.List[Stage], maxsize: int = 0) -> Stage:\n453:     \"\"\"\n454:     Concatenates / merges many stages into a single one by appending elements from each stage as they come, order is not preserved.\n455: \n456:     ```python\n457:     import pypeln as pl\n458: \n459:     stage_1 = [1, 2, 3]\n460:     stage_2 = [4, 5, 6, 7]\n461: \n462:     stage_3 = pl.sync.concat([stage_1, stage_2]) # e.g. [1, 4, 5, 2, 6, 3, 7]\n463:     ```\n464: \n465:     Arguments:\n466:         stages: a list of stages or iterables.\n467:         maxsize: the maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n468: \n469:     Returns:\n470:         A stage object.\n471:     \"\"\"\n472: \n473:     stages = [to_stage(stage) for stage in stages]\n474: \n475:     return Concat(\n476:         f=None,\n477:         workers=1,\n478:         maxsize=maxsize,\n479:         on_start=None,\n480:         on_done=None,\n481:         dependencies=stages,\n482:     )\n483: \n484: \n485: #############################################################\n486: # run\n487: #############################################################\n488: \n489: \n490: def run(stages: typing.List[Stage], maxsize: int = 0) -> None:\n491:     \"\"\"\n492:     Iterates over one or more stages until their iterators run out of elements.\n493: \n494:     ```python\n495:     import pypeln as pl\n496: \n497:     data = get_data()\n498:     stage = pl.sync.each(slow_fn, data, workers=6)\n499: \n500:     # execute pipeline\n501:     pl.sync.run(stage)\n502:     ```\n503: \n504:     Arguments:\n505:         stages: A stage/iterable or list of stages/iterables to be iterated over. If a list is passed, stages are first merged using `concat` before iterating.\n506:         maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n507: \n508:     \"\"\"\n509: \n510:     if isinstance(stages, list) and len(stages) == 0:\n511:         raise ValueError(\"Expected at least 1 stage to run\")\n512: \n513:     elif isinstance(stages, list):\n514:         stage = concat(stages, maxsize=maxsize)\n515: \n516:     else:\n517:         stage = stages\n518: \n519:     stage = to_iterable(stage, maxsize=maxsize)\n520: \n521:     # Iterate over the stage to execute it, properly propagating exceptions\n522:     try:\n523:         for _ in stage:\n524:             pass\n525:     except Exception:\n526:         # Re-raise the exception to ensure proper error handling\n527:         raise\n528: \n529: \n530: #############################################################\n531: # to_iterable\n532: #############################################################\n533: \n534: \n535: def to_iterable(\n536:     stage: Stage = pypeln_utils.UNDEFINED, maxsize: int = 0\n537: ) -> typing.Iterable:\n538:     \"\"\"\n539:     Creates an iterable from a stage.\n540: \n541:     Arguments:\n542:         stage: A stage object.\n543:         maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n544: \n545:     Returns:\n546:         If the `stage` parameters is given then this function returns an iterable, else it returns a `Partial`.\n547:     \"\"\"\n548: \n549:     if pypeln_utils.is_undefined(stage):\n550:         return pypeln_utils.Partial(lambda stage: to_iterable(stage, maxsize=maxsize))\n551: \n552:     if isinstance(stage, Stage):\n553:         iterable = stage.to_iterable(maxsize=maxsize)\n554:     else:\n555:         iterable = stage\n556: \n557:     return iterable\n\n(End of file - total 557 lines)\n</content>",
+            "metadata": {
+              "preview": "\"\"\"\nThe `sync` module lets you create pipelines using synchronous operations according to Pypeln's general [architecture](https://cgarciae.github.io/pypeln/advanced/#architecture). Use this module when you are in need to perform some synchronous operations and DONT need to perform heavy CPU operations.\n\"\"\"\nimport typing\nfrom collections import deque\n\nfrom pypeln import utils as pypeln_utils\n\nfrom . import utils\nfrom .stage import Stage\n\n#############################################################\n# from_iterable\n#############################################################\n\n\nclass FromIterable(Stage):\n    def __init__(self, iterable, *args, **kwargs):\n        super().__init__(*args, **kwargs)\n",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/pypeln/sync/api.py",
+                "text": "\"\"\"\nThe `sync` module lets you create pipelines using synchronous operations according to Pypeln's general [architecture](https://cgarciae.github.io/pypeln/advanced/#architecture). Use this module when you are in need to perform some synchronous operations and DONT need to perform heavy CPU operations.\n\"\"\"\nimport typing\nfrom collections import deque\n\nfrom pypeln import utils as pypeln_utils\n\nfrom . import utils\nfrom .stage import Stage\n\n#############################################################\n# from_iterable\n#############################################################\n\n\nclass FromIterable(Stage):\n    def __init__(self, iterable, *args, **kwargs):\n        super().__init__(*args, **kwargs)\n\n        self.iterable = iterable\n\n    def process(self):\n\n        for x in self.iterable:\n            if self.pipeline_namespace.error:\n                return\n\n            self.output_queues.put(x)\n\n\ndef from_iterable(\n    iterable: typing.Iterable = pypeln_utils.UNDEFINED,\n    maxsize: int = None,\n    worker_constructor: typing.Type = None,\n) -> Stage:\n    \"\"\"\n    Creates a stage from an iterable. This function gives you more control of how a stage is created through the `worker_constructor` parameter which can be either:\n    \n    * `None`: (default) is efficient for iterables that already have the data in memory like lists or numpy arrays because no serialization is needed. \n    \n\n    Arguments:\n        iterable: a source iterable.\n        maxsize: this parameter is not used and only kept for API compatibility with the other modules.\n        worker_constructor: defines the worker type for the producer stage.\n\n    Returns:\n        If the `iterable` parameters is given then this function returns a new stage, else it returns a `Partial`.\n    \"\"\"\n\n    if pypeln_utils.is_undefined(iterable):\n        return pypeln_utils.Partial(\n            lambda iterable: from_iterable(\n                iterable, maxsize=None, worker_constructor=worker_constructor\n            )\n        )\n\n    return FromIterable(\n        iterable=iterable,\n        f=None,\n        worker_constructor=worker_constructor,\n        workers=1,\n        maxsize=0,\n        on_start=None,\n        on_done=None,\n        dependencies=[],\n    )\n\n\n#############################################################\n# to_stage\n#############################################################\n\n\ndef to_stage(obj):\n\n    if isinstance(obj, Stage):\n        return obj\n\n    elif hasattr(obj, \"__iter__\"):\n        return from_iterable(obj)\n\n    else:\n        raise ValueError(f\"Object {obj} is not a Stage or iterable\")\n\n\n#############################################################\n# map\n#############################################################\n\n\nclass Map(Stage):\n    def apply(self, x, **kwargs):\n        y = self.f(x, **kwargs)\n        self.output_queues.put(y)\n\n\ndef map(\n    f: typing.Callable,\n    stage: Stage = pypeln_utils.UNDEFINED,\n    workers: int = 1,\n    maxsize: int = 0,\n    on_start: typing.Callable = None,\n    on_done: typing.Callable = None,\n) -> Stage:\n    \"\"\"\n    Creates a stage that maps a function `f` over the data. Its intended to behave like python's built-in `map` function but with the added concurrency.\n\n    ```python\n    import pypeln as pl\n    import time\n    from random import random\n\n    def slow_add1(x):\n        time.sleep(random()) # <= some slow computation\n        return x + 1\n\n    data = range(10) # [0, 1, 2, ..., 9]\n    stage = pl.sync.map(slow_add1, data, workers=3, maxsize=4)\n\n    data = list(stage) # e.g. [2, 1, 5, 6, 3, 4, 7, 8, 9, 10]\n    ```\n\n    !!! note\n        Because of concurrency order is not guaranteed. \n\n    Arguments:\n        f: A function with signature `f(x, **kwargs) -> y`, where `kwargs` is the return of `on_start` if present.\n        stage: A stage or iterable.\n        workers: The number of workers the stage should contain.\n        maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n        on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n        on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n\n    Returns:\n        If the `stage` parameters is given then this function returns a new stage, else it returns a `Partial`.\n    \"\"\"\n\n    if pypeln_utils.is_undefined(stage):\n        return pypeln_utils.Partial(\n            lambda stage: map(\n                f,\n                stage=stage,\n                workers=workers,\n                maxsize=maxsize,\n                on_start=on_start,\n                on_done=on_done,\n            )\n        )\n\n    stage = to_stage(stage)\n\n    return Map(\n        f=f,\n        workers=workers,\n        maxsize=maxsize,\n        on_start=on_start,\n        on_done=on_done,\n        dependencies=[stage],\n    )\n\n\n#############################################################\n# flat_map\n#############################################################\n\n\nclass FlatMap(Stage):\n    def apply(self, x, **kwargs):\n        for y in self.f(x, **kwargs):\n            self.output_queues.put(y)\n\n\ndef flat_map(\n    f: typing.Callable,\n    stage: Stage = pypeln_utils.UNDEFINED,\n    workers: int = 1,\n    maxsize: int = 0,\n    on_start: typing.Callable = None,\n    on_done: typing.Callable = None,\n) -> Stage:\n    \"\"\"\n    Creates a stage that maps a function `f` over the data, however unlike `pypeln.process.map` in this case `f` returns an iterable. As its name implies, `flat_map` will flatten out these iterables so the resulting stage just contains their elements.\n\n    ```python\n    import pypeln as pl\n    import time\n    from random import random\n\n    def slow_integer_pair(x):\n        time.sleep(random()) # <= some slow computation\n\n        if x == 0:\n            yield x\n        else:\n            yield x\n            yield -x\n\n    data = range(10) # [0, 1, 2, ..., 9]\n    stage = pl.sync.flat_map(slow_integer_pair, data, workers=3, maxsize=4)\n\n    list(stage) # e.g. [2, -2, 3, -3, 0, 1, -1, 6, -6, 4, -4, ...]\n    ```\n\n    !!! note\n        Because of concurrency order is not guaranteed. \n        \n    `flat_map` is a more general operation, you can actually implement `pypeln.process.map` and `pypeln.process.filter` with it, for example:\n\n    ```python\n    import pypeln as pl\n\n    pl.sync.map(f, stage) = pl.sync.flat_map(lambda x: [f(x)], stage)\n    pl.sync.filter(f, stage) = pl.sync.flat_map(lambda x: [x] if f(x) else [], stage)\n    ```\n\n    Using `flat_map` with a generator function is very useful as e.g. you are able to filter out unwanted elements when there are exceptions, missing data, etc.\n\n    Arguments:\n        f: A function with signature `f(x, **kwargs) -> Iterable`, where `kwargs` is the return of `on_start` if present.\n        stage: A stage or iterable.\n        workers: The number of workers the stage should contain.\n        maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n        on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n        on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n\n    Returns:\n        If the `stage` parameters is given then this function returns a new stage, else it returns a `Partial`.\n    \"\"\"\n\n    if pypeln_utils.is_undefined(stage):\n        return pypeln_utils.Partial(\n            lambda stage: flat_map(\n                f,\n                stage=stage,\n                workers=workers,\n                maxsize=maxsize,\n                on_start=on_start,\n                on_done=on_done,\n            )\n        )\n\n    stage = to_stage(stage)\n\n    return FlatMap(\n        f=f,\n        workers=workers,\n        maxsize=maxsize,\n        on_start=on_start,\n        on_done=on_done,\n        dependencies=[stage],\n    )\n\n\n#############################################################\n# filter\n#############################################################\n\n\nclass Filter(Stage):\n    def apply(self, x, **kwargs):\n        if self.f(x, **kwargs):\n            self.output_queues.put(x)\n\n\ndef filter(\n    f: typing.Callable,\n    stage: Stage = pypeln_utils.UNDEFINED,\n    workers: int = 1,\n    maxsize: int = 0,\n    on_start: typing.Callable = None,\n    on_done: typing.Callable = None,\n) -> Stage:\n    \"\"\"\n    Creates a stage that filter the data given a predicate function `f`. It is intended to behave like python's built-in `filter` function but with the added concurrency.\n\n    ```python\n    import pypeln as pl\n    import time\n    from random import random\n\n    def slow_gt3(x):\n        time.sleep(random()) # <= some slow computation\n        return x > 3\n\n    data = range(10) # [0, 1, 2, ..., 9]\n    stage = pl.sync.filter(slow_gt3, data, workers=3, maxsize=4)\n\n    data = list(stage) # e.g. [5, 6, 3, 4, 7, 8, 9]\n    ```\n\n    !!! note\n        Because of concurrency order is not guaranteed.\n\n    Arguments:\n        f: A function with signature `f(x, **kwargs) -> bool`, where `kwargs` is the return of `on_start` if present.\n        stage: A stage or iterable.\n        workers: The number of workers the stage should contain.\n        maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n        on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n        on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n\n    Returns:\n        If the `stage` parameters is given then this function returns a new stage, else it returns a `Partial`.\n    \"\"\"\n\n    if pypeln_utils.is_undefined(stage):\n        return pypeln_utils.Partial(\n            lambda stage: filter(\n                f,\n                stage=stage,\n                workers=workers,\n                maxsize=maxsize,\n                on_start=on_start,\n                on_done=on_done,\n            )\n        )\n\n    stage = to_stage(stage)\n\n    return Filter(\n        f=f,\n        workers=workers,\n        maxsize=maxsize,\n        on_start=on_start,\n        on_done=on_done,\n        dependencies=[stage],\n    )\n\n\n#############################################################\n# each\n#############################################################\n\n\nclass Each(Stage):\n    def apply(self, x, **kwargs):\n        self.f(x, **kwargs)\n\n\ndef each(\n    f: typing.Callable,\n    stage: Stage = pypeln_utils.UNDEFINED,\n    workers: int = 1,\n    maxsize: int = 0,\n    on_start: typing.Callable = None,\n    on_done: typing.Callable = None,\n    run: bool = False,\n) -> Stage:\n    \"\"\"\n    Creates a stage that runs the function `f` for each element in the data but the stage itself yields no elements. Its useful for sink stages that perform certain actions such as writting to disk, saving to a database, etc, and dont produce any results. For example:\n\n    ```python\n    import pypeln as pl\n\n    def process_image(image_path):\n        image = load_image(image_path)\n        image = transform_image(image)\n        save_image(image_path, image)\n\n    files_paths = get_file_paths()\n    stage = pl.sync.each(process_image, file_paths, workers=4)\n    pl.sync.run(stage)\n\n    ```\n\n    or alternatively\n\n    ```python\n    files_paths = get_file_paths()\n    pl.sync.each(process_image, file_paths, workers=4, run=True)\n    ```\n\n    !!! note\n        Because of concurrency order is not guaranteed.\n\n    Arguments:\n        f: A function with signature `f(x, **kwargs) -> None`, where `kwargs` is the return of `on_start` if present.\n        stage: A stage or iterable.\n        workers: The number of workers the stage should contain.\n        maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n        on_start: A function with signature `on_start(worker_info?) -> kwargs`, where `kwargs` can be a `dict` of keyword arguments that will be passed to `f` and `on_done`. If you define a `worker_info` argument an object with information about the worker will be passed. This function is executed once per worker at the beggining.\n        on_done: A function with signature `on_done(stage_status?, **kwargs)`, where `kwargs` is the return of `on_start` if present. If you define a `stage_status` argument an object with information about the stage will be passed. This function is executed once per worker when the worker finishes.\n        run: Whether or not to execute the stage immediately.\n\n    Returns:\n        If the `stage` parameters is not given then this function returns a `Partial`, else if `run=False` (default) it return a new stage, if `run=True` then it runs the stage and returns `None`.\n    \"\"\"\n\n    if pypeln_utils.is_undefined(stage):\n        return pypeln_utils.Partial(\n            lambda stage: each(\n                f,\n                stage=stage,\n                workers=workers,\n                maxsize=maxsize,\n                on_start=on_start,\n                on_done=on_done,\n            )\n        )\n\n    stage = to_stage(stage)\n\n    stage = Each(\n        f=f,\n        workers=workers,\n        maxsize=maxsize,\n        on_start=on_start,\n        on_done=on_done,\n        dependencies=[stage],\n    )\n\n    if not run:\n        return stage\n\n    # Execute the stage immediately when run=True\n    try:\n        for _ in stage.to_iterable():\n            pass\n    except Exception:\n        # Re-raise the exception to ensure proper error handling\n        raise\n    \n    return None\n\n\n#############################################################\n# concat\n#############################################################\n\n\nclass Concat(Stage):\n    def to_iterable(self, maxsize: int = 0):\n        # For Concat, we need to iterate through all dependencies\n        for dep in self.dependencies:\n            # Get the input iterable from each dependency\n            if hasattr(dep, 'to_iterable'):\n                input_iterable = dep.to_iterable(maxsize=maxsize)\n            else:\n                input_iterable = dep\n                \n            # Ensure input is iterable\n            if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):\n                input_iterable = [input_iterable]\n                \n            # Process each item from this dependency\n            for item in input_iterable:\n                yield item\n\n\ndef concat(stages: typing.List[Stage], maxsize: int = 0) -> Stage:\n    \"\"\"\n    Concatenates / merges many stages into a single one by appending elements from each stage as they come, order is not preserved.\n\n    ```python\n    import pypeln as pl\n\n    stage_1 = [1, 2, 3]\n    stage_2 = [4, 5, 6, 7]\n\n    stage_3 = pl.sync.concat([stage_1, stage_2]) # e.g. [1, 4, 5, 2, 6, 3, 7]\n    ```\n\n    Arguments:\n        stages: a list of stages or iterables.\n        maxsize: the maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n\n    Returns:\n        A stage object.\n    \"\"\"\n\n    stages = [to_stage(stage) for stage in stages]\n\n    return Concat(\n        f=None,\n        workers=1,\n        maxsize=maxsize,\n        on_start=None,\n        on_done=None,\n        dependencies=stages,\n    )\n\n\n#############################################################\n# run\n#############################################################\n\n\ndef run(stages: typing.List[Stage], maxsize: int = 0) -> None:\n    \"\"\"\n    Iterates over one or more stages until their iterators run out of elements.\n\n    ```python\n    import pypeln as pl\n\n    data = get_data()\n    stage = pl.sync.each(slow_fn, data, workers=6)\n\n    # execute pipeline\n    pl.sync.run(stage)\n    ```\n\n    Arguments:\n        stages: A stage/iterable or list of stages/iterables to be iterated over. If a list is passed, stages are first merged using `concat` before iterating.\n        maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n\n    \"\"\"\n\n    if isinstance(stages, list) and len(stages) == 0:\n        raise ValueError(\"Expected at least 1 stage to run\")\n\n    elif isinstance(stages, list):\n        stage = concat(stages, maxsize=maxsize)\n\n    else:\n        stage = stages\n\n    stage = to_iterable(stage, maxsize=maxsize)\n\n    # Iterate over the stage to execute it, properly propagating exceptions\n    try:\n        for _ in stage:\n            pass\n    except Exception:\n        # Re-raise the exception to ensure proper error handling\n        raise\n\n\n#############################################################\n# to_iterable\n#############################################################\n\n\ndef to_iterable(\n    stage: Stage = pypeln_utils.UNDEFINED, maxsize: int = 0\n) -> typing.Iterable:\n    \"\"\"\n    Creates an iterable from a stage.\n\n    Arguments:\n        stage: A stage object.\n        maxsize: The maximum number of objects the stage can hold simultaneously, if set to `0` (default) then the stage can grow unbounded.\n\n    Returns:\n        If the `stage` parameters is given then this function returns an iterable, else it returns a `Partial`.\n    \"\"\"\n\n    if pypeln_utils.is_undefined(stage):\n        return pypeln_utils.Partial(lambda stage: to_iterable(stage, maxsize=maxsize))\n\n    if isinstance(stage, Stage):\n        iterable = stage.to_iterable(maxsize=maxsize)\n    else:\n        iterable = stage\n\n    return iterable",
+                "lineStart": 1,
+                "lineEnd": 557,
+                "totalLines": 557,
+                "truncated": false
+              }
+            },
+            "title": "app/code/pypeln/sync/api.py",
+            "time": {
+              "start": 1790000000303,
+              "end": 1790000000341
+            }
+          },
+          "id": "prt_0c4506ce0001617VnVVlpHepHk",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506c3e001wnvyhme0iHf6px"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10747,
+            "input": 10718,
+            "output": 29,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506d59001Zq8kxUH5vZ8Qzu",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506c3e001wnvyhme0iHf6px"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 17341,
+          "input": 17311,
+          "output": 30,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790000000357,
+          "completed": 1790000000777
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4506d640016E1HLiVbi54Mrs",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4506e73001Hna1dikSZ7WIo2",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506d640016E1HLiVbi54Mrs"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a7ebe2551d7e2b76",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/pypeln/sync/stage.py"
+            },
+            "output": "<path>/app/code/pypeln/sync/stage.py</path>\n<type>file</type>\n<content>\n1: import typing\n2: from collections import deque\n3: from threading import Lock\n4: from concurrent.futures import ThreadPoolExecutor\n5: import inspect\n6: \n7: from pypeln import utils as pypeln_utils\n8: \n9: \n10: class Stage:\n11:     def __init__(\n12:         self,\n13:         f: typing.Callable,\n14:         workers: int,\n15:         maxsize: int,\n16:         on_start: typing.Callable,\n17:         on_done: typing.Callable,\n18:         dependencies: typing.List[\"Stage\"],\n19:         worker_constructor: typing.Type = None,\n20:     ):\n21: \n22:         self.f = f\n23:         self.workers = workers\n24:         self.maxsize = maxsize\n25:         self.on_start = on_start\n26:         self.on_done = on_done\n27:         self.dependencies = dependencies\n28:         self.worker_constructor = worker_constructor\n29: \n30:         self.pipeline_namespace = pypeln_utils.Namespace()\n31:         self.pipeline_namespace.error = None\n32: \n33:     def __or__(self, stage):\n34:         return stage(self)\n35: \n36:     def __ror__(self, stage):\n37:         return self(stage)\n38: \n39:     def to_iterable(self, maxsize: int = 0):\n40:         # Simple synchronous processing for sync module\n41:         # Now we properly respect the workers parameter\n42:         if self.dependencies:\n43:             # Collect all inputs from dependencies\n44:             inputs = []\n45:             for dep in self.dependencies:\n46:                 if hasattr(dep, 'to_iterable'):\n47:                     input_iterable = dep.to_iterable(maxsize=maxsize)\n48:                 else:\n49:                     input_iterable = dep\n50:                     \n51:                 if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):\n52:                     input_iterable = [input_iterable]\n53:                 \n54:                 inputs.extend(input_iterable)\n55:             \n56:             # For concurrent execution when workers > 1\n57:             if self.workers > 1:\n58:                 # Process items concurrently using ThreadPoolExecutor\n59:                 def process_item(item, worker_index):\n60:                     # Handle on_start callback - execute once per worker\n61:                     kwargs = {}\n62:                     if self.on_start:\n63:                         try:\n64:                             sig = inspect.signature(self.on_start)\n65:                             if 'worker_info' in sig.parameters:\n66:                                 from .utils import WorkerInfo\n67:                                 worker_info = WorkerInfo(index=worker_index)\n68:                                 result_kwargs = self.on_start(worker_info)\n69:                             else:\n70:                                 result_kwargs = self.on_start()\n71:                         except Exception:\n72:                             # Fallback to default if on_start fails\n73:                             result_kwargs = {}\n74:                         \n75:                         if result_kwargs is None:\n76:                             result_kwargs = {}\n77:                         kwargs = result_kwargs\n78:                     \n79:                     # Process the item using the apply method for subclasses like FlatMap\n80:                     try:\n81:                         # Call apply method for subclasses that override it (like FlatMap)\n82:                         if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':\n83:                             # For subclasses like FlatMap, use apply method\n84:                             self.apply(item, **kwargs)\n85:                         else:\n86:                             # For regular cases, use the f function\n87:                             if self.f is not None:\n88:                                 result = self.f(item, **kwargs)\n89:                                 \n90:                                 # Handle generator/iterable results (important for flat_map)\n91:                                 if hasattr(result, '__iter__') and not isinstance(result, str):\n92:                                     # Yield each item from the iterable\n93:                                     for item in result:\n94:                                         yield item\n95:                                 else:\n96:                                     # Yield single item\n97:                                     yield result\n98:                             else:\n99:                                 # For concat-like operations, yield the item directly\n100:                                 yield item\n101:                     except Exception as e:\n102:                         # Store the error in the pipeline namespace\n103:                         if self.pipeline_namespace.error is None:\n104:                             self.pipeline_namespace.error = e\n105:                         raise\n106:                     finally:\n107:                         # Handle on_done callback - execute once per worker\n108:                         if self.on_done:\n109:                             try:\n110:                                 # Pass the kwargs to on_done as well\n111:                                 self.on_done(**kwargs)\n112:                             except Exception:\n113:                                 # Silently ignore errors in on_done callbacks\n114:                                 pass\n115:                 \n116:                 # Create a wrapper function to properly collect results\n117:                 def worker_wrapper(item, worker_index):\n118:                     # We need to handle exceptions properly for concurrent execution\n119:                     try:\n120:                         result_items = list(process_item(item, worker_index))\n121:                         return result_items\n122:                     except Exception as e:\n123:                         # Store the error in the pipeline namespace\n124:                         if self.pipeline_namespace.error is None:\n125:                             self.pipeline_namespace.error = e\n126:                         raise\n127:                 \n128:                 with ThreadPoolExecutor(max_workers=self.workers) as executor:\n129:                     futures = []\n130:                     for i, item in enumerate(inputs):\n131:                         # Assign worker index in round-robin fashion\n132:                         worker_index = i % self.workers\n133:                         future = executor.submit(worker_wrapper, item, worker_index)\n134:                         futures.append(future)\n135:                     \n136:                     # Collect results and yield them in order\n137:                     for future in futures:\n138:                         try:\n139:                             result_items = future.result()\n140:                             for item in result_items:\n141:                                 yield item\n142:                         except Exception as e:\n143:                             # Re-raise the exception to ensure proper propagation\n144:                             if self.pipeline_namespace.error is None:\n145:                                 self.pipeline_namespace.error = e\n146:                             raise\n147:             else:\n148:                 # Single-threaded processing for workers=1 (original behavior)\n149:                 for item in inputs:\n150:                     # Handle on_start callback\n151:                     kwargs = {}\n152:                     if self.on_start:\n153:                         try:\n154:                             sig = inspect.signature(self.on_start)\n155:                             if 'worker_info' in sig.parameters:\n156:                                 from .utils import WorkerInfo\n157:                                 worker_info = WorkerInfo(index=0)  # Simplified for sync\n158:                                 result_kwargs = self.on_start(worker_info)\n159:                             else:\n160:                                 result_kwargs = self.on_start()\n161:                         except Exception:\n162:                             # Fallback to default if on_start fails\n163:                             result_kwargs = {}\n164:                         \n165:                         if result_kwargs is None:\n166:                             result_kwargs = {}\n167:                         kwargs = result_kwargs\n168:                     \n169:                     # Process the item using the apply method for subclasses like FlatMap\n170:                     try:\n171:                         # Call apply method for subclasses that override it (like FlatMap)\n172:                         if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':\n173:                             # For subclasses like FlatMap, use apply method\n174:                             self.apply(item, **kwargs)\n175:                         else:\n176:                             # For regular cases, use the f function\n177:                             if self.f is not None:\n178:                                 result = self.f(item, **kwargs)\n179:                                 \n180:                                 # Handle generator/iterable results (important for flat_map)\n181:                                 if hasattr(result, '__iter__') and not isinstance(result, str):\n182:                                     # Yield each item from the iterable\n183:                                     for item in result:\n184:                                         yield item\n185:                                 else:\n186:                                     # Yield single item\n187:                                     yield result\n188:                             else:\n189:                                 # For concat-like operations, yield the item directly\n190:                                 yield item\n191:                     except Exception as e:\n192:                         # Store the error in the pipeline namespace\n193:                         if self.pipeline_namespace.error is None:\n194:                             self.pipeline_namespace.error = e\n195:                         raise\n196:                     finally:\n197:                         # Handle on_done callback\n198:                         if self.on_done:\n199:                             try:\n200:                                 # Pass the kwargs to on_done as well\n201:                                 self.on_done(**kwargs)\n202:                             except Exception:\n203:                                 # Silently ignore errors in on_done callbacks\n204:                                 pass\n205:         else:\n206:             # Direct iterable for from_iterable\n207:             if hasattr(self, 'iterable'):\n208:                 for item in self.iterable:\n209:                     yield item\n210: \n211:     def __iter__(self):\n212:         return iter(self.to_iterable())\n\n(End of file - total 212 lines)\n</content>",
+            "metadata": {
+              "preview": "import typing\nfrom collections import deque\nfrom threading import Lock\nfrom concurrent.futures import ThreadPoolExecutor\nimport inspect\n\nfrom pypeln import utils as pypeln_utils\n\n\nclass Stage:\n    def __init__(\n        self,\n        f: typing.Callable,\n        workers: int,\n        maxsize: int,\n        on_start: typing.Callable,\n        on_done: typing.Callable,\n        dependencies: typing.List[\"Stage\"],\n        worker_constructor: typing.Type = None,\n    ):",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/pypeln/sync/stage.py",
+                "text": "import typing\nfrom collections import deque\nfrom threading import Lock\nfrom concurrent.futures import ThreadPoolExecutor\nimport inspect\n\nfrom pypeln import utils as pypeln_utils\n\n\nclass Stage:\n    def __init__(\n        self,\n        f: typing.Callable,\n        workers: int,\n        maxsize: int,\n        on_start: typing.Callable,\n        on_done: typing.Callable,\n        dependencies: typing.List[\"Stage\"],\n        worker_constructor: typing.Type = None,\n    ):\n\n        self.f = f\n        self.workers = workers\n        self.maxsize = maxsize\n        self.on_start = on_start\n        self.on_done = on_done\n        self.dependencies = dependencies\n        self.worker_constructor = worker_constructor\n\n        self.pipeline_namespace = pypeln_utils.Namespace()\n        self.pipeline_namespace.error = None\n\n    def __or__(self, stage):\n        return stage(self)\n\n    def __ror__(self, stage):\n        return self(stage)\n\n    def to_iterable(self, maxsize: int = 0):\n        # Simple synchronous processing for sync module\n        # Now we properly respect the workers parameter\n        if self.dependencies:\n            # Collect all inputs from dependencies\n            inputs = []\n            for dep in self.dependencies:\n                if hasattr(dep, 'to_iterable'):\n                    input_iterable = dep.to_iterable(maxsize=maxsize)\n                else:\n                    input_iterable = dep\n                    \n                if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):\n                    input_iterable = [input_iterable]\n                \n                inputs.extend(input_iterable)\n            \n            # For concurrent execution when workers > 1\n            if self.workers > 1:\n                # Process items concurrently using ThreadPoolExecutor\n                def process_item(item, worker_index):\n                    # Handle on_start callback - execute once per worker\n                    kwargs = {}\n                    if self.on_start:\n                        try:\n                            sig = inspect.signature(self.on_start)\n                            if 'worker_info' in sig.parameters:\n                                from .utils import WorkerInfo\n                                worker_info = WorkerInfo(index=worker_index)\n                                result_kwargs = self.on_start(worker_info)\n                            else:\n                                result_kwargs = self.on_start()\n                        except Exception:\n                            # Fallback to default if on_start fails\n                            result_kwargs = {}\n                        \n                        if result_kwargs is None:\n                            result_kwargs = {}\n                        kwargs = result_kwargs\n                    \n                    # Process the item using the apply method for subclasses like FlatMap\n                    try:\n                        # Call apply method for subclasses that override it (like FlatMap)\n                        if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':\n                            # For subclasses like FlatMap, use apply method\n                            self.apply(item, **kwargs)\n                        else:\n                            # For regular cases, use the f function\n                            if self.f is not None:\n                                result = self.f(item, **kwargs)\n                                \n                                # Handle generator/iterable results (important for flat_map)\n                                if hasattr(result, '__iter__') and not isinstance(result, str):\n                                    # Yield each item from the iterable\n                                    for item in result:\n                                        yield item\n                                else:\n                                    # Yield single item\n                                    yield result\n                            else:\n                                # For concat-like operations, yield the item directly\n                                yield item\n                    except Exception as e:\n                        # Store the error in the pipeline namespace\n                        if self.pipeline_namespace.error is None:\n                            self.pipeline_namespace.error = e\n                        raise\n                    finally:\n                        # Handle on_done callback - execute once per worker\n                        if self.on_done:\n                            try:\n                                # Pass the kwargs to on_done as well\n                                self.on_done(**kwargs)\n                            except Exception:\n                                # Silently ignore errors in on_done callbacks\n                                pass\n                \n                # Create a wrapper function to properly collect results\n                def worker_wrapper(item, worker_index):\n                    # We need to handle exceptions properly for concurrent execution\n                    try:\n                        result_items = list(process_item(item, worker_index))\n                        return result_items\n                    except Exception as e:\n                        # Store the error in the pipeline namespace\n                        if self.pipeline_namespace.error is None:\n                            self.pipeline_namespace.error = e\n                        raise\n                \n                with ThreadPoolExecutor(max_workers=self.workers) as executor:\n                    futures = []\n                    for i, item in enumerate(inputs):\n                        # Assign worker index in round-robin fashion\n                        worker_index = i % self.workers\n                        future = executor.submit(worker_wrapper, item, worker_index)\n                        futures.append(future)\n                    \n                    # Collect results and yield them in order\n                    for future in futures:\n                        try:\n                            result_items = future.result()\n                            for item in result_items:\n                                yield item\n                        except Exception as e:\n                            # Re-raise the exception to ensure proper propagation\n                            if self.pipeline_namespace.error is None:\n                                self.pipeline_namespace.error = e\n                            raise\n            else:\n                # Single-threaded processing for workers=1 (original behavior)\n                for item in inputs:\n                    # Handle on_start callback\n                    kwargs = {}\n                    if self.on_start:\n                        try:\n                            sig = inspect.signature(self.on_start)\n                            if 'worker_info' in sig.parameters:\n                                from .utils import WorkerInfo\n                                worker_info = WorkerInfo(index=0)  # Simplified for sync\n                                result_kwargs = self.on_start(worker_info)\n                            else:\n                                result_kwargs = self.on_start()\n                        except Exception:\n                            # Fallback to default if on_start fails\n                            result_kwargs = {}\n                        \n                        if result_kwargs is None:\n                            result_kwargs = {}\n                        kwargs = result_kwargs\n                    \n                    # Process the item using the apply method for subclasses like FlatMap\n                    try:\n                        # Call apply method for subclasses that override it (like FlatMap)\n                        if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':\n                            # For subclasses like FlatMap, use apply method\n                            self.apply(item, **kwargs)\n                        else:\n                            # For regular cases, use the f function\n                            if self.f is not None:\n                                result = self.f(item, **kwargs)\n                                \n                                # Handle generator/iterable results (important for flat_map)\n                                if hasattr(result, '__iter__') and not isinstance(result, str):\n                                    # Yield each item from the iterable\n                                    for item in result:\n                                        yield item\n                                else:\n                                    # Yield single item\n                                    yield result\n                            else:\n                                # For concat-like operations, yield the item directly\n                                yield item\n                    except Exception as e:\n                        # Store the error in the pipeline namespace\n                        if self.pipeline_namespace.error is None:\n                            self.pipeline_namespace.error = e\n                        raise\n                    finally:\n                        # Handle on_done callback\n                        if self.on_done:\n                            try:\n                                # Pass the kwargs to on_done as well\n                                self.on_done(**kwargs)\n                            except Exception:\n                                # Silently ignore errors in on_done callbacks\n                                pass\n        else:\n            # Direct iterable for from_iterable\n            if hasattr(self, 'iterable'):\n                for item in self.iterable:\n                    yield item\n\n    def __iter__(self):\n        return iter(self.to_iterable())",
+                "lineStart": 1,
+                "lineEnd": 212,
+                "totalLines": 212,
+                "truncated": false
+              }
+            },
+            "title": "app/code/pypeln/sync/stage.py",
+            "time": {
+              "start": 1790000000732,
+              "end": 1790000000769
+            }
+          },
+          "id": "prt_0c4506e89001LdSgGd65TsIx8s",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506d640016E1HLiVbi54Mrs"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 17341,
+            "input": 17311,
+            "output": 30,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4506f040011543NJXydl3LBC",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506d640016E1HLiVbi54Mrs"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 19662,
+          "input": 19624,
+          "output": 38,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790000000781,
+          "completed": 1790000001163
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c4506f0d0012E5C1z2O6vvZhw",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c4506fe7001kAoGUoU8FM8yD3",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506f0d0012E5C1z2O6vvZhw"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9eb624033ba68a95",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests/test_sync.py",
+              "limit": 200
+            },
+            "output": "<path>/app/code/tests/test_sync.py</path>\n<type>file</type>\n<content>\n1: import hypothesis as hp\n2: from hypothesis import strategies as st\n3: import cytoolz as cz\n4: import functools as ft\n5: import time\n6: \n7: import pypeln as pl\n8: \n9: MAX_EXAMPLES = 15\n10: \n11: ############\n12: # trivial\n13: ############\n14: \n15: \n16: @hp.given(nums=st.lists(st.integers()))\n17: @hp.settings(max_examples=MAX_EXAMPLES)\n18: def test_from_to_iterable_simple(nums):\n19: \n20:     nums_py = nums\n21: \n22:     nums_pl = pl.sync.from_iterable(nums)\n23:     nums_pl = list(nums_pl)\n24: \n25:     assert nums_pl == nums_py\n26: \n27: \n28: @hp.given(nums=st.lists(st.integers()))\n29: @hp.settings(max_examples=MAX_EXAMPLES)\n30: def test_from_to_iterable_pipe(nums):\n31: \n32:     nums_py = nums\n33: \n34:     nums_pl = nums | pl.sync.from_iterable() | list\n35: \n36:     assert nums_pl == nums_py\n37: \n38: \n39: ############\n40: # map\n41: ############\n42: \n43: \n44: @hp.given(nums=st.lists(st.integers()))\n45: @hp.settings(max_examples=MAX_EXAMPLES)\n46: def test_map_id(nums):\n47: \n48:     nums_py = nums\n49: \n50:     nums_pl = pl.sync.map(lambda x: x, nums)\n51:     nums_pl = list(nums_pl)\n52: \n53:     assert nums_pl == nums_py\n54: \n55: \n56: @hp.given(nums=st.lists(st.integers()))\n57: @hp.settings(max_examples=MAX_EXAMPLES)\n58: def test_map_id_pipe(nums):\n59: \n60:     nums_pl = nums | pl.sync.map(lambda x: x) | list\n61: \n62:     assert nums_pl == nums\n63: \n64: \n65: @hp.given(nums=st.lists(st.integers()))\n66: @hp.settings(max_examples=MAX_EXAMPLES)\n67: def test_map_square(nums):\n68: \n69:     nums_py = map(lambda x: x ** 2, nums)\n70:     nums_py = list(nums_py)\n71: \n72:     nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n73:     nums_pl = list(nums_pl)\n74: \n75:     assert nums_pl == nums_py\n76: \n77: \n78: @hp.given(nums=st.lists(st.integers()))\n79: @hp.settings(max_examples=MAX_EXAMPLES)\n80: def test_map_square_event_start(nums):\n81: \n82:     nums_py = map(lambda x: x ** 2, nums)\n83:     nums_py = list(nums_py)\n84: \n85:     namespace = pl.sync.get_namespace()\n86:     namespace.x = 0\n87: \n88:     def on_start():\n89:         namespace.x = 1\n90: \n91:     nums_pl = pl.sync.map(lambda x: x ** 2, nums, on_start=on_start)\n92:     nums_pl = list(nums_pl)\n93: \n94:     assert nums_pl == nums_py\n95:     assert namespace.x == 1\n96: \n97: \n98: def test_worker_info():\n99: \n100:     nums = range(100)\n101:     n_workers = 4\n102: \n103:     def on_start(worker_info):\n104:         return dict(index=worker_info.index)\n105: \n106:     def _lambda(x, index):\n107:         return index\n108: \n109:     nums_pl = pl.sync.map(_lambda, nums, on_start=on_start, workers=n_workers,)\n110:     nums_pl = set(nums_pl)\n111: \n112:     assert nums_pl.issubset(set(range(n_workers)))\n113: \n114: \n115: def test_kwargs():\n116: \n117:     nums = range(100)\n118:     n_workers = 4\n119:     letters = \"abc\"\n120:     namespace = pl.sync.get_namespace()\n121:     namespace.on_done = None\n122: \n123:     def on_start():\n124:         return dict(y=letters)\n125: \n126:     def on_done(y):\n127:         namespace.on_done = y\n128: \n129:     nums_pl = pl.sync.map(\n130:         lambda x, y: y, nums, on_start=on_start, on_done=on_done, workers=n_workers,\n131:     )\n132:     nums_pl = list(nums_pl)\n133: \n134:     assert nums_pl == [letters] * len(nums)\n135:     assert namespace.on_done == letters\n136: \n137: \n138: @hp.given(nums=st.lists(st.integers()))\n139: @hp.settings(max_examples=MAX_EXAMPLES)\n140: def test_map_square_event_end(nums):\n141: \n142:     namespace = pl.sync.get_namespace()\n143:     namespace.x = 0\n144:     namespace.done = False\n145:     namespace.active_workers = -1\n146: \n147:     def on_start():\n148:         namespace.x = 1\n149: \n150:     def on_done(stage_status):\n151:         namespace.x = 2\n152:         namespace.active_workers = stage_status.active_workers\n153:         namespace.done = stage_status.done\n154: \n155:     nums_pl = pl.sync.map(\n156:         lambda x: x ** 2, nums, workers=3, on_start=on_start, on_done=on_done\n157:     )\n158:     nums_pl = list(nums_pl)\n159: \n160:     assert namespace.x == 2\n161:     assert namespace.done == True\n162:     assert namespace.active_workers == 0\n163: \n164: \n165: @hp.given(nums=st.lists(st.integers()))\n166: @hp.settings(max_examples=MAX_EXAMPLES)\n167: def test_map_square_workers(nums):\n168: \n169:     nums_py = map(lambda x: x ** 2, nums)\n170:     nums_py = list(nums_py)\n171: \n172:     nums_pl = pl.sync.map(lambda x: x ** 2, nums, workers=2)\n173:     nums_pl = list(nums_pl)\n174: \n175:     assert sorted(nums_pl) == sorted(nums_py)\n176: \n177: \n178: ############\n179: # flat_map\n180: ############\n181: \n182: \n183: @hp.given(nums=st.lists(st.integers()))\n184: @hp.settings(max_examples=MAX_EXAMPLES)\n185: def test_flat_map_square(nums):\n186:     def _generator(x):\n187:         yield x\n188:         yield x + 1\n189:         yield x + 2\n190: \n191:     nums_py = map(lambda x: x ** 2, nums)\n192:     nums_py = cz.mapcat(_generator, nums_py)\n193:     nums_py = list(nums_py)\n194: \n195:     nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n196:     nums_pl = pl.sync.flat_map(_generator, nums_pl)\n197:     nums_pl = list(nums_pl)\n198: \n199:     assert nums_pl == nums_py\n200: \n\n(Showing lines 1-200 of 367. Use offset=201 to continue.)\n</content>",
+            "metadata": {
+              "preview": "import hypothesis as hp\nfrom hypothesis import strategies as st\nimport cytoolz as cz\nimport functools as ft\nimport time\n\nimport pypeln as pl\n\nMAX_EXAMPLES = 15\n\n############\n# trivial\n############\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_from_to_iterable_simple(nums):\n\n    nums_py = nums",
+              "truncated": true,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/tests/test_sync.py",
+                "text": "import hypothesis as hp\nfrom hypothesis import strategies as st\nimport cytoolz as cz\nimport functools as ft\nimport time\n\nimport pypeln as pl\n\nMAX_EXAMPLES = 15\n\n############\n# trivial\n############\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_from_to_iterable_simple(nums):\n\n    nums_py = nums\n\n    nums_pl = pl.sync.from_iterable(nums)\n    nums_pl = list(nums_pl)\n\n    assert nums_pl == nums_py\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_from_to_iterable_pipe(nums):\n\n    nums_py = nums\n\n    nums_pl = nums | pl.sync.from_iterable() | list\n\n    assert nums_pl == nums_py\n\n\n############\n# map\n############\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_map_id(nums):\n\n    nums_py = nums\n\n    nums_pl = pl.sync.map(lambda x: x, nums)\n    nums_pl = list(nums_pl)\n\n    assert nums_pl == nums_py\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_map_id_pipe(nums):\n\n    nums_pl = nums | pl.sync.map(lambda x: x) | list\n\n    assert nums_pl == nums\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_map_square(nums):\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = list(nums_py)\n\n    nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n    nums_pl = list(nums_pl)\n\n    assert nums_pl == nums_py\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_map_square_event_start(nums):\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = list(nums_py)\n\n    namespace = pl.sync.get_namespace()\n    namespace.x = 0\n\n    def on_start():\n        namespace.x = 1\n\n    nums_pl = pl.sync.map(lambda x: x ** 2, nums, on_start=on_start)\n    nums_pl = list(nums_pl)\n\n    assert nums_pl == nums_py\n    assert namespace.x == 1\n\n\ndef test_worker_info():\n\n    nums = range(100)\n    n_workers = 4\n\n    def on_start(worker_info):\n        return dict(index=worker_info.index)\n\n    def _lambda(x, index):\n        return index\n\n    nums_pl = pl.sync.map(_lambda, nums, on_start=on_start, workers=n_workers,)\n    nums_pl = set(nums_pl)\n\n    assert nums_pl.issubset(set(range(n_workers)))\n\n\ndef test_kwargs():\n\n    nums = range(100)\n    n_workers = 4\n    letters = \"abc\"\n    namespace = pl.sync.get_namespace()\n    namespace.on_done = None\n\n    def on_start():\n        return dict(y=letters)\n\n    def on_done(y):\n        namespace.on_done = y\n\n    nums_pl = pl.sync.map(\n        lambda x, y: y, nums, on_start=on_start, on_done=on_done, workers=n_workers,\n    )\n    nums_pl = list(nums_pl)\n\n    assert nums_pl == [letters] * len(nums)\n    assert namespace.on_done == letters\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_map_square_event_end(nums):\n\n    namespace = pl.sync.get_namespace()\n    namespace.x = 0\n    namespace.done = False\n    namespace.active_workers = -1\n\n    def on_start():\n        namespace.x = 1\n\n    def on_done(stage_status):\n        namespace.x = 2\n        namespace.active_workers = stage_status.active_workers\n        namespace.done = stage_status.done\n\n    nums_pl = pl.sync.map(\n        lambda x: x ** 2, nums, workers=3, on_start=on_start, on_done=on_done\n    )\n    nums_pl = list(nums_pl)\n\n    assert namespace.x == 2\n    assert namespace.done == True\n    assert namespace.active_workers == 0\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_map_square_workers(nums):\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = list(nums_py)\n\n    nums_pl = pl.sync.map(lambda x: x ** 2, nums, workers=2)\n    nums_pl = list(nums_pl)\n\n    assert sorted(nums_pl) == sorted(nums_py)\n\n\n############\n# flat_map\n############\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_flat_map_square(nums):\n    def _generator(x):\n        yield x\n        yield x + 1\n        yield x + 2\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = cz.mapcat(_generator, nums_py)\n    nums_py = list(nums_py)\n\n    nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n    nums_pl = pl.sync.flat_map(_generator, nums_pl)\n    nums_pl = list(nums_pl)\n\n    assert nums_pl == nums_py\n",
+                "lineStart": 1,
+                "lineEnd": 200,
+                "totalLines": 367,
+                "truncated": true
+              }
+            },
+            "title": "app/code/tests/test_sync.py",
+            "time": {
+              "start": 1790000001118,
+              "end": 1790000001156
+            }
+          },
+          "id": "prt_0c4506fea001vVzH081S3jk17C",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506f0d0012E5C1z2O6vvZhw"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 19662,
+            "input": 19624,
+            "output": 38,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4507086001t8LFKHT8FY018A",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4506f0d0012E5C1z2O6vvZhw"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 21683,
+          "input": 21633,
+          "output": 50,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790000001167,
+          "completed": 1790000001607
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c450708f0016aJBohtWZkN3dm",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c450717a001VCsFweGDpcv9Zc",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450708f0016aJBohtWZkN3dm"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-bb79a68539bbc8f3",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests/test_sync.py",
+              "offset": 201,
+              "limit": 200
+            },
+            "output": "<path>/app/code/tests/test_sync.py</path>\n<type>file</type>\n<content>\n201: \n202: @hp.given(nums=st.lists(st.integers()))\n203: @hp.settings(max_examples=MAX_EXAMPLES)\n204: def test_flat_map_square_workers(nums):\n205:     def _generator(x):\n206:         yield x\n207:         yield x + 1\n208:         yield x + 2\n209: \n210:     nums_py = map(lambda x: x ** 2, nums)\n211:     nums_py = cz.mapcat(_generator, nums_py)\n212:     nums_py = list(nums_py)\n213: \n214:     nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n215:     nums_pl = pl.sync.flat_map(_generator, nums_pl, workers=3)\n216:     nums_pl = list(nums_pl)\n217: \n218:     assert sorted(nums_pl) == sorted(nums_py)\n219: \n220: \n221: ############\n222: # filter\n223: ############\n224: \n225: \n226: @hp.given(nums=st.lists(st.integers()))\n227: @hp.settings(max_examples=MAX_EXAMPLES)\n228: def test_flat_map_square_filter_workers(nums):\n229:     def _generator(x):\n230:         yield x\n231:         yield x + 1\n232:         yield x + 2\n233: \n234:     nums_py = map(lambda x: x ** 2, nums)\n235:     nums_py = cz.mapcat(_generator, nums_py)\n236:     nums_py = cz.filter(lambda x: x > 1, nums_py)\n237:     nums_py = list(nums_py)\n238: \n239:     nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n240:     nums_pl = pl.sync.flat_map(_generator, nums_pl, workers=3)\n241:     nums_pl = pl.sync.filter(lambda x: x > 1, nums_pl)\n242:     nums_pl = list(nums_pl)\n243: \n244:     assert sorted(nums_pl) == sorted(nums_py)\n245: \n246: \n247: @hp.given(nums=st.lists(st.integers()))\n248: @hp.settings(max_examples=MAX_EXAMPLES)\n249: def test_flat_map_square_filter_workers_pipe(nums):\n250:     def _generator(x):\n251:         yield x\n252:         yield x + 1\n253:         yield x + 2\n254: \n255:     nums_py = map(lambda x: x ** 2, nums)\n256:     nums_py = cz.mapcat(_generator, nums_py)\n257:     nums_py = cz.filter(lambda x: x > 1, nums_py)\n258:     nums_py = list(nums_py)\n259: \n260:     nums_pl = (\n261:         nums\n262:         | pl.sync.map(lambda x: x ** 2)\n263:         | pl.sync.flat_map(_generator, workers=3)\n264:         | pl.sync.filter(lambda x: x > 1)\n265:         | list\n266:     )\n267: \n268:     assert sorted(nums_pl) == sorted(nums_py)\n269: \n270: \n271: ############\n272: # concat\n273: ############\n274: \n275: \n276: @hp.given(nums=st.lists(st.integers()))\n277: @hp.settings(max_examples=MAX_EXAMPLES)\n278: def test_concat_basic(nums):\n279: \n280:     nums_py = list(map(lambda x: x + 1, nums))\n281:     nums_py1 = list(map(lambda x: x ** 2, nums_py))\n282:     nums_py2 = list(map(lambda x: -x, nums_py))\n283:     nums_py = nums_py1 + nums_py2\n284: \n285:     nums_pl = pl.sync.map(lambda x: x + 1, nums)\n286:     nums_pl1 = pl.sync.map(lambda x: x ** 2, nums_pl)\n287:     nums_pl2 = pl.sync.map(lambda x: -x, nums_pl)\n288:     nums_pl = pl.sync.concat([nums_pl1, nums_pl2])\n289: \n290:     assert sorted(nums_pl) == sorted(nums_py)\n291: \n292: \n293: @hp.given(nums=st.lists(st.integers()))\n294: @hp.settings(max_examples=MAX_EXAMPLES)\n295: def test_concat_multiple(nums):\n296: \n297:     nums_py = [x + 1 for x in nums]\n298:     nums_py1 = nums_py + nums_py\n299:     nums_py2 = nums_py1 + nums_py\n300: \n301:     nums_pl = pl.sync.map(lambda x: x + 1, nums)\n302:     nums_pl1 = pl.sync.concat([nums_pl, nums_pl])\n303:     nums_pl2 = pl.sync.concat([nums_pl1, nums_pl])\n304: \n305:     assert sorted(nums_py2) == sorted(list(nums_pl2))\n306: \n307: \n308: ###################\n309: # error handling\n310: ###################\n311: \n312: \n313: class MyError(Exception):\n314:     pass\n315: \n316: \n317: def test_error_handling():\n318: \n319:     error = None\n320: \n321:     def raise_error(x):\n322:         raise MyError()\n323: \n324:     stage = pl.sync.map(raise_error, range(10))\n325: \n326:     try:\n327:         list(stage)\n328: \n329:     except MyError as e:\n330:         error = e\n331:     except BaseException as e:\n332:         error = e\n333:         print(e)\n334: \n335:     assert isinstance(error, MyError)\n336: \n337: \n338: ###################\n339: # from_to_iterable\n340: ###################\n341: @hp.given(nums=st.lists(st.integers()))\n342: @hp.settings(max_examples=MAX_EXAMPLES)\n343: def test_from_to_iterable(nums):\n344: \n345:     nums_pl = nums\n346:     nums_pl = pl.sync.from_iterable(nums_pl)\n347:     nums_pl = cz.partition_all(10, nums_pl)\n348:     nums_pl = pl.sync.map(sum, nums_pl)\n349:     nums_pl = list(nums_pl)\n350: \n351:     nums_py = nums\n352:     nums_py = cz.partition_all(10, nums_py)\n353:     nums_py = map(sum, nums_py)\n354:     nums_py = list(nums_py)\n355: \n356:     assert nums_py == nums_pl\n357: \n358: \n359: if __name__ == \"__main__\":\n360:     error = None\n361: \n362:     def raise_error(x):\n363:         raise MyError()\n364: \n365:     stage = pl.sync.map(raise_error, range(10))\n366: \n367:     list(stage)\n\n(End of file - total 367 lines)\n</content>",
+            "metadata": {
+              "preview": "\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_flat_map_square_workers(nums):\n    def _generator(x):\n        yield x\n        yield x + 1\n        yield x + 2\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = cz.mapcat(_generator, nums_py)\n    nums_py = list(nums_py)\n\n    nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n    nums_pl = pl.sync.flat_map(_generator, nums_pl, workers=3)\n    nums_pl = list(nums_pl)\n\n    assert sorted(nums_pl) == sorted(nums_py)\n\n",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/tests/test_sync.py",
+                "text": "\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_flat_map_square_workers(nums):\n    def _generator(x):\n        yield x\n        yield x + 1\n        yield x + 2\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = cz.mapcat(_generator, nums_py)\n    nums_py = list(nums_py)\n\n    nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n    nums_pl = pl.sync.flat_map(_generator, nums_pl, workers=3)\n    nums_pl = list(nums_pl)\n\n    assert sorted(nums_pl) == sorted(nums_py)\n\n\n############\n# filter\n############\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_flat_map_square_filter_workers(nums):\n    def _generator(x):\n        yield x\n        yield x + 1\n        yield x + 2\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = cz.mapcat(_generator, nums_py)\n    nums_py = cz.filter(lambda x: x > 1, nums_py)\n    nums_py = list(nums_py)\n\n    nums_pl = pl.sync.map(lambda x: x ** 2, nums)\n    nums_pl = pl.sync.flat_map(_generator, nums_pl, workers=3)\n    nums_pl = pl.sync.filter(lambda x: x > 1, nums_pl)\n    nums_pl = list(nums_pl)\n\n    assert sorted(nums_pl) == sorted(nums_py)\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_flat_map_square_filter_workers_pipe(nums):\n    def _generator(x):\n        yield x\n        yield x + 1\n        yield x + 2\n\n    nums_py = map(lambda x: x ** 2, nums)\n    nums_py = cz.mapcat(_generator, nums_py)\n    nums_py = cz.filter(lambda x: x > 1, nums_py)\n    nums_py = list(nums_py)\n\n    nums_pl = (\n        nums\n        | pl.sync.map(lambda x: x ** 2)\n        | pl.sync.flat_map(_generator, workers=3)\n        | pl.sync.filter(lambda x: x > 1)\n        | list\n    )\n\n    assert sorted(nums_pl) == sorted(nums_py)\n\n\n############\n# concat\n############\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_concat_basic(nums):\n\n    nums_py = list(map(lambda x: x + 1, nums))\n    nums_py1 = list(map(lambda x: x ** 2, nums_py))\n    nums_py2 = list(map(lambda x: -x, nums_py))\n    nums_py = nums_py1 + nums_py2\n\n    nums_pl = pl.sync.map(lambda x: x + 1, nums)\n    nums_pl1 = pl.sync.map(lambda x: x ** 2, nums_pl)\n    nums_pl2 = pl.sync.map(lambda x: -x, nums_pl)\n    nums_pl = pl.sync.concat([nums_pl1, nums_pl2])\n\n    assert sorted(nums_pl) == sorted(nums_py)\n\n\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_concat_multiple(nums):\n\n    nums_py = [x + 1 for x in nums]\n    nums_py1 = nums_py + nums_py\n    nums_py2 = nums_py1 + nums_py\n\n    nums_pl = pl.sync.map(lambda x: x + 1, nums)\n    nums_pl1 = pl.sync.concat([nums_pl, nums_pl])\n    nums_pl2 = pl.sync.concat([nums_pl1, nums_pl])\n\n    assert sorted(nums_py2) == sorted(list(nums_pl2))\n\n\n###################\n# error handling\n###################\n\n\nclass MyError(Exception):\n    pass\n\n\ndef test_error_handling():\n\n    error = None\n\n    def raise_error(x):\n        raise MyError()\n\n    stage = pl.sync.map(raise_error, range(10))\n\n    try:\n        list(stage)\n\n    except MyError as e:\n        error = e\n    except BaseException as e:\n        error = e\n        print(e)\n\n    assert isinstance(error, MyError)\n\n\n###################\n# from_to_iterable\n###################\n@hp.given(nums=st.lists(st.integers()))\n@hp.settings(max_examples=MAX_EXAMPLES)\ndef test_from_to_iterable(nums):\n\n    nums_pl = nums\n    nums_pl = pl.sync.from_iterable(nums_pl)\n    nums_pl = cz.partition_all(10, nums_pl)\n    nums_pl = pl.sync.map(sum, nums_pl)\n    nums_pl = list(nums_pl)\n\n    nums_py = nums\n    nums_py = cz.partition_all(10, nums_py)\n    nums_py = map(sum, nums_py)\n    nums_py = list(nums_py)\n\n    assert nums_py == nums_pl\n\n\nif __name__ == \"__main__\":\n    error = None\n\n    def raise_error(x):\n        raise MyError()\n\n    stage = pl.sync.map(raise_error, range(10))\n\n    list(stage)",
+                "lineStart": 201,
+                "lineEnd": 367,
+                "totalLines": 367,
+                "truncated": false
+              }
+            },
+            "title": "app/code/tests/test_sync.py",
+            "time": {
+              "start": 1790000001577,
+              "end": 1790000001599
+            }
+          },
+          "id": "prt_0c4507189001JiK7AR56E3kxPb",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450708f0016aJBohtWZkN3dm"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 21683,
+            "input": 21633,
+            "output": 50,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4507242001C6cinGb0TeLp3T",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450708f0016aJBohtWZkN3dm"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 23725,
+          "input": 23540,
+          "output": 185,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790000001611,
+          "completed": 1790000002557
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c450724b001aQ6paPhLQ55j87",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c450732f001WU3Olgawdgv4Wq",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450724b001aQ6paPhLQ55j87"
+        },
+        {
+          "type": "tool",
+          "tool": "todowrite",
+          "callID": "chatcmpl-tool-9b95877412bc7611",
+          "state": {
+            "status": "completed",
+            "input": {
+              "todos": [
+                {
+                  "content": "Analyze the core reasons for test failures from /app/non-passed/summary.jsonl",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Examine test files in /app/code/tests/ to understand test expectations",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Investigate source code in /app/code/pypeln/sync/ to locate root causes of failures",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Filter critical requirements based on failure analysis and priority rules",
+                  "status": "in_progress",
+                  "priority": "high"
+                },
+                {
+                  "content": "Write requirement document in XML format at /app/requirement.xml",
+                  "status": "pending",
+                  "priority": "high"
+                }
+              ]
+            },
+            "output": "[\n  {\n    \"content\": \"Analyze the core reasons for test failures from /app/non-passed/summary.jsonl\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Examine test files in /app/code/tests/ to understand test expectations\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Investigate source code in /app/code/pypeln/sync/ to locate root causes of failures\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Filter critical requirements based on failure analysis and priority rules\",\n    \"status\": \"in_progress\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Write requirement document in XML format at /app/requirement.xml\",\n    \"status\": \"pending\",\n    \"priority\": \"high\"\n  }\n]",
+            "metadata": {
+              "todos": [
+                {
+                  "content": "Analyze the core reasons for test failures from /app/non-passed/summary.jsonl",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Examine test files in /app/code/tests/ to understand test expectations",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Investigate source code in /app/code/pypeln/sync/ to locate root causes of failures",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Filter critical requirements based on failure analysis and priority rules",
+                  "status": "in_progress",
+                  "priority": "high"
+                },
+                {
+                  "content": "Write requirement document in XML format at /app/requirement.xml",
+                  "status": "pending",
+                  "priority": "high"
+                }
+              ],
+              "truncated": false
+            },
+            "title": "2 todos",
+            "time": {
+              "start": 1790000002543,
+              "end": 1790000002547
+            }
+          },
+          "id": "prt_0c4507337001ITRZxWhG2g9384",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450724b001aQ6paPhLQ55j87"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 23725,
+            "input": 23540,
+            "output": 185,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c45075f70015FOabYBlsYcbzx",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c450724b001aQ6paPhLQ55j87"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c45058df001diYHzJM2AgySEs",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 24096,
+          "input": 23936,
+          "output": 160,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790000002562,
+          "completed": 1790000003435
+        },
+        "finish": "stop",
+        "id": "msg_0c4507602001Dqvij40a740yiw",
+        "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c45076fc001mQVwAUsxhsH4a0",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4507602001Dqvij40a740yiw"
+        },
+        {
+          "type": "text",
+          "text": "Based on my analysis of the test failures and codebase, here are 3-5 plausible future tasks for this Python project:\n\n1. Fix the `Map` class missing `output_queues` attribute that causes AttributeError in `test_worker_info` and `test_kwargs` tests\n2. Implement proper concurrent processing in the `Stage.to_iterable()` method to support multi-worker operations\n3. Correct the `Concat.to_iterable()` method to properly handle multiple dependencies and iteration\n4. Fix the `Each` class implementation to correctly handle the `run=True` parameter for immediate execution\n5. Address the `from_iterable` stage initialization to properly set up worker infrastructure\n\nThese tasks focus on core architectural issues affecting multiple test cases and would enable the majority of the failing tests to pass.",
+          "time": {
+            "start": 1790000002815,
+            "end": 1790000003426
+          },
+          "id": "prt_0c45076ff001UyjYBV7KaRV55M",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4507602001Dqvij40a740yiw"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 24096,
+            "input": 23936,
+            "output": 160,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c4507965001zdF7ShTMKIOMKX",
+          "sessionID": "ses_f3bafa76dffe6g0dqBWaPkc5Nf",
+          "messageID": "msg_0c4507602001Dqvij40a740yiw"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 17:00:53
++++ b/pypeln/sync/api.py	2026-09-21 17:05:43
+@@ -415,8 +415,12 @@
+         return stage
+ 
+     # Execute the stage immediately when run=True
+-    for _ in stage.to_iterable():
+-        pass
++    try:
++        for _ in stage.to_iterable():
++            pass
++    except Exception as e:
++        # Re-raise the exception to ensure proper error handling
++        raise e
+     
+     return None
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 17:03:30
++++ b/pypeln/sync/stage.py	2026-09-21 17:05:54
+@@ -93,19 +93,31 @@
+                             # For concat-like operations, yield the item directly
+                             yield item
+                     except Exception as e:
+-                        self.pipeline_namespace.error = e
++                        # Store the error in the pipeline namespace
++                        if self.pipeline_namespace.error is None:
++                            self.pipeline_namespace.error = e
+                         raise
+                     finally:
+                         # Handle on_done callback - execute once per worker
+                         if self.on_done:
+                             try:
++                                # Pass the kwargs to on_done as well
+                                 self.on_done(**kwargs)
+-                            except:
++                            except Exception:
++                                # Silently ignore errors in on_done callbacks
+                                 pass
+                 
+                 # Create a wrapper function to properly collect results
+                 def worker_wrapper(item, worker_index):
+-                    return list(process_item(item, worker_index))
++                    # We need to handle exceptions properly for concurrent execution
++                    try:
++                        result_items = list(process_item(item, worker_index))
++                        return result_items
++                    except Exception as e:
++                        # Store the error in the pipeline namespace
++                        if self.pipeline_namespace.error is None:
++                            self.pipeline_namespace.error = e
++                        raise
+                 
+                 with ThreadPoolExecutor(max_workers=self.workers) as executor:
+                     futures = []
+@@ -165,14 +177,18 @@
+                             # For concat-like operations, yield the item directly
+                             yield item
+                     except Exception as e:
+-                        self.pipeline_namespace.error = e
++                        # Store the error in the pipeline namespace
++                        if self.pipeline_namespace.error is None:
++                            self.pipeline_namespace.error = e
+                         raise
+                     finally:
+                         # Handle on_done callback
+                         if self.on_done:
+                             try:
++                                # Pass the kwargs to on_done as well
+                                 self.on_done(**kwargs)
+-                            except:
++                            except Exception:
++                                # Silently ignore errors in on_done callbacks
+                                 pass
+         else:
+             # Direct iterable for from_iterable

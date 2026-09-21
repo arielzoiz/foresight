@@ -1,0 +1,81 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 17:08:37
++++ b/pypeln/sync/api.py	2026-09-21 17:14:43
+@@ -433,20 +433,28 @@
+ class Concat(Stage):
+     def to_iterable(self, maxsize: int = 0):
+         # For Concat, we need to iterate through all dependencies
+-        for dep in self.dependencies:
+-            # Get the input iterable from each dependency
+-            if hasattr(dep, 'to_iterable'):
+-                input_iterable = dep.to_iterable(maxsize=maxsize)
+-            else:
+-                input_iterable = dep
+-                
+-            # Ensure input is iterable
+-            if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
+-                input_iterable = [input_iterable]
+-                
+-            # Process each item from this dependency
+-            for item in input_iterable:
+-                yield item
++        # We need to properly use the output_queues mechanism like other stages
++        if self.dependencies:
++            # For each dependency, we get its iterable and yield items
++            for dep in self.dependencies:
++                # Get the input iterable from each dependency
++                if hasattr(dep, 'to_iterable'):
++                    input_iterable = dep.to_iterable(maxsize=maxsize)
++                else:
++                    input_iterable = dep
++                    
++                # Ensure input is iterable
++                if not hasattr(input_iterable, '__iter__') or isinstance(input_iterable, str):
++                    input_iterable = [input_iterable]
++                    
++                # Process each item from this dependency
++                for item in input_iterable:
++                    # For Concat, we don't need to put items into output queues
++                    # We just yield them directly
++                    yield item
++        else:
++            # If no dependencies, return empty iterator
++            return
+ 
+ 
+ def concat(stages: typing.List[Stage], maxsize: int = 0) -> Stage:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 17:11:50
++++ b/pypeln/sync/stage.py	2026-09-21 17:14:41
+@@ -5,6 +5,7 @@
+ import inspect
+ 
+ from pypeln import utils as pypeln_utils
++from . import utils
+ 
+ 
+ class Stage:
+@@ -26,6 +27,7 @@
+         self.on_done = on_done
+         self.dependencies = dependencies
+         self.worker_constructor = worker_constructor
++        self.output_queues = utils.MultiQueue()
+ 
+         self.pipeline_namespace = pypeln_utils.Namespace()
+         self.pipeline_namespace.error = None
+@@ -79,6 +81,7 @@
+                     # Process the item using the apply method for subclasses like FlatMap
+                     try:
+                         # Call apply method for subclasses that override it (like FlatMap)
++                        # But only if the class is not the base Stage class itself
+                         if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
+                             # For subclasses like FlatMap, use apply method
+                             self.apply(item, **kwargs)
+@@ -169,6 +172,7 @@
+                     # Process the item using the apply method for subclasses like FlatMap
+                     try:
+                         # Call apply method for subclasses that override it (like FlatMap)
++                        # But only if the class is not the base Stage class itself
+                         if hasattr(self, 'apply') and self.__class__.__name__ != 'Stage':
+                             # For subclasses like FlatMap, use apply method
+                             self.apply(item, **kwargs)

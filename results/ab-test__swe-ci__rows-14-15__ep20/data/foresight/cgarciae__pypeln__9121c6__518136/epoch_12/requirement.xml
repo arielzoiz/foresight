@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/pypeln/sync/utils.py</location>
+    <description>The MultiQueue class is missing from the sync utils module. Tests are failing with "AttributeError: module 'pypeln.sync.utils' has no attribute 'MultiQueue'" because the stage constructor tries to instantiate utils.MultiQueue() but this class doesn't exist.</description>
+    <contract>Implement the MultiQueue class in pypeln.sync.utils that behaves like a thread-safe queue with multiple output queues for concurrent processing. It should support putting and getting items from multiple producers/consumers in a thread-safe manner.</contract>
+    <acceptance>tests/test_sync.py::test_error_handling, tests/test_sync.py::test_worker_info, tests/test_sync.py::test_kwargs</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pypeln/sync/stage.py</location>
+    <description>The stage.py file has incorrect implementation for to_iterable method. It's not correctly handling the processing of dependencies and the concurrent execution flow for sync stages. The implementation is overly complex and doesn't properly utilize the worker infrastructure.</description>
+    <contract>Refactor the to_iterable method in Stage class to properly handle dependency processing and simple synchronous execution for sync stages. Remove the complex ThreadPoolExecutor usage and implement proper sequential processing for sync module, with proper handling of on_start/on_done callbacks and error propagation.</contract>
+    <acceptance>tests/test_sync.py::test_from_to_iterable_simple, tests/test_sync.py::test_from_to_iterable_pipe, tests/test_sync.py::test_map_id, tests/test_sync.py::test_map_id_pipe, tests/test_sync.py::test_map_square, tests/test_sync.py::test_map_square_event_start, tests/test_sync.py::test_map_square_event_end, tests/test_map_square_workers, tests/test_sync.py::test_flat_map_square, tests/test_sync.py::test_concat_basic, tests/test_sync.py::test_concat_multiple</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pypeln/sync/api.py</location>
+    <description>The api.py file has a broken implementation for the concat function. The Concat class is not properly implemented and doesn't correctly merge stages. The implementation is incomplete and not compatible with the expected behavior.</description>
+    <contract>Implement a proper Concat class that correctly handles merging multiple stages/iterables in the sync module. The class should properly iterate through dependencies and yield items from each in sequence.</contract>
+    <acceptance>tests/test_sync.py::test_concat_basic, tests/test_sync.py::test_concat_multiple</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pypeln/sync/api.py</location>
+    <description>The api.py file has an incomplete to_iterable function implementation. The function is supposed to convert a stage to an iterable but the implementation is broken.</description>
+    <contract>Fix the to_iterable function in api.py to properly handle stage conversion to iterable. It should return an iterable that properly processes the stage's data.</contract>
+    <acceptance>tests/test_sync.py::test_from_to_iterable_simple, tests/test_sync.py::test_from_to_iterable_pipe, tests/test_sync.py::test_from_to_iterable</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pypeln/sync/api.py</location>
+    <description>The api.py file is missing the from_to_iterable function that is referenced in tests but not implemented.</description>
+    <contract>Add the from_to_iterable function to the sync module that creates a stage from an iterable. This function should be equivalent to from_iterable but with a different name for backward compatibility or specific functionality.</contract>
+    <acceptance>tests/test_sync.py::test_from_to_iterable, tests/test_sync.py::test_from_to_iterable_simple, tests/test_sync.py::test_from_to_iterable_pipe</acceptance>
+  </requirement>
+</requirement_document>
