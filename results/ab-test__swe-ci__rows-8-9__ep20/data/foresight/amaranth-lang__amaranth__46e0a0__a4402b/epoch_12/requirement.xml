@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View</location>
+        <description>The View class is missing proper handling for accessing attributes that correspond to layout fields. Tests fail with AttributeError when trying to access fields via dot notation that exist in the layout but aren't properly implemented in View.__getattr__.</description>
+        <contract>When accessing a field via dot notation (e.g., v.field_name) on a View object, if the field exists in the layout, it should return the corresponding value slice. If the field doesn't exist, it should raise an AttributeError with a helpful error message suggesting similar field names. If the field name starts with underscore and exists in the layout, it should raise an AttributeError indicating that reserved names must be accessed via indexing.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getattr, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:ArrayLayout</location>
+        <description>The ArrayLayout.__getitem__ method has incorrect error handling for invalid key types. It raises KeyError instead of TypeError when indexing with non-integral types, and doesn't properly validate key types for array layouts.</description>
+        <contract>When indexing an ArrayLayout with a non-integral key, it must raise a TypeError with message "Cannot index array layout with '&lt;key&gt;'". When indexing with an integer key that is out of bounds, it must raise a KeyError with the key as the message.</contract>
+        <acceptance>tests/test_lib_data.py::ArrayLayoutTestCase::test_key_wrong_type, tests/test_lib_data.py::ViewTestCase::test_index_wrong_missing</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View</location>
+        <description>The View class does not properly validate reset values for compound layouts (StructLayout, UnionLayout) when creating signals. The reset value validation is incomplete and doesn't properly handle dictionary-based reset values.</description>
+        <contract>When constructing a Signal with a View layout, the reset value must be validated as constant-castable. For compound layouts, if reset is provided as a dictionary, it must be validated against the layout's field definitions to ensure all values are constant-castable. The error message should match the expected format for different layout types.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset, tests/test_lib_data.py::StructTestCase::test_construct_reset, tests/test_lib_data.py::UnionTestCase::test_construct_reset_override</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:Layout</location>
+        <description>The Layout.of method has incorrect error handling when passed a non-View object. It raises TypeError with wrong message format.</description>
+        <contract>When Layout.of is called with a non-View object, it must raise a TypeError with message "Object &lt;object&gt; is not a data view".</contract>
+        <acceptance>tests/test_lib_data.py::StructTestCase::test_construct</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:StructLayout</location>
+        <description>StructLayout members property getter doesn't properly return the internal _fields data structure. It's returning shapes instead of field objects.</description>
+        <contract>The members property of StructLayout must return a mapping of field names to their shapes, preserving the original structure used during initialization.</contract>
+        <acceptance>tests/test_lib_data.py::StructLayoutTestCase::test_construct</acceptance>
+    </item>
+</requirement>

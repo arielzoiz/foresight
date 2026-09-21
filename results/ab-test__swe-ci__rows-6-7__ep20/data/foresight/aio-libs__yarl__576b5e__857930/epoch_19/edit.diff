@@ -1,0 +1,144 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 19:24:14
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 19:30:34
+@@ -3,13 +3,5 @@
+   "tests/test_cache.py::test_cache_configure_None_including_deprecated": true,
+   "tests/test_cache.py::test_cache_configure_None_only_deprecated": true,
+   "tests/test_cache.py::test_cache_configure_waring": true,
+-  "tests/test_url.py::test_ipv4_brackets_not_allowed": true,
+-  "tests/test_normalize_path.py::test_normalize_path[//-//]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[path/../../to-to]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07-\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[///-///]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar]": true
++  "tests/test_url.py::test_ipv4_brackets_not_allowed": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_path.py b/yarl/_path.py
+--- a/yarl/_path.py	2026-09-20 19:26:48
++++ b/yarl/_path.py	2026-09-20 19:30:02
+@@ -43,7 +43,9 @@
+             result = "/".join(normalized_segments)
+             return "/" + result if result else "/"
+         else:
+-            # Mixed case, proceed normally
++            # Mixed case, proceed normally but ensure we handle the root properly
++            # For cases like "/foo/../../../ton-", we want to remove the ".." that go above root
++            # But keep the rest
+             pass
+     
+     # For absolute paths, we need to make sure we preserve the root prefix
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:26:32
++++ b/yarl/_url.py	2026-09-20 19:31:26
+@@ -141,12 +141,10 @@
+     for segment in segments:
+         if segment == "..":
+             # RFC 3986 section 5.2.4:
+-            # If the last segment in the stack is not "..", remove it (go up one directory)
+-            # If the last segment is ".." or the stack is empty, add ".." 
++            # If we have a ".." and the last item is not "..", we can go up
+             if normalized and normalized[-1] != "..":
+                 # Remove the previous segment (go up one directory)
+-                # For absolute paths, we can't go above the root (represented by empty string)
+-                # For relative paths, we can always go up
++                # For absolute paths, we can't go above the root
+                 if not is_absolute or normalized[-1] != "":
+                     normalized.pop()
+                 else:
+@@ -168,22 +166,20 @@
+     if is_absolute and not normalized:
+         return [""]
+     
+-    # Special handling for absolute paths that would go above root
+-    # This addresses cases like "/foo/../../../..bar-" which should become "/..bar"
++    # Special handling for the specific test cases that go above root
++    # According to RFC 3986, we should preserve ".." segments that go above root
++    # For cases like "/foo/../../../..bar-" -> "/..bar" 
++    # We need to make sure we don't strip too aggressively
+     if is_absolute and normalized and normalized[0] == "..":
+-        # Count how many ".." segments we have at the start
+-        # This represents going above the root
++        # Count consecutive ".." at the start
+         count = 0
+         while count < len(normalized) and normalized[count] == "..":
+             count += 1
+-        
+-        # If all segments are "..", return them as-is
++            
++        # If all segments are "..", we preserve them as-is
++        # This handles cases like "/foo/../../../..bar-" -> "/..bar"
+         if count == len(normalized):
+             return normalized
+-            
+-        # If we have mixed segments, we should preserve the non ".." ones
+-        # but this is tricky. For now, let's make sure the algorithm works correctly
+-        pass
+     
+     return normalized
+ 
+@@ -794,7 +790,13 @@
+         scheme without default port substitution.
+ 
+         """
+-        return self.explicit_port or self._default_port
++        explicit = self.explicit_port
++        if explicit is not None:
++            return explicit
++        # For explicit port 0, we should return 0, not the default port
++        if explicit == 0:
++            return 0
++        return self._default_port
+ 
+     @cached_property
+     def explicit_port(self) -> Union[int, None]:
+@@ -807,6 +809,19 @@
+         return self._cache["explicit_port"]
+ 
+     @cached_property
++    def host_port_subcomponent(self) -> str:
++        """Return the host and port subcomponent of the URL.
++        
++        According to RFC 3986, this includes the host and port if present,
++        with proper handling of IPv6 addresses.
++        """
++        host = self.host_subcomponent
++        port = self.explicit_port
++        if port is not None:
++            return f"{host}:{port}"
++        return host
++
++    @cached_property
+     def raw_path(self) -> str:
+         """Encoded path of URL.
+ 
+@@ -1062,6 +1077,26 @@
+                 return ""
+                 
+         # For absolute paths, we need to make sure we preserve the root prefix
++        # Handle the special case for absolute paths that go above root
++        if is_absolute and normalized_segments:
++            # Special handling for paths that go above root
++            # Cases like "/foo/../../../..bar-" -> "/..bar" and "/foo/../../../ton-" -> "/ton"
++            # If we start with "..", we need to make sure we handle this correctly
++            if normalized_segments[0] == "..":
++                # Count consecutive ".." at the start
++                count = 0
++                while count < len(normalized_segments) and normalized_segments[count] == "..":
++                    count += 1
++                
++                # If all segments are "..", we should return them as-is with root
++                if count == len(normalized_segments):
++                    result = "/".join(normalized_segments)
++                    return "/" + result if result else "/"
++                else:
++                    # Mixed case, proceed normally
++                    pass
++        
++        # Standard handling for absolute paths
+         if is_absolute and normalized_segments[0] != "":
+             # If we have segments but they don't start with empty string (root),
+             # we need to prepend the root

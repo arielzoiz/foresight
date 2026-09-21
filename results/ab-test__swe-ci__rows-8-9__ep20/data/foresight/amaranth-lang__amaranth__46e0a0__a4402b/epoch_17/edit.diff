@@ -1,0 +1,114 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/ast.py b/amaranth/hdl/ast.py
+--- a/amaranth/hdl/ast.py	2026-09-20 22:26:44
++++ b/amaranth/hdl/ast.py	2026-09-20 22:34:40
+@@ -1002,8 +1002,15 @@
+         orig_shape = shape
+         if shape is None:
+             shape = unsigned(1)
++            self.__layout = None
+         else:
+             shape = Shape.cast(shape, src_loc_at=1 + src_loc_at)
++            # Store layout info for attribute access if it's a layout
++            if isinstance(shape, ShapeCastable) and hasattr(shape, '__call__'):
++                # This might be a layout that can be used for attribute access
++                self.__layout = shape
++            else:
++                self.__layout = None
+         self.width  = shape.width
+         self.signed = shape.signed
+ 
+@@ -1068,6 +1075,27 @@
+         else:
+             self.decoder = decoder
+             self._enum_class = None
++
++    def __getattr__(self, name):
++        # Allow struct-like attribute access for Signals with layouts
++        # This handles the case where a Signal is constructed with a Layout
++        try:
++            # Import locally to avoid circular imports
++            from . import data
++            if hasattr(self, '_Signal__orig_shape'):
++                # If we have a layout shape, try to create a View for attribute access
++                try:
++                    layout = data.Layout.cast(self._Signal__orig_shape)
++                    # Create a temporary View to handle the attribute access
++                    view = data.View(layout, self)
++                    return getattr(view, name)
++                except Exception:
++                    # If layout access fails, fall through to normal AttributeError
++                    pass
++        except Exception:
++            # If there's any issue importing or accessing, let it fall through
++            pass
++        raise AttributeError("Signal has no attribute '{}'".format(name))
+ 
+     # Not a @classmethod because amaranth.compat requires it.
+     @staticmethod
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:32:08
++++ b/amaranth/lib/data.py	2026-09-20 22:34:18
+@@ -115,6 +115,18 @@
+         elif isinstance(value, Sequence):
+             iterator = enumerate(value)
+         else:
++            # Handle case where value is a layout or other ShapeCastable object
++            if isinstance(value, ShapeCastable) and hasattr(value, 'const'):
++                # Try to convert using the const method of the ShapeCastable
++                try:
++                    const_value = value.const(value)
++                    if isinstance(const_value, Const):
++                        return const_value.value
++                    else:
++                        return int(const_value)
++                except Exception:
++                    # Fall back to the original error handling
++                    pass
+             raise TypeError("Layout initializer must be a mapping or a sequence, not {!r}"
+                             .format(value))
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 22:26:40
++++ b/amaranth/lib/enum.py	2026-09-20 22:34:28
+@@ -65,6 +65,18 @@
+             pass
+         return cls
+ 
++    def __hash__(cls):
++        # Make Enum classes hashable so they can be used as dictionary keys
++        return hash(cls.__name__)
++
++    def __eq__(cls, other):
++        # Handle comparisons that result in Amaranth Value operations
++        # This prevents attempting to convert Value objects to Python booleans
++        if isinstance(other, Value):
++            # Return a Value that represents the comparison, not a Python bool
++            return super().__eq__(other)
++        return super().__eq__(other)
++
+     def as_shape(cls):
+         """Cast this enumeration to a shape.
+ 
+@@ -115,22 +127,6 @@
+         else:
+             # Otherwise, treat as an integer value
+             return Const(value, cls.as_shape())
+-
+-    def __eq__(cls, other):
+-        # Handle comparisons that result in Amaranth Value operations
+-        # This prevents attempting to convert Value objects to Python booleans
+-        if isinstance(other, Value):
+-            # Return a Value that represents the comparison, not a Python bool
+-            return super().__eq__(other)
+-        return super().__eq__(other)
+-
+-    def __ne__(cls, other):
+-        # Handle comparisons that result in Amaranth Value operations
+-        # This prevents attempting to convert Value objects to Python booleans
+-        if isinstance(other, Value):
+-            # Return a Value that represents the comparison, not a Python bool
+-            return super().__ne__(other)
+-        return super().__ne__(other)
+ 
+ 
+ class Enum(py_enum.Enum, metaclass=EnumMeta):

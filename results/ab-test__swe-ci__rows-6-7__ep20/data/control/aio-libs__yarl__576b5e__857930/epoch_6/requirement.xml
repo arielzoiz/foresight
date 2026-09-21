@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/yarl/_url.py:URL.__new__</location>
+    <description>The URL constructor fails to properly parse URLs with scheme-only components and empty path/query/fragment components. Many tests are failing at setup stage due to incorrect handling of these edge cases.</description>
+    <contract>When constructing a URL with scheme-only (e.g., "simple:"), the scheme should be properly extracted and path should be empty string. When parsing URLs with empty components like "?#" or "#", these should be handled correctly without raising exceptions.</contract>
+    <acceptance>tests/test_url_parsing.py::TestScheme::test_scheme_only, tests/test_url_parsing.py::TestStripEmptyParts::test_empty_path, tests/test_url_parsing.py::TestQuery_String::test_simple, tests/test_url_parsing.py::TestFragment::test_simple</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/yarl/_url.py:URL.__new__</location>
+    <description>The URL parsing logic incorrectly handles URLs with special schemes that require hosts when the host is empty. The validation logic for schemes requiring hosts is not properly implemented.</description>
+    <contract>For schemes that require a host (http, https, ws, wss, ftp), when an empty host is provided in an absolute URL, a ValueError should be raised with a clear error message indicating that host is required for those schemes.</contract>
+    <acceptance>tests/test_url_parsing.py::test_schemes_that_require_host</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/yarl/_url.py:URL._normalize_path</location>
+    <description>The path normalization logic doesn't properly handle paths with special segments like "." and ".." in certain contexts, causing issues with relative path resolution.</description>
+    <contract>When normalizing paths, "." and ".." segments should be properly resolved according to RFC 3986 rules. Absolute paths should preserve leading slashes, and trailing slashes should be maintained when appropriate.</contract>
+    <acceptance>tests/test_url_parsing.py::TestStripEmptyParts::test_empty_path, tests/test_url_parsing.py::TestStripEmptyParts::test_empty_query</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/yarl/_url.py:URL._split_netloc</location>
+    <description>Network location splitting logic fails to properly handle complex netloc scenarios, particularly when dealing with userinfo, ports, and IPv6 addresses.</description>
+    <contract>The _split_netloc method should correctly parse netloc strings containing userinfo (user:password@host), ports (:port), and IPv6 addresses ([ipv6-address]) without throwing exceptions or producing incorrect results.</contract>
+    <acceptance>tests/test_url_parsing.py::TestPort::test_canonical, tests/test_url_parsing.py::TestUserInfo::test_canonical</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/yarl/_url.py:URL.__new__</location>
+    <description>The URL constructor fails to properly handle URLs with query strings and fragments that contain special characters or are empty.</description>
+    <contract>Query strings and fragments should be properly parsed and stored regardless of whether they contain special characters or are empty. Empty query strings should result in empty query_string property, and empty fragments should result in empty fragment property.</contract>
+    <acceptance>tests/test_url_parsing.py::TestQuery_String::test_simple, tests/test_url_parsing.py::TestFragment::test_simple, tests/test_url_parsing.py::TestQuery_String::test_complex_query</acceptance>
+  </requirement>
+</requirements>

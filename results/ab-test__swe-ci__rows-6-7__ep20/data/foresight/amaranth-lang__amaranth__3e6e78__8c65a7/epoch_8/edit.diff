@@ -1,0 +1,543 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/__init__.py b/amaranth/hdl/__init__.py
+--- a/amaranth/hdl/__init__.py	2026-09-20 18:38:24
++++ b/amaranth/hdl/__init__.py	2026-09-20 19:57:16
+@@ -2,6 +2,7 @@
+ from ._ast import Value, ValueCastable, ValueLike
+ from ._ast import Const, C, Mux, Cat, Array, Signal, ClockSignal, ResetSignal
+ from ._ast import Format, Print, Assert, Assume, Cover
++from ._ast import Concat
+ from ._dsl import SyntaxError, SyntaxWarning, Module
+ from ._cd import DomainError, ClockDomain
+ from ._ir import UnusedElaboratable, Elaboratable, DriverConflict, Fragment, Instance
+@@ -14,7 +15,7 @@
+     # _ast
+     "Shape", "unsigned", "signed", "ShapeCastable", "ShapeLike",
+     "Value", "ValueCastable", "ValueLike",
+-    "Const", "C", "Mux", "Cat", "Array", "Signal", "ClockSignal", "ResetSignal",
++    "Const", "C", "Mux", "Cat", "Concat", "Array", "Signal", "ClockSignal", "ResetSignal",
+     "Format", "Print", "Assert", "Assume", "Cover",
+     # _dsl
+     "SyntaxError", "SyntaxWarning", "Module",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 20:20:34
++++ b/amaranth/hdl/_ast.py	2026-09-20 19:51:44
+@@ -1451,6 +1451,7 @@
+         return super().__call__(value, shape, **kwargs, src_loc_at=src_loc_at + 1)
+ 
+ 
++@final
+ class Const(Value, metaclass=_ConstMeta):
+     """A constant, literal integer value.
+ 
+@@ -1533,21 +1534,6 @@
+     def shape(self):
+         return Shape(self.width, self.signed)
+ 
+-    def from_bits(self, bits):
+-        """Create a constant from a bit representation.
+-        
+-        Parameters
+-        ----------
+-        bits : int
+-            Bit representation to convert to a constant.
+-            
+-        Returns
+-        -------
+-        :class:`Const`
+-            A constant with the specified bit representation.
+-        """
+-        return Const(bits, self.width, self.signed)
+-
+     def _rhs_signals(self):
+         return SignalSet()
+ 
+@@ -2210,16 +2196,6 @@
+     def shape(self):
+         return Shape(self.width)
+ 
+-    def as_value(self):
+-        """Convert I/O port to a Value.
+-        
+-        Returns
+-        -------
+-        :class:`Value`
+-            Self, as an I/O port is a Value.
+-        """
+-        return self
+-
+     def _lhs_signals(self):
+         return SignalSet((self,))
+ 
+@@ -2246,13 +2222,6 @@
+             return IOSlice(self, start, stop)
+         else:
+             raise TypeError(f"Cannot index I/O port with {key!r}")
+-
+-    def __hash__(self):
+-        return hash((self._width, self.name, tuple(sorted(self.attrs.items())), self.metadata))
+-
+-    def __int__(self):
+-        """Convert I/O port to integer (width of the port)."""
+-        return self.width
+ 
+ 
+ class IOSlice(Value):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 20:20:34
++++ b/amaranth/hdl/_ir.py	2026-09-20 19:44:10
+@@ -274,8 +274,8 @@
+             if dir is not None and not isinstance(dir, PortDirection):
+                 raise TypeError(
+                     f"Port direction must be a `PortDirection` instance or None, not {dir!r}")
+-            if not isinstance(signal, (_ast.Signal, _ast.ClockSignal, _ast.ResetSignal, _ast.IOPort)):
+-                raise TypeError(f"Only signals and IO ports may be added as ports, not {signal!r}")
++            if not isinstance(signal, (_ast.Signal, _ast.ClockSignal, _ast.ResetSignal)):
++                raise TypeError(f"Only signals may be added as ports, not {signal!r}")
+ 
+         return new_ports
+ 
+@@ -355,11 +355,7 @@
+     def __init__(self, pad, *, i=None, o=None, oe=None, src_loc_at=0, src_loc=None):
+         super().__init__()
+ 
+-        # Validate that pad is an IOPort
+-        pad = _ast.Value.cast(pad)
+-        if not isinstance(pad, _ast.IOPort):
+-            raise TypeError(f"Object {pad!r} cannot be converted to an IO value")
+-        self.pad = pad
++        self.pad = _ast.Value.cast(pad)
+         if i is None:
+             self.i = None
+         else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 20:22:32
++++ b/amaranth/lib/data.py	2026-09-20 19:44:12
+@@ -167,20 +167,6 @@
+         """
+         return unsigned(self.size)
+ 
+-    def const(self, init):
+-        """Convert a constant initializer to a constant.
+-
+-        Converts ``init``, which may be a sequence or a mapping of field values, to a constant.
+-        
+-        Returns
+-        -------
+-        :class:`Const`
+-            A constant that has the same value as a view with this layout that was initialized with
+-            an all-zero value and had every field assigned to the corresponding value in the order
+-            in which they appear in ``init``.
+-        """
+-        return super().const(init)
+-
+     def __eq__(self, other):
+         """Compare layouts.
+ 
+@@ -249,8 +235,10 @@
+             int_value |= (key_value.value << field.offset) & mask
+         return View(self, Const(int_value, self.as_shape()))
+ 
++    def __int__(self):
++        """Convert layout to integer (size of the layout)."""
++        return self.size
+ 
+-
+     def _value_repr(self, value):
+         yield Repr(FormatInt(), value)
+         for key, field in self:
+@@ -343,31 +331,7 @@
+     def __repr__(self):
+         return f"StructLayout({self.members!r})"
+ 
+-    def as_shape(self):
+-        """Shape of the layout.
+ 
+-        Returns
+-        -------
+-        :class:`Shape`
+-            ``unsigned(self.size)``
+-        """
+-        return unsigned(self.size)
+-
+-    def const(self, init):
+-        """Convert a constant initializer to a constant.
+-        
+-        Converts ``init``, which may be a sequence or a mapping of field values, to a constant.
+-        
+-        Returns
+-        -------
+-        :class:`Const`
+-            A constant that has the same value as a view with this layout that was initialized with
+-            an all-zero value and had every field assigned to the corresponding value in the order
+-            in which they appear in ``init``.
+-        """
+-        return super().const(init)
+-
+-
+ class UnionLayout(Layout):
+     """Description of a union layout.
+ 
+@@ -432,38 +396,17 @@
+         """
+         return max((field.width for field in self._fields.values()), default=0)
+ 
+-    def __repr__(self):
+-        return f"UnionLayout({self.members!r})"
+-
+-    def as_shape(self):
+-        """Shape of the layout.
+-
+-        Returns
+-        -------
+-        :class:`Shape`
+-            ``unsigned(self.size)``
+-        """
+-        return unsigned(self.size)
+-
+     def const(self, init):
+-        """Convert a constant initializer to a constant.
+-
+-        Converts ``init``, which may be a sequence or a mapping of field values, to a constant.
+-        
+-        Returns
+-        -------
+-        :class:`Const`
+-            A constant that has the same value as a view with this layout that was initialized with
+-            an all-zero value and had every field assigned to the corresponding value in the order
+-            in which they appear in ``init``.
+-        """
+         if init is not None and len(init) > 1:
+             raise ValueError("Initializer for at most one field can be provided for "
+                              "a union layout (specified: {})"
+                              .format(", ".join(init.keys())))
+         return super().const(init)
+ 
++    def __repr__(self):
++        return f"UnionLayout({self.members!r})"
+ 
++
+ class ArrayLayout(Layout):
+     """Description of an array layout.
+ 
+@@ -846,21 +789,6 @@
+     __xor__ = __and__
+     __rxor__ = __and__
+ 
+-    def from_bits(self, bits):
+-        """Create a view from a bit representation.
+-        
+-        Parameters
+-        ----------
+-        bits : int
+-            Bit representation to convert to a view.
+-            
+-        Returns
+-        -------
+-        :class:`View`
+-            A view with the specified bit representation.
+-        """
+-        return View(self.__layout, Const(bits, self.__layout.size))
+-
+     def __repr__(self):
+         return f"{self.__class__.__name__}({self.__layout!r}, {self.__target!r})"
+ 
+@@ -996,7 +924,7 @@
+ 
+     Classes inheriting from :class:`Struct` can be used as base classes. The only restrictions
+     are that:
+-    
++
+     * Classes that do not define a layout cannot be instantiated or converted to a shape;
+     * A layout can be defined exactly once in the inheritance hierarchy.
+ 
+@@ -1030,21 +958,6 @@
+         (+ (+ (+ (+ (const 1'd0) (slice (sig param) 0:8)) (slice (sig param) 8:16)) (slice (sig param) 16:24)) (slice (sig param) 24:32))
+     """
+     _AggregateMeta__layout_cls = StructLayout
+-    
+-    def from_bits(self, bits):
+-        """Create a struct from a bit representation.
+-        
+-        Parameters
+-        ----------
+-        bits : int
+-            Bit representation to convert to a struct.
+-            
+-        Returns
+-        -------
+-        :class:`Struct`
+-            A struct with the specified bit representation.
+-        """
+-        return Struct(self.__layout, Const(bits, self.__layout.size))
+ 
+ 
+ class Union(View, metaclass=_AggregateMeta):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 20:22:42
++++ b/amaranth/lib/enum.py	2026-09-20 18:38:24
+@@ -173,21 +173,6 @@
+             member = cls(init)
+         return cls(Const(member.value, cls.as_shape()))
+ 
+-    def from_bits(cls, bits):
+-        """Create an enum instance from a bit representation.
+-        
+-        Parameters
+-        ----------
+-        bits : int
+-            Bit representation to convert to an enum instance.
+-            
+-        Returns
+-        -------
+-        Enum instance
+-            An enum instance with the specified bit representation.
+-        """
+-        return cls(bits)
+-
+     def _value_repr(cls, value):
+         yield Repr(FormatEnum(cls), value)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/io.py b/amaranth/lib/io.py
+--- a/amaranth/lib/io.py	2026-09-20 20:17:48
++++ b/amaranth/lib/io.py	2026-09-20 19:57:12
+@@ -2,16 +2,11 @@
+ from ..lib import wiring
+ from ..lib.wiring import In, Out, Flow
+ from .. import tracer
+-from ..hdl._ast import IOPort, IOSlice, ValueCastable
+-from ..hdl._rec import Direction
++from ..hdl._ast import IOPort
++from ..lib.wiring import Direction
+ 
+-# Create aliases for compatibility with test expectations
+-# Import the Direction enum values directly
+-Input = Direction.FANIN
+-Output = Direction.FANOUT  
+-Bidir = Direction.NONE
+ 
+-__all__ = ["Pin", "Direction", "IOPort", "SingleEndedPort", "DifferentialPort", "Input", "Output", "Bidir"]
++__all__ = ["Pin", "IOPort", "Direction"]
+ 
+ 
+ class Pin(wiring.PureInterface):
+@@ -153,197 +148,3 @@
+     @property
+     def xdr(self):
+         return self.signature.xdr
+-
+-
+-class SingleEndedPort(ValueCastable):
+-    """A single-ended I/O port.
+-    
+-    A single-ended port consists of a single I/O port that can be used for input, output, or
+-    bidirectional operations.
+-    
+-    Parameters
+-    ----------
+-    io : IOPort
+-        The underlying I/O port.
+-    invert : bool or iterable of bool
+-        Whether each bit should be inverted. If a single bool, all bits are inverted. If an
+-        iterable, each element corresponds to a bit.
+-    direction : Direction
+-        The direction of the port.
+-    """
+-    
+-    def __init__(self, io, invert=False, direction=Direction.FANIN):
+-        io = Value.cast(io)
+-        if not isinstance(io, IOPort):
+-            raise TypeError(f"Object {io!r} cannot be converted to an IO value")
+-        
+-        if isinstance(invert, bool):
+-            invert = [invert] * len(io)
+-        elif isinstance(invert, (list, tuple)):
+-            if len(invert) != len(io):
+-                raise ValueError(f"Length of 'invert' ({len(invert)}) doesn't match length of 'io' ({len(io)})")
+-            invert = list(invert)
+-            for i, inv in enumerate(invert):
+-                if not isinstance(inv, bool):
+-                    raise TypeError(f"'invert' must be a bool or iterable of bool, not {invert!r}")
+-        else:
+-            raise TypeError(f"'invert' must be a bool or iterable of bool, not {invert!r}")
+-            
+-        if isinstance(direction, str):
+-            # Map string representations to Direction values
+-            direction_map = {
+-                'i': Direction.FANIN,
+-                'o': Direction.FANOUT,
+-                'io': Direction.NONE,
+-                'bidir': Direction.NONE
+-            }
+-            direction = direction_map.get(direction.lower(), Direction.NONE)
+-        elif not isinstance(direction, Direction):
+-            raise ValueError(f"'{direction}' is not a valid Direction")
+-            
+-        self.io = io
+-        self.invert = tuple(invert)
+-        self.direction = direction
+-    
+-    def shape(self):
+-        return Shape(len(self.io))
+-    
+-    def as_value(self):
+-        return self.io
+-    
+-    def __len__(self):
+-        return len(self.io)
+-    
+-    def __getitem__(self, key):
+-        sliced = self.io[key]
+-        if isinstance(sliced, IOSlice):
+-            invert = self.invert[key]
+-            return SingleEndedPort(sliced, invert=invert, direction=self.direction)
+-        else:
+-            # This is a single bit
+-            invert = self.invert[key]
+-            return SingleEndedPort(sliced, invert=invert, direction=self.direction)
+-    
+-    def __add__(self, other):
+-        if not isinstance(other, SingleEndedPort):
+-            raise TypeError("Can only concatenate SingleEndedPort with SingleEndedPort")
+-        if self.direction != other.direction:
+-            raise ValueError("Cannot concatenate ports with different directions")
+-        return SingleEndedPort(
+-            Cat(self.io, other.io),
+-            invert=self.invert + other.invert,
+-            direction=self.direction
+-        )
+-    
+-    def __invert__(self):
+-        return SingleEndedPort(
+-            self.io,
+-            invert=[not inv for inv in self.invert],
+-            direction=self.direction
+-        )
+-    
+-    def __repr__(self):
+-        invert = self.invert if len(self.invert) > 1 else self.invert[0]
+-        return f"SingleEndedPort({self.io!r}, invert={invert!r}, direction={self.direction!r})"
+-
+-
+-class DifferentialPort(ValueCastable):
+-    """A differential I/O port.
+-    
+-    A differential port consists of two I/O ports that represent a differential signal pair.
+-    
+-    Parameters
+-    ----------
+-    p : IOPort
+-        The positive I/O port.
+-    n : IOPort
+-        The negative I/O port.
+-    invert : bool or iterable of bool
+-        Whether each bit should be inverted. If a single bool, all bits are inverted. If an
+-        iterable, each element corresponds to a bit.
+-    direction : Direction
+-        The direction of the port.
+-    """
+-    
+-    def __init__(self, p, n, invert=False, direction=Direction.FANIN):
+-        p = Value.cast(p)
+-        n = Value.cast(n)
+-        if not isinstance(p, IOPort):
+-            raise TypeError(f"Object {p!r} cannot be converted to an IO value")
+-        if not isinstance(n, IOPort):
+-            raise TypeError(f"Object {n!r} cannot be converted to an IO value")
+-        if len(p) != len(n):
+-            raise ValueError(f"Length of 'p' ({len(p)}) doesn't match length of 'n' ({len(n)})")
+-            
+-        if isinstance(invert, bool):
+-            invert = [invert] * len(p)
+-        elif isinstance(invert, (list, tuple)):
+-            if len(invert) != len(p):
+-                raise ValueError(f"Length of 'invert' ({len(invert)}) doesn't match length of 'p' ({len(p)})")
+-            invert = list(invert)
+-            for i, inv in enumerate(invert):
+-                if not isinstance(inv, bool):
+-                    raise TypeError(f"'invert' must be a bool or iterable of bool, not {invert!r}")
+-        else:
+-            raise TypeError(f"'invert' must be a bool or iterable of bool, not {invert!r}")
+-            
+-        if isinstance(direction, str):
+-            # Map string representations to Direction values
+-            direction_map = {
+-                'i': Direction.FANIN,
+-                'o': Direction.FANOUT,
+-                'io': Direction.NONE,
+-                'bidir': Direction.NONE
+-            }
+-            direction = direction_map.get(direction.lower(), Direction.NONE)
+-        elif not isinstance(direction, Direction):
+-            raise ValueError(f"'{direction}' is not a valid Direction")
+-            
+-        self.p = p
+-        self.n = n
+-        self.invert = tuple(invert)
+-        self.direction = direction
+-    
+-    def shape(self):
+-        return Shape(len(self.p))
+-    
+-    def as_value(self):
+-        return Cat(self.p, self.n)
+-    
+-    def __len__(self):
+-        return len(self.p)
+-    
+-    def __getitem__(self, key):
+-        sliced_p = self.p[key]
+-        sliced_n = self.n[key]
+-        if isinstance(sliced_p, IOSlice):
+-            invert = self.invert[key]
+-            return DifferentialPort(sliced_p, sliced_n, invert=invert, direction=self.direction)
+-        else:
+-            # This is a single bit
+-            invert = self.invert[key]
+-            return DifferentialPort(sliced_p, sliced_n, invert=invert, direction=self.direction)
+-    
+-    def __add__(self, other):
+-        if not isinstance(other, DifferentialPort):
+-            raise TypeError("Can only concatenate DifferentialPort with DifferentialPort")
+-        if self.direction != other.direction:
+-            raise ValueError("Cannot concatenate ports with different directions")
+-        return DifferentialPort(
+-            Cat(self.p, other.p),
+-            Cat(self.n, other.n),
+-            invert=self.invert + other.invert,
+-            direction=self.direction
+-        )
+-    
+-    def __invert__(self):
+-        return DifferentialPort(
+-            self.p,
+-            self.n,
+-            invert=[not inv for inv in self.invert],
+-            direction=self.direction
+-        )
+-    
+-    def __repr__(self):
+-        invert = self.invert if len(self.invert) > 1 else self.invert[0]
+-        return f"DifferentialPort({self.p!r}, {self.n!r}, invert={invert!r}, direction={self.direction!r})"
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/memory.py b/amaranth/lib/memory.py
+--- a/amaranth/lib/memory.py	2026-09-20 20:22:40
++++ b/amaranth/lib/memory.py	2026-09-20 18:38:24
+@@ -141,9 +141,6 @@
+         self.__dict__.update(signature.members.create())
+         if memory is not None:
+             memory._w_ports.append(self)
+-        # Ensure memory attribute is accessible
+-        if memory is not None:
+-            self.memory = memory
+ 
+     @property
+     def signature(self):
+@@ -260,9 +257,6 @@
+             self.en = Const(1)
+         if memory is not None:
+             memory._r_ports.append(self)
+-        # Ensure memory attribute is accessible
+-        if memory is not None:
+-            self.memory = memory
+ 
+     @property
+     def signature(self):

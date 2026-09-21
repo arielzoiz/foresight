@@ -1,0 +1,52 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 17:40:18
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 17:48:34
+@@ -1,11 +1,5 @@
+ {
+   "tests/test_normalize_path.py": true,
+-  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[fragment-only]": true,
+-  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[none]": true,
+-  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[all]": true,
+   "tests/test_url.py::test_relative_url_populates_cache": true,
+-  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[query-only]": true,
+-  "tests/test_pickle.py::test_empty_url_is_not_cached": true,
+-  "tests/test_pickle.py::test_pickle_does_not_pollute_cache": true,
+-  "tests/test_pickle.py::test_default_style_state": true
++  "tests/test_url.py::test_ipv4_brackets_not_allowed": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:45:14
++++ b/yarl/_url.py	2026-09-20 17:47:08
+@@ -550,6 +550,19 @@
+             elif isinstance(val, tuple) and len(val) >= 2 and val[0] is None and isinstance(val[1], dict):
+                 # Default style pickle - extract SplitResult from dict
+                 val = val[1]["_val"]
++            # Handle case where val might be a tuple from legacy pickle but not the expected format
++            elif isinstance(val, tuple) and len(val) == 2 and val[0] is None and isinstance(val[1], dict):
++                # Another form of default style pickle - extract SplitResult from dict
++                val = val[1]["_val"]
++            # Handle any remaining tuple case by converting to SplitResult safely
++            elif isinstance(val, tuple):
++                # Try to convert to SplitResult if we have 5 elements
++                if len(val) == 5:
++                    val = SplitResult(*val)
++                else:
++                    # If we can't convert, fall back to a safe approach
++                    # This shouldn't normally happen, but let's be defensive
++                    pass
+             ret = self._cache["hash"] = hash(val)
+         return ret
+ 
+@@ -1661,8 +1674,9 @@
+                     # Something unusual - fall back to basic replacement
+                     new_name = name[: -len(old_suffix)] + suffix
+         
+-        # Ensure the new name is properly encoded before passing to with_name
+-        # But don't double-encode if the suffix is already encoded
++        # Handle potential double encoding issue by ensuring we don't double-encode
++        # The suffix itself should be encoded, but the name should not be re-encoded
++        # Let with_name handle the encoding properly
+         new_url = self.with_name(new_name, keep_query=keep_query, keep_fragment=keep_fragment)
+         
+         # Handle query and fragment preservation

@@ -1,0 +1,74 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:19:40
++++ b/yarl/_url.py	2026-09-20 17:23:36
+@@ -748,9 +748,37 @@
+         """
+         if (raw := self.raw_host) is None:
+             return None
++        # Remove trailing dots from hostnames (per RFC 1034/1035)
++        if raw and not raw.startswith('[') and raw.endswith('.'):
++            raw = raw.rstrip('.')
+         return f"[{raw}]" if ":" in raw else raw
+ 
+     @cached_property
++    def host_port_subcomponent(self) -> Union[str, None]:
++        """Return the host and port subcomponent part of URL.
++
++        None for relative URLs.
++        
++        Examples:
++        - `http://example.com` -> `example.com`
++        - `http://example.com:8080` -> `example.com:8080`
++        - `http://example.com:80` -> `example.com`
++        - `https://127.0.0.1:8443` -> `127.0.0.1:8443`
++        - `http://[::1]` -> `[::1]`
++        - `http://[::1]:8080` -> `[::1]:8080`
++
++        """
++        host = self.host_subcomponent
++        if host is None:
++            return None
++        
++        port = self.port
++        if port is None or port == self._default_port:
++            return host
++            
++        return f"{host}:{port}"
++
++    @cached_property
+     def port(self) -> Union[int, None]:
+         """Port part of URL, with scheme-based fallback.
+ 
+@@ -1678,13 +1706,32 @@
+     idna_decode_size: Union[int, None] = _MAXCACHE,
+     ip_address_size: Union[int, None] = _MAXCACHE,
+     host_validate_size: Union[int, None] = _MAXCACHE,
++    encode_host_size: Union[int, None] = _MAXCACHE,
+ ) -> None:
+     """Configure LRU cache sizes."""
+     global _idna_decode, _idna_encode, _ip_compressed_version, _host_validate
+ 
++    # Handle deprecated parameters
++    if ip_address_size is not _MAXCACHE or host_validate_size is not _MAXCACHE:
++        warnings.warn(
++            "cache_configure() no longer accepts the ip_address_size "
++            "or host_validate_size arguments, they are used to set the "
++            "encode_host_size instead and will be removed in the future",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        # When deprecated parameters are provided, they should be used for encode_host_size
++        if encode_host_size is _MAXCACHE:
++            # Prefer ip_address_size over host_validate_size if both are provided
++            encode_host_size = ip_address_size if ip_address_size is not _MAXCACHE else host_validate_size
++
+     _idna_encode = lru_cache(idna_encode_size)(_idna_encode.__wrapped__)
+     _idna_decode = lru_cache(idna_decode_size)(_idna_decode.__wrapped__)
+     _ip_compressed_version = lru_cache(ip_address_size)(
+         _ip_compressed_version.__wrapped__
+     )
+     _host_validate = lru_cache(host_validate_size)(_host_validate.__wrapped__)
++    
++    # Apply encode_host_size to the host validation cache if explicitly provided or via deprecated params
++    if encode_host_size is not _MAXCACHE and encode_host_size != _MAXCACHE:
++        _host_validate = lru_cache(encode_host_size)(_host_validate.__wrapped__)

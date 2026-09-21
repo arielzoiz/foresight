@@ -1,0 +1,96 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 17:51:16
++++ b/amaranth/hdl/_ast.py	2026-09-20 18:20:38
+@@ -1503,6 +1503,10 @@
+             shape = Shape(bits_for(value), signed=value < 0)
+         elif isinstance(shape, int):
+             shape = Shape(shape, signed=value < 0)
++        elif isinstance(shape, ShapeCastable):
++            # For ShapeCastable objects, we should delegate to their const method
++            # but we need to make sure we're calling it properly
++            shape = Shape.cast(shape, src_loc_at=1 + src_loc_at)
+         else:
+             if isinstance(shape, range) and value == shape.stop:
+                 warnings.warn(
+@@ -2967,6 +2971,16 @@
+ 
+     def _rhs_signals(self):
+         return self.value._rhs_signals()
++
++    def _ioports(self):
++        """Get I/O ports.
++        
++        Returns
++        -------
++        list of IOPort
++            List of I/O ports.
++        """
++        return self._ioports
+ 
+     def __repr__(self):
+         return f"(io-slice {self.value!r} {self.start}:{self.stop})"
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 17:54:42
++++ b/amaranth/hdl/_ir.py	2026-09-20 18:20:12
+@@ -451,6 +451,61 @@
+             taken_names.add(subfragment_name)
+             self._assign_names_to_fragments(subfragment, hierarchy=(*hierarchy, subfragment_name))
+ 
++    def _assign_names_to_signals(self, fragment, ports):
++        """Assign names to signals in this fragment and its subfragments.
++        
++        Arguments
++        ---------
++        fragment : Fragment
++            Fragment to assign names to signals in.
++        ports : list of (name, signal, direction) or None
++            Ports to use for naming signals.
++        """
++        if fragment not in self.signal_names:
++            self.signal_names[fragment] = {}
++            
++        # Collect all signals in this fragment
++        signals = set()
++        
++        # Add signals from statements
++        for domain, stmts in fragment.statements.items():
++            for stmt in stmts:
++                signals.update(stmt._rhs_signals())
++                signals.update(stmt._lhs_signals())
++                
++        # Add signals from subfragments
++        for subfragment, _name, _src_loc in fragment.subfragments:
++            self._assign_names_to_signals(subfragment, None)
++            signals.update(self.signal_names[subfragment].keys())
++            
++        # Add ports as signals
++        if ports:
++            for name, signal, dir in ports:
++                signals.add(signal)
++        
++        # Assign names to signals
++        taken_names = set()
++        for signal in signals:
++            # Skip signals that already have names
++            if signal in self.signal_names[fragment]:
++                continue
++                
++            # Try to get name from signal
++            if hasattr(signal, 'name') and signal.name:
++                name = signal.name
++            else:
++                name = f"sig_{len(self.signal_names[fragment])}"
++                
++            # Make sure the name is unique
++            original_name = name
++            counter = 0
++            while name in taken_names:
++                counter += 1
++                name = f"{original_name}_{counter}"
++                
++            taken_names.add(name)
++            self.signal_names[fragment][signal] = name
++
+ 
+ ############################################################################################### >:3
+ 

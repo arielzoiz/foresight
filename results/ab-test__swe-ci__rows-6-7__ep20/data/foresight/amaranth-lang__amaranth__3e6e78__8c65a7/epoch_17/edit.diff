@@ -1,0 +1,74 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 20:12:46
++++ b/amaranth/hdl/_ast.py	2026-09-20 20:15:42
+@@ -2226,6 +2226,10 @@
+     def __hash__(self):
+         return hash((self._width, self.name, tuple(sorted(self.attrs.items())), self.metadata))
+ 
++    def __int__(self):
++        """Convert I/O port to integer (width of the port)."""
++        return self.width
++
+ 
+ class IOSlice(Value):
+     """An I/O port slice.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 20:12:42
++++ b/amaranth/lib/data.py	2026-09-20 20:15:38
+@@ -253,10 +253,6 @@
+         """Convert layout to integer (size of the layout)."""
+         return self.size
+ 
+-    def __int__(self):
+-        """Convert layout to integer (size of the layout)."""
+-        return self.size
+-
+     def _value_repr(self, value):
+         yield Repr(FormatInt(), value)
+         for key, field in self:
+@@ -361,7 +357,7 @@
+ 
+     def const(self, init):
+         """Convert a constant initializer to a constant.
+-
++        
+         Converts ``init``, which may be a sequence or a mapping of field values, to a constant.
+         
+         Returns
+@@ -372,10 +368,6 @@
+             in which they appear in ``init``.
+         """
+         return super().const(init)
+-
+-    def __int__(self):
+-        """Convert layout to integer (size of the layout)."""
+-        return self.size
+ 
+ 
+ class UnionLayout(Layout):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/io.py b/amaranth/lib/io.py
+--- a/amaranth/lib/io.py	2026-09-20 20:13:26
++++ b/amaranth/lib/io.py	2026-09-20 20:15:42
+@@ -2,7 +2,7 @@
+ from ..lib import wiring
+ from ..lib.wiring import In, Out, Flow
+ from .. import tracer
+-from ..hdl._ast import IOPort, ValueCastable
++from ..hdl._ast import IOPort, IOSlice, ValueCastable
+ from ..hdl._rec import Direction
+ 
+ 
+@@ -26,7 +26,12 @@
+ # Create the alias
+ DirectionAlias = _DirectionAlias()
+ 
+-__all__ = ["Pin", "Direction", "IOPort", "SingleEndedPort", "DifferentialPort"]
++# Also add the aliases directly to the module
++Input = Direction.FANIN
++Output = Direction.FANOUT
++Bidir = Direction.NONE
++
++__all__ = ["Pin", "Direction", "IOPort", "SingleEndedPort", "DifferentialPort", "Input", "Output", "Bidir"]
+ 
+ 
+ class Pin(wiring.PureInterface):

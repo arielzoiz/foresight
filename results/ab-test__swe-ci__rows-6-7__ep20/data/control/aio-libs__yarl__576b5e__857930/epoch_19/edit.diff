@@ -1,0 +1,113 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:03:20
++++ b/yarl/_url.py	2026-09-20 18:06:44
+@@ -542,39 +542,20 @@
+         if ret is None:
+             val = self._val
+             # Handle unpickling where val can be a tuple during __setstate__
+-            if isinstance(val, tuple) and len(val) == 5:
+-                # Legacy pickle format - extract SplitResult from tuple
+-                val = SplitResult(*val)
+-            elif isinstance(val, tuple) and len(val) >= 2 and val[0] is None and isinstance(val[1], dict):
+-                # Default style pickle - extract SplitResult from dict
+-                val = val[1]["_val"]
+-            # Handle case where val might be a tuple from legacy pickle but not the expected format
+-            elif isinstance(val, tuple) and len(val) == 2 and val[0] is None and isinstance(val[1], dict):
+-                # Another form of default style pickle - extract SplitResult from dict
+-                val = val[1]["_val"]
+-            # Handle any remaining tuple case by converting to SplitResult safely
+-            elif isinstance(val, tuple):
+-                # Try to convert to SplitResult if we have 5 elements
++            if isinstance(val, tuple):
++                # Try to convert tuple to SplitResult safely
+                 if len(val) == 5:
++                    # Legacy pickle format - extract SplitResult from tuple
+                     val = SplitResult(*val)
+                 elif len(val) == 2 and val[0] is None and isinstance(val[1], dict):
+-                    # Another form of default style pickle - extract SplitResult from dict
++                    # Default style pickle - extract SplitResult from dict
+                     val = val[1]["_val"]
++                elif len(val) >= 5:
++                    # Fallback - try to construct SplitResult from first 5 elements
++                    val = SplitResult(*val[:5])
+                 else:
+-                    # If we can't convert, we need to handle this case properly
+-                    # Convert to SplitResult from the tuple elements if possible
+-                    if len(val) >= 5:
+-                        val = SplitResult(*val[:5])
+-                    else:
+-                        # Fall back to using the first element as _val if it's a SplitResult-like object
+-                        try:
+-                            if hasattr(val[0], '_asdict') or hasattr(val[0], 'scheme'):
+-                                val = val[0]
+-                            else:
+-                                # For other cases, let's just compute the hash directly
+-                                return hash(val)
+-                        except (IndexError, AttributeError):
+-                            return hash(val)
++                    # If we can't convert, return hash of the raw tuple
++                    return hash(val)
+             
+             # Now we can safely check the path property
+             if not val.path and val.netloc:
+@@ -634,7 +615,10 @@
+                 self._val = state[0]
+             else:
+                 # Fallback - treat as raw _val
+-                self._val = state[0]
++                try:
++                    self._val = state[0]
++                except (IndexError, TypeError):
++                    self._val = state
+         else:
+             # Direct assignment
+             self._val = state
+@@ -1637,13 +1621,15 @@
+         if name in (".", ".."):
+             raise ValueError(". and .. values are forbidden")
+         parts = list(self.raw_parts)
++        
++        # Handle both absolute and relative URLs correctly
+         if self._val.netloc:
+             # For absolute URLs (with netloc)
+             if len(parts) == 1 and parts[0] == "/":
+-                # Empty path case (e.g. http://example.com/)
++                # Empty path case (e.g. http://example.com/) - should append to root
+                 parts = ["/", name]
+             elif len(parts) == 1 and parts[0] == "":
+-                # No path case (e.g. http://example.com)
++                # No path case (e.g. http://example.com) - should append to root
+                 parts = ["/", name]
+             else:
+                 # Normal case - replace last part
+@@ -1658,7 +1644,7 @@
+             else:
+                 new_path = "/".join(parts)
+         else:
+-            # For relative URLs, we need to properly handle the case where path starts with slash
++            # For relative URLs, we need to handle the case where path starts with slash
+             # raw_parts for "/a" is ("/", "a"), so we want to replace "a" with the new name
+             if len(parts) > 0 and parts[0] == "/":
+                 # Path starts with slash - replace the actual name part (last element)
+@@ -1699,6 +1685,7 @@
+         if "/" in suffix:
+             raise ValueError(f"Invalid suffix {suffix!r}")
+         name = self.raw_name
++        
+         # For naked paths (no name component), we need to check if there's actually
+         # a path component we can modify. If there's no path component, we should 
+         # allow suffix modification for relative URLs or when the path can be extended.
+@@ -1707,11 +1694,12 @@
+             # For relative URLs or absolute URLs with path "/", we can modify
+             if self._val.path == "" or self._val.path == "/":
+                 # For URLs like http://example.com or http://example.com/ 
+-                # we should allow suffix modification
++                # we should allow suffix modification by treating them as having a name
+                 pass
+             else:
+                 # For URLs with actual path components, we should raise ValueError
+                 raise ValueError(f"{self!r} has an empty name")
++        
+         old_suffix = self.raw_suffix
+         
+         # Properly encode the suffix

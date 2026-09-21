@@ -1,0 +1,38 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:29:20
++++ b/amaranth/lib/data.py	2026-09-20 22:32:08
+@@ -446,7 +446,7 @@
+             shape = self.__layout.elem_shape
+             value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+         else:
+-            # Regular indexing for non-value keys
++            # Regular indexing for non-value keys (this covers field access and array indexing)
+             if isinstance(self.__layout, ArrayLayout):
+                 # For ArrayLayout, we need to validate the key type
+                 if not isinstance(key, int):
+@@ -457,6 +457,7 @@
+                 shape = self.__layout.elem_shape
+                 value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+             else:
++                # For non-ArrayLayout, treat key as a field name lookup
+                 field = self.__layout[key]
+                 shape = field.shape
+                 value = self.__target[field.offset:field.offset + field.width]
+@@ -470,10 +471,16 @@
+             return value
+ 
+     def __getattr__(self, name):
++        # Reserved field names (starting with underscore) should only be accessed via indexing
++        if name.startswith('_'):
++            raise AttributeError("View of {!r} field '{!r}' has a reserved name and may only be "
++                               "accessed by indexing"
++                               .format(self.__target, name))
++        
+         # For regular attributes, try to access via __getitem__
+         try:
+             item = self[name]
+-        except KeyError:
++        except KeyError as e:
+             # Find similar names for better error messages
+             similar_names = []
+             all_field_names = []

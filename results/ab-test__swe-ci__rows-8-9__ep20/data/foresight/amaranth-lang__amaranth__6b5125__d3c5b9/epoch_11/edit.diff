@@ -1,0 +1,88 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 22:58:18
++++ b/amaranth/hdl/_ast.py	2026-09-20 23:02:40
+@@ -2753,50 +2753,6 @@
+     def __repr__(self):
+         return f"(switchvalue {self.test!r} {self.cases!r})"
+ 
+-
+-class SwitchValue(Value):
+-    """A switch value expression.
+-
+-    This class represents a switch value expression that selects a value based on pattern matching
+-    against a test value. It is similar to a C-style switch statement but evaluates to a value.
+-    """
+-    def __init__(self, test, cases, *, src_loc_at=0):
+-        super().__init__(src_loc_at=src_loc_at)
+-        self._test = Value.cast(test)
+-        self._cases = []
+-        for pattern, value in cases:
+-            if isinstance(pattern, str):
+-                # Normalize pattern by removing whitespace
+-                pattern = "".join(pattern.split())
+-            self._cases.append((pattern, Value.cast(value)))
+-
+-    @property
+-    def test(self):
+-        return self._test
+-
+-    @property
+-    def cases(self):
+-        return self._cases
+-
+-    def shape(self):
+-        # The shape is determined by the maximum shape of all case values
+-        shapes = [value.shape() for _, value in self.cases]
+-        if not shapes:
+-            # Default to unsigned(1) if no cases
+-            return unsigned(1)
+-        return Shape._unify(shapes)
+-
+-    def _lhs_signals(self):
+-        # SwitchValue is not an assignment target
+-        return super()._lhs_signals()
+-
+-    def _rhs_signals(self):
+-        # Collect signals from test value and all case values
+-        signals = self.test._rhs_signals()
+-        for _, value in self.cases:
+-            signals |= value._rhs_signals()
+-        return signals
+-
+     def __repr__(self):
+         return f"(switchvalue {self.test!r} {self.cases!r})"
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_mem.py b/amaranth/hdl/_mem.py
+--- a/amaranth/hdl/_mem.py	2026-09-20 22:58:10
++++ b/amaranth/hdl/_mem.py	2026-09-20 23:02:48
+@@ -169,6 +169,10 @@
+             raise TypeError("Memory initialization value at address {:x}: {}"
+                             .format(addr, e)) from None
+ 
++    @property
++    def data(self):
++        return self._data
++
+     def read_port(self, *, src_loc_at=0, **kwargs):
+         """Get a read port.
+ 
+@@ -403,6 +407,19 @@
+ 
+         def __repr__(self):
+             return f"(memory-init {self._data!r})"
++        
++        def __eq__(self, other):
++            if not isinstance(other, MemoryData.Init):
++                return False
++            return self._data == other._data
++        
++        @property
++        def data(self):
++            return self._data
++            
++        @property
++        def _data(self):
++            return self._data
+ 
+     def __init__(self, *, shape, depth, init=None):
+         self._shape = shape

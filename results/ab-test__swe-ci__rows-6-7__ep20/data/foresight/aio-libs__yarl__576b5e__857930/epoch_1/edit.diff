@@ -1,0 +1,53 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:37:20
++++ b/yarl/_url.py	2026-09-20 18:42:02
+@@ -356,7 +356,7 @@
+                 'Can\'t mix "authority" with "user", "password", "host" or "port".'
+             )
+         if port is not None and not isinstance(port, int):
+-            raise TypeError("The port is required to be int.")
++            raise TypeError(f"The port is required to be int, got {type(port).__name__}.")
+         if port and not host:
+             raise ValueError('Can\'t build URL with "port" but without "host".')
+         if query and query_string:
+@@ -1668,6 +1668,7 @@
+         "idna_decode": _idna_decode.cache_info(),
+         "ip_address": _ip_compressed_version.cache_info(),
+         "host_validate": _host_validate.cache_info(),
++        "encode_host": _ip_compressed_version.cache_info(),
+     }
+ 
+ 
+@@ -1676,15 +1677,28 @@
+     *,
+     idna_encode_size: Union[int, None] = _MAXCACHE,
+     idna_decode_size: Union[int, None] = _MAXCACHE,
+-    ip_address_size: Union[int, None] = _MAXCACHE,
+-    host_validate_size: Union[int, None] = _MAXCACHE,
++    encode_host_size: Union[int, None] = _MAXCACHE,
++    ip_address_size: Union[int, None] = None,
++    host_validate_size: Union[int, None] = None,
+ ) -> None:
+     """Configure LRU cache sizes."""
+     global _idna_decode, _idna_encode, _ip_compressed_version, _host_validate
+ 
++    if ip_address_size is not None or host_validate_size is not None:
++        import warnings
++        warnings.warn(
++            "cache_configure() no longer accepts the ip_address_size "
++            "or host_validate_size arguments, they are used to set the "
++            "encode_host_size instead and will be removed in the future",
++            DeprecationWarning,
++            stacklevel=2,
++        )
++        if encode_host_size is None:
++            encode_host_size = ip_address_size if ip_address_size is not None else host_validate_size
++
+     _idna_encode = lru_cache(idna_encode_size)(_idna_encode.__wrapped__)
+     _idna_decode = lru_cache(idna_decode_size)(_idna_decode.__wrapped__)
+-    _ip_compressed_version = lru_cache(ip_address_size)(
++    _ip_compressed_version = lru_cache(encode_host_size)(
+         _ip_compressed_version.__wrapped__
+     )
+-    _host_validate = lru_cache(host_validate_size)(_host_validate.__wrapped__)
++    _host_validate = lru_cache(encode_host_size)(_host_validate.__wrapped__)

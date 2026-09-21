@@ -1,0 +1,113 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:34:00
++++ b/yarl/_url.py	2026-09-20 17:35:38
+@@ -348,25 +348,12 @@
+                     cache["raw_user"] = raw_user
+                     cache["raw_password"] = raw_password
+ 
+-            if path:
+-                path = cls._PATH_REQUOTER(path)
+-                if netloc:
+-                    if "." in path:
+-                        path = cls._normalize_path(path)
+-                    if path[0] != "/":
+-                        cls._raise_for_authority_missing_abs_path()
+-            elif path == "":
+-                # Ensure empty path is handled properly
+-                path = ""
+-            elif path == "":
+-                # Ensure empty paths are handled correctly
+-                path = ""
+-            elif path == "":
+-                # For empty path, ensure it's set properly
+-                path = ""
+-            elif path == "":
+-                # Handle empty path explicitly
+-                path = ""
++            path = cls._PATH_REQUOTER(path) if path else path
++            if netloc:
++                if "." in path:
++                    path = cls._normalize_path(path)
++                if path and path[0] != "/":
++                    cls._raise_for_authority_missing_abs_path()
+ 
+             query = cls._QUERY_REQUOTER(query) if query else query
+             fragment = cls._FRAGMENT_REQUOTER(fragment) if fragment else fragment
+@@ -1334,7 +1321,7 @@
+         netloc = self._make_netloc(self.raw_user, self.raw_password, encoded_host, port)
+         return self._from_val(val._replace(netloc=netloc))
+ 
+-    def with_path(self, path: str, *, encoded: bool = False) -> "URL":
++    def with_path(self, path: str, *, encoded: bool = False, keep_query: bool = False, keep_fragment: bool = False) -> "URL":
+         """Return a new URL with path replaced."""
+         if not encoded:
+             path = self._PATH_QUOTER(path)
+@@ -1342,7 +1329,17 @@
+                 path = self._normalize_path(path) if "." in path else path
+         if len(path) > 0 and path[0] != "/":
+             path = "/" + path
+-        return self._from_val(self._val._replace(path=path, query="", fragment=""))
++        
++        # Prepare the new URL with updated path
++        new_val = self._val._replace(path=path)
++        
++        # Handle query and fragment preservation
++        if not keep_query:
++            new_val = new_val._replace(query="")
++        if not keep_fragment:
++            new_val = new_val._replace(fragment="")
++            
++        return self._from_val(new_val)
+ 
+     def _get_str_query_from_sequence_iterable(
+         self,
+@@ -1556,7 +1553,7 @@
+             return self
+         return self._from_val(self._val._replace(fragment=raw_fragment))
+ 
+-    def with_name(self, name: str) -> "URL":
++    def with_name(self, name: str, *, keep_query: bool = False, keep_fragment: bool = False) -> "URL":
+         """Return a new URL with name (last part of path) replaced.
+ 
+         Query and fragment parts are cleaned up.
+@@ -1583,11 +1580,19 @@
+             parts[-1] = name
+             if parts[0] == "/":
+                 parts[0] = ""  # replace leading '/'
+-        return self._from_val(
+-            self._val._replace(path="/".join(parts), query="", fragment="")
+-        )
++        
++        # Prepare the new URL with updated path
++        new_val = self._val._replace(path="/".join(parts))
++        
++        # Handle query and fragment preservation
++        if not keep_query:
++            new_val = new_val._replace(query="")
++        if not keep_fragment:
++            new_val = new_val._replace(fragment="")
++            
++        return self._from_val(new_val)
+ 
+-    def with_suffix(self, suffix: str) -> "URL":
++    def with_suffix(self, suffix: str, *, keep_query: bool = False, keep_fragment: bool = False) -> "URL":
+         """Return a new URL with suffix (file extension of name) replaced.
+ 
+         Query and fragment parts are cleaned up.
+@@ -1605,7 +1610,15 @@
+         # Properly encode the new name with suffix
+         new_name = name + suffix if not old_suffix else name[: -len(old_suffix)] + suffix
+         # Ensure the new name is properly encoded before passing to with_name
+-        return self.with_name(new_name)
++        new_url = self.with_name(new_name)
++        
++        # Handle query and fragment preservation
++        if keep_query:
++            new_url = new_url.with_query(self.query)
++        if keep_fragment:
++            new_url = new_url.with_fragment(self.fragment)
++            
++        return new_url
+ 
+     def join(self, url: "URL") -> "URL":
+         """Join URLs

@@ -1,0 +1,215 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 17:25:58
++++ b/amaranth/hdl/_ast.py	2026-09-20 17:29:20
+@@ -26,6 +26,7 @@
+     "Statement", "Switch",
+     "Property", "Assign", "Print", "Assert", "Assume", "Cover",
+     "SignalKey", "SignalDict", "SignalSet",
++    "IOPort", "Direction",
+ ]
+ 
+ 
+@@ -2786,6 +2787,117 @@
+         pairs = [f"({k!r}, {v!r})" for k, v in self.items()]
+         return "{}.{}([{}])".format(type(self).__module__, type(self).__name__,
+                                     ", ".join(pairs))
++
++
++class Direction(Enum):
++    """Direction of an I/O port."""
++    Input  = 1
++    Output = 2
++    Bidir  = 3
++
++    def __or__(self, other):
++        if not isinstance(other, Direction):
++            raise TypeError(f"Direction can only be ORed with another Direction, not {other!r}")
++        if self == Direction.Input:
++            if other == Direction.Input:
++                return Direction.Input
++            elif other == Direction.Output:
++                return Direction.Bidir
++            elif other == Direction.Bidir:
++                return Direction.Bidir
++        elif self == Direction.Output:
++            if other == Direction.Input:
++                raise ValueError("Cannot combine input port with output port")
++            elif other == Direction.Output:
++                return Direction.Output
++            elif other == Direction.Bidir:
++                return Direction.Bidir
++        elif self == Direction.Bidir:
++            return Direction.Bidir
++        raise TypeError(f"Direction can only be ORed with another Direction, not {other!r}")
++
++    def __and__(self, other):
++        if not isinstance(other, Direction):
++            raise TypeError(f"Direction can only be ANDed with another Direction, not {other!r}")
++        if self == Direction.Input:
++            if other == Direction.Input:
++                return Direction.Input
++            elif other == Direction.Output:
++                raise ValueError("Cannot combine input port with output port")
++            elif other == Direction.Bidir:
++                return Direction.Input
++        elif self == Direction.Output:
++            if other == Direction.Input:
++                raise ValueError("Cannot combine input port with output port")
++            elif other == Direction.Output:
++                return Direction.Output
++            elif other == Direction.Bidir:
++                return Direction.Output
++        elif self == Direction.Bidir:
++            if other == Direction.Input:
++                return Direction.Input
++            elif other == Direction.Output:
++                return Direction.Output
++            elif other == Direction.Bidir:
++                return Direction.Bidir
++        raise TypeError(f"Direction can only be ANDed with another Direction, not {other!r}")
++
++
++class IOPort(Value):
++    """An I/O port.
++
++    Parameters
++    ----------
++    width : int
++        Width of the port.
++    name : str or None
++        Name of the port.
++    attrs : dict or None
++        Dictionary of synthesis attributes.
++    metadata : list or None
++        List of metadata.
++    """
++    def __init__(self, width, name=None, attrs=None, metadata=None, *, src_loc_at=0):
++        super().__init__(src_loc_at=src_loc_at)
++        self._width = width
++        self._name = name
++        self._attrs = OrderedDict(() if attrs is None else attrs)
++        self._metadata = metadata or []
++
++    @property
++    def width(self):
++        return self._width
++
++    @property
++    def name(self):
++        return self._name
++
++    @property
++    def attrs(self):
++        return self._attrs
++
++    @property
++    def metadata(self):
++        return self._metadata
++
++    def _ioports(self):
++        """Get I/O ports.
++
++        Returns
++        -------
++        list of IOPort
++            List of I/O ports.
++        """
++        return [self]
++
++    def shape(self):
++        return Shape(self.width)
++
++    def _lhs_signals(self):
++        return SignalSet()
++
++    def _rhs_signals(self):
++        return SignalSet()
+ 
+ 
+ class _MappedKeySet(MutableSet, _MappedKeyCollection):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 17:25:58
++++ b/amaranth/lib/data.py	2026-09-20 17:29:50
+@@ -324,6 +324,21 @@
+         """
+         return max((field.offset + field.width for field in self._fields.values()), default=0)
+ 
++    def from_bits(self, bits):
++        """Convert bits to a structured value.
++
++        Parameters
++        ----------
++        bits : int
++            Bit pattern to convert.
++
++        Returns
++        -------
++        :class:`View`
++            A view of the structured data.
++        """
++        return View(self, Const(bits, self.as_shape()))
++
+     def __repr__(self):
+         return f"StructLayout({self.members!r})"
+ 
+@@ -690,7 +705,7 @@
+         """
+         if isinstance(self.__layout, ArrayLayout):
+             if not isinstance(key, (int, Value, ValueCastable)):
+-                raise TypeError("Views with array layout may only be indexed with an integer "
++                raise TypeError("View with array layout may only be indexed with an integer "
+                                 "or a value, not {!r}"
+                                 .format(key))
+             shape = self.__layout.elem_shape
+@@ -729,30 +744,31 @@
+             an underscore.
+         """
+         if isinstance(self.__layout, ArrayLayout):
+-            raise AttributeError("View of {!r} with an array layout does not have fields"
+-                                 .format(self.__target))
++            raise AttributeError("View with an array layout does not have fields")
+         try:
+             item = self[name]
+         except KeyError:
+-            raise AttributeError("View of {!r} does not have a field {!r}; "
++            raise AttributeError("View with layout {!r} does not have a field {!r}; "
+                                  "did you mean one of: {}?"
+-                                 .format(self.__target, name,
++                                 .format(self.__layout, name,
+                                          ", ".join(repr(name)
+                                                    for name, field in self.__layout)))
+         if name.startswith("_"):
+-            raise AttributeError("View of {!r} field {!r} has a reserved name and may only be "
++            raise AttributeError("View with layout {!r} field {!r} has a reserved name and may only be "
+                                  "accessed by indexing"
+-                                 .format(self.__target, name))
++                                 .format(self.__layout, name))
+         return item
+ 
+     def __eq__(self, other):
+         if not isinstance(other, View) or self.__layout != other.__layout:
+-            raise TypeError(f"View of {self.__layout!r} can only be compared to another view of the same layout, not {other!r}")
++            raise TypeError(f"View with layout {self.__layout!r} can only be compared to another view or constant "
++                            f"with the same layout, not {other!r}")
+         return self.__target == other.__target
+ 
+     def __ne__(self, other):
+         if not isinstance(other, View) or self.__layout != other.__layout:
+-            raise TypeError(f"View of {self.__layout!r} can only be compared to another view of the same layout, not {other!r}")
++            raise TypeError(f"View with layout {self.__layout!r} can only be compared to another view or constant "
++                            f"with the same layout, not {other!r}")
+         return self.__target != other.__target
+ 
+     def __add__(self, other):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/wiring.py b/amaranth/lib/wiring.py
+--- a/amaranth/lib/wiring.py	2026-09-20 17:25:58
++++ b/amaranth/lib/wiring.py	2026-09-20 17:30:02
+@@ -1192,6 +1192,8 @@
+             "signature": signature,
+             **signature.members.create(path=path, src_loc_at=1 + src_loc_at)
+         })
++        # Add memory attribute for compatibility with Memory
++        self.memory = None
+ 
+     def __repr__(self):
+         attrs = ''.join(f", {name}={value!r}"

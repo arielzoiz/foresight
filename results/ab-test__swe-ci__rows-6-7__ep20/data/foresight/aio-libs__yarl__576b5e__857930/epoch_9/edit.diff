@@ -1,0 +1,83 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:59:22
++++ b/yarl/_url.py	2026-09-20 19:01:46
+@@ -131,34 +131,36 @@
+     return obj
+ 
+ 
+-def _normalize_path_segments(segments: "Sequence[str]") -> list[str]:
++def _normalize_path_segments(segments: "Sequence[str]", is_absolute: bool = False) -> list[str]:
+     """Drop '.' and '..' from a sequence of str segments according to RFC 3986"""
+     
+-    # RFC 3986 path normalization algorithm
+-    # For absolute paths: 
+-    # - segments starting with "" (empty string) represent root
+-    # - ".." segments should not go above root
+-    # For relative paths:
+-    # - ".." segments can go above the current path
+-    
+     # Stack to store the normalized segments
+     normalized: list[str] = []
+     
+     # Process segments from left to right
+     for segment in segments:
+         if segment == "..":
+-            # If we encounter ".." and we can go up (previous segment is not ".." and not root),
+-            # remove the previous segment (go up one directory)
+-            if normalized and normalized[-1] != ".." and normalized[-1] != "":
+-                normalized.pop()
++            # For absolute paths, we can only go up if we're not at the root
++            # For relative paths, we can go up regardless
++            if normalized and normalized[-1] != "..":
++                if not is_absolute or normalized[-1] != "":
++                    # Remove the previous segment (go up one directory)
++                    normalized.pop()
++                else:
++                    # At root for absolute path, can't go up, keep the ".."
++                    normalized.append("..")
+             else:
+-                # If we can't go up (empty stack, previous was "..", or we're at root),
+-                # keep the ".." 
++                # Can't go up (empty stack or previous was ".."), keep the ".." 
+                 normalized.append("..")
+         elif segment != ".":
+             # Add the segment if it's not "."
+             normalized.append(segment)
+     
++    # For absolute paths, make sure we preserve the root
++    if is_absolute and normalized and normalized[0] != "":
++        # If we have segments but don't start with empty string (root), prepend root
++        normalized = [""] + normalized
++    
+     return normalized
+ 
+ 
+@@ -989,7 +991,9 @@
+             parsed = [*old_path_segments[:old_path_cutoff], *parsed]
+ 
+         if self._val.netloc:
+-            parsed = _normalize_path_segments(parsed) if needs_normalize else parsed
++            # Determine if we're dealing with an absolute path
++            is_absolute = old_path_segments[0] == "" if old_path_segments else False
++            parsed = _normalize_path_segments(parsed, is_absolute) if needs_normalize else parsed
+             if parsed and parsed[0] != "":
+                 # inject a leading slash when adding a path to an absolute URL
+                 # where there was none before
+@@ -1001,14 +1005,16 @@
+     def _normalize_path(cls, path: str) -> str:
+         # Drop '.' and '..' from str path
+         prefix = ""
++        is_absolute = False
+         if path and path[0] == "/":
+             # preserve the "/" root element of absolute paths, copying it to the
+             # normalised output as per sections 5.2.4 and 6.2.2.3 of rfc3986.
+             prefix = "/"
++            is_absolute = True
+             path = path[1:]
+ 
+         segments = path.split("/")
+-        normalized_segments = _normalize_path_segments(segments)
++        normalized_segments = _normalize_path_segments(segments, is_absolute)
+         return prefix + "/".join(normalized_segments)
+ 
+     @classmethod

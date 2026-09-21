@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/yarl/_path.py</location>
+        <description>The normalize_path function incorrectly handles paths with multiple consecutive dots and special cases like absolute paths with leading/trailing dots.</description>
+        <contract>
+            <description>Fix the normalize_path function to correctly normalize paths according to RFC 3986, handling edge cases like multiple '../' sequences, absolute paths, and special dot combinations.</description>
+            <behavior>
+                <input>String path with various combinations of dots and slashes</input>
+                <output>Normalized path string according to RFC 3986</output>
+                <boundary_cases>
+                    <case>Multiple consecutive '..' segments at beginning of absolute paths</case>
+                    <case>Paths with leading/trailing dots</case>
+                    <case>Empty path segments</case>
+                </boundary_cases>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar]</test>
+            <test>tests/test_normalize_path.py::test_normalize_path[///-///]</test>
+            <test>tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]</test>
+        </acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py</location>
+        <description>The _make_child method fails to properly handle path joining with relative references and normalization of path segments in complex scenarios.</description>
+        <contract>
+            <description>Fix the _make_child method to correctly join paths while preserving proper path normalization behavior, particularly when dealing with relative references and complex path combinations.</description>
+            <behavior>
+                <input>Sequence of path strings to append to a URL path</input>
+                <output>New URL with properly joined and normalized path</output>
+                <boundary_cases>
+                    <case>Joining paths with relative references like '../'</case>
+                    <case>Handling empty path segments</case>
+                    <case>Preserving absolute vs relative path semantics</case>
+                </boundary_cases>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_url.py::test_join_path_normalized[../path/to-path/to]</test>
+            <test>tests/test_url.py::test_joinpath_empty_segments</test>
+        </acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py</location>
+        <description>The _split_netloc method has issues parsing hostnames with hyphens and IPv6 addresses, particularly when dealing with domain names ending in periods.</description>
+        <contract>
+            <description>Improve the _split_netloc method to correctly parse hostnames, especially those with hyphens and IPv6 addresses, handling edge cases like hostnames ending in periods.</description>
+            <behavior>
+                <input>Netloc string with various hostname formats</input>
+                <output>Tuple of (username, password, host, port) components</output>
+                <boundary_cases>
+                    <case>Hostnames ending with periods like 'example.com.'</case>
+                    <case>IPv6 addresses with brackets</case>
+                    <case>Domain names with hyphens</case>
+                </boundary_cases>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_url.py::test_host_port_subcomponent[http://example.com.-example.com]</test>
+            <test>tests/test_url.py::test_host_port_subcomponent[http://[::1]:8080-[::1]:8080]</test>
+        </acceptance>
+    </item>
+</requirement>

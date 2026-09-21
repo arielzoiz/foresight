@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/yarl/_url.py:_normalize_path_segments</location>
+        <description>The current implementation in _normalize_path_segments has incorrect handling of path segments that go above root (like "/foo/../../../..bar-" -> "/..bar"). The function doesn't properly account for cases where ".." segments exceed the path depth, causing test failures in test_normalize_path.py.</description>
+        <contract>Update the _normalize_path_segments function to correctly handle absolute paths where ".." segments go above the root, ensuring that cases like "/foo/../../../..bar-" properly normalize to "/..bar" and "/foo/../../../ton-" to "/ton". The function should follow RFC 3986 Section 5.2.4 for path normalization.</contract>
+        <acceptance>test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar] and test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py:_make_child</location>
+        <description>The _make_child method in URL class incorrectly removes empty segments that are structurally significant in path joining operations. Specifically, it doesn't preserve empty segments that represent path structure, causing failures in joinpath_empty_segments tests.</description>
+        <contract>Modify the _make_child method to properly preserve empty segments in path joining operations. When joining paths like "path/" with ".//a", the result should be "path//a" rather than "path/a", preserving the structural empty segments that indicate path structure.</contract>
+        <acceptance>test_url.py::test_joinpath_empty_segments[empty-segment_empty_segment] and test_url.py::test_joinpath_empty_segments[empty-segments_empty-segment]</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py:__setstate__ and __getstate__</location>
+        <description>The pickle serialization methods have issues with cache state management. The __setstate__ method resets the cache unnecessarily, and __getstate__ doesn't properly serialize cache information, causing test failures in test_pickle.py.</description>
+        <contract>Fix the __getstate__ and __setstate__ methods to properly serialize and deserialize cache state. The __getstate__ method should include cache information, and __setstate__ should properly restore state while clearing cache to prevent pollution as required by the tests.</contract>
+        <acceptance>test_pickle.py::test_default_style_state and test_pickle.py::test_pickle_does_not_pollute_cache</acceptance>
+    </item>
+</requirement>

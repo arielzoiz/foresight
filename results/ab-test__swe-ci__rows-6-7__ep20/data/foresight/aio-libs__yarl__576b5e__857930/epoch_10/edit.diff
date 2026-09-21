@@ -1,0 +1,103 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/__init__.py b/yarl/__init__.py
+--- a/yarl/__init__.py	2026-09-20 18:37:20
++++ b/yarl/__init__.py	2026-09-20 19:03:26
+@@ -1,3 +1,4 @@
++from ._path import normalize_path
+ from ._url import (
+     URL,
+     Query,
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_path.py b/yarl/_path.py
+--- a/yarl/_path.py	1970-01-01 02:00:00
++++ b/yarl/_path.py	2026-09-20 19:03:24
+@@ -0,0 +1,21 @@
++from ._url import _normalize_path_segments
++
++def normalize_path(path: str) -> str:
++    """Normalize a path according to RFC 3986."""
++    # Drop '.' and '..' from str path
++    prefix = ""
++    is_absolute = False
++    if path and path[0] == "/":
++        # preserve the "/" root element of absolute paths, copying it to the
++        # normalised output as per sections 5.2.4 and 6.2.2.3 of rfc3986.
++        prefix = "/"
++        is_absolute = True
++        path = path[1:]
++
++    segments = path.split("/")
++    normalized_segments = _normalize_path_segments(segments, is_absolute)
++    result = prefix + "/".join(normalized_segments)
++    # Ensure that an empty result for absolute paths becomes "/"
++    if is_absolute and result == "/":
++        return "/"
++    return result
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:01:46
++++ b/yarl/_url.py	2026-09-20 19:03:40
+@@ -140,8 +140,9 @@
+     # Process segments from left to right
+     for segment in segments:
+         if segment == "..":
+-            # For absolute paths, we can only go up if we're not at the root
+-            # For relative paths, we can go up regardless
++            # Can only go up if we're not at the root
++            # For absolute paths, we can go up if we're not at the root
++            # For relative paths, we can always go up
+             if normalized and normalized[-1] != "..":
+                 if not is_absolute or normalized[-1] != "":
+                     # Remove the previous segment (go up one directory)
+@@ -152,10 +153,14 @@
+             else:
+                 # Can't go up (empty stack or previous was ".."), keep the ".." 
+                 normalized.append("..")
+-        elif segment != ".":
+-            # Add the segment if it's not "."
++        elif segment != "." and segment != "":
++            # Add the segment if it's not "." or empty string
+             normalized.append(segment)
+     
++    # Handle the case where we have an empty list but it's an absolute path
++    if is_absolute and not normalized:
++        return [""]
++    
+     # For absolute paths, make sure we preserve the root
+     if is_absolute and normalized and normalized[0] != "":
+         # If we have segments but don't start with empty string (root), prepend root
+@@ -1015,7 +1020,11 @@
+ 
+         segments = path.split("/")
+         normalized_segments = _normalize_path_segments(segments, is_absolute)
+-        return prefix + "/".join(normalized_segments)
++        result = prefix + "/".join(normalized_segments)
++        # Ensure that an empty result for absolute paths becomes "/"
++        if is_absolute and result == "":
++            return "/"
++        return result
+ 
+     @classmethod
+     @lru_cache  # match the same size as urlsplit
+@@ -1144,9 +1153,20 @@
+                 password = None
+ 
+         if "[" in hostinfo:
+-            _, _, bracketed = hostinfo.partition("[")
+-            hostname, _, port_str = bracketed.partition("]")
+-            _, _, port_str = port_str.partition(":")
++            # Handle IPv6 addresses
++            bracket_start = hostinfo.find("[")
++            bracket_end = hostinfo.find("]")
++            if bracket_start != -1 and bracket_end != -1 and bracket_end > bracket_start:
++                hostname = hostinfo[bracket_start+1:bracket_end]
++                port_str = hostinfo[bracket_end+1:]
++                if port_str.startswith(":"):
++                    port_str = port_str[1:]
++                else:
++                    port_str = ""
++            else:
++                # Malformed bracketed host, treat as regular host
++                hostname = hostinfo
++                port_str = ""
+         else:
+             hostname, _, port_str = hostinfo.partition(":")
+ 

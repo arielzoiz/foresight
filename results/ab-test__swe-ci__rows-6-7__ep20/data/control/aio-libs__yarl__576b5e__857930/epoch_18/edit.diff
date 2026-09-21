@@ -1,0 +1,69 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 17:59:14
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 18:04:30
+@@ -1,14 +1,5 @@
+ {
+   "tests/test_normalize_path.py": true,
+   "tests/test_url.py::test_relative_url_populates_cache": true,
+-  "tests/test_url.py::test_ipv4_brackets_not_allowed": true,
+-  "tests/test_pickle.py::test_pickle_does_not_pollute_cache": true,
+-  "tests/test_url.py::test_with_suffix_for_relative_path_starting_from_slash": true,
+-  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[none]": true,
+-  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[fragment-only]": true,
+-  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[query-only]": true,
+-  "tests/test_url.py::test_with_suffix_replace": true,
+-  "tests/test_url.py::test_with_suffix_for_relative_path_starting_from_slash2": true,
+-  "tests/test_url.py::test_with_name_for_relative_path_starting_from_slash": true,
+-  "tests/test_url.py::test_with_name_for_relative_path_starting_from_slash2": true
++  "tests/test_url.py::test_ipv4_brackets_not_allowed": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:01:24
++++ b/yarl/_url.py	2026-09-20 18:03:20
+@@ -629,6 +629,9 @@
+             elif len(state) == 2 and state[0] is None and isinstance(state[1], dict):
+                 # Another form of default style pickle - extract SplitResult from dict
+                 self._val = state[1]["_val"]
++            elif len(state) == 1:
++                # Single element tuple - treat as raw _val
++                self._val = state[0]
+             else:
+                 # Fallback - treat as raw _val
+                 self._val = state[0]
+@@ -1655,7 +1658,7 @@
+             else:
+                 new_path = "/".join(parts)
+         else:
+-            # For relative URLs, handle the case where path starts with slash
++            # For relative URLs, we need to properly handle the case where path starts with slash
+             # raw_parts for "/a" is ("/", "a"), so we want to replace "a" with the new name
+             if len(parts) > 0 and parts[0] == "/":
+                 # Path starts with slash - replace the actual name part (last element)
+@@ -1696,16 +1699,18 @@
+         if "/" in suffix:
+             raise ValueError(f"Invalid suffix {suffix!r}")
+         name = self.raw_name
+-        # Only raise ValueError for naked paths (no name) when path is exactly "/"
+-        # or when there's no path at all - i.e., when there's no path component to modify
++        # For naked paths (no name component), we need to check if there's actually
++        # a path component we can modify. If there's no path component, we should 
++        # allow suffix modification for relative URLs or when the path can be extended.
+         if not name:
+-            # Check if there's actually a path component that can be modified
+-            # For paths like http://example.com (where raw_parts is ('/',)), 
+-            # we should not raise an error because we can modify it to be "/.a"
+-            # But for naked paths with no path component like http://example.com
+-            # we should raise ValueError only when there's truly no name to modify
+-            # Looking at the test expectation, it should raise ValueError for http://example.com
++            # Check if we have a path that can be modified
++            # For relative URLs or absolute URLs with path "/", we can modify
+             if self._val.path == "" or self._val.path == "/":
++                # For URLs like http://example.com or http://example.com/ 
++                # we should allow suffix modification
++                pass
++            else:
++                # For URLs with actual path components, we should raise ValueError
+                 raise ValueError(f"{self!r} has an empty name")
+         old_suffix = self.raw_suffix
+         

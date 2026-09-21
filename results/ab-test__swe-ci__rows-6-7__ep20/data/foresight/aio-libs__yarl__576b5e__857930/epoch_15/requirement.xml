@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/yarl/_url.py</location>
+    <description>The _normalize_path_segments function has incorrect logic for handling absolute paths and '..' segments, particularly when dealing with root paths and multiple '..' operations. The current implementation doesn't properly handle RFC 3986 path normalization rules for absolute vs relative paths.</description>
+    <contract>
+      <behavior>The _normalize_path_segments function must correctly normalize path segments according to RFC 3986 Section 5.2.4, properly handling:
+      1. Absolute paths that start with '/' 
+      2. Relative paths that don't start with '/'
+      3. '..' segments that should move up directories
+      4. '.' segments that should be ignored
+      5. Empty segments that should be ignored
+      6. Edge cases like '/../' and '/..' at root level
+      7. Proper handling of root directory preservation for absolute paths</behavior>
+      <input>Sequence of path segments and boolean indicating if path is absolute</input>
+      <output>List of normalized path segments</output>
+      <boundary_conditions>
+        - For absolute paths, the result should start with an empty string representing the root
+        - For relative paths, the result should not start with an empty string
+        - Multiple consecutive '..' should be handled properly
+        - '..' at root of absolute paths should not cause invalid navigation
+      </boundary_conditions>
+    </contract>
+    <acceptance>
+      <test_case>tests/test_normalize_path.py::test_normalize_path[path/to/.-path/to/]</test_case>
+      <test_case>tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]</test_case>
+      <test_case>tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]</test_case>
+      <test_case>tests/test_url.py::test_join_path_normalized[path/to/.-path/to/]</test_case>
+      <test_case>tests/test_url.py::test_join_path_normalized[../path/to-path/to]</test_case>
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/yarl/_url.py</location>
+    <description>The joinpath method fails to properly normalize paths when they contain dots and absolute paths, violating RFC 3986 path normalization rules.</description>
+    <contract>
+      <behavior>The joinpath method must normalize path segments using _normalize_path_segments before constructing the final path, ensuring that:
+      1. Path segments are properly normalized according to RFC 3986
+      2. Absolute paths are handled correctly
+      3. Relative paths are preserved correctly
+      4. Dots ('.' and '..') are removed appropriately
+      5. The resulting path follows standard URL path conventions</behavior>
+      <input>Base URL and path segments to join</input>
+      <output>New URL with normalized joined path</output>
+      <boundary_conditions>
+        - When joining a path that starts with '/', it should be treated as absolute
+        - When joining a path that doesn't start with '/', it should be treated as relative
+        - All dots should be resolved according to RFC 3986
+      </boundary_conditions>
+    </contract>
+    <acceptance>
+      <test_case>tests/test_url.py::test_join_path_normalized[path/to/./.-path/to/]</test_case>
+      <test_case>tests/test_url.py::test_join_path_normalized[../path/to-path/to]</test_case>
+      <test_case>tests/test_url.py::test_join_path_normalized[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]</test_case>
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/yarl/_path.py</location>
+    <description>The normalize_path function does not correctly handle absolute paths and root directory preservation when normalizing paths containing dots.</description>
+    <contract>
+      <behavior>The normalize_path function must correctly handle absolute paths by:
+      1. Preserving the leading '/' character for absolute paths
+      2. Properly normalizing segments according to RFC 3986
+      3. Ensuring empty results for absolute paths become "/"
+      4. Handling Unicode characters correctly
+      5. Properly processing dots ('.' and '..') in all positions</behavior>
+      <input>Path string to normalize</input>
+      <output>Normalized path string</output>
+      <boundary_conditions>
+        - Absolute paths starting with '/' must be preserved
+        - Empty normalized absolute paths should return "/"
+        - Relative paths should not start with '/'
+        - All dot sequences must be processed according to RFC 3986
+      </boundary_conditions>
+    </contract>
+    <acceptance>
+      <test_case>tests/test_normalize_path.py::test_normalize_path[///-///]</test_case>
+      <test_case>tests/test_normalize_path.py::test_normalize_path[/path/to/.-/path/to/]</test_case>
+      <test_case>tests/test_normalize_path.py::test_normalize_path[μονοπάτι/../../να/𝕦𝕟𝕚/𝕔𝕠𝕕𝕖/./-να/𝕦𝕟𝕚/𝕔𝕠𝕕𝕖/]</test_case>
+    </acceptance>
+  </requirement>
+</requirement_document>

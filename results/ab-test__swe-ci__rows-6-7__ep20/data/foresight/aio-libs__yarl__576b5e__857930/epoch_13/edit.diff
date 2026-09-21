@@ -1,0 +1,39 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:08:20
++++ b/yarl/_url.py	2026-09-20 19:10:14
+@@ -140,10 +140,15 @@
+     # Process segments from left to right
+     for segment in segments:
+         if segment == "..":
+-            # Can only go up if we're not at the root
+-            # For absolute paths, we can go up if we're not at the root
++            # RFC 3986 section 5.2.4: 
++            # "If the reference path is rootless, then the reference path is treated as if it 
++            # had a leading slash"
++            # "If the reference path is absolute, then the reference path is treated as if 
++            # it had a leading slash"
++            # For absolute paths, we can go up only if not at the root (empty segment)
+             # For relative paths, we can always go up
+             if normalized and normalized[-1] != "..":
++                # If we're at the root of an absolute path, we can't go up
+                 if not is_absolute or normalized[-1] != "":
+                     # Remove the previous segment (go up one directory)
+                     normalized.pop()
+@@ -1299,7 +1304,8 @@
+                 # Normalize path if it contains "." or ".." segments according to RFC 3986
+                 if "." in path or ".." in path:
+                     path = self._normalize_path(path)
+-        if len(path) > 0 and path[0] != "/":
++        # Only add a leading slash if it's a relative path (no netloc) or if path doesn't start with slash
++        if self._val.netloc and len(path) > 0 and path[0] != "/":
+             path = "/" + path
+         
+         # Preserve query and fragment if requested
+@@ -1751,6 +1757,7 @@
+             DeprecationWarning,
+             stacklevel=2,
+         )
++        # Use the deprecated parameters to set encode_host_size if encode_host_size is None
+         if encode_host_size is None:
+             encode_host_size = ip_address_size if ip_address_size is not None else host_validate_size
+ 

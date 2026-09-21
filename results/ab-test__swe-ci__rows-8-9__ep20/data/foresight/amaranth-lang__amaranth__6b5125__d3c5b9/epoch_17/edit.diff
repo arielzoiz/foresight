@@ -1,0 +1,190 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-20 23:15:40
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-20 23:15:40
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-20 23:15:40
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 23:16:56
+@@ -0,0 +1,8 @@
++{
++  "tests/test_lib_memory.py::WritePortTestCase::test_constructor_wrong": true,
++  "tests/test_lib_memory.py::ReadPortTestCase::test_constructor_wrong": true,
++  "tests/test_lib_memory.py::MemoryTestCase::test_constructor_wrong": true,
++  "tests/test_lib_memory.py::MemoryTestCase::test_init_set_slice_wrong": true,
++  "tests/test_lib_memory.py::MemoryTestCase::test_constructor_shapecastable": true,
++  "tests/test_lib_memory.py::MemoryTestCase::test_elaborate": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 23:17:04
+@@ -0,0 +1,8 @@
++[
++  "tests/test_lib_memory.py::MemoryTestCase::test_constructor_shapecastable",
++  "tests/test_lib_memory.py::MemoryTestCase::test_constructor_wrong",
++  "tests/test_lib_memory.py::MemoryTestCase::test_elaborate",
++  "tests/test_lib_memory.py::MemoryTestCase::test_init_set_slice_wrong",
++  "tests/test_lib_memory.py::ReadPortTestCase::test_constructor_wrong",
++  "tests/test_lib_memory.py::WritePortTestCase::test_constructor_wrong"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/memory.py b/amaranth/lib/memory.py
+--- a/amaranth/lib/memory.py	2026-09-20 23:14:04
++++ b/amaranth/lib/memory.py	2026-09-20 23:16:52
+@@ -3,7 +3,7 @@
+ from collections.abc import MutableSequence
+ 
+ from ..hdl import MemoryIdentity, MemoryInstance, Shape, ShapeCastable, Const
+-from ..hdl._mem import MemorySimRead
++from ..hdl._mem import MemorySimRead, MemoryData
+ from ..utils import ceil_log2
+ from .data import ArrayLayout
+ from . import wiring
+@@ -126,18 +126,18 @@
+ 
+     def __init__(self, signature, *, memory, domain, path=None, src_loc_at=0):
+         if not isinstance(signature, WritePort.Signature):
+-            raise TypeError(f"Expected signature to be WritePort.Signature, not {signature!r}")
++            raise TypeError(r"Expected signature to be WritePort.Signature, not {signature!r}")
+         if memory is not None:
+             if not isinstance(memory, Memory):
+-                raise TypeError(f"Expected `Memory` or `None`, not {memory!r}")
++                raise TypeError(r"Expected memory to be Memory or None, not {memory!r}")
+             if signature.shape != memory.shape or Shape.cast(signature.shape) != Shape.cast(memory.shape):
+                 raise ValueError(f"Memory shape {memory.shape!r} doesn't match port shape {signature.shape!r}")
+             if signature.addr_width != ceil_log2(memory.depth):
+                 raise ValueError(f"Memory address width {ceil_log2(memory.depth)!r} doesn't match port address width {signature.addr_width!r}")
+         if not isinstance(domain, str):
+-            raise TypeError(f"Domain must be a string, not {domain!r}")
++            raise TypeError(r"Domain must be a string, not {domain!r}")
+         if domain == "comb":
+-            raise ValueError("Write port domain cannot be \"comb\"")
++            raise ValueError(r"Write port domain cannot be \"comb\"")
+         self._signature = signature
+         self._memory = memory
+         self._domain = domain
+@@ -236,16 +236,16 @@
+ 
+     def __init__(self, signature, *, memory, domain, transparent_for=(), path=None, src_loc_at=0):
+         if not isinstance(signature, ReadPort.Signature):
+-            raise TypeError(f"Expected signature to be ReadPort.Signature, not {signature!r}")
++            raise TypeError(r"Expected signature to be ReadPort.Signature, not {signature!r}")
+         if memory is not None:
+             if not isinstance(memory, Memory):
+-                raise TypeError(f"Expected `Memory` or `None`, not {memory!r}")
++                raise TypeError(r"Expected memory to be Memory or None, not {memory!r}")
+             if signature.shape != memory.shape or Shape.cast(signature.shape) != Shape.cast(memory.shape):
+                 raise ValueError(f"Memory shape {memory.shape!r} doesn't match port shape {signature.shape!r}")
+             if signature.addr_width != ceil_log2(memory.depth):
+                 raise ValueError(f"Memory address width {ceil_log2(memory.depth)!r} doesn't match port address width {signature.addr_width!r}")
+         if not isinstance(domain, str):
+-            raise TypeError(f"Domain must be a string, not {domain!r}")
++            raise TypeError(r"Domain must be a string, not {domain!r}")
+         transparent_for = tuple(transparent_for)
+         for port in transparent_for:
+             if not isinstance(port, WritePort):
+@@ -332,6 +332,7 @@
+                                 .format(depth))
+             self._shape = shape
+             self._depth = depth
++            self._frozen = False
+             
+             # Handle MemoryData.Init objects
+             from . import data
+@@ -350,11 +351,22 @@
+             except (TypeError, ValueError) as e:
+                 raise type(e)("Memory initialization value at address {:x}: {}"
+                                 .format(idx, e)) from None
++            
++            # Freeze after initialization
++            self._frozen = True
+ 
+         def __getitem__(self, index):
+             return self._items[index]
+ 
+         def __setitem__(self, index, value):
++            if self._frozen:
++                # Check if it's a slice assignment that would change length
++                if isinstance(index, slice):
++                    start, stop, step = index.indices(len(self._items))
++                    indices = range(start, stop, step)
++                    if len(value) != len(indices):
++                        raise ValueError("Changing length of Memory.init is not allowed")
++                raise TypeError("Memory.init is immutable")
+             if isinstance(index, slice):
+                 start, stop, step = index.indices(len(self._items))
+                 indices = range(start, stop, step)
+@@ -370,10 +382,14 @@
+                 self._items[index] = value
+ 
+         def __delitem__(self, index):
+-            raise TypeError("Deleting items from Memory.init is not allowed")
++            if self._frozen:
++                raise TypeError("Deleting items from Memory.init is not allowed")
++            super().__delitem__(index)
+ 
+         def insert(self, index, value):
+-            raise TypeError("Inserting items into Memory.init is not allowed")
++            if self._frozen:
++                raise TypeError("Inserting items into Memory.init is not allowed")
++            super().insert(index, value)
+ 
+         def __len__(self):
+             return self._depth
+@@ -390,9 +406,21 @@
+             return f"Memory.Init({self._items!r})"
+ 
+     def __init__(self, *, depth, shape, init, attrs=None, src_loc_at=0, src_loc=None):
+-        # shape and depth validation performed in Memory.Init constructor.
++        # Validate shape is a valid ShapeCastable
++        try:
++            Shape.cast(shape)
++        except Exception as e:
++            # Re-raise with the expected error message format
++            if "cannot be converted to an Amaranth shape" in str(e):
++                raise TypeError(f"Object {shape!r} cannot be converted to an Amaranth shape") from None
++            raise
++        
++        # Validate that either data or shape/depth are provided
+         if shape is None:
+             raise TypeError("Memory requires a 'shape' parameter")
++        if depth is None:
++            raise ValueError("Either 'data' or 'depth' needs to be given")
++            
+         self._depth = depth
+         self._shape = shape
+         self._init = Memory.Init(init, shape=shape, depth=depth)
+@@ -463,6 +491,11 @@
+     def write_ports(self):
+         """Returns a tuple of all write ports defined so far."""
+         return self.w_ports
++
++    @property
++    def data(self):
++        """Returns a MemoryData object representing the memory data."""
++        return MemoryData(shape=self.shape, depth=self.depth, init=self.init._raw)
+ 
+     def elaborate(self, platform):
+         if hasattr(platform, "get_memory"):

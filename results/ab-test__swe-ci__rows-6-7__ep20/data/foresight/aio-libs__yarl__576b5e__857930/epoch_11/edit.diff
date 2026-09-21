@@ -1,0 +1,69 @@
+Binary files a/.coverage and b/.coverage differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 18:49:14
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 19:06:00
+@@ -9,5 +9,18 @@
+   "tests/test_url.py::test_host_port_subcomponent[http://example.com-example.com]": true,
+   "tests/test_url.py::test_host_port_subcomponent[http://[::1]:8080-[::1]:8080]": true,
+   "tests/test_url.py::test_host_port_subcomponent[http://example.com:80-example.com]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://example.com:8080-example.com:8080]": true
++  "tests/test_url.py::test_host_port_subcomponent[http://example.com:8080-example.com:8080]": true,
++  "tests/test_normalize_path.py::test_normalize_path[path/to/./.-path/to/]": true,
++  "tests/test_normalize_path.py::test_normalize_path[//-//]": true,
++  "tests/test_normalize_path.py::test_normalize_path[path/to/.-path/to/]": true,
++  "tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]": true,
++  "tests/test_normalize_path.py::test_normalize_path[path/../../to-to]": true,
++  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]": true,
++  "tests/test_normalize_path.py::test_normalize_path[/path/to/.-/path/to/]": true,
++  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]": true,
++  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07-\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07]": true,
++  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar]": true,
++  "tests/test_normalize_path.py::test_normalize_path[///-///]": true,
++  "tests/test_cache.py::test_cache_configure_None_only_deprecated": true,
++  "tests/test_cache.py::test_cache_configure_waring": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:03:40
++++ b/yarl/_url.py	2026-09-20 19:06:08
+@@ -156,6 +156,11 @@
+         elif segment != "." and segment != "":
+             # Add the segment if it's not "." or empty string
+             normalized.append(segment)
++        elif segment == ".":
++            # Skip "." segments but preserve empty segments for absolute paths
++            # This handles cases like "path/./" which should become "path/"
++            continue
++        # Empty segments are skipped
+     
+     # Handle the case where we have an empty list but it's an absolute path
+     if is_absolute and not normalized:
+@@ -1022,8 +1027,10 @@
+         normalized_segments = _normalize_path_segments(segments, is_absolute)
+         result = prefix + "/".join(normalized_segments)
+         # Ensure that an empty result for absolute paths becomes "/"
+-        if is_absolute and result == "":
++        if is_absolute and result == "/":
+             return "/"
++        elif is_absolute and result == "":
++            return "/"
+         return result
+ 
+     @classmethod
+@@ -1615,7 +1622,7 @@
+             if val.path[0] == "/":
+                 path = path[1:]
+ 
+-        parts["path"] = self._normalize_path(path) if "." in path or ".." in path else path
++        parts["path"] = self._normalize_path(path)
+         return self._from_val(val._replace(**parts))
+ 
+     def joinpath(self, *other: str, encoded: bool = False) -> "URL":
+@@ -1744,6 +1751,7 @@
+         if encode_host_size is None:
+             encode_host_size = ip_address_size if ip_address_size is not None else host_validate_size
+ 
++    # Apply the cache configurations
+     _idna_encode = lru_cache(idna_encode_size)(_idna_encode.__wrapped__)
+     _idna_decode = lru_cache(idna_decode_size)(_idna_decode.__wrapped__)
+     _ip_compressed_version = lru_cache(encode_host_size)(

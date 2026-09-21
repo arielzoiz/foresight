@@ -1,0 +1,32 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:15:44
++++ b/amaranth/lib/data.py	2026-09-20 21:24:12
+@@ -117,7 +117,7 @@
+             iterator = enumerate(value)
+         else:
+             raise TypeError("Layout initializer must be a mapping or a sequence, not {!r}"
+-                            .format(value))
++                            .format(type(value).__name__))
+ 
+         int_value = 0
+         for key, key_value in iterator:
+@@ -178,8 +178,8 @@
+                     key_value = field.shape._convert_to_int(key_value)
+                 int_value |= Const(key_value, Shape.cast(field.shape)).value << field.offset
+             return Const(int_value, self.size)
+-        elif isinstance(init, Sequence):
+-            # For sequences, we'll treat it as a mapping with indices as keys
++        elif isinstance(init, Sequence) and not isinstance(init, (str, bytes)):
++            # For sequences (but not strings/bytes), we'll treat it as a mapping with indices as keys
+             int_value = 0
+             for key, key_value in enumerate(init):
+                 field = self[key]
+@@ -188,7 +188,7 @@
+                 int_value |= Const(key_value, Shape.cast(field.shape)).value << field.offset
+             return Const(int_value, self.size)
+         else:
+-            # For scalar values, treat as a direct value
++            # For scalar values, raise the correct TypeError with the proper message
+             raise TypeError("Layout constant initializer must be a mapping or a sequence, not {!r}"
+                             .format(type(init).__name__))
+ 

@@ -1,0 +1,130 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-20 18:43:38
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-20 18:43:38
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-20 18:43:38
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 18:45:48
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:42:02
++++ b/yarl/_url.py	2026-09-20 18:45:22
+@@ -146,6 +146,7 @@
+         elif seg != ".":
+             resolved_path.append(seg)
+ 
++    # Handle trailing dots or double dots properly
+     if segments and segments[-1] in (".", ".."):
+         # do some post-processing here.
+         # if the last segment was a relative dir,
+@@ -525,7 +526,7 @@
+         return (self._val,)
+ 
+     def __setstate__(self, state):
+-        if state[0] is None and isinstance(state[1], dict):
++        if len(state) > 1 and state[0] is None and isinstance(state[1], dict):
+             # default style pickle
+             self._val = state[1]["_val"]
+         else:
+@@ -1247,7 +1248,7 @@
+         netloc = self._make_netloc(self.raw_user, self.raw_password, encoded_host, port)
+         return self._from_val(val._replace(netloc=netloc))
+ 
+-    def with_path(self, path: str, *, encoded: bool = False) -> "URL":
++    def with_path(self, path: str, *, encoded: bool = False, keep_query: bool = False, keep_fragment: bool = False) -> "URL":
+         """Return a new URL with path replaced."""
+         if not encoded:
+             path = self._PATH_QUOTER(path)
+@@ -1255,7 +1256,12 @@
+                 path = self._normalize_path(path) if "." in path else path
+         if len(path) > 0 and path[0] != "/":
+             path = "/" + path
+-        return self._from_val(self._val._replace(path=path, query="", fragment=""))
++        
++        # Preserve query and fragment if requested
++        query = self._val.query if keep_query else ""
++        fragment = self._val.fragment if keep_fragment else ""
++        
++        return self._from_val(self._val._replace(path=path, query=query, fragment=fragment))
+ 
+     def _get_str_query_from_sequence_iterable(
+         self,
+@@ -1469,15 +1475,13 @@
+             return self
+         return self._from_val(self._val._replace(fragment=raw_fragment))
+ 
+-    def with_name(self, name: str) -> "URL":
++    def with_name(self, name: str, *, keep_query: bool = False, keep_fragment: bool = False) -> "URL":
+         """Return a new URL with name (last part of path) replaced.
+ 
+-        Query and fragment parts are cleaned up.
+-
+         Name is encoded if needed.
+ 
+         """
+-        # N.B. DOES cleanup query/fragment
++        # N.B. DOES cleanup query/fragment unless keep_query or keep_fragment is True
+         if not isinstance(name, str):
+             raise TypeError("Invalid name type")
+         if "/" in name:
+@@ -1496,15 +1500,18 @@
+             parts[-1] = name
+             if parts[0] == "/":
+                 parts[0] = ""  # replace leading '/'
++                
++        # Preserve query and fragment if requested
++        query = self._val.query if keep_query else ""
++        fragment = self._val.fragment if keep_fragment else ""
++        
+         return self._from_val(
+-            self._val._replace(path="/".join(parts), query="", fragment="")
++            self._val._replace(path="/".join(parts), query=query, fragment=fragment)
+         )
+ 
+-    def with_suffix(self, suffix: str) -> "URL":
++    def with_suffix(self, suffix: str, *, keep_query: bool = False, keep_fragment: bool = False) -> "URL":
+         """Return a new URL with suffix (file extension of name) replaced.
+ 
+-        Query and fragment parts are cleaned up.
+-
+         suffix is encoded if needed.
+         """
+         if not isinstance(suffix, str):
+@@ -1516,7 +1523,12 @@
+             raise ValueError(f"{self!r} has an empty name")
+         old_suffix = self.raw_suffix
+         name = name + suffix if not old_suffix else name[: -len(old_suffix)] + suffix
+-        return self.with_name(name)
++        
++        # Preserve query and fragment if requested
++        query = self._val.query if keep_query else ""
++        fragment = self._val.fragment if keep_fragment else ""
++        
++        return self.with_name(name, keep_query=keep_query, keep_fragment=keep_fragment)
+ 
+     def join(self, url: "URL") -> "URL":
+         """Join URLs

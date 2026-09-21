@@ -1,0 +1,156 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-20 21:28:20
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-20 21:28:20
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-20 21:28:20
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 21:28:44
+@@ -0,0 +1,4 @@
++{
++  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic": true,
++  "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 21:28:44
+@@ -0,0 +1,4 @@
++[
++  "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing",
++  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/ast.py b/amaranth/hdl/ast.py
+--- a/amaranth/hdl/ast.py	2026-09-20 21:05:58
++++ b/amaranth/hdl/ast.py	2026-09-20 21:28:16
+@@ -1047,8 +1047,15 @@
+         if isinstance(orig_shape, type) and issubclass(orig_shape, Enum):
+             # For enum types, reset value must be a valid enum member
+             if not isinstance(orig_reset, orig_shape):
+-                raise TypeError("Reset value must be a constant initializer of {!r}"
+-                                .format(orig_shape))
++                # Check if it's a plain integer that's valid for the enum
++                try:
++                    # Try to construct the enum member from the integer
++                    enum_member = orig_shape(orig_reset)
++                    # If successful, use that as the reset value
++                    reset = Const.cast(enum_member)
++                except Exception:
++                    raise TypeError("Reset value must be a constant initializer of {!r}"
++                                    .format(orig_shape))
+         if orig_reset not in (0, -1): # Avoid false positives for all-zeroes and all-ones
+             if reset.shape().signed and not self.signed:
+                 warnings.warn(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:26:18
++++ b/amaranth/lib/data.py	2026-09-20 21:28:36
+@@ -397,8 +397,8 @@
+             if (name is not None or reset is not None or reset_less is not None or
+                     attrs is not None or decoder is not None):
+                 raise ValueError("View target cannot be provided at the same time as any of "
+-                                  "the Signal constructor arguments (name, reset, reset_less, "
+-                                  "attrs, decoder)")
++                                   "the Signal constructor arguments (name, reset, reset_less, "
++                                   "attrs, decoder)")
+             try:
+                 cast_target = Value.cast(target)
+             except TypeError as e:
+@@ -406,12 +406,12 @@
+                                 .format(target)) from e
+             # Validate that the target is actually a data view (has a layout)
+             # Allow Signals as valid targets since they are ValueCastable
+-            if not isinstance(target, ValueCastable) and not isinstance(target, Signal):
++            if not isinstance(target, (ValueCastable, Signal)):
+                 raise TypeError("Object {!r} is not a data view".format(target))
+             if len(cast_target) != cast_layout.size:
+                 raise ValueError("View target is {} bit(s) wide, which is not compatible with "
+-                                  "the {} bit(s) wide view layout"
+-                                  .format(len(cast_target), cast_layout.size))
++                                   "the {} bit(s) wide view layout"
++                                   .format(len(cast_target), cast_layout.size))
+         else:
+             if reset is None:
+                 reset = 0
+@@ -434,20 +434,23 @@
+ 
+     def __getitem__(self, key):
+         if isinstance(self.__layout, ArrayLayout):
+-            if not isinstance(key, (Value, ValueCastable)):
++            if isinstance(key, (Value, ValueCastable)):
++                shape = self.__layout.elem_shape
++                value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
++            else:
+                 # Validate that the key is a value or a value-castable object
+                 try:
+                     Value.cast(key)
+                 except TypeError:
+                     raise TypeError("Array layout index must be a value or a value-castable object, "
+                                     "not {!r}".format(type(key).__name__))
+-            shape = self.__layout.elem_shape
+-            value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
++                shape = self.__layout.elem_shape
++                value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+         else:
+             if isinstance(key, (Value, ValueCastable)):
+                 raise TypeError("Only views with array layout, not {}, may be indexed "
+                                 "with a value"
+-                                .format(type(self.__layout).__name__))
++                                .format(repr(self.__layout)))
+             field = self.__layout[key]
+             shape = field.shape
+             value = self.__target[field.offset:field.offset + field.width]
+@@ -465,7 +468,7 @@
+             item = self[name]
+         except KeyError:
+             # Find closest matching field names for error message
+-            field_names = list(self.__layout)
++            field_names = [key for key, field in self.__layout]
+             if field_names:
+                 # Simple fuzzy matching to find closest matches
+                 import difflib
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 20:57:40
++++ b/amaranth/lib/enum.py	2026-09-20 21:28:10
+@@ -118,7 +118,19 @@
+             # If it's already an enum member, extract its value
+             value = value.value
+             
+-        return Const(value, shape)
++        # Validate that the value is compatible with the shape
++        try:
++            const_value = Const.cast(value)
++        except TypeError:
++            # If it's not directly castable, check if it's a valid enum member
++            if isinstance(value, cls):
++                # It's a valid enum member, extract its value
++                const_value = Const.cast(value.value)
++            else:
++                raise TypeError("Value {!r} is not a valid constant initializer for {!r}"
++                                .format(value, cls))
++                
++        return const_value
+ 
+ 
+ class Enum(py_enum.Enum, metaclass=EnumMeta):

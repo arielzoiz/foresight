@@ -1,0 +1,114 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 22:06:26
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 22:08:50
+@@ -5,5 +5,10 @@
+   "tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset": true,
+   "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic": true,
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved": true,
+-  "tests/test_lib_data.py::ViewTestCase::test_getitem": true
++  "tests/test_lib_data.py::ViewTestCase::test_getitem": true,
++  "tests/test_lib_data.py::ViewTestCase::test_getattr_reserved": true,
++  "tests/test_lib_data.py::LayoutTestCase::test_signal_reset": true,
++  "tests/test_lib_data.py::StructTestCase::test_construct_reset": true,
++  "tests/test_lib_data.py::UnionTestCase::test_construct_reset_override": true,
++  "tests/test_lib_enum.py::EnumTestCase::test_members_const_non_int": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-20 22:06:26
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 22:08:56
+@@ -1,9 +1,26 @@
+ [
++  "tests/test_lib_data.py::LayoutTestCase::test_signal_reset",
++  "tests/test_lib_data.py::StructTestCase::test_construct_reset",
++  "tests/test_lib_data.py::UnionTestCase::test_construct_reset_override",
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing",
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved",
+   "tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset",
+   "tests/test_lib_data.py::ViewTestCase::test_getattr",
++  "tests/test_lib_data.py::ViewTestCase::test_getattr_reserved",
+   "tests/test_lib_data.py::ViewTestCase::test_getitem",
+   "tests/test_lib_data.py::ViewTestCase::test_getitem_custom_call",
+-  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic"
++  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic",
++  "tests/test_lib_enum.py::EnumTestCase::test_const_no_shape",
++  "tests/test_lib_enum.py::EnumTestCase::test_const_shape",
++  "tests/test_lib_enum.py::EnumTestCase::test_members_const_non_int",
++  "tests/test_lib_enum.py::EnumTestCase::test_members_non_int",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_explicit",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_explicit_cast",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_explicit_wrong_signed_mismatch",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_explicit_wrong_too_wide",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_implicit",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_implicit_wrong_in_concat",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_members_non_const_non_int_wrong",
++  "tests/test_lib_enum.py::EnumTestCase::test_shape_no_members",
++  "tests/test_lib_enum.py::EnumTestCase::test_value_shape_from_enum_member"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:06:04
++++ b/amaranth/lib/data.py	2026-09-20 22:08:42
+@@ -446,13 +446,12 @@
+ 
+     def __getattr__(self, name):
+         # For reserved names (starting with underscore), check if they exist in layout first
+-        if name.startswith("_"):
++        if name.startswith("_") and name in self.__layout:
+             # If the reserved name exists in the layout, we should raise the specific error
+             # about indexing, not a generic AttributeError
+-            if name in self.__layout:
+-                raise AttributeError("View of {!r} field {!r} has a reserved name and may only be "
+-                                      "accessed by indexing"
+-                                      .format(self.__target, name))
++            raise AttributeError("View of {!r} field {!r} has a reserved name and may only be "
++                                  "accessed by indexing"
++                                  .format(self.__target, name))
+         
+         try:
+             item = self[name]
+@@ -462,7 +461,10 @@
+             all_field_names = []
+             for field_name, field in self.__layout:
+                 all_field_names.append(field_name)
+-                if name in field_name or field_name in name:
++                # Better similarity matching - exact match, or substring match
++                if field_name == name:
++                    similar_names.append(field_name)
++                elif name in field_name or field_name in name:
+                     similar_names.append(field_name)
+             
+             if similar_names:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 22:06:10
++++ b/amaranth/lib/enum.py	2026-09-20 22:08:12
+@@ -39,23 +39,23 @@
+                 try:
+                     member_shape = Const.cast(member.value).shape()
+                 except TypeError as e:
+-                    raise TypeError("Value of enumeration member {!r} must be "
++                    raise TypeError("Value {!r} of enumeration member {!r} must be "
+                                     "a constant-castable expression"
+-                                    .format(member)) from e
++                                    .format(member.value, member.name)) from e
+                 if member_shape.signed and not shape.signed:
+                     warnings.warn(
+-                        message="Value of enumeration member {!r} is signed, but the enumeration "
++                        message="Value {!r} of enumeration member {!r} is signed, but the enumeration "
+                                 "shape is {!r}" # the repr will be `unsigned(X)`
+-                                .format(member, shape),
++                                .format(member.value, member.name, shape),
+                         category=SyntaxWarning,
+                         stacklevel=2)
+                 elif (member_shape.width > shape.width or
+                       member_shape.width == shape.width and
+                         shape.signed and not member_shape.signed):
+                     warnings.warn(
+-                        message="Value of enumeration member {!r} will be truncated to "
++                        message="Value {!r} of enumeration member {!r} will be truncated to "
+                                 "the enumeration shape {!r}"
+-                                .format(member, shape),
++                                .format(member.value, member.name, shape),
+                         category=SyntaxWarning,
+                         stacklevel=2)
+         else:

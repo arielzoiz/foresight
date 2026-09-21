@@ -1,0 +1,241 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 18:28:16
++++ b/amaranth/hdl/_ast.py	2026-09-20 18:32:02
+@@ -3069,20 +3069,24 @@
+     """
+     def __init__(self, width, name=None, attrs=None, metadata=None, *, src_loc_at=0):
+         super().__init__(src_loc_at=src_loc_at)
+-        if not isinstance(width, int) or width < 0:
+-            raise TypeError("IOPort width must be a non-negative integer, not {!r}".format(width))
+-        if name is not None and not isinstance(name, str):
+-            raise TypeError("IOPort name must be a string, not {!r}".format(name))
+-        if attrs is not None and not isinstance(attrs, dict):
+-            raise TypeError("IOPort attrs must be a dict or None, not {!r}".format(attrs))
+-        if metadata is not None and not isinstance(metadata, (list, tuple)):
+-            raise TypeError("IOPort metadata must be a list or tuple, not {!r}".format(metadata))
+-        if metadata is not None and len(metadata) != width:
+-            raise ValueError("Metadata length ({}) doesn't match port width ({})".format(len(metadata), width))
+-        self._width = width
+-        self._name = name
+-        self._attrs = OrderedDict(() if attrs is None else attrs)
+-        self._metadata = metadata or [None] * width if metadata is None else list(metadata)
++        try:
++            if not isinstance(width, int) or width < 0:
++                raise TypeError("IOPort width must be a non-negative integer, not {!r}".format(width))
++            if name is not None and not isinstance(name, str):
++                raise TypeError("IOPort name must be a string, not {!r}".format(name))
++            if attrs is not None and not isinstance(attrs, dict):
++                raise TypeError("IOPort attrs must be a dict or None, not {!r}".format(attrs))
++            if metadata is not None and not isinstance(metadata, (list, tuple)):
++                raise TypeError("IOPort metadata must be a list or tuple, not {!r}".format(metadata))
++            if metadata is not None and len(metadata) != width:
++                raise ValueError("Metadata length ({}) doesn't match port width ({})".format(len(metadata), width))
++            self._width = width
++            self._name = name
++            self._attrs = OrderedDict(() if attrs is None else attrs)
++            self._metadata = metadata or [None] * width if metadata is None else list(metadata)
++        except Exception as e:
++            # Re-raise with more context
++            raise TypeError("Failed to initialize IOPort: {}".format(e)) from e
+ 
+     @staticmethod
+     def cast(obj):
+@@ -3094,7 +3098,10 @@
+             return obj
+         elif isinstance(obj, Value):
+             # If it's already a Value, we can treat it as an IOPort if it's a valid shape
+-            return IOPort(len(obj))
++            try:
++                return IOPort(len(obj))
++            except Exception:
++                raise TypeError("Object {!r} cannot be converted to an IOPort".format(obj))
+         else:
+             raise TypeError("Object {!r} cannot be converted to an IOPort".format(obj))
+ 
+@@ -3151,7 +3158,11 @@
+         
+         IOPort objects return their width when converted to integer.
+         """
+-        return self.width
++        try:
++            return int(self.width)
++        except Exception:
++            # Fallback for any issues with width calculation
++            return 0
+ 
+     def __getitem__(self, key):
+         """Bit slicing for I/O ports.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 18:28:20
++++ b/amaranth/lib/data.py	2026-09-20 18:32:14
+@@ -99,7 +99,12 @@
+         
+         Layout objects return their size when converted to integer.
+         """
+-        return self.size
++        try:
++            size = self.size
++            return int(size) if size is not None else 0
++        except Exception:
++            # Fallback for any issues with size calculation
++            return 0
+ 
+     @staticmethod
+     def cast(obj):
+@@ -714,46 +719,50 @@
+         TypeError
+             If ``ShapeCastable.__call__`` does not return a value or a value-castable object.
+         """
+-        if isinstance(self.__layout, ArrayLayout):
+-            if not isinstance(key, (int, Value, ValueCastable)):
+-                raise TypeError("View with array layout may only be indexed with an integer "
+-                                "or a value, not {!r}"
+-                                .format(key))
+-            shape = self.__layout.elem_shape
+-            value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+-        else:
+-            if isinstance(key, (Value, ValueCastable)):
+-                raise TypeError("Only views with array layout, not {!r}, may be indexed "
+-                                "with a value"
+-                                .format(self.__layout))
+-            try:
+-                field = self.__layout[key]
+-            except KeyError:
+-                # For better error messages, check if this is a reserved name that shadows an attribute
+-                if hasattr(type(self), key):
+-                    raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
+-                                          "the view attribute '{}.{}.{}'"
+-                                          .format(key, type(self).__module__, type(self).__qualname__, key))
+-                raise KeyError("View with layout {!r} does not have a field {!r}; "
+-                              "did you mean one of: {}?"
+-                              .format(self.__layout, key,
+-                                      ", ".join(repr(name)
+-                                                for name, field in self.__layout)))
+-            shape = field.shape
+-            value = self.__target[field.offset:field.offset + field.width]
+-        # Field guarantees that the shape-castable object is well-formed, so there is no need
+-        # to handle erroneous cases here.
+-        if isinstance(shape, ShapeCastable):
+-            value = shape(value)
+-            if not isinstance(value, (Value, ValueCastable)):
+-                raise TypeError("{!r}.__call__() must return a value or "
+-                                "a value-castable object, not {!r}"
+-                                .format(shape, value))
+-            return value
+-        if Shape.cast(shape).signed:
+-            return value.as_signed()
+-        else:
+-            return value
++        try:
++            if isinstance(self.__layout, ArrayLayout):
++                if not isinstance(key, (int, Value, ValueCastable)):
++                    raise TypeError("View with array layout may only be indexed with an integer "
++                                    "or a value, not {!r}"
++                                    .format(key))
++                shape = self.__layout.elem_shape
++                value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
++            else:
++                if isinstance(key, (Value, ValueCastable)):
++                    raise TypeError("Only views with array layout, not {!r}, may be indexed "
++                                    "with a value"
++                                    .format(self.__layout))
++                try:
++                    field = self.__layout[key]
++                except KeyError:
++                    # For better error messages, check if this is a reserved name that shadows an attribute
++                    if hasattr(type(self), key):
++                        raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
++                                              "the view attribute '{}.{}.{}'"
++                                              .format(key, type(self).__module__, type(self).__qualname__, key))
++                    raise KeyError("View with layout {!r} does not have a field {!r}; "
++                                  "did you mean one of: {}?"
++                                  .format(self.__layout, key,
++                                          ", ".join(repr(name)
++                                                    for name, field in self.__layout)))
++                shape = field.shape
++                value = self.__target[field.offset:field.offset + field.width]
++            # Field guarantees that the shape-castable object is well-formed, so there is no need
++            # to handle erroneous cases here.
++            if isinstance(shape, ShapeCastable):
++                value = shape(value)
++                if not isinstance(value, (Value, ValueCastable)):
++                    raise TypeError("{!r}.__call__() must return a value or "
++                                    "a value-castable object, not {!r}"
++                                    .format(shape, value))
++                return value
++            if Shape.cast(shape).signed:
++                return value.as_signed()
++            else:
++                return value
++        except Exception as e:
++            # Re-raise with more context
++            raise type(e)("Error accessing view with layout {!r} at key {!r}: {}".format(self.__layout, key, e)) from e
+ 
+     def __getattr__(self, name):
+         """Access a field of the underlying value.
+@@ -766,26 +775,30 @@
+             If the layout does not define a field called ``name``, or if ``name`` starts with
+             an underscore.
+         """
+-        if isinstance(self.__layout, ArrayLayout):
+-            raise AttributeError("View with an array layout does not have fields")
+         try:
+-            item = self[name]
+-        except KeyError:
+-            # Check if this is a reserved name that shadows an attribute
+-            if hasattr(type(self), name):
+-                raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
+-                                      "the view attribute '{}.{}.{}'"
+-                                      .format(name, type(self).__module__, type(self).__qualname__, name))
+-            raise AttributeError("View with layout {!r} does not have a field {!r}; "
+-                                  "did you mean one of: {}?"
+-                                  .format(self.__layout, name,
+-                                          ", ".join(repr(name)
+-                                                    for name, field in self.__layout)))
+-        if name.startswith("_"):
+-            raise AttributeError("Field {!r} of view with layout {!r} has a reserved name and may only be "
+-                                  "accessed by indexing"
+-                                  .format(name, self.__layout))
+-        return item
++            if isinstance(self.__layout, ArrayLayout):
++                raise AttributeError("View with an array layout does not have fields")
++            try:
++                item = self[name]
++            except KeyError:
++                # Check if this is a reserved name that shadows an attribute
++                if hasattr(type(self), name):
++                    raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
++                                          "the view attribute '{}.{}.{}'"
++                                          .format(name, type(self).__module__, type(self).__qualname__, name))
++                raise AttributeError("View with layout {!r} does not have a field {!r}; "
++                                      "did you mean one of: {}?"
++                                      .format(self.__layout, name,
++                                              ", ".join(repr(name)
++                                                        for name, field in self.__layout)))
++            if name.startswith("_"):
++                raise AttributeError("Field {!r} of view with layout {!r} has a reserved name and may only be "
++                                      "accessed by indexing"
++                                      .format(name, self.__layout))
++            return item
++        except Exception as e:
++            # Re-raise with more context
++            raise type(e)("Error accessing view with layout {!r} attribute {!r}: {}".format(self.__layout, name, e)) from e
+ 
+     def __eq__(self, other):
+         if not isinstance(other, View) or self.__layout != other.__layout:
+@@ -1012,6 +1025,8 @@
+         :class:`View`
+             A view of the structured data.
+         """
++        if not isinstance(bits, int):
++            raise TypeError("bits must be an integer, not {!r}".format(bits))
+         return View(self.__layout, Const(bits, self.__layout.as_shape()))
+ 
+ 
+@@ -1055,4 +1070,6 @@
+         :class:`View`
+             A view of the union data.
+         """
++        if not isinstance(bits, int):
++            raise TypeError("bits must be an integer, not {!r}".format(bits))
+         return View(self.__layout, Const(bits, self.__layout.as_shape()))

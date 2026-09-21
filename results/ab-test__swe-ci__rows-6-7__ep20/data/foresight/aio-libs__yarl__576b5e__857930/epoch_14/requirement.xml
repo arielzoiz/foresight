@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/yarl/_url.py::_normalize_path_segments</location>
+        <description>The current implementation has incorrect logic for handling edge cases in path normalization, particularly with consecutive dots, empty segments, and absolute vs relative path processing. Many test cases are failing due to improper handling of dot segments and path traversal.</description>
+        <contract>
+            <description>Function must correctly normalize path segments according to RFC 3986, properly handling:
+            - "." and ".." segments
+            - Empty segments
+            - Absolute vs relative paths
+            - Edge cases with multiple consecutive dots
+            - Preservation of root path separators for absolute paths</description>
+            <interface>
+                <input>
+                    <param name="segments">Sequence[str] - List of path segments</param>
+                    <param name="is_absolute">bool - Whether path is absolute</param>
+                </input>
+                <output>
+                    <return>list[str] - Normalized segments</return>
+                </output>
+            </interface>
+        </contract>
+        <acceptance>
+            <test>tests/test_normalize_path.py::test_normalize_path</test>
+            <test>tests/test_url.py::test_join_path_normalized</test>
+            <test>tests/test_url.py::test_with_path_dots</test>
+        </acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py::URL.__new__</location>
+        <description>URL constructor has issues with validation of host components and path normalization during URL creation, particularly around netloc parsing and path handling. Tests are failing at setup stage due to validation errors in URL construction.</description>
+        <contract>
+            <description>URL constructor must properly:
+            - Parse and validate host components including IPv6 addresses
+            - Handle netloc parsing correctly for various host formats
+            - Apply path normalization when needed
+            - Maintain consistent behavior with RFC 3986</description>
+            <interface>
+                <input>
+                    <param name="val">Union[str, SplitResult, URL] - Input URL value</param>
+                    <param name="encoded">bool - Whether input is already encoded</param>
+                </input>
+                <output>
+                    <return>URL - Normalized URL object</return>
+                </output>
+            </interface>
+        </contract>
+        <acceptance>
+            <test>tests/test_url.py::test_host_port_subcomponent</test>
+            <test>tests/test_url.py::test_join_from_rfc_3986_normal</test>
+            <test>tests/test_url.py::test_join_from_rfc_3986_abnormal</test>
+        </acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py::_split_netloc</location>
+        <description>Netloc parsing function incorrectly handles IPv6 addresses and malformed host specifications, causing validation failures in URL construction. Host parsing logic doesn't correctly process bracketed IPv6 addresses and special host formats.</description>
+        <contract>
+            <description>Function must correctly parse netloc into components:
+            - Username, password, host, and port
+            - Properly handle bracketed IPv6 addresses
+            - Validate port ranges appropriately
+            - Handle malformed bracketed hosts gracefully</description>
+            <interface>
+                <input>
+                    <param name="netloc">str - Network location string</param>
+                </input>
+                <output>
+                    <return>tuple[Union[str, None], Union[str, None], Union[str, None], Union[int, None]] - (username, password, host, port)</return>
+                </output>
+            </interface>
+        </contract>
+        <acceptance>
+            <test>tests/test_url.py::test_host_port_subcomponent</test>
+            <test>tests/test_url.py::test_join_cpython_urljoin</test>
+        </acceptance>
+    </item>
+</requirement>

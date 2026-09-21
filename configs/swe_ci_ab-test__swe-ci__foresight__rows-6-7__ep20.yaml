@@ -1,0 +1,186 @@
+# MILESTONE 3 -- aux is a second harness inside SWE-CI's live task container.
+#
+# The difference from local.yaml is where aux runs: not a host subprocess over a
+# checkout, but `docker exec` into the container SWE-CI just started for this
+# session, so aux reads the *current* epoch's code -- which is the only thing
+# that makes the condition meaningful, since SWE-CI's code mutates every epoch.
+#
+#     python -m foresight.server --config configs/swe_ci.yaml
+#
+# SWE-CI SIDE (its own config.toml, not ours -- its repo stays unmodified):
+#
+#     base_url   = "http://172.17.0.1:8000/v1"   # the docker bridge gateway,
+#                                                #  i.e. this server, from inside
+#     model_name = "target-model"
+#     api_key    = "dummy"
+#     agent_name = "opencode"
+#     [evolve] max_epoch = 1                     # start here, not 20
+#
+# And point the aux harness's own model at aux-model (same server, different
+# served name) so its calls bypass the pipeline and land in the same trace.
+#
+# EDIT swe_ci_config, foresight_base_url and the model base_urls before using this.
+
+server:
+  # Must be reachable from inside the containers, so not 127.0.0.1.
+  host: 0.0.0.0
+  port: 8010
+
+models:
+  target:
+    served_name: target-model
+    backend: openai_compat
+    base_url: http://n-b200.cs.tau.ac.il:8001/v1
+    model: target-model
+    # SWE-CI gives the whole `docker exec` 3600s (evolve.architect.timeout), and
+    # the target's request now stays open for the entire aux run on top of its
+    # own generation. See risk 7.
+    timeout_s: 3600
+  aux:
+    served_name: aux-model
+    backend: openai_compat
+    base_url: http://n-b200.cs.tau.ac.il:8002/v1
+    model: aux-model
+    timeout_s: 1800
+
+adapter:
+  name: swe_ci
+
+  # The container client. "docker" is correct for a real Docker install
+  # (this adapter's target runtime); named explicitly so a deployment can
+  # point it at an absolute path instead of relying on PATH order.
+  docker_cmd: docker
+
+  # This server's OWN address, as reachable from inside a SWE-CI container --
+  # the Docker bridge gateway, matching SWE-CI's own base_url below. Required:
+  # aux's harness runs inside the container and needs to know where to send
+  # its own model calls (auth.json/opencode.json, bootstrapped automatically).
+  # NEVER localhost/127.0.0.1 -- that resolves to the container itself, not
+  # to this host.
+  foresight_base_url: http://host.docker.internal:8010/v1
+
+  # SWE-CI's config.toml. Read once at startup to check agent_cmd names the
+  # harness the task image actually ships -- the image installs exactly the one
+  # `agent_name` selected, so the other one is not in there at all.
+  swe_ci_config: /Volumes/LACIE SHARE/University/NLP/SWE-CI/config_foresight_r6-7.toml
+
+  # The workspace INSIDE the container. SWE-CI copies `current/code` and either
+  # `non-passed` or `requirement.xml` into /app (run.py:102, run.py:127), and
+  # runs its own agent with `-w /app`.
+  workspace: /app
+
+  # The aux harness, as argv, executed inside the container. Must be the same
+  # harness SWE-CI uses (binding constraint 2: we define no tools). Pointed at
+  # aux-model, so aux's own model calls come back to this server, bypass the
+  # pipeline, and land in the same trace file.
+  #
+  # MEASURED: the bare command name "opencode" resolves to
+  # /usr/local/bin/opencode, a wrapper Dockerfile.opencode generates that
+  # UNCONDITIONALLY overwrites HOME (and XDG_CACHE_HOME, NPM_CONFIG_PREFIX,
+  # PATH) regardless of `docker exec -e HOME=...` -- so aux would silently
+  # land back in SWE-CI's own HOME and corrupt its token accounting. Naming
+  # the real binary directly bypasses the wrapper; the env block below sets
+  # everything the wrapper would have, explicitly, so the adapter's own -e
+  # flags are what actually take effect.
+  #
+  # opencode answers on stdout, so answer_from must agree with the command.
+  agent_cmd:
+    [
+      "/opt/agent/npm-global/bin/opencode",
+      "run",
+      "--model",
+      "custom/aux-model",
+      "{prompt}",
+    ]
+  answer_from: stdout
+
+  # The file variant, for a harness that writes rather than prints. Keep the
+  # path under /tmp: /tmp is never copied out of the container, and an answer
+  # written under /app would be correctly flagged by the guard as aux
+  # contaminating the measured tree. Omit answer_file entirely for a fresh path
+  # per run, which is what SWE-CI's concurrent tasks need.
+  # agent_cmd: [same as above]
+  # answer_from: file
+  # answer_file: /tmp/foresight-aux-answer.md
+
+  # The aux agent's HOME, and it is mandatory -- but not sufficient by
+  # itself, see agent_cmd above. opencode keeps its session DB at
+  # $HOME/.local/share/opencode, and SWE-CI copies opencode.db out of
+  # /opt/agent/home to bill the target's tokens -- sharing it would fold
+  # aux's tokens into the benchmark's own accounting. Refused at startup if
+  # set to /opt/agent/home. The rest of this block replicates what
+  # /usr/local/bin/opencode's wrapper would have set, since agent_cmd above
+  # bypasses it.
+  env:
+    HOME: /tmp/aux-home
+    XDG_CACHE_HOME: /tmp/aux-home/.cache
+    NPM_CONFIG_PREFIX: /opt/agent/npm-global
+    npm_config_cache: /opt/agent/npm-cache
+    PATH: /opt/agent/node/bin:/opt/agent/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    NODE_NO_WARNINGS: "1"
+    DISABLE_SEND_PV: "1"
+
+  # Harness bookkeeping the guard must not read as contamination. SWE-CI strips
+  # .git* from the workspace (initialize.py:52), so opencode's snapshot file
+  # normally cannot appear -- listed for the case where it can.
+  guard_ignore:
+    - ".git/opencode"
+
+  # Save aux's own opencode sessions (every message and tool call) out of the
+  # container before SWE-CI deletes it. Read them with
+  #   python tools/aux_transcript.py traces/aux-agent-swe-ci-t1-5/ses_*.json
+  aux_export_dir: traces/ab-test__swe-ci__foresight__rows-6-7__ep20__aux-agent
+
+  timeout_s: 1800
+
+# Jinja. Variables under the swe_ci adapter: {{ prompt }}, {{ system }},
+# {{ workspace }}, {{ answer_file }}.
+#
+# Note what the prompt must NOT do: name the phase. Aux gets SWE-CI's own
+# architect/programmer prompt as {{ prompt }} and is asked the same question in
+# both phases, because the phase is recorded for analysis and never branches
+# behaviour.
+aux_prompt: |
+  You are inspecting a Python project inside a container at {{ workspace }}.
+
+  READ ONLY. Do not create, modify or delete any file under {{ workspace }}.
+  Any write there invalidates this run.
+
+  A developer is about to work on the task described below.
+
+  {{ prompt }}
+
+  Read enough of {{ workspace }}/code to answer concretely, then name 3 to 5
+  plausible FUTURE tasks that could reasonably follow this one in THIS codebase.
+  Refer to real files, functions or modules you actually read. Do not solve the
+  task, and do not write any file.
+
+stages: [aux]
+
+builder:
+  name: template
+  template: |
+    The following are plausible FUTURE tasks, related to the task below.
+    They are not your assignment.
+
+    {{ aux }}
+
+    Solve the main task only, but choose a solution that makes those
+    potential future tasks as easy as possible to solve.
+
+    {{ prompt }}
+
+session:
+  # An epoch is two sessions and can run for an hour each; the TTL only has to
+  # outlive one session, since every session start overwrites its entry.
+  ttl_s: 7200
+
+trace:
+  path: traces/ab-test__swe-ci__foresight__rows-6-7__ep20.jsonl
+  # Also record what the target replied (text and tool calls) on every row.
+  log_replies: true
+
+# Required: aux runs inside the live container, and an edit below /app/code is
+# copied out when the epoch ends and silently becomes part of the measured
+# result.
+guard: manifest

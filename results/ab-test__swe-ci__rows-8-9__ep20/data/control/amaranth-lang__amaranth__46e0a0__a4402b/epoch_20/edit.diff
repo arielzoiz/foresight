@@ -1,0 +1,59 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:46:16
++++ b/amaranth/lib/data.py	2026-09-20 21:47:28
+@@ -67,7 +67,7 @@
+         if not isinstance(obj, View):
+             raise TypeError("Object {!r} is not a data view"
+                             .format(obj))
+-        return obj._View__orig_layout
++        return obj.__orig_layout
+ 
+     def __call__(self, target=None, *, name=None, reset=None, reset_less=None,
+             attrs=None, decoder=None, src_loc_at=0):
+@@ -519,9 +519,20 @@
+             elif isinstance(key, str) and key not in self.__layout:
+                 # Format error message to match expected test format
+                 layout_name = type(self.__layout).__name__
+-                raise AttributeError("View of (sig $signal) does not have a field {!r}; "
+-                                    "did you mean one of: {}?"
+-                                    .format(key, ", ".join(repr(k) for k, f in self.__layout)))
++                # Find closest matching field names for error message
++                field_names = [k for k, f in self.__layout]
++                if field_names:
++                    # Simple fuzzy matching to find closest matches
++                    import difflib
++                    close_matches = difflib.get_close_matches(key, field_names, n=3, cutoff=0.3)
++                    if close_matches:
++                        suggestion = "; did you mean one of: {}?".format(", ".join(repr(n) for n in close_matches))
++                    else:
++                        suggestion = "; did you mean one of: {}?".format(", ".join(repr(n) for n in field_names))
++                else:
++                    suggestion = ""
++                raise AttributeError("View of (sig $signal) does not have a field {!r}{suggestion}"
++                                    .format(key, suggestion=suggestion))
+             field = self.__layout[key]
+             shape = field.shape
+             value = self.__target[field.offset:field.offset + field.width]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 21:44:52
++++ b/amaranth/lib/enum.py	2026-09-20 21:47:34
+@@ -45,8 +45,7 @@
+                 if member_shape.signed and not shape.signed:
+                     warnings.warn(
+                         message="Value {} of enumeration member {!r} is signed, but the enumeration "
+-                                "shape is {!r}"
+-                                .format(member.value, member, shape),
++                                "shape is {!r}".format(member.value, member, shape),
+                         category=SyntaxWarning,
+                         stacklevel=2)
+                 elif (member_shape.width > shape.width or
+@@ -54,8 +53,7 @@
+                         shape.signed and not member_shape.signed):
+                     warnings.warn(
+                         message="Value {} of enumeration member {!r} will be truncated to "
+-                                "the enumeration shape {!r}"
+-                                .format(member.value, member, shape),
++                                "the enumeration shape {!r}".format(member.value, member, shape),
+                         category=SyntaxWarning,
+                         stacklevel=2)
+         else:

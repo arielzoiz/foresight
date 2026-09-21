@@ -1,0 +1,38 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:57:30
++++ b/yarl/_url.py	2026-09-20 18:01:24
+@@ -1655,8 +1655,14 @@
+             else:
+                 new_path = "/".join(parts)
+         else:
+-            # For relative URLs
+-            parts[-1] = name
++            # For relative URLs, handle the case where path starts with slash
++            # raw_parts for "/a" is ("/", "a"), so we want to replace "a" with the new name
++            if len(parts) > 0 and parts[0] == "/":
++                # Path starts with slash - replace the actual name part (last element)
++                parts[-1] = name
++            else:
++                # Regular relative path, e.g. "a" or "a/b"
++                parts[-1] = name
+             # Join normally
+             new_path = "/".join(parts)
+         
+@@ -1745,8 +1751,15 @@
+             else:
+                 new_path = "/".join(parts)
+         else:
+-            # For relative URLs
+-            parts[-1] = new_name
++            # For relative URLs, we need to handle the special case where
++            # the path starts with a slash, which creates an extra empty element in raw_parts
++            if len(parts) > 0 and parts[0] == "/":
++                # This is a relative path starting with slash, e.g. "/a" -> raw_parts = ("/", "a")
++                # Replace the last part (which is the actual name)
++                parts[-1] = new_name
++            else:
++                # Regular relative path, e.g. "a" or "a/b"
++                parts[-1] = new_name
+             # Join normally
+             new_path = "/".join(parts)
+         

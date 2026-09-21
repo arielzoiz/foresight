@@ -1,0 +1,31 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:30:20
++++ b/amaranth/lib/data.py	2026-09-20 21:31:36
+@@ -407,7 +407,14 @@
+             # Validate that the target is actually a data view (has a layout)
+             # Allow Signals as valid targets since they are ValueCastable
+             if not isinstance(target, (ValueCastable, Signal)):
+-                raise TypeError("Object {!r} is not a data view".format(target))
++                # Check if it's a valid layout that can be converted to a data view
++                try:
++                    Layout.cast(target)
++                    # If we get here, it's a valid layout, so we can convert it to a view
++                    # But this isn't what we want - we want to make sure it's a signal or a view
++                    raise TypeError("Object {!r} is not a data view".format(target))
++                except TypeError:
++                    raise TypeError("Object {!r} is not a data view".format(target))
+             if len(cast_target) != cast_layout.size:
+                 raise ValueError("View target is {} bit(s) wide, which is not compatible with "
+                                    "the {} bit(s) wide view layout"
+@@ -450,7 +457,10 @@
+             if isinstance(key, (Value, ValueCastable)):
+                 raise TypeError("Only views with array layout, not {}, may be indexed "
+                                 "with a value"
+-                                .format(repr(self.__layout)))
++                                .format(type(self.__layout).__name__))
++            elif isinstance(key, str) and key not in self.__layout:
++                raise TypeError("View of {!r} does not have a field {!r}"
++                                .format(self.__target, key))
+             field = self.__layout[key]
+             shape = field.shape
+             value = self.__target[field.offset:field.offset + field.width]

@@ -1,0 +1,43 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:21:50
++++ b/amaranth/lib/data.py	2026-09-20 22:24:26
+@@ -110,7 +110,7 @@
+             if isinstance(self, UnionLayout) and len(value) > 1:
+                 raise ValueError("Initializer for at most one field can be provided for a union "
+                                 "layout (specified: {})"
+-                                .format(", ".join(value.keys())))
++                                .format(", ".join(sorted(value.keys()))))
+             iterator = value.items()
+         elif isinstance(value, Sequence):
+             iterator = enumerate(value)
+@@ -234,7 +234,7 @@
+             if len(value) > 1:
+                 raise ValueError("Initializer for at most one field can be provided for a union "
+                                 "layout (specified: {})"
+-                                .format(", ".join(value.keys())))
++                                .format(", ".join(sorted(value.keys()))))
+             if len(value) == 0:
+                 return Const(0, self.size)
+             key, key_value = next(iter(value.items()))
+@@ -410,6 +410,9 @@
+                 try:
+                     reset = cast_layout._convert_to_int(reset)
+                 except Exception as e:
++                    # Re-raise with a more appropriate error message for the View constructor
++                    if isinstance(e, ValueError) and "at most one field" in str(e):
++                        raise e
+                     raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+                                     .format(reset)) from e
+             if reset_less is None:
+@@ -431,9 +434,9 @@
+         if isinstance(key, (Value, ValueCastable)):
+             # Check if this is a valid array indexing operation first
+             if not isinstance(self.__layout, ArrayLayout):
+-                raise TypeError("Only views with array layout, not {!r}, may be indexed "
++                raise TypeError("Only views with array layout, not {}, may be indexed "
+                                 "with a value"
+-                                .format(self.__layout))
++                                .format(self.__layout.__class__.__name__))
+             # If it is an array layout, proceed with the indexing
+             shape = self.__layout.elem_shape
+             value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__getattr__</location>
+        <description>The View.__getattr__ method incorrectly handles reserved names and missing attributes. It raises generic AttributeError messages instead of specific ones that match test expectations, and doesn't properly distinguish between reserved names that exist in the layout versus completely missing attributes.</description>
+        <contract>When accessing a reserved attribute (starting with '_') that exists in the layout, View.__getattr__ must raise an AttributeError with message format "View of &lt;target&gt; field '&lt;name&gt;' has a reserved name and may only be accessed by indexing". When accessing a non-existent attribute, it must raise an AttributeError with message format "View of &lt;target&gt; does not have a field '&lt;name&gt;'; did you mean one of: &lt;similar_fields&gt;?"</contract>
+        <acceptance>test_attr_wrong_missing, test_attr_wrong_reserved</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__getitem__</location>
+        <description>The View.__getitem__ method does not properly validate array layout indexing with dynamic values. When trying to index a non-array layout with a Value, it should raise a TypeError with a specific message.</description>
+        <contract>When attempting to index a non-ArrayLayout with a Value, View.__getitem__ must raise a TypeError with message format "Only views with array layout, not &lt;layout_type&gt;, may be indexed with a value".</contract>
+        <acceptance>test_index_wrong_struct_dynamic</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:Layout._convert_to_int</location>
+        <description>The Layout._convert_to_int method does not properly validate reset values for UnionLayouts. When multiple fields are specified in reset values for UnionLayouts, it should raise a ValueError with a specific message.</description>
+        <contract>When _convert_to_int is called with a Mapping for a UnionLayout and more than one field is specified, it must raise a ValueError with message format "Initializer for at most one field can be provided for a union layout (specified: &lt;field_list&gt;)".</contract>
+        <acceptance>test_construct_reset_override, test_construct_reset_two_wrong</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__init__</location>
+        <description>The View constructor has incorrect reset value validation logic. It attempts to validate reset values before passing them to the underlying Signal constructor, but the validation is incomplete and doesn't match expected error messages.</description>
+        <contract>When constructing a View with a reset value that is not constant-castable, the error message should match the expected format for Signal construction failures.</contract>
+        <acceptance>test_construct_signal_reset, test_reset_shape_castable_const, test_reset_shape_castable_enum_wrong</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:StructLayout, UnionLayout</location>
+        <description>Empty layouts are not handled properly in StructLayout and UnionLayout classes. The base class methods don't properly handle empty layouts and don't provide the expected error messages for missing fields.</description>
+        <contract>When creating StructLayout or UnionLayout with empty members, they should behave appropriately and provide meaningful error messages for field access.</contract>
+        <acceptance>test_base_class_1, test_base_class_2</acceptance>
+    </item>
+</requirement>

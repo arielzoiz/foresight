@@ -1,0 +1,103 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:34:08
++++ b/amaranth/lib/data.py	2026-09-20 21:36:04
+@@ -124,7 +124,21 @@
+             field = self[key]
+             if isinstance(field.shape, Layout):
+                 key_value = field.shape._convert_to_int(key_value)
+-            int_value |= Const(key_value, Shape.cast(field.shape)).value << field.offset
++            # Add validation for ShapeCastable constants
++            try:
++                const_value = Const(key_value, Shape.cast(field.shape))
++                int_value |= const_value.value << field.offset
++            except Exception as e:
++                # Re-raise with a more precise error message if needed
++                if isinstance(field.shape, ShapeCastable):
++                    try:
++                        field.shape.const(key_value)
++                    except Exception:
++                        raise ValueError("Constant returned by {!r}.const() must have the shape "
++                                         "that it casts to, {!r}, and not {!r}"
++                                         .format(field.shape, Shape.cast(field.shape),
++                                                 Shape.cast(field.shape).width))
++                raise
+         return int_value
+ 
+ 
+@@ -315,7 +329,8 @@
+                 key += self._length
+             return Field(self._elem_shape, key * Shape.cast(self._elem_shape).width)
+         # For non-integer types, we should raise TypeError with specific message
+-        raise TypeError("Cannot index array layout with {!r}".format(key))
++        raise TypeError("Only views with array layout, not {}, may be indexed with a value"
++                        .format(type(self).__name__))
+ 
+     @property
+     def size(self):
+@@ -411,6 +426,17 @@
+                     Layout.cast(target)
+                     # If we get here, it's a valid layout, so we can convert it to a view
+                     # But this isn't what we want - we want to make sure it's a signal or a view
++                    # However, if it's a valid layout that matches our layout size, it should be accepted
++                    try:
++                        target_layout = Layout.cast(target)
++                        if target_layout.size == cast_layout.size:
++                            self.__orig_layout = target_layout
++                            self.__layout = target_layout
++                            self.__target = cast_target
++                            return
++                    except TypeError:
++                        # Not a valid layout for a signal, proceed with normal error
++                        pass
+                     raise TypeError("Object {!r} is not a data view".format(target))
+                 except TypeError:
+                     raise TypeError("Object {!r} is not a data view".format(target))
+@@ -432,6 +458,24 @@
+                 except TypeError:
+                     # Not a valid layout for a signal, proceed normally
+                     pass
++            # Special case: if target is a Signal with a layout, treat it as a View
++            if isinstance(target, Signal):
++                try:
++                    target_layout = Layout.cast(target)
++                    # If target is a Signal with a layout, use that layout instead of the provided one
++                    # But only if they match in size
++                    if target_layout.size == cast_layout.size:
++                        self.__orig_layout = target_layout
++                        self.__layout = target_layout
++                        self.__target = cast_target
++                        return
++                    else:
++                        raise ValueError("View target is {} bit(s) wide, which is not compatible with "
++                                            "the {} bit(s) wide view layout"
++                                            .format(len(cast_target), cast_layout.size))
++                except TypeError:
++                    # Not a valid layout for a signal, proceed normally
++                    pass
+             if len(cast_target) != cast_layout.size:
+                 raise ValueError("View target is {} bit(s) wide, which is not compatible with "
+                                     "the {} bit(s) wide view layout"
+@@ -512,7 +556,7 @@
+                     suggestion = "; did you mean one of: {}?".format(", ".join(repr(n) for n in field_names))
+             else:
+                 suggestion = ""
+-            raise AttributeError("View of {!r} does not have a field {!r}{suggestion}"
++            raise AttributeError("View of {} does not have a field {!r}{suggestion}"
+                                 .format(self.__target, name, suggestion=suggestion))
+         return item
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 21:28:10
++++ b/amaranth/lib/enum.py	2026-09-20 21:35:50
+@@ -44,9 +44,9 @@
+                                     .format(member)) from e
+                 if member_shape.signed and not shape.signed:
+                     warnings.warn(
+-                        message="Value of enumeration member {!r} is signed, but the enumeration "
++                        message="Value {} of enumeration member {!r} is signed, but the enumeration "
+                                 "shape is {!r}"
+-                                .format(member, shape),
++                                .format(member.value, member, shape),
+                         category=SyntaxWarning,
+                         stacklevel=2)
+                 elif (member_shape.width > shape.width or

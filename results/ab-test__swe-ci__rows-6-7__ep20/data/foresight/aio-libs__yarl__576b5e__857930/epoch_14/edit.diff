@@ -1,0 +1,50 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:10:14
++++ b/yarl/_url.py	2026-09-20 19:12:22
+@@ -141,14 +141,11 @@
+     for segment in segments:
+         if segment == "..":
+             # RFC 3986 section 5.2.4: 
+-            # "If the reference path is rootless, then the reference path is treated as if it 
+-            # had a leading slash"
+-            # "If the reference path is absolute, then the reference path is treated as if 
+-            # it had a leading slash"
+-            # For absolute paths, we can go up only if not at the root (empty segment)
++            # For absolute paths, we can go up only if not at the root
+             # For relative paths, we can always go up
+             if normalized and normalized[-1] != "..":
+                 # If we're at the root of an absolute path, we can't go up
++                # Root is represented by an empty string at the beginning of the normalized list
+                 if not is_absolute or normalized[-1] != "":
+                     # Remove the previous segment (go up one directory)
+                     normalized.pop()
+@@ -314,7 +311,10 @@
+                         host = ""
+                 host = cls._encode_host(host, validate_host=False)
+                 # Remove brackets as host encoder adds back brackets for IPv6 addresses
+-                cache["raw_host"] = host[1:-1] if "[" in host else host
++                if host.startswith("[") and host.endswith("]"):
++                    cache["raw_host"] = host[1:-1]
++                else:
++                    cache["raw_host"] = host
+                 cache["explicit_port"] = port
+                 if port is None and password is None and username is None:
+                     # Fast path for URLs without user, password and port
+@@ -1010,7 +1010,7 @@
+ 
+         if self._val.netloc:
+             # Determine if we're dealing with an absolute path
+-            is_absolute = old_path_segments[0] == "" if old_path_segments else False
++            is_absolute = old_path_segments and old_path_segments[0] == "" if old_path_segments else False
+             parsed = _normalize_path_segments(parsed, is_absolute) if needs_normalize else parsed
+             if parsed and parsed[0] != "":
+                 # inject a leading slash when adding a path to an absolute URL
+@@ -1167,7 +1167,7 @@
+             if not have_password:
+                 password = None
+ 
+-        if "[" in hostinfo:
++        if "[" in hostinfo and "]" in hostinfo:
+             # Handle IPv6 addresses
+             bracket_start = hostinfo.find("[")
+             bracket_end = hostinfo.find("]")

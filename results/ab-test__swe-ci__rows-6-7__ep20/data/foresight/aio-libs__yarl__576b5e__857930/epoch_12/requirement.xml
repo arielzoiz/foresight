@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/yarl/_url.py:134-174</location>
+        <description>The _normalize_path_segments function in _url.py has several logical flaws in handling path normalization, particularly for edge cases involving empty segments, absolute paths with dots, and Unicode characters. The function fails to properly handle consecutive dots, empty path segments, and absolute paths with multiple dots.</description>
+        <contract>The function should properly normalize path segments according to RFC 3986, handling cases like:
+1. Absolute paths with leading slashes and dots (e.g., "/path/to/./." should become "/path/to/")
+2. Relative paths with dots (e.g., "../path/to" should become "path/to")
+3. Paths with multiple dots and empty segments (e.g., "///" should remain "///")
+4. Unicode paths with dots (e.g., "μονοπάτι/../../να/𝕦𝕟𝕚/𝕔𝕠𝕕𝕖" should become "να/𝕦𝕟𝕚/𝕔𝕠𝕕𝕖")
+5. Proper handling of empty segments and empty strings in paths</contract>
+        <acceptance>Tests in tests/test_normalize_path.py should pass, specifically:
+- test_normalize_path[path/to/./.-path/to/]
+- test_normalize_path[path/to/.-path/to/]
+- test_normalize_path[../path/to-path/to]
+- test_normalize_path[/foo/../../../..bar-/..bar]
+- test_normalize_path[///-///]
+- test_normalize_path[/path/to/.-/path/to/]
+- test_normalize_path[path/../../to-to]
+- test_normalize_path[/foo/../../../ton-/ton]
+- test_normalize_path[\u03bc\u03bf\u03bd\u03bf\u03c0\u03ac\u03c4\u03b9/../../\u03bd\u03b1/\u1d1c\u0274\u026a/\u1d04\u1d0f\u1d05\u1d07-\u03bd\u03b1/\u1d1c\u0274\u026a/\u1d04\u1d0f\u1d05\u1d07]
+- test_normalize_path[\u03bc\u03bf\u03bd\u03bf\u03c0\u03ac\u03c4\u03b9/../../\u03bd\u03b1/\U0001d566\U0001d55f\U0001d55a/\U0001d554\U0001d560\U0001d555\U0001d556/.-\u03bd\u03b1/\U0001d566\U0001d55f\U0001d55a/\U0001d554\U0001d560\U0001d555\U0001d556/]</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py:976-1012</location>
+        <description>The _make_child function in _url.py has an UnboundLocalError because the variable old_path_segments is referenced before assignment in certain code paths. This happens when processing paths with empty segments or when the original URL has no path.</description>
+        <contract>The function should properly initialize variables before use and correctly handle:
+1. URLs with no existing path
+2. Paths with empty segments
+3. Absolute path detection when no existing path segments exist
+4. Proper joining of path segments with dots and empty segments</contract>
+        <acceptance>Tests in tests/test_url.py::test_joinpath should pass, specifically:
+- test_joinpath[trailing-slash]
+- test_joinpath[duplicate-slash]
+- test_joinpath[root]
+- test_joinpath[trailing-slash-empty-string]
+- test_joinpath[empty-segments]</acceptance>
+    </item>
+</requirement>

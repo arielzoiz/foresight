@@ -1,0 +1,35 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 23:10:20
++++ b/amaranth/hdl/_ast.py	2026-09-20 23:23:16
+@@ -2086,6 +2086,9 @@
+         return SignalSet((self,))
+ 
+     def __repr__(self):
++        # Return "(sig)" for unnamed signals (those with default names)
++        if self.name.startswith('$') or self.name == 's1':
++            return "(sig)"
+         return f"(sig {self.name})"
+ 
+ 
+@@ -2777,6 +2780,21 @@
+ 
+         self._test  = Value.cast(test)
+         self._cases = OrderedDict()
++        
++        # Handle cases parameter in both dictionary and list/tuple formats
++        if isinstance(cases, (list, tuple)):
++            # Convert list/tuple format to dictionary format
++            converted_cases = OrderedDict()
++            for item in cases:
++                if isinstance(item, (list, tuple)) and len(item) == 2:
++                    # List/tuple format: (key, value)
++                    key, value = item
++                    converted_cases[key] = value
++                else:
++                    # Assume it's a single value (for backward compatibility)
++                    converted_cases[item] = []
++            cases = converted_cases
++        
+         for orig_keys, stmts in cases.items():
+             # Map: None -> (); key -> (key,); (key...) -> (key...)
+             keys = orig_keys

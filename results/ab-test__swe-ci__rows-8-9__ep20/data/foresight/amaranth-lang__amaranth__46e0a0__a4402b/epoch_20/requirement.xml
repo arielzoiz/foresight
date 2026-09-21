@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/hdl/ast.py:Signal.__init__</location>
+        <description>The Signal constructor does not properly handle complex reset values like dictionaries for StructLayout and UnionLayout objects. The error occurs when trying to pass reset values like {"a": 1, "b": 2} to Signal constructors with layout shapes.</description>
+        <contract>
+            <description>Signal constructor should properly validate and process reset values for layout-based shapes, supporting complex reset values like dictionaries for StructLayout and UnionLayout.</description>
+            <input>reset parameter should accept complex reset values for layout-based shapes</input>
+            <output>Signal should correctly process complex reset values using the layout's _convert_to_int method</output>
+            <exception>Should raise TypeError with clear message for invalid reset values</exception>
+        </contract>
+        <acceptance>Tests like tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset should pass</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__getattr__</location>
+        <description>The View.__getattr__ method does not properly handle reserved field names and provides inadequate error messages for missing fields. It raises AttributeError with generic messages instead of helpful suggestions.</description>
+        <contract>
+            <description>View.__getattr__ should properly handle reserved field names (those starting with underscore) and provide helpful error messages for missing fields with suggestions for similar names.</description>
+            <input>Access to reserved field names should be restricted to indexing, missing field names should trigger helpful error messages</input>
+            <output>Reserved fields should raise AttributeError with clear message, missing fields should suggest similar names</output>
+            <exception>Should raise AttributeError with appropriate messages for reserved and missing fields</exception>
+        </contract>
+        <acceptance>Tests like tests/test_lib_data.py::ViewTestCase::test_getattr_reserved and tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing should pass</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/hdl/ast.py:Signal.__getattr__</location>
+        <description>The Signal.__getattr__ method does not support attribute access for Views with layouts, causing "Signal has no attribute" errors when accessing fields on Signals constructed with layout shapes.</description>
+        <contract>
+            <description>Signal.__getattr__ should delegate attribute access to Views when the Signal has a layout shape, allowing struct-like attribute access for Signals with layout-based shapes.</description>
+            <input>Attribute access on Signals with layout shapes should be delegated to View attribute access</input>
+            <output>Attribute access should return View fields or raise appropriate errors</output>
+            <exception>Should raise AttributeError with clear message when attribute does not exist</exception>
+        </contract>
+        <acceptance>Tests like tests/test_lib_data.py::ViewTestCase::test_getitem_custom_call and tests/test_lib_data.py::ViewTestCase::test_getattr should pass</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__getitem__</location>
+        <description>The View.__getitem__ method does not properly handle array layouts with dynamic indexing and provides incorrect error messages for wrong types of indices.</description>
+        <contract>
+            <description>View.__getitem__ should properly validate and handle array layouts with dynamic indexing, providing clear error messages for invalid index types.</description>
+            <input>Indexing with values on array layouts should be validated properly</input>
+            <output>Should allow dynamic indexing on array layouts and raise TypeError with appropriate message for invalid cases</output>
+            <exception>Should raise TypeError with clear message for invalid array indexing scenarios</exception>
+        </contract>
+        <acceptance>Tests like tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic and tests/test_lib_data.py::ViewTestCase::test_getitem should pass</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:Layout._convert_to_int</location>
+        <description>The Layout._convert_to_int method does not properly handle ShapeCastable objects in reset value processing, causing TypeError issues with reset values.</description>
+        <contract>
+            <description>Layout._convert_to_int should properly handle ShapeCastable objects with custom const methods when processing reset values.</description>
+            <input>Reset values should be processed for ShapeCastable objects with custom const methods</input>
+            <output>Should convert reset values using ShapeCastable's const method when available</output>
+            <exception>Should raise TypeError with clear message for invalid reset values</exception>
+        </contract>
+        <acceptance>Tests like tests/test_hdl_ast.py::SignalTestCase::test_reset_shape_castable_const should pass</acceptance>
+    </item>
+</requirement>

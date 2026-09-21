@@ -1,0 +1,112 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 17:52:18
++++ b/amaranth/hdl/_ir.py	2026-09-20 17:54:42
+@@ -394,12 +394,11 @@
+         self.fragment = fragment
+         self.ports = ports
+         self.hierarchy = hierarchy
+-        # Add missing fragments attribute - collect all fragments in a dictionary
++        # Initialize collections before using them
+         self.fragments = {}
+-        self._collect_fragments(fragment)
+-        # dict of Fragment to SignalDict of Signal to name
+-        self.signal_names = {}
+         self.fragment_names = {}
++        self.signal_names = {}
++        self._collect_fragments(fragment)
+         self._assign_names_to_signals(fragment, ports)
+         self._assign_names_to_fragments(fragment, hierarchy)
+         # Use just-assigned signal names to name all unnamed ports.
+@@ -438,88 +437,10 @@
+         """
+         self.fragment_names[fragment] = hierarchy
+ 
+-        taken_names = set(self.signal_names[fragment].values())
+-        for subfragment_index, (subfragment, subfragment_name, subfragment_src_loc) in enumerate(fragment.subfragments):
+-            if subfragment_name is None:
+-                subfragment_name = f"U${subfragment_index}"
+-            elif subfragment_name in taken_names:
+-                subfragment_name = f"{subfragment_name}$U${subfragment_index}"
+-            assert subfragment_name not in taken_names
+-            taken_names.add(subfragment_name)
+-            self._assign_names_to_fragments(subfragment, hierarchy=(*hierarchy, subfragment_name))
+-
+-    def _assign_names_to_signals(self, fragment, ports=None):
+-        """Assign names to signals used in a given fragment.
+-
+-        The mapping is set in ``self.signal_names``.  Because names are deduplicated using local
+-        information only, the same signal used in a different fragment may get a different name.
+-        """
+-
+-        signal_names   = _ast.SignalDict()
+-        assigned_names = set()
+-
+-        def add_signal_name(signal):
+-            if signal not in signal_names:
+-                if signal.name not in assigned_names:
+-                    name = signal.name
+-                else:
+-                    name = f"{signal.name}${len(assigned_names)}"
+-                    assert name not in assigned_names
+-                signal_names[signal] = name
+-                assigned_names.add(name)
+-
+-        if ports is not None:
+-            # First pass: reserve names for pre-named top-level ports. If equal to the signal name, let the signal share it.
+-            for name, signal, _dir in ports:
+-                if name is not None:
+-                    assigned_names.add(name)
+-                    if signal.name == name:
+-                        signal_names[signal] = name
+-
+-            # Second pass: ensure non-pre-named top-level ports are named first.
+-            for name, signal, _dir in ports:
+-                if name is None:
+-                    add_signal_name(signal)
+-
+-        for domain_name, domain_signals in fragment.drivers.items():
+-            if domain_name != "comb":
+-                domain = fragment.domains[domain_name]
+-                add_signal_name(domain.clk)
+-                if domain.rst is not None:
+-                    add_signal_name(domain.rst)
+-
+-        for statements in fragment.statements.values():
+-            for statement in statements:
+-                for signal in statement._lhs_signals() | statement._rhs_signals():
+-                    if not isinstance(signal, (_ast.ClockSignal, _ast.ResetSignal)):
+-                        add_signal_name(signal)
+-
+-        self.signal_names[fragment] = signal_names
+-        for subfragment, _name, _src_loc in fragment.subfragments:
+-            self._assign_names_to_signals(subfragment)
+-
+-    def _assign_names_to_fragments(self, fragment, hierarchy):
+-        """Assign names to this fragment and its subfragments.
+-
+-        Subfragments may not necessarily have a name. This method assigns every such subfragment
+-        a name, ``U$<number>``, where ``<number>`` is based on its location in the hierarchy.
+-
+-        Subfragment names may collide with signal names safely in Amaranth, but this may confuse
+-        backends. This method assigns every such subfragment a name, ``<name>$U$<number>``, where
+-        ``name`` is its original name, and ``<number>`` is based on its location in the hierarchy.
+-
+-        Arguments
+-        ---------
+-        hierarchy : tuple of str
+-            Name of this fragment.
+-
+-        Returns
+-        -------
+-        dict of Fragment to tuple of str
+-            A mapping from this fragment and its subfragments to their full hierarchical names.
+-        """
+-        self.fragment_names[fragment] = hierarchy
+-
++        # Ensure signal_names for this fragment exists
++        if fragment not in self.signal_names:
++            self._assign_names_to_signals(fragment, None)
++        
+         taken_names = set(self.signal_names[fragment].values())
+         for subfragment_index, (subfragment, subfragment_name, subfragment_src_loc) in enumerate(fragment.subfragments):
+             if subfragment_name is None:

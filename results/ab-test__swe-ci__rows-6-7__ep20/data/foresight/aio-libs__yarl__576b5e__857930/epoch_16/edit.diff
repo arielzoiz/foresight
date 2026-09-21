@@ -1,0 +1,103 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 19:16:40
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 19:20:42
+@@ -1,29 +1,7 @@
+ {
+   "tests/test_normalize_path.py": true,
+   "tests/test_cache.py::test_cache_configure_None_including_deprecated": true,
+-  "tests/test_url.py::test_host_port_subcomponent[https://example.com.-example.com]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://xn--gnter-4ya.com-xn--gnter-4ya.com]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://example.com.-example.com]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://[::1]-[::1]]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[/-None]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://example.com-example.com]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://[::1]:8080-[::1]:8080]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://example.com:80-example.com]": true,
+-  "tests/test_url.py::test_host_port_subcomponent[http://example.com:8080-example.com:8080]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[//-//]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[path/../../to-to]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07-\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[///-///]": true,
+   "tests/test_cache.py::test_cache_configure_None_only_deprecated": true,
+   "tests/test_cache.py::test_cache_configure_waring": true,
+-  "tests/test_url.py::test_join_path_normalized[path/to/.-path/to/]": true,
+-  "tests/test_url.py::test_join_path_normalized[../path/to-path/to]": true,
+-  "tests/test_url.py::test_join_path_normalized[path/../../to-to]": true,
+-  "tests/test_url.py::test_join_path_normalized[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]": true,
+-  "tests/test_url.py::test_join_path_normalized[path/to/./.-path/to/]": true,
+-  "tests/test_url.py::test_join_path_normalized[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07-\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07]": true
++  "tests/test_url.py::test_ipv4_brackets_not_allowed": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:15:40
++++ b/yarl/_url.py	2026-09-20 19:20:54
+@@ -140,9 +140,9 @@
+     # Process segments from left to right
+     for segment in segments:
+         if segment == "..":
+-            # RFC 3986 section 5.2.4: 
+-            # For absolute paths, we can go up only if not at the root
+-            # For relative paths, we can always go up
++            # RFC 3986 section 5.2.4:
++            # If the last segment in the stack is not "..", remove it (go up one directory)
++            # If the last segment is ".." or the stack is empty, add ".." 
+             if normalized and normalized[-1] != "..":
+                 # If we're at the root of an absolute path (represented by empty string at start),
+                 # we can't go up. For relative paths, we can always go up.
+@@ -1632,21 +1632,39 @@
+         if not other_val.path:
+             return self._from_val(val._replace(**parts))
+ 
++        # RFC 3986 Section 5.4.2 - Path Resolution Logic
+         if other_val.path[0] == "/":
++            # Absolute path - replace completely
+             path = other_val.path
+-        elif not val.path:
+-            path = f"/{other_val.path}"
+-        elif val.path[-1] == "/":
+-            path = f"{val.path}{other_val.path}"
+         else:
+-            # …
+-            # and relativizing ".."
+-            # parts[0] is / for absolute urls, this join will add a double slash there
+-            path = "/".join([*self.parts[:-1], ""])
+-            path += other_val.path
+-            # which has to be removed
+-            if val.path[0] == "/":
+-                path = path[1:]
++            # Relative path - resolve against base path
++            # Take base path and remove the last segment (unless it's just root)
++            base_path = val.path
++            
++            # If base path is empty or just root, append relative path
++            if not base_path or base_path == "/":
++                path = "/" + other_val.path
++            else:
++                # Remove the last segment from base path
++                base_parts = base_path.split("/")
++                # If last part is empty (trailing slash), remove it too
++                if base_parts and base_parts[-1] == "":
++                    base_parts = base_parts[:-1]
++                # Remove the last non-empty part (the filename or last directory)
++                if len(base_parts) > 1:
++                    base_parts = base_parts[:-1]
++                elif len(base_parts) == 1 and base_parts[0] == "":
++                    # Root path, no change needed
++                    pass
++                else:
++                    # Empty or single element
++                    base_parts = []
++                
++                # Join the remaining base path with the relative path
++                if base_parts:
++                    path = "/".join(base_parts) + "/" + other_val.path
++                else:
++                    path = "/" + other_val.path
+ 
+         parts["path"] = self._normalize_path(path)
+         return self._from_val(val._replace(**parts))

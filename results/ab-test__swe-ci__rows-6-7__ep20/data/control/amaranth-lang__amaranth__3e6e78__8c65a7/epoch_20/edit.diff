@@ -1,0 +1,72 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 18:34:08
++++ b/amaranth/hdl/_ast.py	2026-09-20 18:36:00
+@@ -1263,6 +1263,17 @@
+     #:      assert info == "a signal"
+     __hash__ = None # type: ignore
+ 
++    def __str__(self):
++        """String representation of Value.
++        
++        Returns a string representation for debugging purposes.
++        """
++        return f"Value({self!r})"
++
++    def __repr__(self):
++        """AST representation of Value."""
++        return f"Value({self!r})"
++
+     def __format__(self, format_desc):
+         """Forbidden formatting.
+ 
+@@ -3190,8 +3201,18 @@
+         else:
+             raise TypeError(f"Cannot index IOPort with {key!r}")
+ 
++    def __str__(self):
++        """String representation of IOPort.
++        
++        Returns a string in the format "(io-port name)".
++        """
++        if self.name is not None:
++            return f"(io-port {self.name})"
++        else:
++            return "(io-port None)"
++
+     def __repr__(self):
+-        return f"(io-port {self.name})"
++        return f"(io-port {self.name!r})"
+ 
+ 
+ class _MappedKeySet(MutableSet, _MappedKeyCollection):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 17:25:58
++++ b/amaranth/lib/enum.py	2026-09-20 18:35:58
+@@ -176,6 +176,27 @@
+     def _value_repr(cls, value):
+         yield Repr(FormatEnum(cls), value)
+ 
++    def from_bits(cls, bits):
++        """Create an enum value from bits.
++        
++        Parameters
++        ----------
++        bits : int
++            Bit pattern to convert to enum value.
++            
++        Returns
++        -------
++        Enum
++            Enum value corresponding to the bit pattern.
++        """
++        if not isinstance(bits, int):
++            raise TypeError("bits must be an integer, not {!r}".format(bits))
++        # Check if the bits are valid for this enum
++        shape = cls.as_shape()
++        if bits >= (1 << shape.width):
++            raise ValueError("Bits value {} is out of range for enum with shape {}".format(bits, shape))
++        return cls(bits)
++
+ 
+ class Enum(py_enum.Enum):
+     """Subclass of the standard :class:`enum.Enum` that has :class:`EnumMeta` as

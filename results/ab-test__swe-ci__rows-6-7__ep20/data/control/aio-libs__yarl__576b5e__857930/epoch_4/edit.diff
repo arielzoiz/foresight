@@ -1,0 +1,95 @@
+Binary files a/.coverage and b/.coverage differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-20 17:27:32
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-20 17:27:32
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-20 17:27:32
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 17:29:32
+@@ -0,0 +1,8 @@
++{
++  "tests/test_normalize_path.py": true,
++  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[fragment-only]": true,
++  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[none]": true,
++  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[all]": true,
++  "tests/test_url.py::test_relative_url_populates_cache": true,
++  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[query-only]": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 17:30:20
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/tests/test_normalize_path.py b/tests/test_normalize_path.py
+--- a/tests/test_normalize_path.py	2026-09-20 17:19:42
++++ b/tests/test_normalize_path.py	2026-09-20 17:27:52
+@@ -1,6 +1,6 @@
+ import pytest
+ 
+-from yarl._path import normalize_path
++from yarl import normalize_path
+ 
+ PATHS = [
+     # No dots
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:26:08
++++ b/yarl/_url.py	2026-09-20 17:28:36
+@@ -147,10 +147,9 @@
+         elif seg != ".":
+             resolved_path.append(seg)
+ 
++    # Add trailing empty string when the original path ended with "." or ".."
++    # This ensures trailing slash semantics are preserved for absolute paths
+     if segments and segments[-1] in (".", ".."):
+-        # do some post-processing here.
+-        # if the last segment was a relative dir,
+-        # then we need to append the trailing '/'
+         resolved_path.append("")
+ 
+     return resolved_path
+@@ -179,10 +178,18 @@
+ 
+     segments = path.split("/")
+     normalized_segments = _normalize_path_segments(segments)
++    
+     # Handle trailing empty segment for absolute paths
+-    if prefix and normalized_segments and normalized_segments[-1] == "":
+-        normalized_segments.pop()
+-    return prefix + "/".join(normalized_segments)
++    # If we have an absolute path and the normalized segments don't end with empty string,
++    # but the original path had a trailing slash, we should preserve it
++    if prefix and normalized_segments and normalized_segments[-1] != "":
++        # Check if original path had trailing slash
++        if path and path[-1] == "/":
++            normalized_segments.append("")
++    
++    # Join segments with "/" and prepend prefix if needed
++    result = "/".join(normalized_segments)
++    return prefix + result
+ 
+ 
+ @rewrite_module

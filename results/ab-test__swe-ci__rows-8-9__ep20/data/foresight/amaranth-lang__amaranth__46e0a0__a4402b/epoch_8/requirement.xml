@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View</location>
+        <description>The View class is incorrectly raising AttributeError when accessing attributes that exist in the layout, instead of properly delegating to __getitem__ or returning the correct field value. Tests show that accessing 'f', 'add', 'do', 'a' attributes on Signal objects fails with AttributeError instead of returning the expected field values.</description>
+        <contract>When accessing a field name as an attribute on a View instance, if that field exists in the layout, it should return the corresponding slice of the underlying signal. If the field doesn't exist, it should raise AttributeError with a helpful message indicating available fields.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getitem_custom_call, tests/test_lib_data.py::ViewTestCase::test_getattr, tests/test_lib_data.py::StructTestCase::test_base_class_1, tests/test_lib_data.py::StructTestCase::test_base_class_2</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:Layout</location>
+        <description>Layout classes (StructLayout, UnionLayout, ArrayLayout) have incorrect reset value validation and error message formatting. The _convert_to_int method doesn't properly validate reset values, and error messages don't match expected formats for several test cases.</description>
+        <contract>Reset value validation should properly check that values are constant-castable expressions and raise TypeError with specific messages when they aren't. Error messages should match expected patterns exactly.</contract>
+        <acceptance>tests/test_lib_data.py::LayoutTestCase::test_const_wrong, tests/test_lib_data.py::LayoutTestCase::test_signal_reset, tests/test_lib_data.py::UnionTestCase::test_construct_reset_two_wrong, tests/test_hdl_ast.py::SignalTestCase::test_reset_shape_castable_const</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__getattr__</location>
+        <description>The View.__getattr__ method has incorrect error handling for missing attributes. It's raising generic AttributeError instead of specific messages that match expected patterns, and it doesn't properly detect reserved names that should be accessed via indexing.</description>
+        <contract>When accessing a non-existent field name via attribute access, it should raise AttributeError with a message listing similar field names. When accessing a reserved name (starting with underscore) that exists in the layout, it should raise AttributeError stating that the field can only be accessed via indexing.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved, tests/test_lib_data.py::ViewTestCase::test_getattr_reserved</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__getitem__</location>
+        <description>The View.__getitem__ method has issues with array layout indexing and error handling. It's not correctly implementing dynamic indexing for array layouts, and has incorrect error messages for various indexing scenarios.</description>
+        <contract>For array layouts, indexing with a value should work correctly and return the appropriate slice. Indexing with wrong types should raise TypeError with specific messages. Missing keys should raise KeyError with specific messages.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_index_wrong_missing, tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic, tests/test_lib_data.py::ViewTestCase::test_getitem</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/tracer.py:get_var_name</location>
+        <description>The tracer module's get_var_name function has indexing issues that cause IndexError when trying to extract variable names from stack frames, particularly in complex scenarios involving closures and multiple nested scopes.</description>
+        <contract>The get_var_name function should correctly extract variable names from the call stack without causing IndexError exceptions. It should gracefully handle edge cases in bytecode parsing.</contract>
+        <acceptance>tests/test_tracer.py::TracerTestCase::test_deref_free, tests/test_tracer.py::TracerTestCase::test_long</acceptance>
+    </item>
+</requirement>

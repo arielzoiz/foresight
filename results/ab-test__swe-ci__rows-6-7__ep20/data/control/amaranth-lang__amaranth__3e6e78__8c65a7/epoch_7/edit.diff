@@ -1,0 +1,144 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 17:38:36
++++ b/amaranth/hdl/_ast.py	2026-09-20 17:43:18
+@@ -3032,6 +3032,19 @@
+     def _rhs_signals(self):
+         return SignalSet()
+ 
++    def as_value(self):
++        """Convert to a value.
++        
++        Returns
++        -------
++        Value
++            Self, as a Value.
++        """
++        return self
++
++    def __len__(self):
++        return self.width
++
+     def __getitem__(self, key):
+         """Bit slicing for I/O ports.
+         
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/io.py b/amaranth/lib/io.py
+--- a/amaranth/lib/io.py	2026-09-20 17:40:34
++++ b/amaranth/lib/io.py	2026-09-20 17:43:00
+@@ -157,20 +157,48 @@
+     
+     Parameters
+     ----------
+-    width : int
+-        Width of the port.
++    io : IOPort
++        I/O port instance.
++    invert : bool or iterable of bool
++        Invert setting for the port.
++    direction : Direction
++        Direction of the port.
+     """
+     
+-    def __init__(self, width):
+-        if not isinstance(width, int) or width < 0:
+-            raise TypeError("Width must be a non-negative integer, not {!r}".format(width))
+-        self.width = width
++    def __init__(self, io, invert=False, direction=Direction.Bidir):
++        # Validate io parameter
++        if not isinstance(io, IOPort):
++            raise TypeError("Object {!r} cannot be converted to an IO value".format(io))
+         
++        # Validate invert parameter
++        if isinstance(invert, bool):
++            invert = (invert,) * len(io)
++        elif isinstance(invert, (tuple, list)):
++            if not all(isinstance(x, bool) for x in invert):
++                raise TypeError("'invert' must be a bool or iterable of bool, not {!r}".format(invert))
++            if len(invert) != len(io):
++                raise ValueError("Length of 'invert' ({}) doesn't match length of 'io' ({})".format(len(invert), len(io)))
++        else:
++            raise TypeError("'invert' must be a bool or iterable of bool, not {!r}".format(invert))
++        
++        # Validate direction parameter
++        if isinstance(direction, str):
++            try:
++                direction = Direction[direction.upper()]
++            except KeyError:
++                raise ValueError("'{}' is not a valid Direction".format(direction))
++        elif not isinstance(direction, Direction):
++            raise TypeError("'direction' must be a Direction, not {!r}".format(direction))
++        
++        self.io = io
++        self.invert = tuple(invert)
++        self.direction = direction
++        
+     def __len__(self):
+-        return self.width
++        return len(self.io)
+         
+     def __repr__(self):
+-        return f"SingleEndedPort({self.width})"
++        return f"SingleEndedPort((io-port {self.io.name}), invert={self.invert!r}, direction={self.direction!r})"
+ 
+ 
+ class DifferentialPort:
+@@ -180,17 +208,52 @@
+     
+     Parameters
+     ----------
+-    width : int
+-        Width of the port.
++    p : IOPort
++        Positive I/O port instance.
++    n : IOPort
++        Negative I/O port instance.
++    invert : bool or iterable of bool
++        Invert setting for the port.
++    direction : Direction
++        Direction of the port.
+     """
+     
+-    def __init__(self, width):
+-        if not isinstance(width, int) or width < 0:
+-            raise TypeError("Width must be a non-negative integer, not {!r}".format(width))
+-        self.width = width
++    def __init__(self, p, n, invert=False, direction=Direction.Bidir):
++        # Validate p and n parameters
++        if not isinstance(p, IOPort):
++            raise TypeError("Object {!r} cannot be converted to an IO value".format(p))
++        if not isinstance(n, IOPort):
++            raise TypeError("Object {!r} cannot be converted to an IO value".format(n))
++        if len(p) != len(n):
++            raise ValueError("Length of 'p' ({}) doesn't match length of 'n' ({})".format(len(p), len(n)))
+         
++        # Validate invert parameter
++        if isinstance(invert, bool):
++            invert = (invert,) * len(p)
++        elif isinstance(invert, (tuple, list)):
++            if not all(isinstance(x, bool) for x in invert):
++                raise TypeError("'invert' must be a bool or iterable of bool, not {!r}".format(invert))
++            if len(invert) != len(p):
++                raise ValueError("Length of 'invert' ({}) doesn't match length of 'p' ({})".format(len(invert), len(p)))
++        else:
++            raise TypeError("'invert' must be a bool or iterable of bool, not {!r}".format(invert))
++        
++        # Validate direction parameter
++        if isinstance(direction, str):
++            try:
++                direction = Direction[direction.upper()]
++            except KeyError:
++                raise ValueError("'{}' is not a valid Direction".format(direction))
++        elif not isinstance(direction, Direction):
++            raise TypeError("'direction' must be a Direction, not {!r}".format(direction))
++        
++        self.p = p
++        self.n = n
++        self.invert = tuple(invert)
++        self.direction = direction
++        
+     def __len__(self):
+-        return self.width
++        return len(self.p)
+         
+     def __repr__(self):
+-        return f"DifferentialPort({self.width})"
++        return f"DifferentialPort((io-port {self.p.name}), (io-port {self.n.name}), invert={self.invert!r}, direction={self.direction!r})"

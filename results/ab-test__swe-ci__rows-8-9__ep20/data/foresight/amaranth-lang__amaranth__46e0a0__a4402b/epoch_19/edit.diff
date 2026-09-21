@@ -1,0 +1,59 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:36:18
++++ b/amaranth/lib/data.py	2026-09-20 22:38:00
+@@ -115,28 +115,15 @@
+         elif isinstance(value, Sequence):
+             iterator = enumerate(value)
+         else:
+-            # Handle case where value is a layout or other ShapeCastable object
+-            if isinstance(value, ShapeCastable) and hasattr(value, 'const'):
+-                # Try to convert using the const method of the ShapeCastable
+-                try:
+-                    const_value = value.const(value)
+-                    if isinstance(const_value, Const):
+-                        return const_value.value
+-                    else:
+-                        return int(const_value)
+-                except Exception:
+-                    # Fall back to the original error handling
+-                    pass
+-            # Check if it's a non-constant value that shouldn't be accepted
+-            if value is not None and not isinstance(value, (Mapping, Sequence)):
+-                # For non-mapping/sequence values, validate they're constant-castable
+-                try:
+-                    Const.cast(value)
+-                except TypeError:
+-                    raise TypeError("Layout initializer must be a mapping or a sequence, not {!r}"
+-                                    .format(value))
+-            raise TypeError("Layout initializer must be a mapping or a sequence, not {!r}"
+-                            .format(value))
++            # Handle primitive values (int, str, etc.) directly
++            try:
++                # Try to cast to Const directly first
++                const_value = Const.cast(value)
++                return const_value.value
++            except TypeError:
++                # If that fails, raise a more appropriate error
++                raise TypeError("Layout initializer must be a mapping or a sequence, not {!r}"
++                                .format(value))
+ 
+         int_value = 0
+         for key, key_value in iterator:
+@@ -622,7 +609,7 @@
+                             Const.cast(value)
+                         except TypeError:
+                             raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+-                                            .format(reset))
++                                            .format(value))
+                 elif isinstance(reset, Sequence):
+                     # For sequences, validate each value is constant-castable
+                     for value in reset:
+@@ -630,7 +617,7 @@
+                             Const.cast(value)
+                         except TypeError:
+                             raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+-                                            .format(reset))
++                                            .format(value))
+                 else:
+                     # For scalars, validate directly
+                     Const.cast(reset)

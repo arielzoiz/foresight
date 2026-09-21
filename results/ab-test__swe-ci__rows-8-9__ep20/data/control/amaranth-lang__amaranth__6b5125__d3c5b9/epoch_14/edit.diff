@@ -1,0 +1,57 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 21:39:28
++++ b/amaranth/hdl/_ir.py	2026-09-20 21:41:28
+@@ -1117,6 +1117,17 @@
+                 else:
+                     raise ValueError(f"Case tuple must have 2 or 3 elements, got {len(item)}")
+                 if patterns:
++                    # Handle the case where patterns might be a tuple or list of patterns
++                    if isinstance(patterns, (list, tuple)) and len(patterns) > 0:
++                        # Ensure patterns are properly formatted
++                        formatted_patterns = []
++                        for pattern in patterns:
++                            if isinstance(pattern, str):
++                                formatted_patterns.append(pattern)
++                            else:
++                                # Convert to string pattern format
++                                formatted_patterns.append(str(pattern))
++                        patterns = tuple(formatted_patterns)
+                     for pattern in patterns:
+                         assert len(pattern) == len(test)
+                     cell = _nir.Matches(module_idx, value=test, patterns=patterns,
+@@ -1125,6 +1136,8 @@
+                     conds.append(net)
+                 else:
+                     conds.append(_nir.Net.from_const(1))
++            # Define cond properly for the Switch statement
++            cond = _nir.Net.from_const(1)
+             cell = _nir.PriorityMatch(module_idx, en=cond, inputs=_nir.Value(conds),
+                                       src_loc=stmt.src_loc)
+             conds = self.netlist.add_value_cell(len(conds), cell)
+@@ -1148,6 +1161,17 @@
+                 else:
+                     raise ValueError(f"Case tuple must have 2 or 3 elements, got {len(item)}")
+                 if patterns:
++                    # Handle the case where patterns might be a tuple or list of patterns
++                    if isinstance(patterns, (list, tuple)) and len(patterns) > 0:
++                        # Ensure patterns are properly formatted
++                        formatted_patterns = []
++                        for pattern in patterns:
++                            if isinstance(pattern, str):
++                                formatted_patterns.append(pattern)
++                            else:
++                                # Convert to string pattern format
++                                formatted_patterns.append(str(pattern))
++                        patterns = tuple(formatted_patterns)
+                     for pattern in patterns:
+                         assert len(pattern) == len(test)
+                     cell = _nir.Matches(module_idx, value=test, patterns=patterns,
+@@ -1156,6 +1180,8 @@
+                     conds.append(net)
+                 else:
+                     conds.append(_nir.Net.from_const(1))
++            # Define cond properly for the Case statement
++            cond = _nir.Net.from_const(1)
+             cell = _nir.PriorityMatch(module_idx, en=cond, inputs=_nir.Value(conds),
+                                       src_loc=stmt.src_loc)
+             conds = self.netlist.add_value_cell(len(conds), cell)

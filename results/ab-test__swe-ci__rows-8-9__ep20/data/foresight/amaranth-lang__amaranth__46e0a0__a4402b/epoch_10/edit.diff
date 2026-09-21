@@ -1,0 +1,38 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 22:08:50
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 22:17:18
+@@ -10,5 +10,6 @@
+   "tests/test_lib_data.py::LayoutTestCase::test_signal_reset": true,
+   "tests/test_lib_data.py::StructTestCase::test_construct_reset": true,
+   "tests/test_lib_data.py::UnionTestCase::test_construct_reset_override": true,
+-  "tests/test_lib_enum.py::EnumTestCase::test_members_const_non_int": true
++  "tests/test_lib_enum.py::EnumTestCase::test_members_const_non_int": true,
++  "tests/test_lib_data.py::UnionTestCase::test_construct_reset_two_wrong": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-20 22:14:34
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 22:18:00
+@@ -2,6 +2,7 @@
+   "tests/test_lib_data.py::LayoutTestCase::test_signal_reset",
+   "tests/test_lib_data.py::StructTestCase::test_construct_reset",
+   "tests/test_lib_data.py::UnionTestCase::test_construct_reset_override",
++  "tests/test_lib_data.py::UnionTestCase::test_construct_reset_two_wrong",
+   "tests/test_lib_data.py::UnionTestCase::test_define_reset_two_wrong",
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing",
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:15:08
++++ b/amaranth/lib/data.py	2026-09-20 22:17:34
+@@ -106,6 +106,11 @@
+         in a future version.
+         """
+         if isinstance(value, Mapping):
++            # Special handling for UnionLayout - check that at most one field is specified
++            if isinstance(self, UnionLayout) and len(value) > 1:
++                raise ValueError("Initializer for at most one field can be provided for a union "
++                                "layout (specified: {})"
++                                .format(", ".join(value.keys())))
+             iterator = value.items()
+         elif isinstance(value, Sequence):
+             iterator = enumerate(value)

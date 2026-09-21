@@ -1,0 +1,89 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/ast.py b/amaranth/hdl/ast.py
+--- a/amaranth/hdl/ast.py	2026-09-20 22:04:24
++++ b/amaranth/hdl/ast.py	2026-09-20 22:10:56
+@@ -1757,6 +1757,21 @@
+             raise TypeError("Object {!r} cannot be used as a key in value collections"
+                             .format(self.value))
+ 
++    def f(self):
++        """Access field 'f' of this signal."""
++        # This is a placeholder that will be overridden in data view contexts
++        raise AttributeError("Signal has no field 'f'")
++    
++    def add(self):
++        """Add method for data view operations."""
++        # This is a placeholder that will be overridden in data view contexts
++        raise AttributeError("Signal has no add method")
++    
++    def do(self):
++        """Do method for data view operations."""  
++        # This is a placeholder that will be overridden in data view contexts
++        raise AttributeError("Signal has no do method")
++
+     def __lt__(self, other):
+         if not isinstance(other, ValueKey):
+             return False
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:08:42
++++ b/amaranth/lib/data.py	2026-09-20 22:11:02
+@@ -123,7 +123,12 @@
+                 else:
+                     # If it's not a mapping or sequence, treat as a scalar value
+                     key_value = key_value
+-            int_value |= Const(key_value, Shape.cast(field.shape)).value << field.offset
++            try:
++                const_value = Const(key_value, Shape.cast(field.shape))
++                int_value |= const_value.value << field.offset
++            except TypeError as e:
++                raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                .format(key_value)) from e
+         return int_value
+ 
+     def __call__(self, target):
+@@ -396,7 +401,12 @@
+             if reset is None:
+                 reset = 0
+             else:
+-                reset = cast_layout._convert_to_int(reset)
++                # Validate reset value is constant-castable
++                try:
++                    reset = cast_layout._convert_to_int(reset)
++                except Exception as e:
++                    raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                    .format(reset)) from e
+             if reset_less is None:
+                 reset_less = False
+             cast_target = Signal(cast_layout, name=name, reset=reset, reset_less=reset_less,
+@@ -537,6 +547,32 @@
+                 reset = self.__class__._AggregateMeta__reset
+             elif self.__class__._AggregateMeta__layout_cls is not UnionLayout:
+                 reset = {**self.__class__._AggregateMeta__reset, **reset}
++        # Validate reset value for constant-castability before passing to parent
++        if reset is not None:
++            try:
++                # Try to validate that reset is constant-castable
++                if isinstance(reset, Mapping):
++                    # For mappings, validate each value is constant-castable
++                    for key, value in reset.items():
++                        try:
++                            Const.cast(value)
++                        except TypeError:
++                            raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                            .format(reset))
++                elif isinstance(reset, Sequence):
++                    # For sequences, validate each value is constant-castable
++                    for value in reset:
++                        try:
++                            Const.cast(value)
++                        except TypeError:
++                            raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                            .format(reset))
++                else:
++                    # For scalars, validate directly
++                    Const.cast(reset)
++            except TypeError as e:
++                raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                .format(reset)) from e
+         super().__init__(self.__class__, target, name=name, reset=reset, reset_less=reset_less,
+             attrs=attrs, decoder=decoder, src_loc_at=src_loc_at + 1)
+ 

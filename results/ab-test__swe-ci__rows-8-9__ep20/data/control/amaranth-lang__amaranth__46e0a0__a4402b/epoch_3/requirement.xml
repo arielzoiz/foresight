@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:Layout</location>
+        <description>The Layout class lacks proper implementation for the __call__ method which should create a View instance when called with a Signal. Tests like test_signal_reset and test_call are failing because Layout instances cannot be called directly to create Views.</description>
+        <contract>When a Layout instance is called with a Signal, it should return a View instance that wraps the Signal according to the layout. The View should properly handle the signal's attributes like reset values.</contract>
+        <acceptance>tests/test_lib_data.py::LayoutTestCase::test_signal_reset, tests/test_lib_data.py::LayoutTestCase::test_call</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:View</location>
+        <description>The View class's __getattr__ method doesn't correctly handle attribute access for fields that don't exist. It raises AttributeError with incorrect error messages compared to expected behavior in tests like test_getattr and test_attr_wrong_missing.</description>
+        <contract>The View.__getattr__ method should properly validate field existence and provide meaningful error messages when accessing non-existent fields. It should distinguish between missing fields and reserved names appropriately.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getattr, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:StructLayout</location>
+        <description>StructLayout's const method has issues with handling None/empty initialization values, causing failures in tests like test_const and test_const_wrong. The method doesn't properly validate input types.</description>
+        <contract>The StructLayout.const method should properly handle None, empty mappings, and other edge cases. It should raise appropriate TypeError for invalid input types and provide proper validation for initialization values.</contract>
+        <acceptance>tests/test_lib_data.py::LayoutTestCase::test_const, tests/test_lib_data.py::LayoutTestCase::test_const_wrong</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:ArrayLayout</location>
+        <description>ArrayLayout's __getitem__ method incorrectly raises TypeError for non-integer indices, but should raise KeyError for out-of-bounds indices. This causes failures in tests like test_key_wrong_bounds.</description>
+        <contract>The ArrayLayout.__getitem__ method should properly validate indices and raise KeyError for invalid indices (out of bounds) rather than TypeError for non-integer types.</contract>
+        <acceptance>tests/test_lib_data.py::ArrayLayoutTestCase::test_key_wrong_bounds</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:View</location>
+        <description>The View class's __getitem__ method doesn't properly handle dynamic indexing with Value objects for non-ArrayLayout layouts. Tests like test_index_wrong_struct_dynamic fail because it allows indexing with values on non-array layouts.</description>
+        <contract>The View.__getitem__ method should prevent indexing with Value objects on non-ArrayLayout layouts and raise TypeError with a specific message indicating that only array layouts support dynamic indexing.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic</acceptance>
+    </requirement>
+</requirements>

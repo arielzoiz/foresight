@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/lib/data.py</location>
+        <description>Signal class lacks attribute access methods for struct-like behavior. Tests fail with AttributeError: 'Signal' object has no attribute 'f', 'add', 'do' because the Signal class doesn't properly support attribute access like Struct views.</description>
+        <contract>Signal objects that are constructed with Layouts should support attribute access similar to View objects. When a Signal is created with a StructLayout or other aggregate layout, accessing attributes like 'f', 'add', 'do' should work as they do for View objects, returning appropriate Values.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getitem_custom_call, tests/test_lib_data.py::ViewTestCase::test_getitem_custom_call_wrong, tests/test_lib_data.py::StructTestCase::test_base_class_1, tests/test_lib_data.py::StructTestCase::test_base_class_2</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py</location>
+        <description>Reset value validation is incomplete and doesn't properly handle constant-castable expressions for complex layouts. Tests fail with TypeError: Reset value must be a constant-castable expression, not {'a': 1, 'b': 2} because the validation doesn't correctly process dictionary-based reset values for nested layouts.</description>
+        <contract>Layout._convert_to_int method should properly validate and convert reset values for all layout types including StructLayout, UnionLayout, and ArrayLayout. The conversion should handle dictionaries and sequences appropriately and raise appropriate error messages.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset, tests/test_lib_data.py::LayoutTestCase::test_signal_reset, tests/test_lib_data.py::StructTestCase::test_construct_reset</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py</location>
+        <description>Enum class has unhashable type issues. Tests fail with "TypeError: unhashable type: 'EnumMeta'" because the EnumMeta class doesn't properly implement __hash__ or other methods that make it usable as a dictionary key or in sets.</description>
+        <contract>EnumMeta class should properly support hashing and equality comparisons to allow usage as dictionary keys and in collections. The enum classes should behave like standard Python enums while supporting Amaranth's ShapeCastable interface.</contract>
+        <acceptance>tests/test_lib_enum.py::EnumTestCase::test_value_shape_from_enum_member, tests/test_lib_enum.py::EnumTestCase::test_shape_implicit_wrong_in_concat, tests/test_hdl_dsl.py::DSLTestCase::test_Switch_enum</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py</location>
+        <description>View class __getattr__ method needs improvement for better error messages and handling of reserved field names. Tests fail with AttributeError messages that don't match expected formats, particularly around reserved field access.</description>
+        <contract>View.__getattr__ should provide clearer error messages when accessing non-existent fields, including suggestions for similar field names. It should properly handle reserved field names (starting with underscore) to prevent access via dot notation.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getattr, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/hdl/ast.py</location>
+        <description>Signal class __init__ method has incomplete reset value handling. The method should properly handle all constant-castable expressions for reset values, including complex types that should be processed by their respective layout's const methods.</description>
+        <contract>Signal.__init__ should properly validate and process reset values for all cases, including when reset values are provided as layouts that have const methods. It should ensure reset values are converted to constant representations that can be used for hardware instantiation.</contract>
+        <acceptance>tests/test_hdl_ast.py::SignalTestCase::test_reset_shape_castable_const, tests/test_hdl_ast.py::SignalTestCase::test_reset_shape_castable_enum_wrong</acceptance>
+    </item>
+</requirement>

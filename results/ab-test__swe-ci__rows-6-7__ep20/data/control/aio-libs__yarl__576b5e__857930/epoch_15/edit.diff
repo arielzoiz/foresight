@@ -1,0 +1,51 @@
+Binary files a/.coverage and b/.coverage differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:51:56
++++ b/yarl/_url.py	2026-09-20 17:53:56
+@@ -1676,10 +1676,9 @@
+             raise ValueError(f"Invalid suffix {suffix!r}")
+         name = self.raw_name
+         if not name:
+-            # Handle case where URL has empty path or no name
+-            # Create a new URL with proper initialization
+-            new_url = self._from_val(self._val._replace(path="/"))
+-            return new_url.with_suffix(suffix, keep_query=keep_query, keep_fragment=keep_fragment)
++            # For naked paths (like http://example.com) we should raise ValueError
++            # because there's no name to modify
++            raise ValueError(f"{self!r} has an empty name")
+         old_suffix = self.raw_suffix
+         
+         # Properly encode the suffix
+@@ -1700,22 +1699,23 @@
+         
+         # Get the current path and replace the name part
+         parts = list(self.raw_parts)
++        
++        # Handle path reconstruction correctly for both absolute and relative URLs
+         if self._val.netloc:
+-            # For absolute URLs, adjust for the path structure
+-            if len(parts) == 1:
++            # For absolute URLs (with netloc)
++            if len(parts) == 1 and parts[0] == "/":
+                 # Empty path case
+-                parts.append(new_name)
++                parts = ["/", new_name]
+             else:
++                # Normal case - replace last part
+                 parts[-1] = new_name
+-            parts[0] = ""  # Ensure leading slash for absolute paths
++            # Join with proper leading slash
++            new_path = "/".join(parts)
+         else:
+             # For relative URLs
+             parts[-1] = new_name
+-            if parts[0] == "/":
+-                parts[0] = ""  # Ensure no leading slash for relative paths
+-        
+-        # Create the new path
+-        new_path = "/".join(parts)
++            # Join normally
++            new_path = "/".join(parts)
+         
+         # Create new URL with updated path
+         new_val = self._val._replace(path=new_path)

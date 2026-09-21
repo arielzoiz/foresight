@@ -1,0 +1,131 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 21:28:44
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 21:38:42
+@@ -1,4 +1,5 @@
+ {
+   "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic": true,
+-  "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing": true
++  "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing": true,
++  "tests/test_lib_enum.py::EnumTestCase::test_const_shape": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-20 21:28:44
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 21:38:42
+@@ -1,4 +1,8 @@
+ [
++  "tests/test_hdl_ast.py::SignalTestCase::test_reset_shape_castable_enum_wrong",
++  "tests/test_lib_data.py::ArrayLayoutTestCase::test_key_wrong_type",
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing",
+-  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic"
++  "tests/test_lib_data.py::ViewTestCase::test_construct_signal",
++  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic",
++  "tests/test_lib_enum.py::EnumTestCase::test_const_shape"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/ast.py b/amaranth/hdl/ast.py
+--- a/amaranth/hdl/ast.py	2026-09-20 21:33:50
++++ b/amaranth/hdl/ast.py	2026-09-20 21:37:42
+@@ -1042,8 +1042,19 @@
+                     raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+                                     .format(orig_reset))
+             else:
+-                raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+-                                .format(orig_reset))
++                # Check if this is an enum without explicit shape and the reset value is a valid enum member
++                if isinstance(orig_shape, type) and issubclass(orig_shape, Enum) and not hasattr(orig_shape, "_amaranth_shape_"):
++                    # This is an enum without explicit shape - check if reset value is a valid member
++                    if isinstance(orig_reset, orig_shape):
++                        # Valid enum member - cast to constant with inferred shape
++                        reset = Const.cast(orig_reset)
++                    else:
++                        # Invalid reset value for enum without explicit shape
++                        raise TypeError("Reset value must be a constant initializer of {!r}"
++                                        .format(orig_shape))
++                else:
++                    raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                    .format(orig_reset))
+         # Check if the shape is an enum and reset value is not compatible
+         if isinstance(orig_shape, type) and issubclass(orig_shape, Enum):
+             # For enum types, reset value must be a valid enum member
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:36:04
++++ b/amaranth/lib/data.py	2026-09-20 21:38:20
+@@ -329,8 +329,7 @@
+                 key += self._length
+             return Field(self._elem_shape, key * Shape.cast(self._elem_shape).width)
+         # For non-integer types, we should raise TypeError with specific message
+-        raise TypeError("Only views with array layout, not {}, may be indexed with a value"
+-                        .format(type(self).__name__))
++        raise TypeError("Cannot index array layout with {!r}".format(key))
+ 
+     @property
+     def size(self):
+@@ -440,42 +439,6 @@
+                     raise TypeError("Object {!r} is not a data view".format(target))
+                 except TypeError:
+                     raise TypeError("Object {!r} is not a data view".format(target))
+-            # Special case: if target is a Signal with a layout, treat it as a View
+-            if isinstance(target, Signal):
+-                try:
+-                    target_layout = Layout.cast(target)
+-                    # If target is a Signal with a layout, use that layout instead of the provided one
+-                    # But only if they match in size
+-                    if target_layout.size == cast_layout.size:
+-                        self.__orig_layout = target_layout
+-                        self.__layout = target_layout
+-                        self.__target = cast_target
+-                        return
+-                    else:
+-                        raise ValueError("View target is {} bit(s) wide, which is not compatible with "
+-                                            "the {} bit(s) wide view layout"
+-                                            .format(len(cast_target), cast_layout.size))
+-                except TypeError:
+-                    # Not a valid layout for a signal, proceed normally
+-                    pass
+-            # Special case: if target is a Signal with a layout, treat it as a View
+-            if isinstance(target, Signal):
+-                try:
+-                    target_layout = Layout.cast(target)
+-                    # If target is a Signal with a layout, use that layout instead of the provided one
+-                    # But only if they match in size
+-                    if target_layout.size == cast_layout.size:
+-                        self.__orig_layout = target_layout
+-                        self.__layout = target_layout
+-                        self.__target = cast_target
+-                        return
+-                    else:
+-                        raise ValueError("View target is {} bit(s) wide, which is not compatible with "
+-                                            "the {} bit(s) wide view layout"
+-                                            .format(len(cast_target), cast_layout.size))
+-                except TypeError:
+-                    # Not a valid layout for a signal, proceed normally
+-                    pass
+             if len(cast_target) != cast_layout.size:
+                 raise ValueError("View target is {} bit(s) wide, which is not compatible with "
+                                     "the {} bit(s) wide view layout"
+@@ -511,8 +474,8 @@
+                 try:
+                     Value.cast(key)
+                 except TypeError:
+-                    raise TypeError("Array layout index must be a value or a value-castable object, "
+-                                    "not {!r}".format(type(key).__name__))
++                    raise TypeError("Only views with array layout, not {}, may be indexed with a value"
++                                    .format(type(self.__layout).__name__))
+                 shape = self.__layout.elem_shape
+                 value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+         else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 21:35:50
++++ b/amaranth/lib/enum.py	2026-09-20 21:38:34
+@@ -114,6 +114,10 @@
+             # No explicit shape - use the implicit shape calculation
+             shape = cls.as_shape()
+         
++        # Handle special case: None should return zero constant with appropriate shape
++        if value is None:
++            return Const(0, shape)
++        
+         if isinstance(value, py_enum.Enum):
+             # If it's already an enum member, extract its value
+             value = value.value

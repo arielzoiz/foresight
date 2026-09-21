@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/yarl/_url.py:_normalize_path_segments</location>
+        <description>The current implementation of _normalize_path_segments function has several flaws in handling dot segments, particularly for absolute paths and edge cases with empty segments. It doesn't properly implement RFC 3986 path normalization rules, leading to incorrect path normalization for various test cases including Unicode paths, absolute paths with dots, and paths with multiple consecutive dots.</description>
+        <contract>Fix the _normalize_path_segments function to correctly handle all RFC 3986 path normalization cases including:
+        - Proper handling of "." and ".." segments in both absolute and relative paths
+        - Correct treatment of empty segments and root paths
+        - Proper handling of Unicode characters in paths
+        - Correct behavior for absolute paths that should maintain their root separator
+        - Proper handling of edge cases like paths with only dots or empty segments</contract>
+        <acceptance>Tests should pass for:
+        - tests/test_normalize_path.py::test_normalize_path[μονοπάτι/../../να/𝕦𝕟𝕚/𝕔𝕠𝕕𝕖]
+        - tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]
+        - tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]
+        - tests/test_url.py::test_join_path_normalized[path/to/.-path/to/]
+        - tests/test_url.py::test_with_path_dots
+        - tests/test_url.py::test_joinpath_empty_segments</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py:cache_configure</location>
+        <description>The cache_configure function has issues with parameter handling, particularly regarding deprecated parameters and inconsistent cache sizing. The function warns about deprecated parameters but doesn't properly handle the deprecation logic, causing test failures in cache configuration tests.</description>
+        <contract>Fix the cache_configure function to properly handle deprecated parameters and ensure consistent cache sizing behavior:
+        - Properly handle deprecated ip_address_size and host_validate_size parameters with appropriate warnings
+        - Ensure encode_host_size properly takes precedence when deprecated parameters are provided
+        - Maintain backward compatibility while properly warning about deprecated usage
+        - Ensure cache sizes are applied correctly to all relevant LRU caches</contract>
+        <acceptance>Tests should pass for:
+        - tests/test_cache.py::test_cache_configure_None_only_deprecated
+        - tests/test_cache.py::test_cache_configure_None_including_deprecated
+        - tests/test_cache.py::test_cache_configure_waring</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py:with_path</location>
+        <description>The with_path method has incorrect logic for handling absolute paths when dots are present. It adds a leading slash unconditionally without considering if the path already has one, which leads to malformed paths.</description>
+        <contract>Fix the with_path method to correctly handle path normalization:
+        - Ensure paths with leading slashes are properly preserved
+        - Only add a leading slash when necessary for relative paths
+        - Correctly handle normalization of paths with dots and double-dots
+        - Maintain proper behavior for both absolute and relative paths</contract>
+        <acceptance>Tests should pass for:
+        - tests/test_url.py::test_join_path_normalized[path/to/.-path/to/]
+        - tests/test_url.py::test_with_path_dots</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py:_make_child</location>
+        <description>The _make_child method has incorrect handling of path segments normalization, particularly in how it processes segments and handles absolute paths. It's not correctly applying the normalization to all path segments.</description>
+        <contract>Fix the _make_child method to properly handle path segment normalization:
+        - Ensure that path segments are correctly normalized when they contain dots or double-dots
+        - Properly handle absolute vs relative path logic
+        - Correctly manage path joining with respect to existing path structure</contract>
+        <acceptance>Tests should pass for:
+        - tests/test_url.py::test_joinpath_empty_segments
+        - tests/test_url.py::test_join_path_normalized</acceptance>
+    </item>
+</requirement>

@@ -1,0 +1,87 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 22:02:24
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 22:06:26
+@@ -3,5 +3,7 @@
+   "tests/test_lib_data.py::ViewTestCase::test_getattr": true,
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing": true,
+   "tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset": true,
+-  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic": true
++  "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic": true,
++  "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved": true,
++  "tests/test_lib_data.py::ViewTestCase::test_getitem": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-20 22:02:32
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 22:06:26
+@@ -1,7 +1,9 @@
+ [
+   "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing",
++  "tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved",
+   "tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset",
+   "tests/test_lib_data.py::ViewTestCase::test_getattr",
++  "tests/test_lib_data.py::ViewTestCase::test_getitem",
+   "tests/test_lib_data.py::ViewTestCase::test_getitem_custom_call",
+   "tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:04:36
++++ b/amaranth/lib/data.py	2026-09-20 22:06:04
+@@ -359,6 +359,12 @@
+             return self._fields[key]
+         raise TypeError("Cannot index flexible layout with {!r}".format(key))
+ 
++    def const(self, value):
++        """Create a constant value from this layout and a value."""
++        if value is None:
++            return Const(0, self.size)
++        return Const(self._convert_to_int(value), self.size)
++
+     def __repr__(self):
+         return f"FlexibleLayout({self._size}, {self._fields!r})"
+ 
+@@ -419,6 +425,10 @@
+         else:
+             # Regular indexing for non-value keys
+             if isinstance(self.__layout, ArrayLayout):
++                # For ArrayLayout, we need to validate the key type
++                if not isinstance(key, int):
++                    raise TypeError("Array layout may only be indexed with an integer, not {!r}"
++                                    .format(key))
+                 shape = self.__layout.elem_shape
+                 value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+             else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 21:53:50
++++ b/amaranth/lib/enum.py	2026-09-20 22:06:10
+@@ -93,6 +93,29 @@
+             raise TypeError("Enumeration '{}.{}' does not have a defined shape"
+                             .format(cls.__module__, cls.__qualname__))
+ 
++    def const(cls, value):
++        """Create a constant value from this enumeration class and a value.
++        
++        Parameters
++        ----------
++        value : int or enum member or None
++            The value to create a constant from. If None, creates a constant with value 0.
++            
++        Returns
++        -------
++        :class:`Const`
++            A constant value of the appropriate shape.
++        """
++        if value is None:
++            # Return zero with the appropriate shape
++            return Const(0, cls.as_shape())
++        elif isinstance(value, cls):
++            # If it's already an enum member, return its value
++            return Const(value.value, cls.as_shape())
++        else:
++            # Otherwise, treat as an integer value
++            return Const(value, cls.as_shape())
++
+ 
+ class Enum(py_enum.Enum, metaclass=EnumMeta):
+     """Subclass of the standard :class:`enum.Enum` that has :class:`EnumMeta` as

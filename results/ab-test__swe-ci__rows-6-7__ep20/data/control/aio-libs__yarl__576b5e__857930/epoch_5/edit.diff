@@ -1,0 +1,42 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:28:36
++++ b/yarl/_url.py	2026-09-20 17:32:22
+@@ -309,6 +309,13 @@
+             scheme, netloc, path, query, fragment = val
+             if not netloc:  # netloc
+                 host = ""
++                # For relative URLs, we still need to populate cache entries
++                cache["raw_host"] = None
++                cache["explicit_port"] = None
++                cache["raw_user"] = None
++                cache["raw_password"] = None
++                # Set raw_path for relative URLs
++                cache["raw_path"] = path if path else "."
+             else:
+                 if ":" in netloc or "@" in netloc or "[" in netloc:
+                     # Complex netloc
+@@ -823,7 +830,10 @@
+         scheme without default port substitution.
+ 
+         """
+-        return self.explicit_port or self._default_port
++        explicit_port = self.explicit_port
++        if explicit_port is not None:
++            return explicit_port
++        return self._default_port
+ 
+     @cached_property
+     def explicit_port(self) -> Union[int, None]:
+@@ -1580,8 +1590,10 @@
+         if not name:
+             raise ValueError(f"{self!r} has an empty name")
+         old_suffix = self.raw_suffix
+-        name = name + suffix if not old_suffix else name[: -len(old_suffix)] + suffix
+-        return self.with_name(name)
++        # Properly encode the new name with suffix
++        new_name = name + suffix if not old_suffix else name[: -len(old_suffix)] + suffix
++        # Ensure the new name is properly encoded before passing to with_name
++        return self.with_name(new_name)
+ 
+     def join(self, url: "URL") -> "URL":
+         """Join URLs

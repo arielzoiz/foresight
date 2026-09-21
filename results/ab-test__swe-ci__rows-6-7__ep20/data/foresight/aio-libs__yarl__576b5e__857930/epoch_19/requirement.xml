@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/yarl/_url.py</location>
+        <description>The _normalize_path_segments function has incorrect logic for handling absolute paths that go above root. It doesn't properly handle cases like "/foo/../../../..bar-" which should normalize to "/..bar" and "/foo/../../../ton-" which should become "/ton". The current implementation fails to correctly process consecutive ".." segments that would go above the root of an absolute path.</description>
+        <contract>Fix the _normalize_path_segments function to correctly handle absolute paths that go above root according to RFC 3986. When processing segments of an absolute path, consecutive ".." segments at the beginning should be preserved if they would go above the root, while intermediate ".." segments should properly navigate up the path hierarchy.</contract>
+        <acceptance>tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar] and tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py</location>
+        <description>The joinpath method and related URL joining logic has issues with empty segments and complex relative paths. Tests like test_joinpath_empty_segments are failing because the current implementation doesn't correctly handle empty path segments and relative path resolution according to RFC 3986.</description>
+        <contract>Improve the joinpath method to correctly handle empty segments and relative path resolution. Ensure that when joining paths, empty segments are properly handled and relative paths are resolved according to RFC 3986 rules for path normalization.</contract>
+        <acceptance>tests/test_url.py::test_joinpath_empty_segments and tests/test_url.py::test_join_from_rfc_3986_normal</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_path.py</location>
+        <description>The normalize_path function has flawed logic for handling paths with trailing dots and special cases. It doesn't properly handle cases like "///-" which should normalize to "///" and "/-" which should normalize to "/". The current implementation incorrectly processes segments ending with dots and special characters.</description>
+        <contract>Refactor the normalize_path function to correctly handle edge cases involving trailing dots, empty segments, and special characters. Ensure it properly implements RFC 3986 path normalization rules for all edge cases.</contract>
+        <acceptance>tests/test_normalize_path.py::test_normalize_path[///-///] and tests/test_normalize_path.py::test_normalize_path[/-/]</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py</location>
+        <description>The URL class lacks proper host_port_subcomponent property that is expected by tests. The implementation is missing this essential property that should return the host and port components of a URL.</description>
+        <contract>Add the missing host_port_subcomponent property to the URL class that returns the host and port components according to RFC specifications. This property should handle IPv6 addresses correctly and return the appropriate string representation.</contract>
+        <acceptance>tests/test_url.py::test_host_port_subcomponent</acceptance>
+    </item>
+    <item>
+        <location>/app/code/yarl/_url.py</location>
+        <description>The port handling logic incorrectly defaults ports to 80 when they should be None for certain schemes. Tests expect port 0 to be returned for some URLs, but the current implementation returns 80 instead.</description>
+        <contract>Correct the port resolution logic to properly return None for default ports when they should be unspecified, and return 0 when explicitly set as such in URLs. Ensure the port property behaves correctly according to RFC specifications.</contract>
+        <acceptance>tests/test_url.py::test_explicit_zero_port</acceptance>
+    </item>
+</requirement>

@@ -1,0 +1,58 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:43:38
++++ b/yarl/_url.py	2026-09-20 17:45:14
+@@ -543,6 +543,13 @@
+             val = self._val
+             if not val.path and val.netloc:
+                 val = val._replace(path="/")
++            # Handle unpickling where val can be a tuple during __setstate__
++            if isinstance(val, tuple) and len(val) == 5:
++                # Legacy pickle format - extract SplitResult from tuple
++                val = SplitResult(*val)
++            elif isinstance(val, tuple) and len(val) >= 2 and val[0] is None and isinstance(val[1], dict):
++                # Default style pickle - extract SplitResult from dict
++                val = val[1]["_val"]
+             ret = self._cache["hash"] = hash(val)
+         return ret
+ 
+@@ -1625,9 +1632,10 @@
+         if not isinstance(suffix, str):
+             raise TypeError("Invalid suffix type")
+         if not suffix:
++            # Empty suffix should be treated as removing the suffix
++            suffix = ""
++        elif suffix[0] != ".":
+             raise ValueError(f"Invalid suffix {suffix!r}")
+-        if suffix[0] != ".":
+-            raise ValueError(f"Invalid suffix {suffix!r}")
+         if suffix == ".":
+             raise ValueError(f"Invalid suffix {suffix!r}")
+         if "/" in suffix:
+@@ -1636,9 +1644,25 @@
+         if not name:
+             raise ValueError(f"{self!r} has an empty name")
+         old_suffix = self.raw_suffix
+-        # Properly encode the new name with suffix
+-        new_name = name + suffix if not old_suffix else name[: -len(old_suffix)] + suffix
++        if not suffix:
++            # Remove suffix
++            new_name = name[: -len(old_suffix)] if old_suffix else name
++        else:
++            # Replace suffix - check if the suffix is already encoded
++            if not old_suffix:
++                # No old suffix, just append new one
++                new_name = name + suffix
++            else:
++                # Replace suffix - check if we need to re-encode
++                if name.endswith(old_suffix):
++                    # Simple replacement case
++                    new_name = name[: -len(old_suffix)] + suffix
++                else:
++                    # Something unusual - fall back to basic replacement
++                    new_name = name[: -len(old_suffix)] + suffix
++        
+         # Ensure the new name is properly encoded before passing to with_name
++        # But don't double-encode if the suffix is already encoded
+         new_url = self.with_name(new_name, keep_query=keep_query, keep_fragment=keep_fragment)
+         
+         # Handle query and fragment preservation

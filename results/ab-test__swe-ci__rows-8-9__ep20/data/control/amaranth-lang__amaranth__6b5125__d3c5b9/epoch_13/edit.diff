@@ -1,0 +1,102 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 21:35:44
++++ b/amaranth/hdl/_ir.py	2026-09-20 21:39:28
+@@ -1108,12 +1108,19 @@
+         elif isinstance(stmt, _ast.Switch):
+             test, _signed = self.emit_rhs(module_idx, stmt.test)
+             conds = []
+-            for patterns, substmts in stmt.cases:
++            for item in stmt.cases:
++                if len(item) == 2:
++                    patterns, substmts = item
++                    src_loc = None
++                elif len(item) == 3:
++                    patterns, substmts, src_loc = item
++                else:
++                    raise ValueError(f"Case tuple must have 2 or 3 elements, got {len(item)}")
+                 if patterns:
+                     for pattern in patterns:
+                         assert len(pattern) == len(test)
+                     cell = _nir.Matches(module_idx, value=test, patterns=patterns,
+-                                        src_loc=stmt.case_src_locs.get(patterns))
++                                        src_loc=src_loc)
+                     net, = self.netlist.add_value_cell(1, cell)
+                     conds.append(net)
+                 else:
+@@ -1121,19 +1128,30 @@
+             cell = _nir.PriorityMatch(module_idx, en=cond, inputs=_nir.Value(conds),
+                                       src_loc=stmt.src_loc)
+             conds = self.netlist.add_value_cell(len(conds), cell)
+-            for subcond, (patterns, substmts) in zip(conds, stmt.cases):
++            for subcond, item in zip(conds, stmt.cases):
++                if len(item) == 2:
++                    patterns, substmts = item
++                elif len(item) == 3:
++                    patterns, substmts, src_loc = item
+                 for substmt in substmts:
+                     self.emit_stmt(module_idx, fragment, domain, substmt, subcond)
+         elif isinstance(stmt, _ast.Case):
+             # Handle Case statements properly
+             test, _signed = self.emit_rhs(module_idx, stmt.test)
+             conds = []
+-            for patterns, substmts in stmt.cases:
++            for item in stmt.cases:
++                if len(item) == 2:
++                    patterns, substmts = item
++                    src_loc = None
++                elif len(item) == 3:
++                    patterns, substmts, src_loc = item
++                else:
++                    raise ValueError(f"Case tuple must have 2 or 3 elements, got {len(item)}")
+                 if patterns:
+                     for pattern in patterns:
+                         assert len(pattern) == len(test)
+                     cell = _nir.Matches(module_idx, value=test, patterns=patterns,
+-                                        src_loc=stmt.case_src_locs.get(patterns))
++                                        src_loc=src_loc)
+                     net, = self.netlist.add_value_cell(1, cell)
+                     conds.append(net)
+                 else:
+@@ -1141,7 +1159,11 @@
+             cell = _nir.PriorityMatch(module_idx, en=cond, inputs=_nir.Value(conds),
+                                       src_loc=stmt.src_loc)
+             conds = self.netlist.add_value_cell(len(conds), cell)
+-            for subcond, (patterns, substmts) in zip(conds, stmt.cases):
++            for subcond, item in zip(conds, stmt.cases):
++                if len(item) == 2:
++                    patterns, substmts = item
++                elif len(item) == 3:
++                    patterns, substmts, src_loc = item
+                 for substmt in substmts:
+                     self.emit_stmt(module_idx, fragment, domain, substmt, subcond)
+         else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/memory.py b/amaranth/lib/memory.py
+--- a/amaranth/lib/memory.py	2026-09-20 21:35:56
++++ b/amaranth/lib/memory.py	2026-09-20 21:39:20
+@@ -66,14 +66,14 @@
+ 
+         def __init__(self, *, addr_width, shape, granularity=None):
+             if not isinstance(addr_width, int) or addr_width < 0:
+-                raise TypeError("Address width must be a non-negative integer, not -2")
++                raise TypeError("Address width must be a non-negative integer, not {!r}".format(addr_width))
+             self._addr_width = addr_width
+             self._shape = shape
+             self._granularity = granularity
+             if granularity is None:
+                 en_width = 1
+             elif not isinstance(granularity, int) or granularity < 0:
+-                raise TypeError("Granularity must be a non-negative integer or None, not -2")
++                raise TypeError("Granularity must be a non-negative integer or None, not {!r}".format(granularity))
+             elif not isinstance(shape, ShapeCastable):
+                 actual_shape = Shape.cast(shape)
+                 if actual_shape.signed:
+@@ -334,6 +334,9 @@
+                 self._raw = [default] * depth
+             else:
+                 self._raw = self._items = [0] * depth
++            # Validate length of items matches depth
++            if len(items) > depth:
++                raise ValueError("Memory initialization value count exceeds memory depth ({} > {})".format(len(items), depth))
+             try:
+                 for idx, item in enumerate(items):
+                     self[idx] = item

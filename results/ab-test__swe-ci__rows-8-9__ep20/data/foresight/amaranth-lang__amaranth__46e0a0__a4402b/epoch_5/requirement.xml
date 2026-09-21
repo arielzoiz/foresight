@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:View</location>
+        <description>The View class's __getattr__ method raises AttributeError with incorrect messages when accessing non-existent fields or reserved names. It's not properly distinguishing between reserved names that exist in the layout vs. completely missing fields, and is not raising the proper error types for certain edge cases.</description>
+        <contract>When accessing a reserved field name (starting with underscore) that exists in the layout, View.__getattr__ should raise an AttributeError with a message indicating that the field has a reserved name and can only be accessed via indexing. When accessing a non-existent field, it should raise an AttributeError with a message listing available fields and suggesting similar names. The error messages should match expected test formats.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getattr_reserved, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:View</location>
+        <description>The View class's __getitem__ method doesn't properly handle indexing operations with non-Value keys when dealing with array layouts. It's incorrectly allowing indexing with strings instead of requiring proper array indices.</description>
+        <contract>When indexing a View with a non-Value key on an ArrayLayout, it should behave according to the layout's indexing rules. When indexing a non-array layout with a Value, it should raise TypeError with appropriate message. The indexing should correctly extract fields from the underlying signal.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getitem, tests/test_lib_data.py::ViewTestCase::test_index_wrong_missing, tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:StructLayout</location>
+        <description>StructLayout.const method doesn't properly handle None values or has incorrect behavior when constructing constants from mappings. The error handling for invalid initializers is not matching expected test patterns.</description>
+        <contract>When calling StructLayout.const(None), it should return a constant with value 0 and appropriate size. When calling with a mapping, it should convert the mapping to an integer value using the layout's conversion logic. Error messages for invalid initializers should match expected format.</contract>
+        <acceptance>tests/test_lib_data.py::LayoutTestCase::test_const, tests/test_lib_data.py::LayoutTestCase::test_const_wrong</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/data.py:FriendlyLayout</location>
+        <description>The FlexibleLayout class is missing a const method that should be consistent with other layouts. The error handling for layout construction doesn't properly validate size constraints.</description>
+        <contract>FlexibleLayout should have a const method that behaves consistently with other Layout classes. The size validation during initialization should properly enforce constraints on field positions.</contract>
+        <acceptance>tests/test_lib_data.py::LayoutTestCase::test_const</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/amaranth/lib/enum.py:EnumMeta</location>
+        <description>EnumMeta's as_shape method doesn't properly handle the case when an enum has no members but has an explicitly provided shape. Also, error messages for enum constant creation don't match expected test patterns.</description>
+        <contract>When an Enum class has no members but an explicitly provided shape, as_shape should return that shape. Error messages for invalid enum member values should match the expected test patterns. The const method should be properly implemented for enums.</contract>
+        <acceptance>tests/test_lib_enum.py::EnumTestCase::test_const_no_shape, tests/test_lib_enum.py::EnumTestCase::test_const_shape</acceptance>
+    </requirement>
+</requirements>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/amaranth/hdl/_ast.py:Signal</location>
+    <description>The Signal class does not implement a __hash__ method, which prevents it from being added to Python sets. This causes TypeError: unhashable type: 'Signal' when trying to collect signals for name assignment in _assign_names_to_signals method.</description>
+    <contract>The Signal class must implement a __hash__ method that returns a hashable value based on its identity to enable use in sets and dictionaries.</contract>
+    <acceptance>tests/test_hdl_ir.py::ConflictTestCase::test_domain_conflict, tests/test_hdl_ir.py::RhsTestCase::test_slice, tests/test_hdl_ir.py::RhsTestCase::test_operator_unary, and other related tests that currently fail with "TypeError: unhashable type: 'Signal'"</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/hdl/_ir.py:_assign_names_to_signals</location>
+    <description>The _assign_names_to_signals method attempts to add Signal objects to a set but fails because Signals are not hashable. This affects signal name assignment and netlist building.</description>
+    <contract>The method should properly handle Signal objects by ensuring they are hashable or by using alternative data structures that don't require hashing.</contract>
+    <acceptance>tests/test_hdl_ir.py::AssignTestCase::test_simple_trunc, tests/test_hdl_ir.py::AssignTestCase::test_simple_part_short, and other related tests that currently fail with "TypeError: unhashable type: 'Signal'"</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/hdl/_ast.py:SignalKey</location>
+    <description>There is already a SignalKey class designed to wrap Signal objects for use in dictionaries and sets, but the Signal class itself lacks a __hash__ method.</description>
+    <contract>The Signal class should implement __hash__ method that aligns with the SignalKey implementation to maintain consistency.</contract>
+    <acceptance>All tests that fail due to unhashable Signal objects should pass after implementing the __hash__ method</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/hdl/_ast.py:SignalDict</location>
+    <description>SignalDict uses SignalKey to wrap Signals, but Signal itself is not directly hashable, which creates inconsistency in how Signals are used in collections.</description>
+    <contract>Signal class should implement __hash__ to enable direct use in sets and dictionaries without requiring wrapper classes.</contract>
+    <acceptance>Tests that rely on Signal objects being usable in collections should pass</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/hdl/_ast.py:DUID</location>
+    <description>The DUID base class provides deterministic unique IDs but doesn't provide hashability, which is needed for using Signal objects in sets.</description>
+    <contract>Add a __hash__ method to Signal that uses its duid to make it hashable while preserving uniqueness.</contract>
+    <acceptance>Signal objects should be usable in sets and dictionaries without throwing TypeError</acceptance>
+  </requirement>
+</requirement_document>

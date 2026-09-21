@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:Layout._convert_to_int</location>
+        <description>The _convert_to_int method incorrectly validates reset values for nested layouts, causing TypeError when dealing with complex shapes like ShapeCastable objects. The validation doesn't properly handle custom reset values for nested structures.</description>
+        <contract>When validating reset values in _convert_to_int, if a field has a nested layout (like StructLayout or UnionLayout), the method should recursively validate the reset values for nested structures, not just validate the top-level field value.</contract>
+        <acceptance>tests/test_lib_data.py::LayoutTestCase::test_const_field_shape_castable, tests/test_hdl_ast.py::SignalTestCase::test_reset_shape_castable_const, tests/test_hdl_ast.py::SignalTestCase::test_reset_shape_castable_enum_wrong</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:View.__getattr__</location>
+        <description>The __getattr__ method in View class does not properly handle reserved names in layouts, causing AttributeError instead of the expected error messages. It also lacks proper error handling for missing field names with suggestions.</description>
+        <contract>When accessing a reserved name (starting with underscore) that exists in the layout, __getattr__ should raise AttributeError with a specific message indicating the field must be accessed via indexing. When accessing a non-existent field, it should provide helpful error messages with similar field names.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_getattr_reserved, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing, tests/test_lib_data.py::ViewTestCase::test_attr_wrong_reserved</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:ArrayLayout.__getitem__</location>
+        <description>ArrayLayout.__getitem__ incorrectly raises TypeError for non-integer keys instead of KeyError, causing inconsistencies with the expected behavior for missing keys.</description>
+        <contract>ArrayLayout.__getitem__ should raise KeyError for invalid keys instead of TypeError to maintain consistency with Python conventions and other layout types.</contract>
+        <acceptance>tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic, tests/test_lib_data.py::ViewTestCase::test_index_wrong_missing</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:Layout.cast</location>
+        <description>The Layout.cast method has inconsistent error message formats that don't match the expected test assertions, causing test failures for error message validation.</description>
+        <contract>Layout.cast should produce consistent error messages that match the expected format in tests, particularly for type checking and conversion errors.</contract>
+        <acceptance>tests/test_lib_data.py::LayoutTestCase::test_const_wrong, tests/test_lib_data.py::LayoutTestCase::test_signal_reset</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py:_Aggregate.__init__</location>
+        <description>The _Aggregate.__init__ method doesn't properly validate reset values for Union layouts, causing incorrect error handling for union reset validation.</description>
+        <contract>When initializing an Aggregate with a Union layout, the reset validation should properly validate that at most one field is specified for reset values, and raise appropriate error messages.</contract>
+        <acceptance>tests/test_lib_data.py::UnionTestCase::test_construct_reset_override, tests/test_lib_data.py::UnionTestCase::test_construct_reset_two_wrong</acceptance>
+    </item>
+</requirement>

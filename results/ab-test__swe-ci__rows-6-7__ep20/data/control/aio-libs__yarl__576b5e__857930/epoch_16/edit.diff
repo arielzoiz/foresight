@@ -1,0 +1,112 @@
+Binary files a/.coverage and b/.coverage differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 17:52:10
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 17:59:14
+@@ -2,5 +2,13 @@
+   "tests/test_normalize_path.py": true,
+   "tests/test_url.py::test_relative_url_populates_cache": true,
+   "tests/test_url.py::test_ipv4_brackets_not_allowed": true,
+-  "tests/test_pickle.py::test_pickle_does_not_pollute_cache": true
++  "tests/test_pickle.py::test_pickle_does_not_pollute_cache": true,
++  "tests/test_url.py::test_with_suffix_for_relative_path_starting_from_slash": true,
++  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[none]": true,
++  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[fragment-only]": true,
++  "tests/test_url.py::test_with_suffix_keep_query_keep_fragment_flags[query-only]": true,
++  "tests/test_url.py::test_with_suffix_replace": true,
++  "tests/test_url.py::test_with_suffix_for_relative_path_starting_from_slash2": true,
++  "tests/test_url.py::test_with_name_for_relative_path_starting_from_slash": true,
++  "tests/test_url.py::test_with_name_for_relative_path_starting_from_slash2": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:53:56
++++ b/yarl/_url.py	2026-09-20 17:57:30
+@@ -1635,18 +1635,33 @@
+             raise ValueError(". and .. values are forbidden")
+         parts = list(self.raw_parts)
+         if self._val.netloc:
+-            if len(parts) == 1:
+-                parts.append(name)
++            # For absolute URLs (with netloc)
++            if len(parts) == 1 and parts[0] == "/":
++                # Empty path case (e.g. http://example.com/)
++                parts = ["/", name]
++            elif len(parts) == 1 and parts[0] == "":
++                # No path case (e.g. http://example.com)
++                parts = ["/", name]
+             else:
++                # Normal case - replace last part
+                 parts[-1] = name
+-            parts[0] = ""  # replace leading '/'
++            # Reconstruct path properly
++            if len(parts) > 1 and parts[0] == "/":
++                # For absolute paths, join with leading slash properly
++                new_path = "/".join(parts)
++                # Ensure no double slash at beginning
++                if new_path.startswith("//"):
++                    new_path = new_path[1:]
++            else:
++                new_path = "/".join(parts)
+         else:
++            # For relative URLs
+             parts[-1] = name
+-            if parts[0] == "/":
+-                parts[0] = ""  # replace leading '/'
++            # Join normally
++            new_path = "/".join(parts)
+         
+         # Prepare the new URL with updated path
+-        new_val = self._val._replace(path="/".join(parts))
++        new_val = self._val._replace(path=new_path)
+         
+         # Handle query and fragment preservation
+         if not keep_query:
+@@ -1675,10 +1690,17 @@
+         if "/" in suffix:
+             raise ValueError(f"Invalid suffix {suffix!r}")
+         name = self.raw_name
++        # Only raise ValueError for naked paths (no name) when path is exactly "/"
++        # or when there's no path at all - i.e., when there's no path component to modify
+         if not name:
+-            # For naked paths (like http://example.com) we should raise ValueError
+-            # because there's no name to modify
+-            raise ValueError(f"{self!r} has an empty name")
++            # Check if there's actually a path component that can be modified
++            # For paths like http://example.com (where raw_parts is ('/',)), 
++            # we should not raise an error because we can modify it to be "/.a"
++            # But for naked paths with no path component like http://example.com
++            # we should raise ValueError only when there's truly no name to modify
++            # Looking at the test expectation, it should raise ValueError for http://example.com
++            if self._val.path == "" or self._val.path == "/":
++                raise ValueError(f"{self!r} has an empty name")
+         old_suffix = self.raw_suffix
+         
+         # Properly encode the suffix
+@@ -1704,13 +1726,24 @@
+         if self._val.netloc:
+             # For absolute URLs (with netloc)
+             if len(parts) == 1 and parts[0] == "/":
+-                # Empty path case
++                # Empty path case (e.g. http://example.com/) - should append to root
+                 parts = ["/", new_name]
++            elif len(parts) == 1 and parts[0] == "":
++                # No path case (e.g. http://example.com) - this should not happen with our validation
++                # but handle gracefully
++                parts = ["/", new_name]
+             else:
+                 # Normal case - replace last part
+                 parts[-1] = new_name
+-            # Join with proper leading slash
+-            new_path = "/".join(parts)
++            # Reconstruct path properly
++            if len(parts) > 1 and parts[0] == "/":
++                # For absolute paths, join with leading slash properly
++                new_path = "/".join(parts)
++                # Ensure no double slash at beginning
++                if new_path.startswith("//"):
++                    new_path = new_path[1:]
++            else:
++                new_path = "/".join(parts)
+         else:
+             # For relative URLs
+             parts[-1] = new_name

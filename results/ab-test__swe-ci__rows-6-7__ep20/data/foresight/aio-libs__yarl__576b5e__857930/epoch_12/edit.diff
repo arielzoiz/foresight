@@ -1,0 +1,31 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:06:08
++++ b/yarl/_url.py	2026-09-20 19:08:20
+@@ -157,12 +157,12 @@
+             # Add the segment if it's not "." or empty string
+             normalized.append(segment)
+         elif segment == ".":
+-            # Skip "." segments but preserve empty segments for absolute paths
+-            # This handles cases like "path/./" which should become "path/"
++            # Skip "." segments
+             continue
+         # Empty segments are skipped
+     
+-    # Handle the case where we have an empty list but it's an absolute path
++    # Handle the case where we have an absolute path with no segments
++    # but we still want to preserve the root separator
+     if is_absolute and not normalized:
+         return [""]
+     
+@@ -996,7 +996,10 @@
+             parsed += segments[segment_slice_start:]
+         parsed.reverse()
+ 
+-        if self._val.path and (old_path_segments := self._val.path.split("/")):
++        # Extract old path segments regardless of whether we have a path or not
++        old_path_segments = self._val.path.split("/") if self._val.path else []
++        
++        if old_path_segments:
+             old_path_cutoff = -1 if old_path_segments[-1] == "" else None
+             parsed = [*old_path_segments[:old_path_cutoff], *parsed]
+ 

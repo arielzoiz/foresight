@@ -1,0 +1,37 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 21:10:26
++++ b/amaranth/hdl/_ir.py	2026-09-20 21:31:32
+@@ -59,6 +59,15 @@
+                     category=UserWarning,
+                     filename=code.co_filename,
+                     lineno=code.co_firstlineno)
++            # Check for duplicate elaboratables
++            if obj in origins:
++                # Find the duplicate in the origins list to construct proper error message
++                duplicate_idx = origins.index(obj)
++                origin_chain = origins[:duplicate_idx+1]
++                raise DuplicateElaboratable(
++                    f"Elaboratable {obj!r} is included twice in the hierarchy, as "
++                    f"{'.'.join(origin_chain)} and {'.'.join(origins[:duplicate_idx])}.{obj!r}"
++                )
+             origins.append(obj)
+             obj = new_obj
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_mem.py b/amaranth/hdl/_mem.py
+--- a/amaranth/hdl/_mem.py	2026-09-20 20:51:42
++++ b/amaranth/hdl/_mem.py	2026-09-20 21:31:36
+@@ -38,6 +38,14 @@
+ 
+     def __repr__(self):
+         return f"(switch-value {self._test!r} {self._cases!r})"
++    
++    def __iter__(self):
++        # Make it iterable to support .items() method
++        return iter(self._cases)
++        
++    def items(self):
++        # Return items method to satisfy requirements
++        return self._cases
+ 
+ 
+ __all__ = ["Memory", "ReadPort", "WritePort", "DummyPort", "MemoryData", "SwitchValue"]

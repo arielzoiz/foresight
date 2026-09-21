@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/hdl/_ast.py</location>
+        <description>The IOPort class is being incorrectly interpreted as an integer in several contexts, particularly in build_netlist and IR transformation methods. Tests show TypeError when trying to interpret 'StructLayout' object as an integer, suggesting that IOPort objects are being treated as integers in contexts where they should be treated as values.</description>
+        <contract>Fix the IOPort class to properly implement ValueCastable interface so that IOPort objects can be correctly handled in value contexts. The class should support proper shape() and as_value() methods and should not be interpreted as integers in arithmetic or indexing operations.</contract>
+        <acceptance>Tests like tests/test_lib_data.py::ConstTestCase::test_eq and tests/test_lib_data.py::ConstTestCase::test_operator should pass after this fix.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/io.py</location>
+        <description>Missing Input, Output, and Bidir attributes in the IO module. Tests fail with AttributeError when accessing these attributes, indicating that they are not properly exposed in the module's public interface. The DirectionAlias class is incorrectly implemented and doesn't properly expose the Direction values.</description>
+        <contract>Ensure Input, Output, and Bidir are properly defined and exported from the io module. These should be aliased to the corresponding Direction.FANIN, Direction.FANOUT, and Direction.NONE values respectively. Fix the DirectionAlias implementation to properly expose these attributes.</contract>
+        <acceptance>Tests like tests/test_lib_io.py::SingleEndedPortTestCase::test_cat and tests/test_lib_io.py::DifferentialPortTestCase::test_invert should pass after this fix.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/data.py</location>
+        <description>Missing from_bits method implementations in data classes (Const, View, Struct). Tests expect these methods to be available but they are not implemented, causing AttributeError failures when the methods are called.</description>
+        <contract>Implement from_bits methods in the data classes that are referenced in tests. These methods should allow converting bit representations back to the data structures. Specifically, add from_bits to the Const, View, and Struct classes.</contract>
+        <acceptance>Tests like tests/test_lib_data.py::ConstTestCase::test_from_bits and tests/test_lib_data.py::StructTestCase::test_from_bits should pass after this fix.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/hdl/_ast.py</location>
+        <description>StructLayout and ArrayLayout indexing and attribute access issues. Tests fail with TypeError when trying to interpret layout objects as integers, suggesting that these layout classes are not properly handling their own indexing and attribute access.</description>
+        <contract>Fix StructLayout and ArrayLayout classes to properly handle indexing and attribute access operations. Ensure these classes don't accidentally get interpreted as integers in contexts where they should remain as layout objects.</contract>
+        <acceptance>Tests like tests/test_lib_data.py::ConstTestCase::test_bug_837_array_layout_getitem_str should pass after this fix.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/lib/io.py</location>
+        <description>IO buffer validation and error message consistency issues. Tests fail due to inconsistent error messages and validation in IOBufferTestCase tests.</description>
+        <contract>Fix IO buffer validation logic and ensure consistent error message formatting in IOBufferTestCase. This involves correcting validation logic for port length mismatches and ensuring error messages match expected formats.</contract>
+        <acceptance>Tests like tests/test_hdl_ir.py::IOBufferTestCase::test_nir_o and tests/test_hdl_ir.py::IOBufferTestCase::test_wrong_port should pass after this fix.</acceptance>
+    </item>
+</requirement>

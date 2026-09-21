@@ -1,0 +1,73 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:57:48
++++ b/yarl/_url.py	2026-09-20 18:59:22
+@@ -135,20 +135,25 @@
+     """Drop '.' and '..' from a sequence of str segments according to RFC 3986"""
+     
+     # RFC 3986 path normalization algorithm
+-    # Implementation that handles all the special cases correctly
++    # For absolute paths: 
++    # - segments starting with "" (empty string) represent root
++    # - ".." segments should not go above root
++    # For relative paths:
++    # - ".." segments can go above the current path
+     
+     # Stack to store the normalized segments
+     normalized: list[str] = []
+     
++    # Process segments from left to right
+     for segment in segments:
+         if segment == "..":
+-            # If we encounter ".." and we can go up (there's a previous segment),
++            # If we encounter ".." and we can go up (previous segment is not ".." and not root),
+             # remove the previous segment (go up one directory)
+-            if normalized and normalized[-1] != "..":
++            if normalized and normalized[-1] != ".." and normalized[-1] != "":
+                 normalized.pop()
+             else:
+-                # If we can't go up (empty stack or previous was ".."), 
+-                # keep the ".." (this preserves paths like "../path")
++                # If we can't go up (empty stack, previous was "..", or we're at root),
++                # keep the ".." 
+                 normalized.append("..")
+         elif segment != ".":
+             # Add the segment if it's not "."
+@@ -971,7 +976,7 @@
+                     f"Appending path {path!r} starting from slash is forbidden"
+                 )
+             path = path if encoded else self._PATH_QUOTER(path)
+-            needs_normalize |= "." in path
++            needs_normalize |= "." in path or ".." in path
+             segments = path.split("/")
+             segments.reverse()
+             # remove trailing empty segment for all but the last path
+@@ -1003,7 +1008,8 @@
+             path = path[1:]
+ 
+         segments = path.split("/")
+-        return prefix + "/".join(_normalize_path_segments(segments))
++        normalized_segments = _normalize_path_segments(segments)
++        return prefix + "/".join(normalized_segments)
+ 
+     @classmethod
+     @lru_cache  # match the same size as urlsplit
+@@ -1254,7 +1260,9 @@
+         if not encoded:
+             path = self._PATH_QUOTER(path)
+             if self._val.netloc:
+-                path = self._normalize_path(path) if "." in path else path
++                # Normalize path if it contains "." or ".." segments according to RFC 3986
++                if "." in path or ".." in path:
++                    path = self._normalize_path(path)
+         if len(path) > 0 and path[0] != "/":
+             path = "/" + path
+         
+@@ -1581,7 +1589,7 @@
+             if val.path[0] == "/":
+                 path = path[1:]
+ 
+-        parts["path"] = self._normalize_path(path) if "." in path else path
++        parts["path"] = self._normalize_path(path) if "." in path or ".." in path else path
+         return self._from_val(val._replace(**parts))
+ 
+     def joinpath(self, *other: str, encoded: bool = False) -> "URL":

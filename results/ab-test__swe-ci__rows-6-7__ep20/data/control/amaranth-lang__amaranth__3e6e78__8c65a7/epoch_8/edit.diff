@@ -1,0 +1,68 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 17:41:08
++++ b/amaranth/hdl/_ir.py	2026-09-20 17:45:18
+@@ -357,7 +357,7 @@
+ 
+         # Validate that pad is an IOPort
+         if not isinstance(pad, _ast.IOPort):
+-            raise TypeError(f"Object {pad!r} cannot be converted to an IO value")
++            raise TypeError("Object {pad!r} cannot be converted to an IO value".format(pad=pad))
+         
+         self.pad = _ast.Value.cast(pad)
+         if i is None:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/io.py b/amaranth/lib/io.py
+--- a/amaranth/lib/io.py	2026-09-20 17:43:00
++++ b/amaranth/lib/io.py	2026-09-20 17:45:22
+@@ -197,6 +197,25 @@
+     def __len__(self):
+         return len(self.io)
+         
++    def __add__(self, other):
++        if isinstance(other, SingleEndedPort):
++            if self.direction != other.direction:
++                raise TypeError("Cannot concatenate ports with different directions")
++            # Create a new IOPort by concatenating the underlying IO ports
++            from ..hdl._ast import Cat
++            new_io = Cat(self.io, other.io)
++            # Combine invert flags
++            new_invert = self.invert + other.invert
++            return SingleEndedPort(new_io, invert=new_invert, direction=self.direction)
++        else:
++            raise TypeError("unsupported operand type(s) for +: '{}' and '{}'".format(
++                type(self).__name__, type(other).__name__))
++    
++    def __invert__(self):
++        # Create a new inverted port
++        new_invert = tuple(not inv for inv in self.invert)
++        return SingleEndedPort(self.io, invert=new_invert, direction=self.direction)
++        
+     def __repr__(self):
+         return f"SingleEndedPort((io-port {self.io.name}), invert={self.invert!r}, direction={self.direction!r})"
+ 
+@@ -254,6 +273,26 @@
+         
+     def __len__(self):
+         return len(self.p)
++        
++    def __add__(self, other):
++        if isinstance(other, DifferentialPort):
++            if self.direction != other.direction:
++                raise TypeError("Cannot concatenate ports with different directions")
++            # Create a new IOPort by concatenating the underlying IO ports
++            from ..hdl._ast import Cat
++            new_p = Cat(self.p, other.p)
++            new_n = Cat(self.n, other.n)
++            # Combine invert flags
++            new_invert = self.invert + other.invert
++            return DifferentialPort(new_p, new_n, invert=new_invert, direction=self.direction)
++        else:
++            raise TypeError("unsupported operand type(s) for +: '{}' and '{}'".format(
++                type(self).__name__, type(other).__name__))
++    
++    def __invert__(self):
++        # Create a new inverted port
++        new_invert = tuple(not inv for inv in self.invert)
++        return DifferentialPort(self.p, self.n, invert=new_invert, direction=self.direction)
+         
+     def __repr__(self):
+         return f"DifferentialPort((io-port {self.p.name}), (io-port {self.n.name}), invert={self.invert!r}, direction={self.direction!r})"

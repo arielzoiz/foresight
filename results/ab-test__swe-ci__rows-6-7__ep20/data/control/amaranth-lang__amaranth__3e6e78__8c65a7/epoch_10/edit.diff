@@ -1,0 +1,198 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 17:35:22
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 17:51:42
+@@ -4,5 +4,8 @@
+   "tests/test_lib_io.py::SingleEndedPortTestCase::test_construct": true,
+   "tests/test_hdl_ast.py::IOValueTestCase::test_ioslice": true,
+   "tests/test_hdl_ast.py::ValueTestCase::test_getitem_slice": true,
+-  "tests/test_lib_io.py::DirectionTestCase::test_or": true
++  "tests/test_lib_io.py::DirectionTestCase::test_or": true,
++  "tests/test_lib_data.py::ConstTestCase::test_getattr": true,
++  "tests/test_hdl_ast.py::IOValueTestCase::test_iocat": true,
++  "tests/test_hdl_ir.py::NamesTestCase::test_assign_names_to_fragments": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-20 17:35:22
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 17:52:30
+@@ -1,7 +1,11 @@
+ [
++  "tests/test_hdl_ast.py::IOValueTestCase::test_iocat",
+   "tests/test_hdl_ast.py::IOValueTestCase::test_ioslice",
+   "tests/test_hdl_ast.py::ValueTestCase::test_getitem_slice",
++  "tests/test_hdl_ir.py::FragmentPortsTestCase::test_port_wrong",
++  "tests/test_hdl_ir.py::NamesTestCase::test_assign_names_to_fragments",
+   "tests/test_lib_data.py::ConstTestCase::test_attr_wrong_missing",
++  "tests/test_lib_data.py::ConstTestCase::test_getattr",
+   "tests/test_lib_io.py::DirectionTestCase::test_or",
+   "tests/test_lib_io.py::SingleEndedPortTestCase::test_construct"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 17:43:18
++++ b/amaranth/hdl/_ast.py	2026-09-20 17:51:16
+@@ -1681,8 +1681,15 @@
+     def _rhs_signals(self):
+         return self.value._rhs_signals()
+ 
+-    def __repr__(self):
+-        return f"(slice {self.value!r} {self.start}:{self.stop})"
++    def _ioports(self):
++        """Get I/O ports.
++        
++        Returns
++        -------
++        list of IOPort
++            List of I/O ports.
++        """
++        return self.value._ioports()
+ 
+ 
+ @final
+@@ -1840,11 +1847,20 @@
+                               SyntaxWarning, stacklevel=2 + src_loc_at)
+             parts.append(Value.cast(arg))
+         self._parts = tuple(parts)
++        # Collect metadata from all parts
++        self._metadata = []
++        for part in parts:
++            if hasattr(part, 'metadata'):
++                self._metadata.extend(part.metadata)
+ 
+     @property
+     def parts(self):
+         return self._parts
+ 
++    @property
++    def metadata(self):
++        return tuple(self._metadata)
++
+     def shape(self):
+         return Shape(sum(len(part) for part in self.parts))
+ 
+@@ -1853,6 +1869,40 @@
+ 
+     def _rhs_signals(self):
+         return union((part._rhs_signals() for part in self.parts), start=SignalSet())
++
++    def _ioports(self):
++        """Get I/O ports.
++        
++        Returns
++        -------
++        list of IOPort
++            List of I/O ports.
++        """
++        ioports = []
++        for part in self.parts:
++            if hasattr(part, '_ioports'):
++                part_ioports = part._ioports()
++                if isinstance(part_ioports, list):
++                    # Add each IOPort from the list to our result
++                    for p in part_ioports:
++                        # Check for duplicates and avoid adding the same port twice
++                        already_added = False
++                        for existing in ioports:
++                            if existing is p:  # Identity comparison
++                                already_added = True
++                                break
++                        if not already_added:
++                            ioports.append(p)
++                else:
++                    # If it's not a list, treat it as a single IOPort
++                    already_added = False
++                    for existing in ioports:
++                        if existing is part_ioports:  # Identity comparison
++                            already_added = True
++                            break
++                    if not already_added:
++                        ioports.append(part_ioports)
++        return ioports
+ 
+     def __repr__(self):
+         return "(cat {})".format(" ".join(map(repr, self.parts)))
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 17:45:18
++++ b/amaranth/hdl/_ir.py	2026-09-20 17:52:18
+@@ -274,8 +274,8 @@
+             if dir is not None and not isinstance(dir, PortDirection):
+                 raise TypeError(
+                     f"Port direction must be a `PortDirection` instance or None, not {dir!r}")
+-            if not isinstance(signal, (_ast.Signal, _ast.ClockSignal, _ast.ResetSignal)):
+-                raise TypeError(f"Only signals may be added as ports, not {signal!r}")
++            if not isinstance(signal, (_ast.Signal, _ast.ClockSignal, _ast.ResetSignal, _ast.IOPort)):
++                raise TypeError(f"Only signals and IO ports may be added as ports, not {signal!r}")
+ 
+         return new_ports
+ 
+@@ -394,8 +394,9 @@
+         self.fragment = fragment
+         self.ports = ports
+         self.hierarchy = hierarchy
+-        # Add missing fragments attribute
+-        self.fragments = [fragment]
++        # Add missing fragments attribute - collect all fragments in a dictionary
++        self.fragments = {}
++        self._collect_fragments(fragment)
+         # dict of Fragment to SignalDict of Signal to name
+         self.signal_names = {}
+         self.fragment_names = {}
+@@ -407,6 +408,45 @@
+             (name or top_names[signal], signal, dir)
+             for (name, signal, dir) in self.ports
+         ]
++
++    def _collect_fragments(self, fragment):
++        """Collect all fragments in the hierarchy."""
++        if fragment not in self.fragments:
++            self.fragments[fragment] = self.fragment_names.get(fragment, None)
++            for subfragment, _name, _src_loc in fragment.subfragments:
++                self._collect_fragments(subfragment)
++                
++    def _assign_names_to_fragments(self, fragment, hierarchy):
++        """Assign names to this fragment and its subfragments.
++
++        Subfragments may not necessarily have a name. This method assigns every such subfragment
++        a name, ``U$<number>``, where ``<number>`` is based on its location in the hierarchy.
++
++        Subfragment names may collide with signal names safely in Amaranth, but this may confuse
++        backends. This method assigns every such subfragment a name, ``<name>$U$<number>``, where
++        ``name`` is its original name, and ``<number>`` is based on its location in the hierarchy.
++
++        Arguments
++        ---------
++        hierarchy : tuple of str
++            Name of this fragment.
++
++        Returns
++        -------
++        dict of Fragment to tuple of str
++            A mapping from this fragment and its subfragments to their full hierarchical names.
++        """
++        self.fragment_names[fragment] = hierarchy
++
++        taken_names = set(self.signal_names[fragment].values())
++        for subfragment_index, (subfragment, subfragment_name, subfragment_src_loc) in enumerate(fragment.subfragments):
++            if subfragment_name is None:
++                subfragment_name = f"U${subfragment_index}"
++            elif subfragment_name in taken_names:
++                subfragment_name = f"{subfragment_name}$U${subfragment_index}"
++            assert subfragment_name not in taken_names
++            taken_names.add(subfragment_name)
++            self._assign_names_to_fragments(subfragment, hierarchy=(*hierarchy, subfragment_name))
+ 
+     def _assign_names_to_signals(self, fragment, ports=None):
+         """Assign names to signals used in a given fragment.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 17:47:36
++++ b/amaranth/lib/data.py	2026-09-20 17:51:54
+@@ -99,6 +99,9 @@
+         
+         Layout objects cannot be converted to integers and will raise TypeError.
+         """
++        # This method exists to satisfy some code paths that expect integer conversion,
++        # but raises TypeError to indicate that conversion is not meaningful.
++        # In practice, this should not be called for meaningful conversions.
+         raise TypeError(f"cannot convert {self.__class__.__name__} to int")
+ 
+     @staticmethod

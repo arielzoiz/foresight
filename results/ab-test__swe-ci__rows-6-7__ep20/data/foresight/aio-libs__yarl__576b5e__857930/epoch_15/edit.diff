@@ -1,0 +1,121 @@
+Binary files a/.coverage and b/.coverage differ
+Binary files a/.coverage.7873e4b594e1.pid542.X45CWFNx.HkgE65t18F6h and b/.coverage.7873e4b594e1.pid542.X45CWFNx.HkgE65t18F6h differ
+Binary files a/.coverage.7873e4b594e1.pid545.XuDKYb6x.HO0eBQ5BM61h and b/.coverage.7873e4b594e1.pid545.XuDKYb6x.HO0eBQ5BM61h differ
+Binary files a/.coverage.7873e4b594e1.pid548.XFQCGXpx.HILI3VwttdMh and b/.coverage.7873e4b594e1.pid548.XFQCGXpx.HILI3VwttdMh differ
+Binary files a/.coverage.7873e4b594e1.pid551.XpvF957x.HP1q2Af9O0Gh and b/.coverage.7873e4b594e1.pid551.XpvF957x.HP1q2Af9O0Gh differ
+Binary files a/.coverage.7873e4b594e1.pid554.X5KmrXlx.HTKXPE7WPK3h and b/.coverage.7873e4b594e1.pid554.X5KmrXlx.HTKXPE7WPK3h differ
+Binary files a/.coverage.7873e4b594e1.pid557.XcVKFVMx.HwN7urEw5k3h and b/.coverage.7873e4b594e1.pid557.XcVKFVMx.HwN7urEw5k3h differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 19:06:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 19:16:40
+@@ -10,17 +10,20 @@
+   "tests/test_url.py::test_host_port_subcomponent[http://[::1]:8080-[::1]:8080]": true,
+   "tests/test_url.py::test_host_port_subcomponent[http://example.com:80-example.com]": true,
+   "tests/test_url.py::test_host_port_subcomponent[http://example.com:8080-example.com:8080]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[path/to/./.-path/to/]": true,
+   "tests/test_normalize_path.py::test_normalize_path[//-//]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[path/to/.-path/to/]": true,
+   "tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]": true,
+   "tests/test_normalize_path.py::test_normalize_path[path/../../to-to]": true,
+   "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]": true,
+-  "tests/test_normalize_path.py::test_normalize_path[/path/to/.-/path/to/]": true,
+   "tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]": true,
+   "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07-\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07]": true,
+   "tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar]": true,
+   "tests/test_normalize_path.py::test_normalize_path[///-///]": true,
+   "tests/test_cache.py::test_cache_configure_None_only_deprecated": true,
+-  "tests/test_cache.py::test_cache_configure_waring": true
++  "tests/test_cache.py::test_cache_configure_waring": true,
++  "tests/test_url.py::test_join_path_normalized[path/to/.-path/to/]": true,
++  "tests/test_url.py::test_join_path_normalized[../path/to-path/to]": true,
++  "tests/test_url.py::test_join_path_normalized[path/../../to-to]": true,
++  "tests/test_url.py::test_join_path_normalized[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]": true,
++  "tests/test_url.py::test_join_path_normalized[path/to/./.-path/to/]": true,
++  "tests/test_url.py::test_join_path_normalized[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07-\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07]": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_path.py b/yarl/_path.py
+--- a/yarl/_path.py	2026-09-20 19:03:24
++++ b/yarl/_path.py	2026-09-20 19:15:46
+@@ -14,6 +14,14 @@
+ 
+     segments = path.split("/")
+     normalized_segments = _normalize_path_segments(segments, is_absolute)
++    
++    # Handle trailing '.' specially - it indicates directory itself
++    # If original path ended with a '.' segment, we need to preserve it
++    # This is a special case for the path normalization
++    if segments and segments[-1] == ".":
++        # Append an empty string to represent the directory
++        normalized_segments.append("")
++        
+     result = prefix + "/".join(normalized_segments)
+     # Ensure that an empty result for absolute paths becomes "/"
+     if is_absolute and result == "/":
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:12:22
++++ b/yarl/_url.py	2026-09-20 19:15:40
+@@ -144,8 +144,8 @@
+             # For absolute paths, we can go up only if not at the root
+             # For relative paths, we can always go up
+             if normalized and normalized[-1] != "..":
+-                # If we're at the root of an absolute path, we can't go up
+-                # Root is represented by an empty string at the beginning of the normalized list
++                # If we're at the root of an absolute path (represented by empty string at start),
++                # we can't go up. For relative paths, we can always go up.
+                 if not is_absolute or normalized[-1] != "":
+                     # Remove the previous segment (go up one directory)
+                     normalized.pop()
+@@ -168,11 +168,6 @@
+     if is_absolute and not normalized:
+         return [""]
+     
+-    # For absolute paths, make sure we preserve the root
+-    if is_absolute and normalized and normalized[0] != "":
+-        # If we have segments but don't start with empty string (root), prepend root
+-        normalized = [""] + normalized
+-    
+     return normalized
+ 
+ 
+@@ -1033,12 +1028,34 @@
+ 
+         segments = path.split("/")
+         normalized_segments = _normalize_path_segments(segments, is_absolute)
+-        result = prefix + "/".join(normalized_segments)
+-        # Ensure that an empty result for absolute paths becomes "/"
+-        if is_absolute and result == "/":
+-            return "/"
+-        elif is_absolute and result == "":
+-            return "/"
++        
++        # Handle trailing '.' specially - it indicates directory itself
++        # If original path ended with a '.' segment, we need to preserve it
++        # This is a special case for the path normalization
++        if segments and segments[-1] == ".":
++            # Append an empty string to represent the directory
++            normalized_segments.append("")
++            
++        # Build the result string
++        if not normalized_segments:
++            # Empty result case
++            if is_absolute:
++                return "/"
++            else:
++                return ""
++                
++        # For absolute paths, we need to make sure we preserve the root prefix
++        if is_absolute and normalized_segments[0] != "":
++            # If we have segments but they don't start with empty string (root),
++            # we need to prepend the root
++            result = "/" + "/".join(normalized_segments)
++        elif is_absolute and normalized_segments[0] == "":
++            # Already starts with root
++            result = "/".join(normalized_segments)
++        else:
++            # Relative path - no root prefix needed
++            result = "/".join(normalized_segments)
++            
+         return result
+ 
+     @classmethod

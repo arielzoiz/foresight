@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/amaranth/lib/data.py:450-462</location>
+    <description>The View constructor's reset value validation incorrectly rejects complex dictionary values that should be valid for struct layouts. The error "Reset value must be a constant-castable expression, not {'a': 1, 'b': 2}" occurs because the validation doesn't properly handle mapping values for complex layouts.</description>
+    <contract>When constructing a View with a reset value that is a mapping (dict) for struct layouts, the reset value should be validated and converted using the layout's _convert_to_int method. The method should accept dictionaries representing field values and convert them to constant integers.</contract>
+    <acceptance>tests/test_lib_data.py::ViewTestCase::test_construct_signal_reset</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/amaranth/lib/data.py:100-161</location>
+    <description>The _convert_to_int method in Layout class has incorrect handling of primitive values. When a value like an integer is passed to _convert_to_int, it raises an AttributeError because it tries to access a .value attribute on the int object.</description>
+    <contract>The _convert_to_int method should properly handle primitive values (int, str, etc.) by attempting to cast them to Const objects directly. If they are not constant-castable, it should raise an appropriate TypeError with a clear message.</contract>
+    <acceptance>tests/test_lib_data.py::LayoutTestCase::test_const_field_shape_castable</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/amaranth/lib/data.py:478-517</location>
+    <description>The __getitem__ method in View class incorrectly handles array indexing. When trying to index a non-array layout with a value (like Signal), it raises a TypeError but with an unclear message. The error message should be more descriptive about the mismatch between layout type and indexing operation.</description>
+    <contract>When indexing a View with a Value that is not an ArrayLayout, the __getitem__ method should raise a TypeError with a clear message indicating that only views with array layout may be indexed with a value.</contract>
+    <acceptance>tests/test_lib_data.py::ViewTestCase::test_index_wrong_struct_dynamic</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/amaranth/lib/data.py:518-556</location>
+    <description>The __getattr__ method in View class does not properly handle reserved field names and provides inadequate error messages for missing fields. When accessing reserved names (starting with underscore), it should only allow indexing, not attribute access. Error messages for missing fields should be more helpful.</description>
+    <contract>The __getattr__ method should prevent access to reserved field names (those starting with underscore) via attribute access, requiring indexing instead. Missing field errors should provide suggestions for similar field names to aid debugging.</contract>
+    <acceptance>tests/test_lib_data.py::ViewTestCase::test_getattr_reserved tests/test_lib_data.py::ViewTestCase::test_attr_wrong_missing</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/amaranth/lib/data.py:614-642</location>
+    <description>The _Aggregate.__init__ method in Struct and Union classes has flawed reset value validation logic. It doesn't properly validate complex reset values like dictionaries for struct layouts, causing TypeError with confusing messages.</description>
+    <contract>Reset value validation in _Aggregate.__init__ should properly validate complex reset values (dicts) for struct layouts using the layout's _convert_to_int method, and provide clear error messages for invalid reset values.</contract>
+    <acceptance>tests/test_lib_data.py::StructTestCase::test_construct_reset tests/test_lib_data.py::UnionTestCase::test_construct_reset_override</acceptance>
+  </requirement>
+</requirement_document>

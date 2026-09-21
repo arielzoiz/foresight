@@ -1,0 +1,67 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/ast.py b/amaranth/hdl/ast.py
+--- a/amaranth/hdl/ast.py	2026-09-20 22:00:04
++++ b/amaranth/hdl/ast.py	2026-09-20 22:04:24
+@@ -1010,9 +1010,9 @@
+         orig_reset = reset
+         try:
+             reset = Const.cast(reset)
+-        except TypeError:
++        except TypeError as e:
+             raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+-                            .format(orig_reset))
++                            .format(orig_reset)) from e
+         if orig_reset not in (0, -1): # Avoid false positives for all-zeroes and all-ones
+             if reset.shape().signed and not self.signed:
+                 warnings.warn(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:02:36
++++ b/amaranth/lib/data.py	2026-09-20 22:04:36
+@@ -117,7 +117,12 @@
+         for key, key_value in iterator:
+             field = self[key]
+             if isinstance(field.shape, Layout):
+-                key_value = field.shape._convert_to_int(key_value)
++                # For nested layouts, recursively convert the nested values
++                if isinstance(key_value, Mapping) or isinstance(key_value, Sequence):
++                    key_value = field.shape._convert_to_int(key_value)
++                else:
++                    # If it's not a mapping or sequence, treat as a scalar value
++                    key_value = key_value
+             int_value |= Const(key_value, Shape.cast(field.shape)).value << field.offset
+         return int_value
+ 
+@@ -169,6 +174,8 @@
+ 
+     def const(self, value):
+         """Create a constant value from this layout and a value."""
++        if value is None:
++            return Const(0, self.size)
+         return Const(self._convert_to_int(value), self.size)
+ 
+ 
+@@ -442,7 +449,9 @@
+         except KeyError:
+             # Find similar names for better error messages
+             similar_names = []
++            all_field_names = []
+             for field_name, field in self.__layout:
++                all_field_names.append(field_name)
+                 if name in field_name or field_name in name:
+                     similar_names.append(field_name)
+             
+@@ -452,12 +461,11 @@
+                                       .format(self.__target, name,
+                                               ", ".join(repr(n) for n in sorted(similar_names))))
+             else:
+-                # Create a more helpful error message - list ALL field names, not just similar ones
+-                field_names = [name for name, field in self.__layout]
++                # List ALL field names for better debugging
+                 raise AttributeError("View of {!r} does not have a field {!r}; "
+-                                      "did you mean one of: {}?"
++                                      "available fields: {}"
+                                       .format(self.__target, name,
+-                                              ", ".join(repr(n) for n in sorted(field_names))))
++                                              ", ".join(repr(n) for n in sorted(all_field_names))))
+         return item
+ 
+ 

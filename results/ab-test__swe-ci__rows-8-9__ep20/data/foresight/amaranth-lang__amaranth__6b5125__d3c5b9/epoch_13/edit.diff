@@ -1,0 +1,51 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 23:05:26
++++ b/amaranth/hdl/_ir.py	2026-09-20 23:08:16
+@@ -10,7 +10,7 @@
+ 
+ __all__ = [
+     "UnusedElaboratable", "Elaboratable", "DriverConflict", "Fragment", "Instance",
+-    "IOBufferInstance", "PortDirection", "Design", "build_netlist",
++    "IOBufferInstance", "PortDirection", "Design", "build_netlist", "SwitchValue", "DuplicateElaboratable",
+ ]
+ 
+ 
+@@ -58,15 +58,6 @@
+     
+     def __repr__(self):
+         return f"SwitchValue({self.test!r}, {self.cases!r})"
+-
+-
+-class DuplicateElaboratable(Exception):
+-    """Raised when the same elaboratable is included multiple times in the hierarchy.
+-
+-    This exception is raised when an elaboratable object is added to a design more than once,
+-    which creates a duplicate in the hierarchy. This typically occurs when the same
+-    Module instance is added as a submodule multiple times.
+-    """
+ 
+ 
+ class Fragment:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/memory.py b/amaranth/lib/memory.py
+--- a/amaranth/lib/memory.py	2026-09-20 23:05:34
++++ b/amaranth/lib/memory.py	2026-09-20 23:08:06
+@@ -68,7 +68,7 @@
+             if granularity is None:
+                 en_width = 1
+             elif not isinstance(granularity, int) or granularity < 0:
+-                raise TypeError(f"Granularity must be a non-negative int or None, not {granularity!r}")
++                raise TypeError(f"`granularity` must be a non-negative int or None, not {granularity!r}")
+             elif not isinstance(shape, ShapeCastable):
+                 actual_shape = Shape.cast(shape)
+                 if actual_shape.signed:
+@@ -336,7 +336,9 @@
+             # Handle MemoryData.Init objects
+             if hasattr(items, '__class__') and hasattr(items, '_data'):
+                 # Check if it's a MemoryData.Init object by checking class name
+-                if hasattr(items.__class__, '__name__') and items.__class__.__name__ == 'Init':
++                if (hasattr(items.__class__, '__name__') and 
++                    items.__class__.__name__ == 'Init' and 
++                    hasattr(items, '_data')):
+                     items = items._data
+                     
+             if isinstance(shape, ShapeCastable):

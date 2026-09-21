@@ -1,0 +1,38 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:06:02
++++ b/amaranth/lib/data.py	2026-09-20 21:15:44
+@@ -189,7 +189,8 @@
+             return Const(int_value, self.size)
+         else:
+             # For scalar values, treat as a direct value
+-            return Const(init, self.size)
++            raise TypeError("Layout constant initializer must be a mapping or a sequence, not {!r}"
++                            .format(type(init).__name__))
+ 
+     def __repr__(self):
+         return f"StructLayout({self.members!r})"
+@@ -433,6 +434,13 @@
+ 
+     def __getitem__(self, key):
+         if isinstance(self.__layout, ArrayLayout):
++            if not isinstance(key, (Value, ValueCastable)):
++                # Validate that the key is a value or a value-castable object
++                try:
++                    Value.cast(key)
++                except TypeError:
++                    raise TypeError("Array layout index must be a value or a value-castable object, "
++                                    "not {!r}".format(type(key).__name__))
+             shape = self.__layout.elem_shape
+             value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+         else:
+@@ -470,8 +478,8 @@
+                 suggestion = ""
+             raise AttributeError("View of {!r} does not have a field {!r}{suggestion}"
+                                 .format(self.__target, name, suggestion=suggestion))
+-        if name.startswith("_"):
+-            raise AttributeError("View of {!r} field {!r} has a reserved name and may only be "
++        if name.startswith("_") and name in self.__layout:
++            raise AttributeError("View of {!r} field '{!r}' has a reserved name and may only be "
+                                 "accessed by indexing"
+                                 .format(self.__target, name))
+         return item

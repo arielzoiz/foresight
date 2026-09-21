@@ -1,0 +1,28 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:41:00
++++ b/yarl/_url.py	2026-09-20 17:43:38
+@@ -1624,8 +1624,14 @@
+         """
+         if not isinstance(suffix, str):
+             raise TypeError("Invalid suffix type")
+-        if suffix and not suffix[0] == "." or suffix == ".":
++        if not suffix:
+             raise ValueError(f"Invalid suffix {suffix!r}")
++        if suffix[0] != ".":
++            raise ValueError(f"Invalid suffix {suffix!r}")
++        if suffix == ".":
++            raise ValueError(f"Invalid suffix {suffix!r}")
++        if "/" in suffix:
++            raise ValueError(f"Invalid suffix {suffix!r}")
+         name = self.raw_name
+         if not name:
+             raise ValueError(f"{self!r} has an empty name")
+@@ -1633,7 +1639,7 @@
+         # Properly encode the new name with suffix
+         new_name = name + suffix if not old_suffix else name[: -len(old_suffix)] + suffix
+         # Ensure the new name is properly encoded before passing to with_name
+-        new_url = self.with_name(new_name)
++        new_url = self.with_name(new_name, keep_query=keep_query, keep_fragment=keep_fragment)
+         
+         # Handle query and fragment preservation
+         if keep_query:

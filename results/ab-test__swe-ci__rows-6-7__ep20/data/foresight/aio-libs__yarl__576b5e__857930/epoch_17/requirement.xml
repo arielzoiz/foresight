@@ -1,0 +1,27 @@
+<?xml version='1.0' encoding='utf-8'?>
+<requirements>
+  <requirement>
+    <location>/app/code/yarl/_url.py::_normalize_path_segments</location>
+    <description>The current implementation of _normalize_path_segments function in _url.py does not correctly handle RFC 3986 path normalization for edge cases involving absolute paths and '..' segments. The logic incorrectly manages the stack-based normalization process, particularly when dealing with paths that start with '/' and contain '../' sequences that should navigate up the directory tree but remain within the absolute path structure.</description>
+    <contract>The function must properly implement RFC 3986 Section 5.2.4 path normalization rules. For absolute paths, when processing '../', it should remove the previous segment if it exists and is not '..', but not remove the root segment. For relative paths, '../' should remove the previous segment if it exists. The function should correctly handle cases like '/foo/../../../ton' and '/foo/../../../..bar'.</contract>
+    <acceptance>tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar] tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton] tests/test_normalize_path.py::test_normalize_path[///-///] tests/test_normalize_path.py::test_normalize_path[//-//]</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/yarl/_url.py::_normalize_path</location>
+    <description>The _normalize_path method in _url.py has incorrect logic for handling paths that should result in root ('/') when normalized. Specifically, when an absolute path is normalized to empty segments, it should return '/' rather than an empty string.</description>
+    <contract>The method must ensure that absolute paths that normalize to empty segments return '/' instead of ''. This applies to cases like '/..' or '/../../..' where normalization removes all segments but the path is absolute.</contract>
+    <acceptance>tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar] tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton] tests/test_normalize_path.py::test_normalize_path[///-///] tests/test_normalize_path.py::test_normalize_path[//-//]</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/yarl/_url.py::cache_configure</location>
+    <description>The cache_configure function in _url.py does not properly handle deprecated parameters and should issue deprecation warnings when ip_address_size or host_validate_size parameters are used. The current implementation doesn't correctly warn about deprecated parameters and their replacement behavior.</description>
+    <contract>The function must issue DeprecationWarning when ip_address_size or host_validate_size are provided, and use their values to set encode_host_size when encode_host_size is None. It should maintain backward compatibility while warning users about upcoming removal.</contract>
+    <acceptance>tests/test_cache.py::test_cache_configure_None_including_deprecated tests/test_cache.py::test_cache_configure_None_only_deprecated tests/test_cache.py::test_cache_configure_waring</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/yarl/_url.py::URL.__setstate__</location>
+    <description>The URL class's __setstate__ method does not properly handle cases where URL objects are created via object.__new__ and then populated with state. This affects pickle functionality and cache management during deserialization.</description>
+    <contract>The __setstate__ method must correctly initialize internal state including cache attributes to prevent issues with hash computation and cache pollution during pickle/unpickle operations.</contract>
+    <acceptance>tests/test_pickle.py::test_default_style_state tests/test_pickle.py::test_empty_url_is_not_cached tests/test_pickle.py::test_pickle_does_not_pollute_cache</acceptance>
+  </requirement>
+</requirements>

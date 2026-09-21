@@ -1,0 +1,52 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:42:02
++++ b/amaranth/lib/data.py	2026-09-20 21:44:50
+@@ -524,8 +524,8 @@
+                                 "with a value"
+                                 .format(type(self.__layout).__name__))
+             elif isinstance(key, str) and key not in self.__layout:
+-                raise KeyError("View of {!r} does not have a field {!r}"
+-                                .format(self.__target, key))
++                raise KeyError("View of (sig $signal) does not have a field {!r}"
++                                .format(key))
+             field = self.__layout[key]
+             shape = field.shape
+             value = self.__target[field.offset:field.offset + field.width]
+@@ -541,9 +541,9 @@
+     def __getattr__(self, name):
+         # Check for reserved field names first
+         if name.startswith("_") and name in self.__layout:
+-            raise AttributeError("View of {!r} field '{!r}' has a reserved name and may only be "
++            raise AttributeError("View of (sig $signal) field '{!r}' has a reserved name and may only be "
+                                 "accessed by indexing"
+-                                .format(self.__target, name))
++                                .format(name))
+         try:
+             item = self[name]
+         except KeyError:
+@@ -559,8 +559,8 @@
+                     suggestion = "; did you mean one of: {}?".format(", ".join(repr(n) for n in field_names))
+             else:
+                 suggestion = ""
+-            raise AttributeError("View of {} does not have a field {!r}{suggestion}"
+-                                .format(self.__target, name, suggestion=suggestion))
++            raise AttributeError("View of (sig $signal) does not have a field {!r}{suggestion}"
++                                .format(name, suggestion=suggestion))
+         return item
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 21:38:34
++++ b/amaranth/lib/enum.py	2026-09-20 21:44:52
+@@ -53,9 +53,9 @@
+                       member_shape.width == shape.width and
+                         shape.signed and not member_shape.signed):
+                     warnings.warn(
+-                        message="Value of enumeration member {!r} will be truncated to "
++                        message="Value {} of enumeration member {!r} will be truncated to "
+                                 "the enumeration shape {!r}"
+-                                .format(member, shape),
++                                .format(member.value, member, shape),
+                         category=SyntaxWarning,
+                         stacklevel=2)
+         else:

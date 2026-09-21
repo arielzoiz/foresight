@@ -1,0 +1,52 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/__init__.py b/yarl/__init__.py
+--- a/yarl/__init__.py	2026-09-20 17:19:40
++++ b/yarl/__init__.py	2026-09-20 17:24:32
+@@ -6,6 +6,7 @@
+     cache_clear,
+     cache_configure,
+     cache_info,
++    normalize_path,
+ )
+ 
+ __version__ = "1.15.3.dev0"
+@@ -18,4 +19,5 @@
+     "cache_clear",
+     "cache_configure",
+     "cache_info",
++    "normalize_path",
+ )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:23:36
++++ b/yarl/_url.py	2026-09-20 17:24:32
+@@ -156,6 +156,31 @@
+ 
+ 
+ @rewrite_module
++def normalize_path(path: str) -> str:
++    """Normalize a path according to RFC 3986 rules.
++    
++    Drop '.' and '..' from path segments appropriately, handle absolute paths correctly,
++    and support Unicode characters.
++    
++    Args:
++        path: The path to normalize
++        
++    Returns:
++        The normalized path
++    """
++    # Drop '.' and '..' from str path
++    prefix = ""
++    if path and path[0] == "/":
++        # preserve the "/" root element of absolute paths, copying it to the
++        # normalised output as per sections 5.2.4 and 6.2.2.3 of rfc3986.
++        prefix = "/"
++        path = path[1:]
++
++    segments = path.split("/")
++    return prefix + "/".join(_normalize_path_segments(segments))
++
++
++@rewrite_module
+ class URL:
+     # Don't derive from str
+     # follow pathlib.Path design

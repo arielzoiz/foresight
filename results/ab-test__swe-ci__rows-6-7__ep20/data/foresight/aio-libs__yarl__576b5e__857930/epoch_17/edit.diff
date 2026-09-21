@@ -1,0 +1,64 @@
+Binary files a/.coverage and b/.coverage differ
+Binary files a/.coverage.7873e4b594e1.pid542.X45CWFNx.HkgE65t18F6h and b/.coverage.7873e4b594e1.pid542.X45CWFNx.HkgE65t18F6h differ
+Binary files a/.coverage.7873e4b594e1.pid545.XuDKYb6x.HO0eBQ5BM61h and b/.coverage.7873e4b594e1.pid545.XuDKYb6x.HO0eBQ5BM61h differ
+Binary files a/.coverage.7873e4b594e1.pid548.XFQCGXpx.HILI3VwttdMh and b/.coverage.7873e4b594e1.pid548.XFQCGXpx.HILI3VwttdMh differ
+Binary files a/.coverage.7873e4b594e1.pid551.XpvF957x.HP1q2Af9O0Gh and b/.coverage.7873e4b594e1.pid551.XpvF957x.HP1q2Af9O0Gh differ
+Binary files a/.coverage.7873e4b594e1.pid554.X5KmrXlx.HTKXPE7WPK3h and b/.coverage.7873e4b594e1.pid554.X5KmrXlx.HTKXPE7WPK3h differ
+Binary files a/.coverage.7873e4b594e1.pid557.XcVKFVMx.HwN7urEw5k3h and b/.coverage.7873e4b594e1.pid557.XcVKFVMx.HwN7urEw5k3h differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 19:20:42
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 19:24:14
+@@ -3,5 +3,13 @@
+   "tests/test_cache.py::test_cache_configure_None_including_deprecated": true,
+   "tests/test_cache.py::test_cache_configure_None_only_deprecated": true,
+   "tests/test_cache.py::test_cache_configure_waring": true,
+-  "tests/test_url.py::test_ipv4_brackets_not_allowed": true
++  "tests/test_url.py::test_ipv4_brackets_not_allowed": true,
++  "tests/test_normalize_path.py::test_normalize_path[//-//]": true,
++  "tests/test_normalize_path.py::test_normalize_path[../path/to-path/to]": true,
++  "tests/test_normalize_path.py::test_normalize_path[path/../../to-to]": true,
++  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07-\\u03bd\\u03b1/\\u1d1c\\u0274\\u026a/\\u1d04\\u1d0f\\u1d05\\u1d07]": true,
++  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../ton-/ton]": true,
++  "tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/]": true,
++  "tests/test_normalize_path.py::test_normalize_path[///-///]": true,
++  "tests/test_normalize_path.py::test_normalize_path[/foo/../../../..bar-/..bar]": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_path.py b/yarl/_path.py
+--- a/yarl/_path.py	2026-09-20 19:15:46
++++ b/yarl/_path.py	2026-09-20 19:23:42
+@@ -22,8 +22,13 @@
+         # Append an empty string to represent the directory
+         normalized_segments.append("")
+         
++    # Build the result string
++    if not normalized_segments:
++        # Empty result case
++        if is_absolute:
++            return "/"
++        else:
++            return ""
++            
+     result = prefix + "/".join(normalized_segments)
+-    # Ensure that an empty result for absolute paths becomes "/"
+-    if is_absolute and result == "/":
+-        return "/"
+     return result
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 19:20:54
++++ b/yarl/_url.py	2026-09-20 19:24:02
+@@ -144,10 +144,10 @@
+             # If the last segment in the stack is not "..", remove it (go up one directory)
+             # If the last segment is ".." or the stack is empty, add ".." 
+             if normalized and normalized[-1] != "..":
+-                # If we're at the root of an absolute path (represented by empty string at start),
+-                # we can't go up. For relative paths, we can always go up.
++                # Remove the previous segment (go up one directory)
++                # For absolute paths, we can't go above the root (represented by empty string)
++                # For relative paths, we can always go up
+                 if not is_absolute or normalized[-1] != "":
+-                    # Remove the previous segment (go up one directory)
+                     normalized.pop()
+                 else:
+                     # At root for absolute path, can't go up, keep the ".."

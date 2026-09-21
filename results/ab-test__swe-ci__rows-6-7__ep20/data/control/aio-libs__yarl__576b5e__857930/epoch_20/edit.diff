@@ -1,0 +1,78 @@
+Binary files a/.coverage and b/.coverage differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:06:44
++++ b/yarl/_url.py	2026-09-20 18:08:38
+@@ -1001,9 +1001,16 @@
+         """
+         path = self._val.path
+         if self._val.netloc:
+-            return ("/", *path[1:].split("/")) if path else ("/",)
++            if path:
++                # For absolute paths, split properly and handle empty segments
++                segments = path[1:].split("/") if path[1:] else []
++                return ("/", *segments) if segments else ("/",)
++            else:
++                return ("/",)
+         if path and path[0] == "/":
+-            return ("/", *path[1:].split("/"))
++            # For relative paths starting with slash, split properly
++            segments = path[1:].split("/") if path[1:] else []
++            return ("/", *segments) if segments else ("/",)
+         return tuple(path.split("/"))
+ 
+     @cached_property
+@@ -1035,12 +1042,14 @@
+         """The last part of raw_parts."""
+         parts = self.raw_parts
+         if self._val.netloc:
++            # For absolute URLs, skip the first element which is "/"
+             parts = parts[1:]
+             if not parts:
+                 return ""
+             else:
+                 return parts[-1]
+         else:
++            # For relative URLs, return the last part directly
+             return parts[-1]
+ 
+     @cached_property
+@@ -1732,29 +1741,30 @@
+                 # but handle gracefully
+                 parts = ["/", new_name]
+             else:
+-                # Normal case - replace last part
++                # Normal case - replace last part (the actual filename)
+                 parts[-1] = new_name
+             # Reconstruct path properly
++            # Build the path correctly to avoid double slashes
+             if len(parts) > 1 and parts[0] == "/":
+                 # For absolute paths, join with leading slash properly
+-                new_path = "/".join(parts)
+-                # Ensure no double slash at beginning
+-                if new_path.startswith("//"):
+-                    new_path = new_path[1:]
++                # We want to join all parts except the first "/" to avoid double slashes
++                new_path = "/" + "/".join(parts[1:])
+             else:
+                 new_path = "/".join(parts)
+         else:
+-            # For relative URLs, we need to handle the special case where
+-            # the path starts with a slash, which creates an extra empty element in raw_parts
++            # For relative URLs, we need to handle the case where path starts with slash
++            # This is the key fix - we need to ensure we don't get an extra empty element
+             if len(parts) > 0 and parts[0] == "/":
+                 # This is a relative path starting with slash, e.g. "/a" -> raw_parts = ("/", "a")
+                 # Replace the last part (which is the actual name)
+                 parts[-1] = new_name
++                # Rebuild path correctly
++                new_path = "/" + "/".join(parts[1:])
+             else:
+                 # Regular relative path, e.g. "a" or "a/b"
+                 parts[-1] = new_name
+-            # Join normally
+-            new_path = "/".join(parts)
++                # Join normally
++                new_path = "/".join(parts)
+         
+         # Create new URL with updated path
+         new_val = self._val._replace(path=new_path)

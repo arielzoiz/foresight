@@ -1,0 +1,62 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 20:18:08
++++ b/amaranth/lib/data.py	2026-09-20 20:22:32
+@@ -249,9 +249,7 @@
+             int_value |= (key_value.value << field.offset) & mask
+         return View(self, Const(int_value, self.as_shape()))
+ 
+-    def __int__(self):
+-        """Convert layout to integer (size of the layout)."""
+-        return self.size
++
+ 
+     def _value_repr(self, value):
+         yield Repr(FormatInt(), value)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 18:38:24
++++ b/amaranth/lib/enum.py	2026-09-20 20:22:42
+@@ -173,6 +173,21 @@
+             member = cls(init)
+         return cls(Const(member.value, cls.as_shape()))
+ 
++    def from_bits(cls, bits):
++        """Create an enum instance from a bit representation.
++        
++        Parameters
++        ----------
++        bits : int
++            Bit representation to convert to an enum instance.
++            
++        Returns
++        -------
++        Enum instance
++            An enum instance with the specified bit representation.
++        """
++        return cls(bits)
++
+     def _value_repr(cls, value):
+         yield Repr(FormatEnum(cls), value)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/memory.py b/amaranth/lib/memory.py
+--- a/amaranth/lib/memory.py	2026-09-20 18:38:24
++++ b/amaranth/lib/memory.py	2026-09-20 20:22:40
+@@ -141,6 +141,9 @@
+         self.__dict__.update(signature.members.create())
+         if memory is not None:
+             memory._w_ports.append(self)
++        # Ensure memory attribute is accessible
++        if memory is not None:
++            self.memory = memory
+ 
+     @property
+     def signature(self):
+@@ -257,6 +260,9 @@
+             self.en = Const(1)
+         if memory is not None:
+             memory._r_ports.append(self)
++        # Ensure memory attribute is accessible
++        if memory is not None:
++            self.memory = memory
+ 
+     @property
+     def signature(self):

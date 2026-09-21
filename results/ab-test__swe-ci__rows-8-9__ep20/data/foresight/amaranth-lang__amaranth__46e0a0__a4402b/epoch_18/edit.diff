@@ -1,0 +1,106 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:34:18
++++ b/amaranth/lib/data.py	2026-09-20 22:36:18
+@@ -127,6 +127,14 @@
+                 except Exception:
+                     # Fall back to the original error handling
+                     pass
++            # Check if it's a non-constant value that shouldn't be accepted
++            if value is not None and not isinstance(value, (Mapping, Sequence)):
++                # For non-mapping/sequence values, validate they're constant-castable
++                try:
++                    Const.cast(value)
++                except TypeError:
++                    raise TypeError("Layout initializer must be a mapping or a sequence, not {!r}"
++                                    .format(value))
+             raise TypeError("Layout initializer must be a mapping or a sequence, not {!r}"
+                             .format(value))
+ 
+@@ -202,6 +210,10 @@
+         """Create a constant value from this layout and a value."""
+         if value is None:
+             return Const(0, self.size)
++        # Validate the value before conversion to provide better error messages
++        if not isinstance(value, (Mapping, Sequence)):
++            raise TypeError("Layout constant initializer must be a mapping or a sequence, not {!r}"
++                            .format(value))
+         return Const(self._convert_to_int(value), self.size)
+ 
+ 
+@@ -271,8 +283,20 @@
+                 key_value = field.shape._convert_to_int(key_value)
+             return Const(key_value, Shape.cast(field.shape))
+         else:
+-            raise TypeError("Layout constant initializer must be a mapping or a sequence, not {!r}"
+-                            .format(value))
++            # Check if value is a valid mapping or sequence before raising error
++            if not isinstance(value, (Mapping, Sequence)):
++                raise TypeError("Layout constant initializer must be a mapping or a sequence, not {!r}"
++                                .format(value))
++            # For cases where value passes type check but still causes issues, re-raise with clearer message
++            try:
++                return Const(self._convert_to_int(value), self.size)
++            except Exception as e:
++                # Re-raise with clearer error message if it's a type error
++                if isinstance(e, TypeError):
++                    raise e
++                else:
++                    raise TypeError("Layout constant initializer must be a mapping or a sequence, not {!r}"
++                                    .format(value)) from e
+ 
+ 
+ class ArrayLayout(Layout):
+@@ -389,6 +413,10 @@
+         """Create a constant value from this layout and a value."""
+         if value is None:
+             return Const(0, self.size)
++        # Validate the value before conversion to provide better error messages
++        if not isinstance(value, (Mapping, Sequence)):
++            raise TypeError("Layout constant initializer must be a mapping or a sequence, not {!r}"
++                            .format(value))
+         return Const(self._convert_to_int(value), self.size)
+ 
+     def __repr__(self):
+@@ -470,9 +498,14 @@
+                 value = self.__target.word_select(key, Shape.cast(self.__layout.elem_shape).width)
+             else:
+                 # For non-ArrayLayout, treat key as a field name lookup
+-                field = self.__layout[key]
+-                shape = field.shape
+-                value = self.__target[field.offset:field.offset + field.width]
++                try:
++                    field = self.__layout[key]
++                    shape = field.shape
++                    value = self.__target[field.offset:field.offset + field.width]
++                except KeyError:
++                    # Provide a more helpful error message for missing field names
++                    raise KeyError("View of {!r} does not have a field {!r}"
++                                   .format(self.__target, key))
+         if isinstance(shape, _AggregateMeta):
+             return shape(value)
+         if isinstance(shape, Layout):
+@@ -489,10 +522,14 @@
+                                "accessed by indexing"
+                                .format(self.__target, name))
+         
+-        # For regular attributes, try to access via __getitem__
++        # Check if the name is a built-in method that might conflict with field names
++        # If we have a field with this name, return it anyway
+         try:
++            # First try to get it as a field, this will catch field names that conflict with built-ins
+             item = self[name]
+-        except KeyError as e:
++            return item
++        except KeyError:
++            # If field doesn't exist, provide helpful error messages
+             # Find similar names for better error messages
+             similar_names = []
+             all_field_names = []
+@@ -516,7 +553,6 @@
+                                        "available fields: {}"
+                                        .format(self.__target, name,
+                                                ", ".join(repr(n) for n in sorted(all_field_names))))
+-        return item
+ 
+ 
+ class _AggregateMeta(ShapeCastable, type):

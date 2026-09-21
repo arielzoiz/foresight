@@ -1,0 +1,79 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 18:22:10
++++ b/amaranth/hdl/_ast.py	2026-09-20 18:23:44
+@@ -2975,6 +2975,16 @@
+     def _rhs_signals(self):
+         return self.value._rhs_signals()
+ 
++    def __len__(self):
++        return self.stop - self.start
++
++    def __int__(self):
++        """Convert IOSlice to integer.
++        
++        IOSlice objects return their width when converted to integer.
++        """
++        return self.stop - self.start
++
+     def _ioports(self):
+         """Get I/O ports.
+         
+@@ -3110,6 +3120,13 @@
+         return self
+ 
+     def __len__(self):
++        return self.width
++
++    def __int__(self):
++        """Convert IOPort to integer.
++        
++        IOPort objects return their width when converted to integer.
++        """
+         return self.width
+ 
+     def __getitem__(self, key):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 17:51:54
++++ b/amaranth/lib/data.py	2026-09-20 18:23:36
+@@ -97,12 +97,9 @@
+     def __int__(self):
+         """Convert layout to integer.
+         
+-        Layout objects cannot be converted to integers and will raise TypeError.
++        Layout objects return their size when converted to integer.
+         """
+-        # This method exists to satisfy some code paths that expect integer conversion,
+-        # but raises TypeError to indicate that conversion is not meaningful.
+-        # In practice, this should not be called for meaningful conversions.
+-        raise TypeError(f"cannot convert {self.__class__.__name__} to int")
++        return self.size
+ 
+     @staticmethod
+     def cast(obj):
+@@ -758,15 +755,20 @@
+         try:
+             item = self[name]
+         except KeyError:
++            # Check if this is a reserved name that shadows an attribute
++            if hasattr(type(self), name):
++                raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
++                                      "the view attribute '{}.{}.{}'"
++                                      .format(name, type(self).__module__, type(self).__qualname__, name))
+             raise AttributeError("View with layout {!r} does not have a field {!r}; "
+-                                 "did you mean one of: {}?"
+-                                 .format(self.__layout, name,
+-                                         ", ".join(repr(name)
+-                                                   for name, field in self.__layout)))
++                                  "did you mean one of: {}?"
++                                  .format(self.__layout, name,
++                                          ", ".join(repr(name)
++                                                    for name, field in self.__layout)))
+         if name.startswith("_"):
+             raise AttributeError("Field {!r} of view with layout {!r} has a reserved name and may only be "
+-                                 "accessed by indexing"
+-                                 .format(name, self.__layout))
++                                  "accessed by indexing"
++                                  .format(name, self.__layout))
+         return item
+ 
+     def __eq__(self, other):

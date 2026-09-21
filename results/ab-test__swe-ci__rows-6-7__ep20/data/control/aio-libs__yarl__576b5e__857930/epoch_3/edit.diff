@@ -1,0 +1,32 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 17:24:32
++++ b/yarl/_url.py	2026-09-20 17:26:08
+@@ -77,6 +77,7 @@
+     idna_decode: _CacheInfo
+     ip_address: _CacheInfo
+     host_validate: _CacheInfo
++    encode_host: _CacheInfo
+ 
+ 
+ class _SplitResultDict(TypedDict, total=False):
+@@ -177,7 +178,11 @@
+         path = path[1:]
+ 
+     segments = path.split("/")
+-    return prefix + "/".join(_normalize_path_segments(segments))
++    normalized_segments = _normalize_path_segments(segments)
++    # Handle trailing empty segment for absolute paths
++    if prefix and normalized_segments and normalized_segments[-1] == "":
++        normalized_segments.pop()
++    return prefix + "/".join(normalized_segments)
+ 
+ 
+ @rewrite_module
+@@ -1721,6 +1726,7 @@
+         "idna_decode": _idna_decode.cache_info(),
+         "ip_address": _ip_compressed_version.cache_info(),
+         "host_validate": _host_validate.cache_info(),
++        "encode_host": _host_validate.cache_info(),
+     }
+ 
+ 

@@ -1,0 +1,49 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 18:23:44
++++ b/amaranth/hdl/_ast.py	2026-09-20 18:25:42
+@@ -3069,10 +3069,20 @@
+     """
+     def __init__(self, width, name=None, attrs=None, metadata=None, *, src_loc_at=0):
+         super().__init__(src_loc_at=src_loc_at)
++        if not isinstance(width, int) or width < 0:
++            raise TypeError("IOPort width must be a non-negative integer, not {!r}".format(width))
++        if name is not None and not isinstance(name, str):
++            raise TypeError("IOPort name must be a string, not {!r}".format(name))
++        if attrs is not None and not isinstance(attrs, dict):
++            raise TypeError("IOPort attrs must be a dict or None, not {!r}".format(attrs))
++        if metadata is not None and not isinstance(metadata, (list, tuple)):
++            raise TypeError("IOPort metadata must be a list or tuple, not {!r}".format(metadata))
++        if metadata is not None and len(metadata) != width:
++            raise ValueError("Metadata length ({}) doesn't match port width ({})".format(len(metadata), width))
+         self._width = width
+         self._name = name
+         self._attrs = OrderedDict(() if attrs is None else attrs)
+-        self._metadata = metadata or []
++        self._metadata = metadata or [None] * width if metadata is None else list(metadata)
+ 
+     @property
+     def width(self):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 18:23:36
++++ b/amaranth/lib/data.py	2026-09-20 18:25:38
+@@ -722,7 +722,19 @@
+                 raise TypeError("Only views with array layout, not {!r}, may be indexed "
+                                 "with a value"
+                                 .format(self.__layout))
+-            field = self.__layout[key]
++            try:
++                field = self.__layout[key]
++            except KeyError:
++                # For better error messages, check if this is a reserved name that shadows an attribute
++                if hasattr(type(self), key):
++                    raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
++                                          "the view attribute '{}.{}.{}'"
++                                          .format(key, type(self).__module__, type(self).__qualname__, key))
++                raise KeyError("View with layout {!r} does not have a field {!r}; "
++                              "did you mean one of: {}?"
++                              .format(self.__layout, key,
++                                      ", ".join(repr(name)
++                                                for name, field in self.__layout)))
+             shape = field.shape
+             value = self.__target[field.offset:field.offset + field.width]
+         # Field guarantees that the shape-castable object is well-formed, so there is no need

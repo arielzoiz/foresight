@@ -1,0 +1,79 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/ast.py b/amaranth/hdl/ast.py
+--- a/amaranth/hdl/ast.py	2026-09-20 22:10:56
++++ b/amaranth/hdl/ast.py	2026-09-20 22:26:44
+@@ -1011,8 +1011,22 @@
+         try:
+             reset = Const.cast(reset)
+         except TypeError as e:
+-            raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+-                            .format(orig_reset)) from e
++            # For ShapeCastable objects that have custom const methods, try to use their const method
++            if isinstance(orig_reset, ShapeCastable) and hasattr(orig_reset, 'const'):
++                try:
++                    # Try to get a constant value from the ShapeCastable's const method
++                    const_value = orig_reset.const(orig_reset)
++                    # Convert the result to a Const object
++                    if isinstance(const_value, Const):
++                        reset = const_value
++                    else:
++                        reset = Const(const_value, Shape.cast(orig_reset))
++                except (TypeError, ValueError) as e2:
++                    raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                    .format(orig_reset)) from e2
++            else:
++                raise TypeError("Reset value must be a constant-castable expression, not {!r}"
++                                .format(orig_reset)) from e
+         if orig_reset not in (0, -1): # Avoid false positives for all-zeroes and all-ones
+             if reset.shape().signed and not self.signed:
+                 warnings.warn(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 22:24:26
++++ b/amaranth/lib/data.py	2026-09-20 22:26:24
+@@ -129,7 +129,11 @@
+                     # If it's not a mapping or sequence, treat as a scalar value
+                     key_value = key_value
+             try:
+-                const_value = Const(key_value, Shape.cast(field.shape))
++                # Handle ShapeCastable objects that have custom const methods
++                if isinstance(field.shape, ShapeCastable) and hasattr(field.shape, 'const'):
++                    const_value = field.shape.const(key_value)
++                else:
++                    const_value = Const(key_value, Shape.cast(field.shape))
+                 int_value |= const_value.value << field.offset
+             except TypeError as e:
+                 raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/enum.py b/amaranth/lib/enum.py
+--- a/amaranth/lib/enum.py	2026-09-20 22:08:12
++++ b/amaranth/lib/enum.py	2026-09-20 22:26:40
+@@ -1,7 +1,7 @@
+ import enum as py_enum
+ import warnings
+ 
+-from ..hdl.ast import Shape, ShapeCastable, Const
++from ..hdl.ast import Shape, ShapeCastable, Const, Value
+ 
+ 
+ __all__ = py_enum.__all__
+@@ -115,6 +115,22 @@
+         else:
+             # Otherwise, treat as an integer value
+             return Const(value, cls.as_shape())
++
++    def __eq__(cls, other):
++        # Handle comparisons that result in Amaranth Value operations
++        # This prevents attempting to convert Value objects to Python booleans
++        if isinstance(other, Value):
++            # Return a Value that represents the comparison, not a Python bool
++            return super().__eq__(other)
++        return super().__eq__(other)
++
++    def __ne__(cls, other):
++        # Handle comparisons that result in Amaranth Value operations
++        # This prevents attempting to convert Value objects to Python booleans
++        if isinstance(other, Value):
++            # Return a Value that represents the comparison, not a Python bool
++            return super().__ne__(other)
++        return super().__ne__(other)
+ 
+ 
+ class Enum(py_enum.Enum, metaclass=EnumMeta):

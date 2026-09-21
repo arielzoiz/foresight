@@ -1,0 +1,118 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 18:32:02
++++ b/amaranth/hdl/_ast.py	2026-09-20 18:34:08
+@@ -3069,24 +3069,22 @@
+     """
+     def __init__(self, width, name=None, attrs=None, metadata=None, *, src_loc_at=0):
+         super().__init__(src_loc_at=src_loc_at)
+-        try:
+-            if not isinstance(width, int) or width < 0:
+-                raise TypeError("IOPort width must be a non-negative integer, not {!r}".format(width))
+-            if name is not None and not isinstance(name, str):
+-                raise TypeError("IOPort name must be a string, not {!r}".format(name))
+-            if attrs is not None and not isinstance(attrs, dict):
+-                raise TypeError("IOPort attrs must be a dict or None, not {!r}".format(attrs))
+-            if metadata is not None and not isinstance(metadata, (list, tuple)):
+-                raise TypeError("IOPort metadata must be a list or tuple, not {!r}".format(metadata))
+-            if metadata is not None and len(metadata) != width:
+-                raise ValueError("Metadata length ({}) doesn't match port width ({})".format(len(metadata), width))
+-            self._width = width
+-            self._name = name
+-            self._attrs = OrderedDict(() if attrs is None else attrs)
+-            self._metadata = metadata or [None] * width if metadata is None else list(metadata)
+-        except Exception as e:
+-            # Re-raise with more context
+-            raise TypeError("Failed to initialize IOPort: {}".format(e)) from e
++        # Validate inputs first
++        if not isinstance(width, int) or width < 0:
++            raise TypeError("IOPort width must be a non-negative integer, not {!r}".format(width))
++        if name is not None and not isinstance(name, str):
++            raise TypeError("IOPort name must be a string, not {!r}".format(name))
++        if attrs is not None and not isinstance(attrs, dict):
++            raise TypeError("IOPort attrs must be a dict or None, not {!r}".format(attrs))
++        if metadata is not None and not isinstance(metadata, (list, tuple)):
++            raise TypeError("IOPort metadata must be a list or tuple, not {!r}".format(metadata))
++        if metadata is not None and len(metadata) != width:
++            raise ValueError("Metadata length ({}) doesn't match port width ({})".format(len(metadata), width))
++        
++        self._width = width
++        self._name = name
++        self._attrs = OrderedDict(() if attrs is None else attrs)
++        self._metadata = metadata or [None] * width if metadata is None else list(metadata)
+ 
+     @staticmethod
+     def cast(obj):
+@@ -3185,6 +3183,9 @@
+                 # Handle step != 1 case by creating a Cat of slices
+                 parts = [self[i] for i in range(start, stop, step)]
+                 return Cat(*parts)
++            # Validate slice indices
++            if not isinstance(start, int) or not isinstance(stop, int):
++                raise TypeError("Slice indices must be integers, not {!r}".format(type(start).__name__))
+             return IOSlice(self, start, stop)
+         else:
+             raise TypeError(f"Cannot index IOPort with {key!r}")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 18:32:14
++++ b/amaranth/lib/data.py	2026-09-20 18:33:58
+@@ -120,12 +120,14 @@
+         RecursionError
+             If ``obj.as_shape()`` returns ``obj``.
+         """
++        if isinstance(obj, Layout):
++            return obj
+         while isinstance(obj, ShapeCastable):
+-            if isinstance(obj, Layout):
+-                return obj
+             new_obj = obj.as_shape()
+             if new_obj is obj:
+                 break
++            if isinstance(new_obj, Layout):
++                return new_obj
+             obj = new_obj
+         # Handle the case where Shape.cast raises TypeError
+         try:
+@@ -740,11 +742,16 @@
+                         raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
+                                               "the view attribute '{}.{}.{}'"
+                                               .format(key, type(self).__module__, type(self).__qualname__, key))
+-                    raise KeyError("View with layout {!r} does not have a field {!r}; "
+-                                  "did you mean one of: {}?"
+-                                  .format(self.__layout, key,
+-                                          ", ".join(repr(name)
+-                                                    for name, field in self.__layout)))
++                    # More specific error message format matching tests
++                    field_names = [name for name, _ in self.__layout]
++                    if field_names:
++                        suggestions = ", ".join(repr(name) for name in field_names)
++                        raise KeyError("View with layout {!r} does not have a field {!r}; "
++                                      "did you mean one of: {}?"
++                                      .format(self.__layout, key, suggestions))
++                    else:
++                        raise KeyError("View with layout {!r} does not have a field {!r}"
++                                      .format(self.__layout, key))
+                 shape = field.shape
+                 value = self.__target[field.offset:field.offset + field.width]
+             # Field guarantees that the shape-castable object is well-formed, so there is no need
+@@ -786,11 +793,16 @@
+                     raise AttributeError("Layout of a view includes a field {!r} that will be shadowed by "
+                                           "the view attribute '{}.{}.{}'"
+                                           .format(name, type(self).__module__, type(self).__qualname__, name))
+-                raise AttributeError("View with layout {!r} does not have a field {!r}; "
+-                                      "did you mean one of: {}?"
+-                                      .format(self.__layout, name,
+-                                              ", ".join(repr(name)
+-                                                        for name, field in self.__layout)))
++                # More specific error message format matching tests
++                field_names = [name for name, _ in self.__layout]
++                if field_names:
++                    suggestions = ", ".join(repr(name) for name in field_names)
++                    raise AttributeError("View with layout {!r} does not have a field {!r}; "
++                                          "did you mean one of: {}?"
++                                          .format(self.__layout, name, suggestions))
++                else:
++                    raise AttributeError("View with layout {!r} does not have a field {!r}"
++                                          .format(self.__layout, name))
+             if name.startswith("_"):
+                 raise AttributeError("Field {!r} of view with layout {!r} has a reserved name and may only be "
+                                       "accessed by indexing"

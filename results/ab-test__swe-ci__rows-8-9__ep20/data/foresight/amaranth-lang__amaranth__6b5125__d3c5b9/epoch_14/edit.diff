@@ -1,0 +1,51 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 23:02:40
++++ b/amaranth/hdl/_ast.py	2026-09-20 23:10:20
+@@ -2413,7 +2413,13 @@
+                     self._parse_format_spec(format_spec, obj.shape())
+                     chunks.append((obj, format_spec))
+                 elif isinstance(obj, ValueCastable):
+-                    raise TypeError("'ValueCastable' formatting is not supported")
++                    # Allow ValueCastable objects to be formatted by converting them to values
++                    obj = Value.cast(obj)
++                    format_spec = subformat(format_spec)
++                    if isinstance(obj, Value):
++                        # Perform validation.
++                        self._parse_format_spec(format_spec, obj.shape())
++                        chunks.append((obj, format_spec))
+                 elif isinstance(obj, Format):
+                     if format_spec != "":
+                         raise ValueError(f"Format specifiers ({format_spec!r}) cannot be used for 'Format' objects")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/memory.py b/amaranth/lib/memory.py
+--- a/amaranth/lib/memory.py	2026-09-20 23:08:06
++++ b/amaranth/lib/memory.py	2026-09-20 23:10:10
+@@ -318,9 +318,9 @@
+ 
+     class Init(MutableSequence):
+         """Initial data of a :class:`Memory`.
+-
++        
+         This is a container implementing the ``MutableSequence`` protocol, enforcing two constraints:
+-
++        
+         - the length is immutable and must equal ``depth``
+         - if ``shape`` is a :class:`ShapeCastable`, each element can be cast to ``shape`` via :py:`shape.const()`
+         - otherwise, each element is an :py:`int`
+@@ -334,13 +334,10 @@
+             self._depth = depth
+             
+             # Handle MemoryData.Init objects
+-            if hasattr(items, '__class__') and hasattr(items, '_data'):
+-                # Check if it's a MemoryData.Init object by checking class name
+-                if (hasattr(items.__class__, '__name__') and 
+-                    items.__class__.__name__ == 'Init' and 
+-                    hasattr(items, '_data')):
+-                    items = items._data
+-                    
++            from . import data
++            if isinstance(items, data.MemoryData.Init):
++                items = items._data
++                
+             if isinstance(shape, ShapeCastable):
+                 self._items = [None] * depth
+                 default = Const.cast(shape.const(None)).value

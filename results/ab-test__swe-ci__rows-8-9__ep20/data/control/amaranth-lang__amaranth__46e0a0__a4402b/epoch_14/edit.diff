@@ -1,0 +1,105 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/ast.py b/amaranth/hdl/ast.py
+--- a/amaranth/hdl/ast.py	2026-09-20 21:28:16
++++ b/amaranth/hdl/ast.py	2026-09-20 21:33:50
+@@ -1035,6 +1035,7 @@
+                         reset_val = Const.cast(const_result)
+                         reset = reset_val
+                     except Exception:
++                        # Re-raise the original TypeError for better error messages
+                         raise TypeError("Reset value must be a constant-castable expression, not {!r}"
+                                         .format(orig_reset))
+                 else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/lib/data.py b/amaranth/lib/data.py
+--- a/amaranth/lib/data.py	2026-09-20 21:31:36
++++ b/amaranth/lib/data.py	2026-09-20 21:34:08
+@@ -397,15 +397,14 @@
+             if (name is not None or reset is not None or reset_less is not None or
+                     attrs is not None or decoder is not None):
+                 raise ValueError("View target cannot be provided at the same time as any of "
+-                                   "the Signal constructor arguments (name, reset, reset_less, "
+-                                   "attrs, decoder)")
++                                    "the Signal constructor arguments (name, reset, reset_less, "
++                                    "attrs, decoder)")
+             try:
+                 cast_target = Value.cast(target)
+             except TypeError as e:
+                 raise TypeError("View target must be a value-castable object, not {!r}"
+                                 .format(target)) from e
+-            # Validate that the target is actually a data view (has a layout)
+-            # Allow Signals as valid targets since they are ValueCastable
++            # Allow Signals and Views as valid targets
+             if not isinstance(target, (ValueCastable, Signal)):
+                 # Check if it's a valid layout that can be converted to a data view
+                 try:
+@@ -415,10 +414,28 @@
+                     raise TypeError("Object {!r} is not a data view".format(target))
+                 except TypeError:
+                     raise TypeError("Object {!r} is not a data view".format(target))
++            # Special case: if target is a Signal with a layout, treat it as a View
++            if isinstance(target, Signal):
++                try:
++                    target_layout = Layout.cast(target)
++                    # If target is a Signal with a layout, use that layout instead of the provided one
++                    # But only if they match in size
++                    if target_layout.size == cast_layout.size:
++                        self.__orig_layout = target_layout
++                        self.__layout = target_layout
++                        self.__target = cast_target
++                        return
++                    else:
++                        raise ValueError("View target is {} bit(s) wide, which is not compatible with "
++                                            "the {} bit(s) wide view layout"
++                                            .format(len(cast_target), cast_layout.size))
++                except TypeError:
++                    # Not a valid layout for a signal, proceed normally
++                    pass
+             if len(cast_target) != cast_layout.size:
+                 raise ValueError("View target is {} bit(s) wide, which is not compatible with "
+-                                   "the {} bit(s) wide view layout"
+-                                   .format(len(cast_target), cast_layout.size))
++                                    "the {} bit(s) wide view layout"
++                                    .format(len(cast_target), cast_layout.size))
+         else:
+             if reset is None:
+                 reset = 0
+@@ -428,6 +445,7 @@
+                 reset_less = False
+             cast_target = Signal(cast_layout, name=name, reset=reset, reset_less=reset_less,
+                 attrs=attrs, decoder=decoder, src_loc_at=src_loc_at + 1)
++        # Ensure __orig_layout is always set
+         self.__orig_layout = layout
+         self.__layout = cast_layout
+         self.__target = cast_target
+@@ -459,7 +477,7 @@
+                                 "with a value"
+                                 .format(type(self.__layout).__name__))
+             elif isinstance(key, str) and key not in self.__layout:
+-                raise TypeError("View of {!r} does not have a field {!r}"
++                raise KeyError("View of {!r} does not have a field {!r}"
+                                 .format(self.__target, key))
+             field = self.__layout[key]
+             shape = field.shape
+@@ -474,6 +492,11 @@
+             return value
+ 
+     def __getattr__(self, name):
++        # Check for reserved field names first
++        if name.startswith("_") and name in self.__layout:
++            raise AttributeError("View of {!r} field '{!r}' has a reserved name and may only be "
++                                "accessed by indexing"
++                                .format(self.__target, name))
+         try:
+             item = self[name]
+         except KeyError:
+@@ -491,11 +514,6 @@
+                 suggestion = ""
+             raise AttributeError("View of {!r} does not have a field {!r}{suggestion}"
+                                 .format(self.__target, name, suggestion=suggestion))
+-        # Check for reserved field names after successful lookup
+-        if name.startswith("_") and name in self.__layout:
+-            raise AttributeError("View of {!r} field '{!r}' has a reserved name and may only be "
+-                                "accessed by indexing"
+-                                .format(self.__target, name))
+         return item
+ 
+ 

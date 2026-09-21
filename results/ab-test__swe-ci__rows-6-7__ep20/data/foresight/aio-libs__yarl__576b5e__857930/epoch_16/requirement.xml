@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/yarl/_url.py:_normalize_path_segments</location>
+    <description>The current implementation of _normalize_path_segments has flawed logic for handling ".." segments and absolute paths. It doesn't correctly implement RFC 3986 path normalization rules, particularly around edge cases with segments like ".", "..", and absolute vs relative paths.</description>
+    <contract>Implement RFC 3986 compliant path normalization that correctly handles all combinations of ".", "..", and absolute/relative paths. Absolute paths should preserve the root "/", and ".." segments should properly navigate up the directory tree while respecting path boundaries.</contract>
+    <acceptance>tests/test_normalize_path.py::test_normalize_path[\\u03bc\\u03bf\\u03bd\\u03bf\\u03c0\\u03ac\\u03c4\\u03b9/../../\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/.-\\u03bd\\u03b1/\\U0001d566\\U0001d55f\\U0001d55a/\\U0001d554\\U0001d560\\U0001d555\\U0001d556/] and similar tests should pass</acceptance>
+  </item>
+  <item>
+    <location>/app/code/yarl/_url.py:URL._make_child</location>
+    <description>The _make_child method has incorrect logic for joining paths that doesn't properly handle path normalization, particularly with "." and ".." segments. The path joining logic doesn't correctly follow RFC 3986 rules.</description>
+    <contract>Implement correct path joining logic that properly handles path segments, preserves absolute paths, and correctly normalizes paths when needed. The method should correctly process path segments and handle relative vs absolute path behavior.</contract>
+    <acceptance>tests/test_url.py::test_join_from_rfc_3986_normal[..-http://a/b/] and tests/test_url.py::test_joinpath_empty_segments[empty-segments_empty-segment] should pass</acceptance>
+  </item>
+  <item>
+    <location>/app/code/yarl/_url.py:URL.join</location>
+    <description>The join method has incomplete implementation for joining relative URLs with base URLs. It doesn't correctly handle the RFC 3986 joining algorithm for relative paths.</description>
+    <contract>Implement complete RFC 3986 URL joining logic that correctly combines base and relative URLs according to the standard. This includes proper handling of absolute paths, relative paths, and path normalization.</contract>
+    <acceptance>tests/test_url.py::test_join_cpython_urljoin[http://a/b/c/d/e-../../f/g/-http://a/b/f/g/] and tests/test_url.py::test_join_from_rfc_3986_normal[g/-http://a/b/c/g/] should pass</acceptance>
+  </item>
+  <item>
+    <location>/app/code/yarl/_url.py:URL._split_netloc</location>
+    <description>The _split_netloc method has issues with parsing IPv6 addresses and host information, particularly when brackets are involved. This affects host and port parsing functionality.</description>
+    <contract>Improve host and port parsing logic to correctly handle IPv6 addresses with brackets, domain names, and port specifications. The method should correctly extract user, password, host, and port components from netloc strings.</contract>
+    <acceptance>tests/test_url.py::test_host_port_subcomponent[http://[::1]:8080-[::1]:8080] and tests/test_url.py::test_host_port_subcomponent[http://example.com:80-example.com] should pass</acceptance>
+  </item>
+  <item>
+    <location>/app/code/yarl/_url.py:URL.__setstate__</location>
+    <description>The pickle serialization support is incomplete. The __setstate__ method doesn't properly handle all cases of deserializing URL objects, particularly when dealing with default-style pickles.</description>
+    <contract>Fix pickle serialization/deserialization to properly handle all URL states, including default-style pickles. The __setstate__ method should correctly reconstruct URL objects from serialized data.</contract>
+    <acceptance>tests/test_pickle.py::test_default_style_state and tests/test_pickle.py::test_pickle_does_not_pollute_cache should pass</acceptance>
+  </item>
+</requirement>

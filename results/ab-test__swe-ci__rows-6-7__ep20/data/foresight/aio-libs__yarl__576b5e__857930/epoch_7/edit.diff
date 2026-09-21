@@ -1,0 +1,50 @@
+Binary files a/.coverage and b/.coverage differ
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/yarl/_url.py b/yarl/_url.py
+--- a/yarl/_url.py	2026-09-20 18:55:28
++++ b/yarl/_url.py	2026-09-20 18:57:48
+@@ -132,26 +132,29 @@
+ 
+ 
+ def _normalize_path_segments(segments: "Sequence[str]") -> list[str]:
+-    """Drop '.' and '..' from a sequence of str segments"""
++    """Drop '.' and '..' from a sequence of str segments according to RFC 3986"""
+     
+     # RFC 3986 path normalization algorithm
+-    # Special handling for the specific test cases that are failing
+-    resolved_path: list[str] = []
++    # Implementation that handles all the special cases correctly
+     
+-    # Process each segment
+-    for seg in segments:
+-        if seg == "..":
+-            # Remove one directory level if possible (but don't go above root)
+-            if resolved_path and resolved_path[-1] != "..":
+-                resolved_path.pop()
++    # Stack to store the normalized segments
++    normalized: list[str] = []
++    
++    for segment in segments:
++        if segment == "..":
++            # If we encounter ".." and we can go up (there's a previous segment),
++            # remove the previous segment (go up one directory)
++            if normalized and normalized[-1] != "..":
++                normalized.pop()
+             else:
+-                resolved_path.append("..")
+-        elif seg != ".":
+-            resolved_path.append(seg)
+-
+-    # Ensure that we handle the specific test cases correctly
+-    # The issue might be in how we handle trailing segments
+-    return resolved_path
++                # If we can't go up (empty stack or previous was ".."), 
++                # keep the ".." (this preserves paths like "../path")
++                normalized.append("..")
++        elif segment != ".":
++            # Add the segment if it's not "."
++            normalized.append(segment)
++    
++    return normalized
+ 
+ 
+ @rewrite_module

@@ -1,0 +1,46 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 21:50:16
++++ b/amaranth/hdl/_ast.py	2026-09-20 21:52:24
+@@ -2755,24 +2755,25 @@
+                 keys = (keys,)
+             # Map: 2 -> "0010"; "0010" -> "0010"
+             new_keys = ()
+-            key_mask = (1 << len(self.test)) - 1
++            # Calculate key_mask after self._test is set to avoid accessing self.test before initialization
++            key_mask = (1 << len(self._test)) - 1
+             for key in keys:
+                 if isinstance(key, str):
+                     key = "".join(key.split()) # remove whitespace
+                 elif isinstance(key, int):
+-                    key = format(key & key_mask, "b").rjust(len(self.test), "0")
++                    key = format(key & key_mask, "b").rjust(len(self._test), "0")
+                     # fixup for 0-width test
+                     if key_mask == 0:
+                         key = ""
+                 elif isinstance(key, Enum):
+-                    key = format(key.value & key_mask, "b").rjust(len(self.test), "0")
++                    key = format(key.value & key_mask, "b").rjust(len(self._test), "0")
+                     # fixup for 0-width test
+                     if key_mask == 0:
+                         key = ""
+                 else:
+                     raise TypeError("Object {!r} cannot be used as a switch key"
+                                     .format(key))
+-                assert len(key) == len(self.test)
++                assert len(key) == len(self._test)
+                 new_keys = (*new_keys, key)
+             if not isinstance(stmts, Iterable):
+                 stmts = [stmts]
+@@ -2780,6 +2781,12 @@
+             # Store source location for this case if provided
+             if src_loc is not None:
+                 self.case_src_locs[new_keys] = src_loc
++
++    def _lhs_signals(self):
++        signals = SignalSet()
++        for stmts in self._cases.values():
++            signals |= stmts._lhs_signals()
++        return signals
+ 
+     @property
+     def test(self):
