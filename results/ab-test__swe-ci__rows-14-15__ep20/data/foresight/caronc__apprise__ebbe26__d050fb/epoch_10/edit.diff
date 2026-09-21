@@ -1,0 +1,89 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/apprise.py b/apprise/apprise.py
+--- a/apprise/apprise.py	2026-09-21 11:43:47
++++ b/apprise/apprise.py	2026-09-21 12:40:17
+@@ -482,6 +482,11 @@
+         )
+         return sequential_result and parallel_result
+ 
++    def is_async_supported(self, server: NotifyBase) -> bool:
++        """Check if a server supports asynchronous notifications."""
++        # Check if the server has an async_notify method
++        return hasattr(server, 'async_notify') and callable(getattr(server, 'async_notify'))
++
+     def _create_notify_calls(self, *args, **kwargs):
+         """Creates notifications for all the plugins loaded.
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/glib.py b/apprise/plugins/glib.py
+--- a/apprise/plugins/glib.py	2026-09-21 11:43:47
++++ b/apprise/plugins/glib.py	2026-09-21 12:40:32
+@@ -196,7 +196,13 @@
+         """
+         Initialize DBus Object
+         """
+-
++        
++        # Check if the plugin is globally disabled
++        if not NotifyGLib.enabled:
++            # Plugin is globally disabled, return None to indicate failure
++            # This follows the same pattern as other plugins
++            return None
++            
+         super().__init__(**kwargs)
+ 
+         # Track our notifications
+@@ -210,7 +216,7 @@
+                 v for k, v in GLIB_URGENCY_MAP.items()
+                 if str(urgency).lower().startswith(k)),
+                 NotifyGLib.template_args["urgency"]["default"]))
+-
++        
+         # Our x/y axis settings
+         if x_axis or y_axis:
+             try:
+@@ -229,6 +235,9 @@
+ 
+         # Track whether we want to add an image to the notification.
+         self.include_image = include_image
++        
++        # Set enabled flag to True since we've successfully initialized
++        self.enabled = True
+ 
+     def send(self, body, title="", notify_type=NotifyType.INFO, **kwargs):
+         """
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/telegram.py b/apprise/plugins/telegram.py
+--- a/apprise/plugins/telegram.py	2026-09-21 11:43:47
++++ b/apprise/plugins/telegram.py	2026-09-21 12:40:15
+@@ -1099,7 +1099,7 @@
+         # This is a dirty hack; but it's the only work around to tgram://
+         # messages since the bot_token has a colon in it. It invalidates a
+         # normal URL.
+-
++        
+         # This hack searches for this bogus URL and corrects it so we can
+         # properly load it further down. The other alternative is to ask users
+         # to actually change the colon into a slash (which will work too), but
+@@ -1201,5 +1201,24 @@
+         results["detect_owner"] = parse_bool(
+             results["qsd"].get("detect", not results["targets"])
+         )
++
++        # Handle query parameters for topics and other advanced features
++        # Handle topics with colons in URLs
++        if "topic" in results["qsd"] and len(results["qsd"]["topic"]):
++            try:
++                # Try to parse as integer first
++                results["topic"] = int(results["qsd"]["topic"])
++            except (ValueError, TypeError):
++                # If it fails, treat as string
++                results["topic"] = results["qsd"]["topic"]
++        
++        # Handle thread parameter (alias of topic)
++        if "thread" in results["qsd"] and len(results["qsd"]["thread"]):
++            try:
++                # Try to parse as integer first
++                results["topic"] = int(results["qsd"]["thread"])
++            except (ValueError, TypeError):
++                # If it fails, treat as string
++                results["topic"] = results["qsd"]["thread"]
+ 
+         return results

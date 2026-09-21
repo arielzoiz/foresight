@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/apprise/plugins/nextcloud.py</location>
+        <description>The Nextcloud plugin's URL privacy handling for groups is incorrect. The test expects '#group' but gets 'ncloud://user:****@localhost/%23gro' due to improper URL encoding of group names with '#' prefix.</description>
+        <contract>When generating privacy URLs for Nextcloud notifications with group targets (starting with '#'), the URL should properly encode the '#' character as '%23' instead of leaving it unencoded. The privacy URL should match the expected format exactly.</contract>
+        <acceptance>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_urls</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/apprise/plugins/nextcloud.py</location>
+        <description>The Nextcloud plugin is not correctly handling group and user expansion for notifications. The test expects 4 POST calls but only 0 calls occur, indicating the group expansion logic isn't working properly.</description>
+        <contract>When a Nextcloud notification is sent with targets including groups (#group), all-users ('all'), and direct users, the plugin should expand groups and users, deduplicate targets, and make the appropriate number of POST requests to the Nextcloud API for each resolved user.</contract>
+        <acceptance>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_and_all</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/apprise/plugins/nextcloud.py</location>
+        <description>The Nextcloud plugin's caching mechanism for group/user resolution is not functioning properly. The test expects cached lookups to avoid repeat calls but 0 GET calls occur instead.</description>
+        <contract>When Nextcloud targets include groups or 'all' that require server lookups, the plugin should cache the results for subsequent calls. On subsequent notifications with the same targets, cached results should be used to avoid redundant API calls.</contract>
+        <acceptance>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_caching_group_and_all</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/apprise/plugins/nextcloud.py</location>
+        <description>The Nextcloud plugin is not properly handling empty JSON responses during group/user expansion. The test expects direct users to still be notified even when group expansion returns empty results.</description>
+        <contract>When expanding groups/users returns empty or invalid JSON responses, the plugin should still proceed with direct user notifications. It should not fail the entire notification process if some expansions fail.</contract>
+        <acceptance>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_json_empty_returns_empty</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/apprise/plugins/nextcloud.py</location>
+        <description>The Nextcloud plugin's error handling for request exceptions during group/user resolution is not working correctly. The test expects that when group resolution fails with RequestException, the notification should fail completely.</description>
+        <contract>When a RequestException occurs during group or user expansion lookup, the plugin should properly handle this exception and return False to indicate notification failure, rather than continuing with incomplete processing.</contract>
+        <acceptance>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_req_exception_and_empty_targets</acceptance>
+    </requirement>
+</requirement_document>

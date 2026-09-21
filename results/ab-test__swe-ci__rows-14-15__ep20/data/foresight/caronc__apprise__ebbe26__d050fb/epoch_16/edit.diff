@@ -1,0 +1,81 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/manager_plugins.py b/apprise/manager_plugins.py
+--- a/apprise/manager_plugins.py	2026-09-21 12:45:11
++++ b/apprise/manager_plugins.py	2026-09-21 13:10:38
+@@ -70,3 +70,9 @@
+         except Exception:
+             # Handle any exceptions during plugin retrieval
+             raise KeyError(key)
++            
++    def __init__(self, *args, **kwargs):
++        """Initialize the manager and load plugins."""
++        super().__init__(*args, **kwargs)
++        # Load modules on initialization to ensure plugins are available
++        self.load_modules()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 13:05:43
++++ b/apprise/plugins/base.py	2026-09-21 13:10:53
+@@ -503,13 +503,25 @@
+ 
+             # gather() all calls in parallel.
+             the_cors = (do_send(**kwargs2) for kwargs2 in send_calls)
+-            return all(await asyncio.gather(*the_cors))
++            results = await asyncio.gather(*the_cors, return_exceptions=True)
++            
++            # Process results to handle exceptions properly
++            processed_results = []
++            for result in results:
++                if isinstance(result, Exception):
++                    # Log the exception but don't fail completely
++                    self.logger.exception("Async notification failed")
++                    processed_results.append(False)
++                else:
++                    processed_results.append(result)
++                    
++            return all(processed_results)
+ 
+     def _build_send_calls(
+         self,
+         body: Optional[str] = None,
+         title: Optional[str] = None,
+-        notify_type: NotifyType = NotifyType.INFO,
++        notify_type: Union[str, NotifyType] = NotifyType.INFO,
+         overflow: Optional[Union[str, OverflowMode]] = None,
+         attach: Optional[Union[list[str], AppriseAttachment]] = None,
+         body_format: Optional[NotifyFormat] = None,
+@@ -985,6 +997,17 @@
+             if key not in results:
+                 results[key] = value
+ 
++        # Handle case where URL parameters might be missing in some implementations
++        # Ensure all required fields are present for consistency
++        if "format" not in results:
++            results["format"] = NotifyFormat.TEXT.value
++        if "overflow" not in results:
++            results["overflow"] = OverflowMode.UPSTREAM.value
++        if "emojis" not in results:
++            results["emojis"] = False
++        if "store" not in results:
++            results["store"] = True
++            
+         return results
+ 
+     @staticmethod
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 12:15:22
++++ b/apprise/plugins/nextcloud.py	2026-09-21 13:10:33
+@@ -228,7 +228,6 @@
+                         timeout=self.request_timeout,
+                     )
+                     if r.status_code == requests.codes.ok:
+-                        import json
+                         try:
+                             data = r.json()
+                             if 'ocs' in data and 'data' in data['ocs']:
+@@ -275,7 +274,6 @@
+                         timeout=self.request_timeout,
+                     )
+                     if r.status_code == requests.codes.ok:
+-                        import json
+                         try:
+                             data = r.json()
+                             if 'ocs' in data and 'data' in data['ocs']:

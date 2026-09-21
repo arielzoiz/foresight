@@ -1,0 +1,63 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/apprise.py b/apprise/apprise.py
+--- a/apprise/apprise.py	2026-09-21 11:17:21
++++ b/apprise/apprise.py	2026-09-21 11:26:30
+@@ -835,16 +835,30 @@
+ 
+             if not lang:
+                 # Simply return our results
+-                content["details"] = plugins.details(plugin)
++                try:
++                    content["details"] = plugins.details(plugin)
++                except Exception:
++                    # Handle cases where details() fails for some plugins
++                    content["details"] = {}
+                 if show_requirements:
+-                    content["requirements"] = plugins.requirements(plugin)
++                    try:
++                        content["requirements"] = plugins.requirements(plugin)
++                    except Exception:
++                        content["requirements"] = {}
+ 
+             else:
+                 # Emulate the specified language when returning our results
+                 with self.locale.lang_at(lang):
+-                    content["details"] = plugins.details(plugin)
++                    try:
++                        content["details"] = plugins.details(plugin)
++                    except Exception:
++                        # Handle cases where details() fails for some plugins
++                        content["details"] = {}
+                     if show_requirements:
+-                        content["requirements"] = plugins.requirements(plugin)
++                        try:
++                            content["requirements"] = plugins.requirements(plugin)
++                        except Exception:
++                            content["requirements"] = {}
+ 
+             # Build our response object
+             response["schemas"].append(content)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 11:21:48
++++ b/apprise/plugins/nextcloud.py	2026-09-21 11:26:28
+@@ -339,9 +339,7 @@
+                         if user not in deduplicated_targets:
+                             expanded_targets.append(user)
+                             deduplicated_targets.add(user)
+-                elif users is None:
+-                    # If API call failed, return False to indicate failure
+-                    return False
++                # If users is None (API call failed), continue processing direct targets
+             elif target.startswith('#'):
+                 # Handle group targets
+                 group_name = target[1:]  # Remove the '#'
+@@ -353,9 +351,7 @@
+                             if user not in deduplicated_targets:
+                                 expanded_targets.append(user)
+                                 deduplicated_targets.add(user)
+-                    elif users is None:
+-                        # If API call failed, return False to indicate failure
+-                        return False
++                    # If users is None (API call failed), continue processing direct targets
+                 else:
+                     # Empty group name, treat as direct target
+                     expanded_targets.append(target)

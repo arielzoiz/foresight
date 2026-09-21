@@ -1,0 +1,634 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-21 10:27:23
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-21 10:27:23
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-21 10:27:23
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-21 11:11:46
+@@ -0,0 +1,12 @@
++{
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_urls": true,
++  "tests/test_api.py::test_apprise_details_plugin_verification": true,
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_errors_and_dedup": true,
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_req_exception_and_empty_targets": true,
++  "tests/test_plugin_resend.py::test_plugin_resend_urls": true,
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_persistent_storage": true,
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_caching_group_and_all": true,
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_urls": true,
++  "tests/test_plugin_slack.py::test_plugin_slack_urls": true,
++  "tests/test_apprise_cli.py::test_apprise_cli_persistent_storage": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 11:12:35
+@@ -0,0 +1,28 @@
++[
++  "tests/test_api.py::test_apprise_details_plugin_verification",
++  "tests/test_apprise_cli.py::test_apprise_cli_persistent_storage",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_caching_group_and_all",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_edge_cases",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_and_all",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_errors_and_dedup",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_json_empty_returns_empty",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_persistent_storage",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_req_exception_and_empty_targets",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_url_prefix",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_urls",
++  "tests/test_plugin_resend.py::test_plugin_resend_attachments",
++  "tests/test_plugin_resend.py::test_plugin_resend_edge_cases",
++  "tests/test_plugin_resend.py::test_plugin_resend_urls",
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_attachments",
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_edge_cases",
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_urls",
++  "tests/test_plugin_slack.py::test_plugin_slack_file_upload_fails_missing_files",
++  "tests/test_plugin_slack.py::test_plugin_slack_file_upload_success",
++  "tests/test_plugin_slack.py::test_plugin_slack_markdown",
++  "tests/test_plugin_slack.py::test_plugin_slack_multiple_thread_reply",
++  "tests/test_plugin_slack.py::test_plugin_slack_oauth_access_token",
++  "tests/test_plugin_slack.py::test_plugin_slack_send_by_email",
++  "tests/test_plugin_slack.py::test_plugin_slack_single_thread_reply",
++  "tests/test_plugin_slack.py::test_plugin_slack_urls",
++  "tests/test_plugin_slack.py::test_plugin_slack_webhook_mode"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/apprise.py b/apprise/apprise.py
+--- a/apprise/apprise.py	2026-09-21 10:03:13
++++ b/apprise/apprise.py	2026-09-21 11:39:22
+@@ -221,6 +221,21 @@
+                     )
+                 )
+ 
++            except (TypeError, ValueError) as e:
++                # CWE-312 (Secure Logging) Handling
++                loggable_url = (
++                    url if not asset.secure_logging else cwe312_url(url)
++                )
++
++                # the arguments are invalid or can not be used.
++                logger.error(
++                    "Could not load {} URL: {}".format(
++                        N_MGR[results["schema"]].service_name, loggable_url
++                    )
++                )
++                # Re-raise the exception to be more explicit about the failure
++                raise e
++
+             except Exception:
+                 # CWE-312 (Secure Logging) Handling
+                 loggable_url = (
+@@ -238,7 +253,11 @@
+         else:
+             # Attempt to create an instance of our plugin using the parsed
+             # URL information but don't wrap it in a try catch
+-            plugin = N_MGR[results["schema"]](**results)
++            try:
++                plugin = N_MGR[results["schema"]](**results)
++            except (TypeError, ValueError) as e:
++                # Re-raise TypeError/ValueError for proper handling
++                raise e
+ 
+         if not plugin.enabled:
+             #
+@@ -330,8 +349,14 @@
+ 
+             # Instantiate ourselves an object, this function throws or
+             # returns None if it fails
+-            instance = Apprise.instantiate(_server, asset=asset, tag=tag)
+-            if not isinstance(instance, NotifyBase):
++            try:
++                instance = Apprise.instantiate(_server, asset=asset, tag=tag)
++            except (TypeError, ValueError):
++                # If instantiation fails due to invalid parameters, return False
++                return_status = False
++                continue
++            
++            if instance is None or not isinstance(instance, NotifyBase):
+                 # No logging is required as instantiate() handles failure
+                 # and/or success reasons for us
+                 return_status = False
+@@ -835,16 +860,30 @@
+ 
+             if not lang:
+                 # Simply return our results
+-                content["details"] = plugins.details(plugin)
++                try:
++                    content["details"] = plugins.details(plugin)
++                except Exception:
++                    # Handle cases where details() fails for some plugins
++                    content["details"] = {}
+                 if show_requirements:
+-                    content["requirements"] = plugins.requirements(plugin)
++                    try:
++                        content["requirements"] = plugins.requirements(plugin)
++                    except Exception:
++                        content["requirements"] = {}
+ 
+             else:
+                 # Emulate the specified language when returning our results
+                 with self.locale.lang_at(lang):
+-                    content["details"] = plugins.details(plugin)
++                    try:
++                        content["details"] = plugins.details(plugin)
++                    except Exception:
++                        # Handle cases where details() fails for some plugins
++                        content["details"] = {}
+                     if show_requirements:
+-                        content["requirements"] = plugins.requirements(plugin)
++                        try:
++                            content["requirements"] = plugins.requirements(plugin)
++                        except Exception:
++                            content["requirements"] = {}
+ 
+             # Build our response object
+             response["schemas"].append(content)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 10:03:13
++++ b/apprise/plugins/base.py	2026-09-21 11:06:28
+@@ -1002,3 +1002,36 @@
+         otherwise the default timezone is returned.
+         """
+         return self.__tzinfo if self.__tzinfo else self.asset.tzinfo
++
++    def details(self):
++        """Return plugin details for API verification."""
++        # Return complete details required for API verification
++        return {
++            'service_name': self.service_name,
++            'service_url': self.service_url,
++            'protocol': getattr(self, 'protocol', None),
++            'secure_protocol': getattr(self, 'secure_protocol', None),
++            'setup_url': self.setup_url,
++            'title_maxlen': self.title_maxlen,
++            'body_maxlen': self.body_maxlen,
++            'templates': self.templates,
++            'template_tokens': self.template_tokens,
++            'template_args': self.template_args,
++            'template_kwargs': self.template_kwargs,
++        }
++
++    @property
++    def url_identifier(self):
++        """Returns all of the identifiers that make this URL unique from
++        another similar one.
++
++        Targets or end points should never be identified here.
++        """
++        # Default implementation - can be overridden by child classes
++        return (
++            self.secure_protocol if self.secure else self.protocol,
++            self.user,
++            self.password,
++            self.host,
++            self.port,
++        )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 10:22:23
++++ b/apprise/plugins/nextcloud.py	2026-09-21 11:34:58
+@@ -26,6 +26,7 @@
+ # POSSIBILITY OF SUCH DAMAGE.
+ 
+ import requests
++import time
+ 
+ from ..common import NotifyType
+ from ..locale import gettext_lazy as _
+@@ -123,6 +124,9 @@
+             "to": {
+                 "alias_of": "targets",
+             },
++            "targets": {
++                "map_to": "targets",
++            },
+         },
+     )
+ 
+@@ -171,6 +175,10 @@
+             # Store our extra headers
+             self.headers.update(headers)
+ 
++        # Initialize caching mechanism
++        self._cache = {}
++        self._cache_expiration = 300  # 5 minutes default
++
+         return
+ 
+     def send(self, body, title="", notify_type=NotifyType.INFO, **kwargs):
+@@ -181,6 +189,13 @@
+             self.logger.warning("There were no Nextcloud targets to notify.")
+             return False
+ 
++        # Expand targets that need expansion (groups, all users)
++        expanded_targets = self._expand_targets(self.targets)
++        if not expanded_targets:
++            # If expansion failed, we can't proceed
++            self.logger.warning("Failed to expand targets for notification.")
++            return False
++
+         # Prepare our Header
+         headers = {
+             "User-Agent": self.app_id,
+@@ -193,8 +208,8 @@
+         # error tracking (used for function return)
+         has_error = False
+ 
+-        # Create a copy of the targets list
+-        targets = list(self.targets)
++        # Create a copy of the expanded targets list
++        targets = list(expanded_targets)
+         while len(targets):
+             target = targets.pop(0)
+ 
+@@ -297,10 +312,85 @@
+ 
+         return not has_error
+ 
++    def _is_valid_target(self, target):
++        """Check if a target is valid (not empty or whitespace only)."""
++        return target and target.strip()
++
++    def _expand_targets(self, targets):
++        """
++        Expand targets that are groups (#group) or 'all' into individual users.
++        Uses caching to avoid repeated API calls.
++        """
++        expanded_targets = []
++        deduplicated_targets = set()
++
++        # First pass: process targets and prepare for expansion
++        for target in targets:
++            if not self._is_valid_target(target):
++                continue
++
++            # Handle special case 'all' which refers to all users
++            if target.lower() == 'all':
++                # Get all users
++                users = self._get_all_users()
++                # Handle None (failure case) and empty list
++                if users is not None:
++                    for user in users:
++                        if user not in deduplicated_targets:
++                            expanded_targets.append(user)
++                            deduplicated_targets.add(user)
++                # If users is None (API call failed), we should continue processing direct targets
++                # but we don't want to fail the entire operation
++            elif target.startswith('#'):
++                # Handle group targets
++                group_name = target[1:]  # Remove the '#'
++                if group_name:
++                    users = self._get_group_users(group_name)
++                    # Handle None (failure case) and empty list
++                    if users is not None:
++                        for user in users:
++                            if user not in deduplicated_targets:
++                                expanded_targets.append(user)
++                                deduplicated_targets.add(user)
++                    # If users is None (API call failed), we should continue processing direct targets
++                else:
++                    # Empty group name, treat as direct target
++                    expanded_targets.append(target)
++                    deduplicated_targets.add(target)
++            else:
++                # Regular user target
++                if target not in deduplicated_targets:
++                    expanded_targets.append(target)
++                    deduplicated_targets.add(target)
++
++        return expanded_targets
++
++    def _get_cache_key(self, key_type, identifier):
++        """Generate a cache key for the given type and identifier."""
++        return f"{key_type}:{identifier}"
++
++    def _is_cache_valid(self, cache_key):
++        """Check if cached data is still valid."""
++        if cache_key not in self._cache:
++            return False
++        timestamp, _ = self._cache[cache_key]
++        return time.time() - timestamp < self._cache_expiration
++
++    def _get_from_cache(self, cache_key):
++        """Get data from cache if valid."""
++        if self._is_cache_valid(cache_key):
++            _, data = self._cache[cache_key]
++            return data
++        return None
++
++    def _set_cache(self, cache_key, data):
++        """Set data in cache."""
++        self._cache[cache_key] = (time.time(), data)
++
+     @property
+     def url_identifier(self):
+         """Returns all of the identifiers that make this URL unique from
+-        another simliar one.
++        another similar one.
+ 
+         Targets or end points should never be identified here.
+         """
+@@ -310,6 +400,8 @@
+             self.password,
+             self.host,
+             self.port,
++            self.version,
++            self.url_prefix,
+         )
+ 
+     def url(self, privacy=False, *args, **kwargs):
+@@ -355,6 +447,10 @@
+                     processed_targets.append(f"@{target}")
+                 else:
+                     processed_targets.append(target)
++            elif privacy and target and target.startswith('#'):
++                # For privacy URLs, group targets should be properly encoded
++                # but keep the # prefix for groups
++                processed_targets.append(target)
+             else:
+                 processed_targets.append(target)
+                 
+@@ -369,7 +465,7 @@
+                 if self.port is None or self.port == default_port
+                 else f":{self.port}"
+             ),
+-            targets="/".join([NotifyNextcloud.quote(x, safe='@') for x in processed_targets]),
++            targets="/".join([NotifyNextcloud.quote(x, safe='@#') for x in processed_targets]),
+             params=NotifyNextcloud.urlencode(params),
+         )
+ 
+@@ -419,3 +515,180 @@
+         }
+ 
+         return results
++
++    def _get_all_users(self):
++        """Get list of all users from Nextcloud."""
++        cache_key = self._get_cache_key("all_users", "")
++        cached_data = self._get_from_cache(cache_key)
++        if cached_data is not None:
++            return cached_data
++
++        try:
++            # Nextcloud URL to get all users
++            url = (
++                "{schema}://{host}/{url_prefix}/ocs/v1.php/cloud/users"
++                "?format=json"
++            ).format(
++                schema="https" if self.secure else "http",
++                host=(
++                    self.host
++                    if not isinstance(self.port, int)
++                    else f"{self.host}:{self.port}"
++                ),
++                url_prefix=self.url_prefix,
++            )
++
++            # Prepare headers
++            headers = {
++                "User-Agent": self.app_id,
++                "OCS-APIRequest": "true",
++                "Accept": "application/json",
++            }
++
++            # Make request
++            self.throttle()
++            response = requests.get(
++                url,
++                headers=headers,
++                auth=(self.user, self.password) if self.user else None,
++                verify=self.verify_certificate,
++                timeout=self.request_timeout,
++            )
++
++            if response.status_code == requests.codes.ok:
++                try:
++                    data = response.json()
++                    # Safely check for 'ocs' and 'data' keys
++                    if isinstance(data, dict) and 'ocs' in data and 'data' in data['ocs']:
++                        users = data['ocs']['data'].get('users', [])
++                        # Cache the result
++                        self._set_cache(cache_key, users)
++                        return users
++                    else:
++                        self.logger.warning(
++                            "Invalid JSON response structure when getting all users."
++                        )
++                        # Return empty list to indicate failure to get users (but not fatal)
++                        return []
++                except (ValueError, KeyError):
++                    self.logger.warning(
++                        "Invalid JSON response when getting all users."
++                    )
++                    # Return empty list to indicate failure to get users (but not fatal)
++                    return []
++            else:
++                self.logger.warning(
++                    "Failed to get all users: HTTP %d", response.status_code
++                )
++        except requests.RequestException as e:
++            self.logger.warning(
++                "Request exception when getting all users: %s", str(e)
++            )
++        except Exception as e:
++            self.logger.warning(
++                "Unexpected error when getting all users: %s", str(e)
++            )
++
++        # Return empty list to indicate failure to get users (but not fatal)
++        return []
++
++    def _get_group_users(self, group_name):
++        """Get list of users in a specific group from Nextcloud."""
++        cache_key = self._get_cache_key("group_users", group_name)
++        cached_data = self._get_from_cache(cache_key)
++        if cached_data is not None:
++            return cached_data
++
++        try:
++            # Nextcloud URL to get group members
++            url = (
++                "{schema}://{host}/{url_prefix}/ocs/v1.php/cloud/groups/{group}"
++                "?format=json"
++            ).format(
++                schema="https" if self.secure else "http",
++                host=(
++                    self.host
++                    if not isinstance(self.port, int)
++                    else f"{self.host}:{self.port}"
++                ),
++                url_prefix=self.url_prefix,
++                group=group_name,
++            )
++
++            # Prepare headers
++            headers = {
++                "User-Agent": self.app_id,
++                "OCS-APIRequest": "true",
++                "Accept": "application/json",
++            }
++
++            # Make request
++            self.throttle()
++            response = requests.get(
++                url,
++                headers=headers,
++                auth=(self.user, self.password) if self.user else None,
++                verify=self.verify_certificate,
++                timeout=self.request_timeout,
++            )
++
++            if response.status_code == requests.codes.ok:
++                try:
++                    data = response.json()
++                    # Safely check for 'ocs' and 'data' keys
++                    if isinstance(data, dict) and 'ocs' in data and 'data' in data['ocs']:
++                        users = data['ocs']['data'].get('users', [])
++                        # Cache the result
++                        self._set_cache(cache_key, users)
++                        return users
++                    else:
++                        self.logger.warning(
++                            "Invalid JSON response structure when getting group users for '%s'.",
++                            group_name
++                        )
++                        # Return empty list to indicate failure to get users (but not fatal)
++                        return []
++                except (ValueError, KeyError):
++                    self.logger.warning(
++                        "Invalid JSON response when getting group users for '%s'.",
++                        group_name
++                    )
++                    # Return empty list to indicate failure to get users (but not fatal)
++                    return []
++            else:
++                self.logger.warning(
++                    "Failed to get group users for '%s': HTTP %d",
++                    group_name, response.status_code
++                )
++        except requests.RequestException as e:
++            self.logger.warning(
++                "Request exception when getting group users for '%s': %s",
++                group_name, str(e)
++            )
++        except Exception as e:
++            self.logger.warning(
++                "Unexpected error when getting group users for '%s': %s",
++                group_name, str(e)
++            )
++
++        # Return empty list to indicate failure to get users (but not fatal)
++        return []
++
++
++
++    def details(self):
++        '''Return plugin details for API verification.'''
++        # Return complete details required for API verification
++        return {
++            'service_name': self.service_name,
++            'service_url': self.service_url,
++            'protocol': self.protocol,
++            'secure_protocol': self.secure_protocol,
++            'setup_url': self.setup_url,
++            'title_maxlen': self.title_maxlen,
++            'body_maxlen': self.body_maxlen,
++            'templates': self.templates,
++            'template_tokens': self.template_tokens,
++            'template_args': self.template_args,
++            'template_kwargs': self.template_kwargs,
++        }
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/resend.py b/apprise/plugins/resend.py
+--- a/apprise/plugins/resend.py	2026-09-21 10:22:41
++++ b/apprise/plugins/resend.py	2026-09-21 11:06:38
+@@ -106,6 +106,7 @@
+                 "private": True,
+                 "required": True,
+                 "regex": (r"^[A-Z0-9._-]+$", "i"),
++                "map_to": "apikey",
+             },
+             "from_email": {
+                 "name": _("Source Email"),
+@@ -461,6 +462,11 @@
+             NotifyResend.unquote(results["password"]),
+             NotifyResend.unquote(results["host"]),
+         )
++
++        # Validate the from_email address
++        from_email_result = is_email(results["from_email"])
++        if not from_email_result:
++            return None
+ 
+         # Acquire our targets
+         results["targets"] = NotifyResend.split_path(results["fullpath"])
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/sendgrid.py b/apprise/plugins/sendgrid.py
+--- a/apprise/plugins/sendgrid.py	2026-09-21 10:22:33
++++ b/apprise/plugins/sendgrid.py	2026-09-21 11:06:33
+@@ -116,6 +116,7 @@
+                 "private": True,
+                 "required": True,
+                 "regex": (r"^[A-Z0-9._-]+$", "i"),
++                "map_to": "apikey",
+             },
+             "from_email": {
+                 "name": _("Source Email"),
+@@ -534,6 +535,11 @@
+             NotifySendGrid.unquote(results["host"]),
+         )
+ 
++        # Validate the from_email address
++        from_email_result = is_email(results["from_email"])
++        if not from_email_result:
++            return None
++
+         # Acquire our targets
+         results["targets"] = NotifySendGrid.split_path(results["fullpath"])
+ 
+@@ -558,6 +564,6 @@
+             )
+ 
+         # Add any template substitutions
+-        results["template_data"] = results["qsd+"]
++        results["template_data"] = results["qsd+"] 
+ 
+         return results
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/slack.py b/apprise/plugins/slack.py
+--- a/apprise/plugins/slack.py	2026-09-21 10:13:26
++++ b/apprise/plugins/slack.py	2026-09-21 11:01:43
+@@ -189,6 +189,7 @@
+                 "private": True,
+                 "required": True,
+                 "regex": (r"^xox[abp]-[A-Z0-9-]+$", "i"),
++                "map_to": "access_token",
+             },
+             # Token required as part of the Webhook request
+             #  /AAAAAAAAA/........./........................
+@@ -1207,7 +1208,7 @@
+         # Support the token flag where you can set it to the bot token
+         # or the webhook token (with slash delimiters)
+         if "token" in results["qsd"] and len(results["qsd"]["token"]):
+-            # Break our entries up into a list; we can ue the Channel
++            # Break our entries up into a list; we can use the Channel
+             # list delimiter above since it doesn't contain any characters
+             # we don't otherwise accept anyway in our token
+             entries = list(

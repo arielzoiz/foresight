@@ -1,0 +1,61 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 10:57:12
++++ b/apprise/plugins/base.py	2026-09-21 11:06:28
+@@ -1019,3 +1019,19 @@
+             'template_args': self.template_args,
+             'template_kwargs': self.template_kwargs,
+         }
++
++    @property
++    def url_identifier(self):
++        """Returns all of the identifiers that make this URL unique from
++        another similar one.
++
++        Targets or end points should never be identified here.
++        """
++        # Default implementation - can be overridden by child classes
++        return (
++            self.secure_protocol if self.secure else self.protocol,
++            self.user,
++            self.password,
++            self.host,
++            self.port,
++        )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/resend.py b/apprise/plugins/resend.py
+--- a/apprise/plugins/resend.py	2026-09-21 11:01:40
++++ b/apprise/plugins/resend.py	2026-09-21 11:06:38
+@@ -463,6 +463,11 @@
+             NotifyResend.unquote(results["host"]),
+         )
+ 
++        # Validate the from_email address
++        from_email_result = is_email(results["from_email"])
++        if not from_email_result:
++            return None
++
+         # Acquire our targets
+         results["targets"] = NotifyResend.split_path(results["fullpath"])
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/sendgrid.py b/apprise/plugins/sendgrid.py
+--- a/apprise/plugins/sendgrid.py	2026-09-21 11:01:42
++++ b/apprise/plugins/sendgrid.py	2026-09-21 11:06:33
+@@ -535,6 +535,11 @@
+             NotifySendGrid.unquote(results["host"]),
+         )
+ 
++        # Validate the from_email address
++        from_email_result = is_email(results["from_email"])
++        if not from_email_result:
++            return None
++
+         # Acquire our targets
+         results["targets"] = NotifySendGrid.split_path(results["fullpath"])
+ 
+@@ -559,6 +564,6 @@
+             )
+ 
+         # Add any template substitutions
+-        results["template_data"] = results["qsd+"]
++        results["template_data"] = results["qsd+"] 
+ 
+         return results

@@ -1,0 +1,50 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/manager_plugins.py b/apprise/manager_plugins.py
+--- a/apprise/manager_plugins.py	2026-09-21 11:43:47
++++ b/apprise/manager_plugins.py	2026-09-21 12:45:11
+@@ -54,3 +54,19 @@
+     module_filter_re = re.compile(
+         r"^(?P<name>" + fname_prefix + r"(?!Base|ImageSize|Type)[A-Za-z0-9]+)$"
+     )
++    
++    def __contains__(self, key):
++        """Check if a plugin is available."""
++        try:
++            return super().__contains__(key)
++        except Exception:
++            # Handle any exceptions during plugin availability check
++            return False
++            
++    def __getitem__(self, key):
++        """Get a plugin by key."""
++        try:
++            return super().__getitem__(key)
++        except Exception:
++            # Handle any exceptions during plugin retrieval
++            raise KeyError(key)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 12:35:41
++++ b/apprise/plugins/base.py	2026-09-21 12:45:04
+@@ -911,10 +911,10 @@
+         Args:
+             url (str): The URL you want to fully parse.
+             verify_host (:obj:`bool`, optional): a flag kept with the parsed
+-                 URL which some child classes will later use to verify SSL
+-                 keys (if SSL transactions take place).  Unless under very
+-                 specific circumstances, it is strongly recomended that
+-                 you leave this default value set to True.
++                  URL which some child classes will later use to verify SSL
++                  keys (if SSL transactions take place).  Unless under very
++                  specific circumstances, it is strongly recomended that
++                  you leave this default value set to True.
+ 
+         Returns:
+             A dictionary is returned containing the URL fully parsed if
+@@ -958,7 +958,7 @@
+             results["tz"] = results["qsd"].get("tz", "")
+ 
+         if "store" in results["qsd"]:
+-            results["store"] = results["qsd"]["store"]
++            results["store"] = parse_bool(results["qsd"]["store"])
+ 
+         return results
+ 

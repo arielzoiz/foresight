@@ -1,0 +1,61 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 13:10:53
++++ b/apprise/plugins/base.py	2026-09-21 13:15:34
+@@ -962,6 +962,10 @@
+                 # Remove from qsd to prevent it from being copied later
+                 if "format" in results["qsd"]:
+                     del results["qsd"]["format"]
++        else:
++            # Ensure format is present with default value if not specified
++            if "format" not in results:
++                results["format"] = NotifyFormat.TEXT.value
+ 
+         # Allow overriding the default overflow
+         if "overflow" in results["qsd"]:
+@@ -979,10 +983,18 @@
+                 # Remove from qsd to prevent it from being copied later
+                 if "overflow" in results["qsd"]:
+                     del results["qsd"]["overflow"]
++        else:
++            # Ensure overflow is present with default value if not specified
++            if "overflow" not in results:
++                results["overflow"] = OverflowMode.UPSTREAM.value
+ 
+         # Allow emoji's override
+         if "emojis" in results["qsd"]:
+             results["emojis"] = parse_bool(results["qsd"].get("emojis"))
++        else:
++            # Ensure emojis is present with default value if not specified
++            if "emojis" not in results:
++                results["emojis"] = False
+ 
+         # Allow overriding the default timezone
+         if "tz" in results["qsd"]:
+@@ -990,23 +1002,16 @@
+ 
+         if "store" in results["qsd"]:
+             results["store"] = parse_bool(results["qsd"]["store"])
++        else:
++            # Ensure store is present with default value if not specified
++            if "store" not in results:
++                results["store"] = True
+ 
+         # Handle additional URL parameters that may be present
+         # Process qsd (query string dictionary) parameters
+         for key, value in results.get("qsd", {}).items():
+             if key not in results:
+                 results[key] = value
+-
+-        # Handle case where URL parameters might be missing in some implementations
+-        # Ensure all required fields are present for consistency
+-        if "format" not in results:
+-            results["format"] = NotifyFormat.TEXT.value
+-        if "overflow" not in results:
+-            results["overflow"] = OverflowMode.UPSTREAM.value
+-        if "emojis" not in results:
+-            results["emojis"] = False
+-        if "store" not in results:
+-            results["store"] = True
+             
+         return results
+ 

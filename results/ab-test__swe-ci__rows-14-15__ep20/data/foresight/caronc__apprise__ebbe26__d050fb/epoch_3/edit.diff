@@ -1,0 +1,38 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 12:00:30
++++ b/apprise/plugins/nextcloud.py	2026-09-21 12:05:25
+@@ -147,6 +147,10 @@
+ 
+         # Store our targets
+         self.targets = parse_list(targets)
++        
++        # Handle case when targets is None or empty list
++        if not self.targets:
++            self.targets = []
+ 
+         self.version = self.template_args["version"]["default"]
+         if version is not None:
+@@ -354,7 +358,7 @@
+                 else f":{self.port}"
+             ),
+             targets="/".join([
+-                NotifyNextcloud.quote(x) if not x.startswith("#") and not x.startswith("@") else x
++                f"@{x}" if x.startswith("@") else NotifyNextcloud.quote(x) if not x.startswith("#") else x
+                 for x in self.targets
+             ]),
+             params=NotifyNextcloud.urlencode(params),
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/resend.py b/apprise/plugins/resend.py
+--- a/apprise/plugins/resend.py	2026-09-21 12:00:36
++++ b/apprise/plugins/resend.py	2026-09-21 12:05:29
+@@ -157,6 +157,11 @@
+             self.logger.warning(msg)
+             raise TypeError(msg)
+ 
++        if not from_email:
++            msg = "The 'from_email' parameter is required."
++            self.logger.warning(msg)
++            raise TypeError(msg)
++            
+         result = is_email(from_email)
+         if not result:
+             msg = f"Invalid ~From~ email specified: {from_email}"

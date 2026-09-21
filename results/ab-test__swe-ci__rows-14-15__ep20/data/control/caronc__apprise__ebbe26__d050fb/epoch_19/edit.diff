@@ -1,0 +1,101 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 11:26:28
++++ b/apprise/plugins/nextcloud.py	2026-09-21 11:34:58
+@@ -339,7 +339,8 @@
+                         if user not in deduplicated_targets:
+                             expanded_targets.append(user)
+                             deduplicated_targets.add(user)
+-                # If users is None (API call failed), continue processing direct targets
++                # If users is None (API call failed), we should continue processing direct targets
++                # but we don't want to fail the entire operation
+             elif target.startswith('#'):
+                 # Handle group targets
+                 group_name = target[1:]  # Remove the '#'
+@@ -351,7 +352,7 @@
+                             if user not in deduplicated_targets:
+                                 expanded_targets.append(user)
+                                 deduplicated_targets.add(user)
+-                    # If users is None (API call failed), continue processing direct targets
++                    # If users is None (API call failed), we should continue processing direct targets
+                 else:
+                     # Empty group name, treat as direct target
+                     expanded_targets.append(target)
+@@ -389,7 +390,7 @@
+     @property
+     def url_identifier(self):
+         """Returns all of the identifiers that make this URL unique from
+-        another simliar one.
++        another similar one.
+ 
+         Targets or end points should never be identified here.
+         """
+@@ -399,6 +400,8 @@
+             self.password,
+             self.host,
+             self.port,
++            self.version,
++            self.url_prefix,
+         )
+ 
+     def url(self, privacy=False, *args, **kwargs):
+@@ -565,14 +568,14 @@
+                         self.logger.warning(
+                             "Invalid JSON response structure when getting all users."
+                         )
+-                        # Return None to indicate failure to get users (but not fatal)
+-                        return None
++                        # Return empty list to indicate failure to get users (but not fatal)
++                        return []
+                 except (ValueError, KeyError):
+                     self.logger.warning(
+                         "Invalid JSON response when getting all users."
+                     )
+-                    # Return None to indicate failure to get users (but not fatal)
+-                    return None
++                    # Return empty list to indicate failure to get users (but not fatal)
++                    return []
+             else:
+                 self.logger.warning(
+                     "Failed to get all users: HTTP %d", response.status_code
+@@ -586,8 +589,8 @@
+                 "Unexpected error when getting all users: %s", str(e)
+             )
+ 
+-        # Return None to indicate failure to get users (but not fatal)
+-        return None
++        # Return empty list to indicate failure to get users (but not fatal)
++        return []
+ 
+     def _get_group_users(self, group_name):
+         """Get list of users in a specific group from Nextcloud."""
+@@ -643,15 +646,15 @@
+                             "Invalid JSON response structure when getting group users for '%s'.",
+                             group_name
+                         )
+-                        # Return None to indicate failure to get users (but not fatal)
+-                        return None
++                        # Return empty list to indicate failure to get users (but not fatal)
++                        return []
+                 except (ValueError, KeyError):
+                     self.logger.warning(
+                         "Invalid JSON response when getting group users for '%s'.",
+                         group_name
+                     )
+-                    # Return None to indicate failure to get users (but not fatal)
+-                    return None
++                    # Return empty list to indicate failure to get users (but not fatal)
++                    return []
+             else:
+                 self.logger.warning(
+                     "Failed to get group users for '%s': HTTP %d",
+@@ -668,8 +671,8 @@
+                 group_name, str(e)
+             )
+ 
+-        # Return None to indicate failure to get users (but not fatal)
+-        return None
++        # Return empty list to indicate failure to get users (but not fatal)
++        return []
+ 
+ 
+ 

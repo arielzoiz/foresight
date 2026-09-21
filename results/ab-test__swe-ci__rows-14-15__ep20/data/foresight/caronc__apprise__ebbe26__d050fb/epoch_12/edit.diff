@@ -1,0 +1,111 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/apprise.py b/apprise/apprise.py
+--- a/apprise/apprise.py	2026-09-21 12:40:17
++++ b/apprise/apprise.py	2026-09-21 12:49:53
+@@ -221,7 +221,7 @@
+                     )
+                 )
+ 
+-            except Exception:
++            except Exception as e:
+                 # CWE-312 (Secure Logging) Handling
+                 loggable_url = (
+                     url if not asset.secure_logging else cwe312_url(url)
+@@ -233,6 +233,7 @@
+                         N_MGR[results["schema"]].service_name, loggable_url
+                     )
+                 )
++                logger.debug("Exception details: %s", str(e))
+                 return None
+ 
+         else:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/dapnet.py b/apprise/plugins/dapnet.py
+--- a/apprise/plugins/dapnet.py	2026-09-21 11:43:47
++++ b/apprise/plugins/dapnet.py	2026-09-21 12:49:57
+@@ -97,6 +97,44 @@
+     # Dapnet uses the http protocol with JSON requests
+     notify_url = "http://www.hampager.de:8080/calls"
+ 
++    # Define our templates
++    templates = (
++        '{schema}://{user}:{password}@{callsign}',
++        '{schema}://{user}:{password}@{callsign1}/{callsign2}',
++    )
++
++    # Define our tokens
++    template_tokens = dict(
++        NotifyBase.template_tokens,
++        **{
++            "user": {
++                "name": _("Username"),
++                "type": "string",
++                "required": True,
++            },
++            "password": {
++                "name": _("Password"),
++                "type": "string",
++                "required": True,
++            },
++            "callsign": {
++                "name": _("Call Sign"),
++                "type": "string",
++                "required": True,
++            },
++            "callsign1": {
++                "name": _("Call Sign 1"),
++                "type": "string",
++                "required": True,
++            },
++            "callsign2": {
++                "name": _("Call Sign 2"),
++                "type": "string",
++                "required": True,
++            },
++        }
++    )
++
+     # The maximum length of the body
+     body_maxlen = 80
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/telegram.py b/apprise/plugins/telegram.py
+--- a/apprise/plugins/telegram.py	2026-09-21 12:40:15
++++ b/apprise/plugins/telegram.py	2026-09-21 12:50:04
+@@ -139,6 +139,39 @@
+     # A URL that takes you to the setup/help of the specific protocol
+     setup_url = "https://github.com/caronc/apprise/wiki/Notify_telegram"
+ 
++    # Define our templates
++    templates = (
++        '{schema}://{bot_token}/{chat_id}',
++        '{schema}://{bot_token}/{chat_id1}/{chat_id2}',
++    )
++
++    # Define our tokens
++    template_tokens = dict(
++        NotifyBase.template_tokens,
++        **{
++            "bot_token": {
++                "name": _("Bot Token"),
++                "type": "string",
++                "required": True,
++            },
++            "chat_id": {
++                "name": _("Chat ID"),
++                "type": "string",
++                "required": True,
++            },
++            "chat_id1": {
++                "name": _("Chat ID 1"),
++                "type": "string",
++                "required": True,
++            },
++            "chat_id2": {
++                "name": _("Chat ID 2"),
++                "type": "string",
++                "required": True,
++            },
++        }
++    )
++
+     # Default Notify Format
+     notify_format = NotifyFormat.HTML
+ 

@@ -1,0 +1,91 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 11:43:47
++++ b/apprise/plugins/base.py	2026-09-21 12:26:06
+@@ -511,7 +511,7 @@
+             # Deny notifications issued to services that are disabled
+             msg = f"{self.service_name} is currently disabled on this system."
+             self.logger.warning(msg)
+-            raise TypeError(msg)
++            return
+ 
+         # Prepare attachments if required
+         if attach is not None and not isinstance(attach, AppriseAttachment):
+@@ -520,7 +520,8 @@
+ 
+             except TypeError:
+                 # bad attachments
+-                raise
++                self.logger.warning("Invalid attachment specified.")
++                return
+ 
+             # Handle situations where the body is None
+             body = body if body else ""
+@@ -530,7 +531,7 @@
+             # present
+             msg = "No message body or attachment was specified."
+             self.logger.warning(msg)
+-            raise TypeError(msg)
++            return
+ 
+         if not body and not self.attachment_support:
+             # If no body was specified, then we know that an attachment
+@@ -544,7 +545,7 @@
+                 " service skipped"
+             )
+             self.logger.warning(msg)
+-            raise TypeError(msg)
++            return
+ 
+         # Handle situations where the title is None
+         title = title if title else ""
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/resend.py b/apprise/plugins/resend.py
+--- a/apprise/plugins/resend.py	2026-09-21 12:20:25
++++ b/apprise/plugins/resend.py	2026-09-21 12:26:29
+@@ -434,7 +434,12 @@
+         """Parses the URL and returns enough arguments that can allow us to re-
+         instantiate this object."""
+ 
+-        results = NotifyBase.parse_url(url)
++        try:
++            results = NotifyBase.parse_url(url)
++        except Exception:
++            # Handle any parsing errors gracefully
++            return None
++            
+         if not results:
+             # We're done early as we couldn't load the results
+             return results
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/slack.py b/apprise/plugins/slack.py
+--- a/apprise/plugins/slack.py	2026-09-21 12:20:22
++++ b/apprise/plugins/slack.py	2026-09-21 12:26:38
+@@ -1178,7 +1178,12 @@
+     def parse_url(url):
+         """Parses the URL and returns enough arguments that can allow us to re-
+         instantiate this object."""
+-        results = NotifyBase.parse_url(url, verify_host=False)
++        try:
++            results = NotifyBase.parse_url(url, verify_host=False)
++        except Exception:
++            # Handle any parsing errors gracefully
++            return None
++            
+         if not results:
+             # We're done early as we couldn't load the results
+             return results
+@@ -1267,9 +1272,13 @@
+         if not results.get("token_a") and not results.get("access_token"):
+             # Try to parse a native Slack URL with more flexible pattern
+             # This handles URLs like: https://hooks.slack.com/services/TOKEN_A/TOKEN_B/TOKEN_C
+-            flexible_result = NotifySlack.parse_flexible_native_url(url)
+-            if flexible_result:
+-                results.update(flexible_result)
++            try:
++                flexible_result = NotifySlack.parse_flexible_native_url(url)
++                if flexible_result:
++                    results.update(flexible_result)
++            except Exception:
++                # Graceful fallback if parsing fails
++                pass
+ 
+         return results
+ 

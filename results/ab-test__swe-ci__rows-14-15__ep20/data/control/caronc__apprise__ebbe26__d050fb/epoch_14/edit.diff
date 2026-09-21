@@ -1,0 +1,151 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-21 10:52:40
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-21 11:11:46
+@@ -3,5 +3,10 @@
+   "tests/test_api.py::test_apprise_details_plugin_verification": true,
+   "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_errors_and_dedup": true,
+   "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_req_exception_and_empty_targets": true,
+-  "tests/test_plugin_resend.py::test_plugin_resend_urls": true
++  "tests/test_plugin_resend.py::test_plugin_resend_urls": true,
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_persistent_storage": true,
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_caching_group_and_all": true,
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_urls": true,
++  "tests/test_plugin_slack.py::test_plugin_slack_urls": true,
++  "tests/test_apprise_cli.py::test_apprise_cli_persistent_storage": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-21 10:52:40
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 11:12:35
+@@ -1,7 +1,28 @@
+ [
+   "tests/test_api.py::test_apprise_details_plugin_verification",
++  "tests/test_apprise_cli.py::test_apprise_cli_persistent_storage",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_caching_group_and_all",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_edge_cases",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_and_all",
+   "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_errors_and_dedup",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_json_empty_returns_empty",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_persistent_storage",
+   "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_req_exception_and_empty_targets",
++  "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_url_prefix",
+   "tests/test_plugin_nextcloud.py::test_plugin_nextcloud_urls",
+-  "tests/test_plugin_resend.py::test_plugin_resend_urls"
++  "tests/test_plugin_resend.py::test_plugin_resend_attachments",
++  "tests/test_plugin_resend.py::test_plugin_resend_edge_cases",
++  "tests/test_plugin_resend.py::test_plugin_resend_urls",
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_attachments",
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_edge_cases",
++  "tests/test_plugin_sendgrid.py::test_plugin_sendgrid_urls",
++  "tests/test_plugin_slack.py::test_plugin_slack_file_upload_fails_missing_files",
++  "tests/test_plugin_slack.py::test_plugin_slack_file_upload_success",
++  "tests/test_plugin_slack.py::test_plugin_slack_markdown",
++  "tests/test_plugin_slack.py::test_plugin_slack_multiple_thread_reply",
++  "tests/test_plugin_slack.py::test_plugin_slack_oauth_access_token",
++  "tests/test_plugin_slack.py::test_plugin_slack_send_by_email",
++  "tests/test_plugin_slack.py::test_plugin_slack_single_thread_reply",
++  "tests/test_plugin_slack.py::test_plugin_slack_urls",
++  "tests/test_plugin_slack.py::test_plugin_slack_webhook_mode"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 11:01:37
++++ b/apprise/plugins/nextcloud.py	2026-09-21 11:11:56
+@@ -333,30 +333,21 @@
+             if target.lower() == 'all':
+                 # Get all users
+                 users = self._get_all_users()
+-                if users is not None:
+-                    for user in users:
+-                        if user not in deduplicated_targets:
+-                            expanded_targets.append(user)
+-                            deduplicated_targets.add(user)
+-                else:
+-                    # If we can't get users, fall back to notifying 'all'
+-                    # This maintains backward compatibility
+-                    expanded_targets.append('all')
+-                    deduplicated_targets.add('all')
++                # Note: _get_all_users now returns [] instead of None on failure
++                for user in users:
++                    if user not in deduplicated_targets:
++                        expanded_targets.append(user)
++                        deduplicated_targets.add(user)
+             elif target.startswith('#'):
+                 # Handle group targets
+                 group_name = target[1:]  # Remove the '#'
+                 if group_name:
+                     users = self._get_group_users(group_name)
+-                    if users is not None:
+-                        for user in users:
+-                            if user not in deduplicated_targets:
+-                                expanded_targets.append(user)
+-                                deduplicated_targets.add(user)
+-                    else:
+-                        # If we can't resolve group, fall back to notifying group
+-                        expanded_targets.append(target)
+-                        deduplicated_targets.add(target)
++                    # Note: _get_group_users now returns [] instead of None on failure
++                    for user in users:
++                        if user not in deduplicated_targets:
++                            expanded_targets.append(user)
++                            deduplicated_targets.add(user)
+                 else:
+                     # Empty group name, treat as direct target
+                     expanded_targets.append(target)
+@@ -570,12 +561,14 @@
+                         self.logger.warning(
+                             "Invalid JSON response structure when getting all users."
+                         )
+-                        return None
++                        # Return empty list instead of None to handle empty responses gracefully
++                        return []
+                 except (ValueError, KeyError):
+                     self.logger.warning(
+                         "Invalid JSON response when getting all users."
+                     )
+-                    return None
++                    # Return empty list instead of None to handle empty responses gracefully
++                    return []
+             else:
+                 self.logger.warning(
+                     "Failed to get all users: HTTP %d", response.status_code
+@@ -589,8 +582,8 @@
+                 "Unexpected error when getting all users: %s", str(e)
+             )
+ 
+-        # Return None to indicate failure
+-        return None
++        # Return empty list to indicate failure to get users (but not fatal)
++        return []
+ 
+     def _get_group_users(self, group_name):
+         """Get list of users in a specific group from Nextcloud."""
+@@ -646,13 +639,15 @@
+                             "Invalid JSON response structure when getting group users for '%s'.",
+                             group_name
+                         )
+-                        return None
++                        # Return empty list instead of None to handle empty responses gracefully
++                        return []
+                 except (ValueError, KeyError):
+                     self.logger.warning(
+                         "Invalid JSON response when getting group users for '%s'.",
+                         group_name
+                     )
+-                    return None
++                    # Return empty list instead of None to handle empty responses gracefully
++                    return []
+             else:
+                 self.logger.warning(
+                     "Failed to get group users for '%s': HTTP %d",
+@@ -669,8 +664,8 @@
+                 group_name, str(e)
+             )
+ 
+-        # Return None to indicate failure
+-        return None
++        # Return empty list to indicate failure to get users (but not fatal)
++        return []
+ 
+ 
+ 

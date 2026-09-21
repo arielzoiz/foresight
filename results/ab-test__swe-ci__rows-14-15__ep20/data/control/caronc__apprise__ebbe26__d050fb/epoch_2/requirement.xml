@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/apprise/plugins/nextcloud.py</location>
+        <description>The Nextcloud plugin has incorrect URL privacy handling for user targets. In test_plugin_nextcloud_urls, the test expects a privacy URL of 'ncloud://user:****@localhost/@user1/@user2' but the actual implementation returns 'ncloud://user:****@localhost/user1/user2'. This indicates an issue with how user targets are processed and formatted in the privacy URL generation.</description>
+        <contract>
+            <description>The privacy URL should properly format user targets by prefixing them with '@' to distinguish them from regular paths, as shown in the expected test result.</description>
+            <behavior>
+                <input>
+                    <param name="targets">['user1', 'user2']</param>
+                </input>
+                <output>
+                    <url>privacy_url</url>
+                    <expected>Should start with 'ncloud://user:****@localhost/@user1/@user2'</expected>
+                    <actual>Returns 'ncloud://user:****@localhost/user1/user2'</actual>
+                </output>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test_nodeid>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_urls</test_nodeid>
+            <criteria>Verify that the privacy URL for Nextcloud with user targets correctly prefixes them with '@'</criteria>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/apprise/plugins/nextcloud.py</location>
+        <description>The Nextcloud plugin has incorrect group handling logic in the group expansion feature. In test_plugin_nextcloud_groups_and_all, the test expects 4 POST calls to be made but the implementation is making 3 calls instead, indicating that the group expansion logic isn't correctly expanding groups to users and deduplicating properly.</description>
+        <contract>
+            <description>The Nextcloud plugin should correctly expand groups to individual users and properly deduplicate users when sending notifications to both groups and direct users.</description>
+            <behavior>
+                <input>
+                    <param name="targets">['#devs', 'all', 'user4']</param>
+                </input>
+                <output>
+                    <call_count>Should make 4 POST calls</call_count>
+                    <expected>Expected resolved users: user1, user2, user3, user4</expected>
+                    <actual>Making 3 POST calls instead</actual>
+                </output>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test_nodeid>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_and_all</test_nodeid>
+            <criteria>Verify that group expansion correctly expands to individual users and makes the correct number of POST calls</criteria>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/apprise/plugins/resend.py</location>
+        <description>The Resend plugin has a bug in the send() method where it incorrectly handles notifications when no targets are specified. According to test_plugin_resend_edge_cases, when an invalid email is provided, it should be ignored but the test expects the notification to proceed with the from_email address as the target.</description>
+        <contract>
+            <description>When no valid targets are specified, the Resend plugin should fall back to using the from_email address as the sole target instead of failing completely.</description>
+            <behavior>
+                <input>
+                    <param name="targets">['!invalid']</param>
+                </input>
+                <output>
+                    <result>Should succeed with from_email as target</result>
+                    <expected>Should notify to from_email address</expected>
+                    <actual>May fail or not behave correctly</actual>
+                </output>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test_nodeid>tests/test_plugin_resend.py::test_plugin_resend_edge_cases</test_nodeid>
+            <criteria>Verify that invalid email addresses in targets are ignored and notification proceeds with from_email as fallback</criteria>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/apprise/plugins/slack.py</location>
+        <description>The Slack plugin has a problem with the send() method where it fails to properly handle notification failures when using webhook mode. In test_plugin_slack_urls, the test expects a TypeError to be raised for certain invalid configurations, but the implementation may not be raising the expected exceptions.</description>
+        <contract>
+            <description>The Slack plugin should properly validate configurations and raise TypeError exceptions for invalid configurations (such as missing tokens or invalid formats) rather than silently failing or returning unexpected results.</description>
+            <behavior>
+                <input>
+                    <param name="config">Invalid Slack URL configuration</param>
+                </input>
+                <output>
+                    <exception>Should raise TypeError for invalid configurations</exception>
+                    <expected>Should raise TypeError for missing tokens</expected>
+                    <actual>May not raise expected exception</actual>
+                </output>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test_nodeid>tests/test_plugin_slack.py::test_plugin_slack_urls</test_nodeid>
+            <criteria>Verify that invalid Slack configurations properly raise TypeError exceptions</criteria>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/apprise/plugins/sendgrid.py</location>
+        <description>The SendGrid plugin has a validation issue in the send() method where it doesn't properly handle cases where the target email is invalid. In test_plugin_sendgrid_urls, the test with a bad email address should fail the notification but the implementation may not be properly validating email addresses.</description>
+        <contract>
+            <description>The SendGrid plugin should properly validate email addresses and fail notifications when invalid email addresses are provided in the targets list.</description>
+            <behavior>
+                <input>
+                    <param name="targets">['bademailaddress']</param>
+                </input>
+                <output>
+                    <result>Should fail notification</result>
+                    <expected>Should return False for invalid email targets</expected>
+                    <actual>May not properly validate or return False</actual>
+                </output>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test_nodeid>tests/test_plugin_sendgrid.py::test_plugin_sendgrid_urls</test_nodeid>
+            <criteria>Verify that invalid email addresses in targets properly cause notification to fail</criteria>
+        </acceptance>
+    </requirement>
+</requirement_document>

@@ -1,0 +1,263 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/api.py b/pypeln/sync/api.py
+--- a/pypeln/sync/api.py	2026-09-21 10:10:20
++++ b/pypeln/sync/api.py	2026-09-21 10:09:30
+@@ -1,6 +1,7 @@
+ """
+-The `sync` module lets you create pipelines using synchronous operations according to Pypeln's general [architecture](https://cgarciae.github.io/pypeln/advanced/#architecture). Use this module when you are in need to perform synchronous operations that don't require threading or multiprocessing.
++The `process` module lets you create pipelines using objects from python's [multiprocessing](https://docs.python.org/3/library/multiprocessing.html) module according to Pypeln's general [architecture](https://cgarciae.github.io/pypeln/advanced/#architecture). Use this module when you are in need of true parallelism for CPU heavy operations but be aware of its implications.
+ """
++
+ import typing
+ from threading import Thread
+ 
+@@ -40,8 +41,6 @@
+     * `threading.Thread`: (default) is efficient for iterables that already have the data in memory like lists or numpy arrays because threads can share memory so no serialization is needed. 
+     * `multiprocessing.Process`: is efficient for iterables who's data is not in memory like arbitrary generators and benefit from escaping the GIL. This is inefficient for iterables which have data in memory because they have to be serialized when sent to the background process.
+ 
+-    
+-
+     Arguments:
+         iterable: a source iterable.
+         maxsize: this parameter is not used and only kept for API compatibility with the other modules.
+@@ -119,7 +118,7 @@
+         return x + 1
+ 
+     data = range(10) # [0, 1, 2, ..., 9]
+-    stage = pl.sync.map(slow_add1, data, workers=3, maxsize=4)
++    stage = pl.process.map(slow_add1, data, workers=3, maxsize=4)
+ 
+     data = list(stage) # e.g. [2, 1, 5, 6, 3, 4, 7, 8, 9, 10]
+     ```
+@@ -200,7 +199,7 @@
+             yield -x
+ 
+     data = range(10) # [0, 1, 2, ..., 9]
+-    stage = pl.sync.flat_map(slow_integer_pair, data, workers=3, maxsize=4)
++    stage = pl.process.flat_map(slow_integer_pair, data, workers=3, maxsize=4)
+ 
+     list(stage) # e.g. [2, -2, 3, -3, 0, 1, -1, 6, -6, 4, -4, ...]
+     ```
+@@ -213,8 +212,8 @@
+     ```python
+     import pypeln as pl
+ 
+-    pl.sync.map(f, stage) = pl.sync.flat_map(lambda x: [f(x)], stage)
+-    pl.sync.filter(f, stage) = pl.sync.flat_map(lambda x: [x] if f(x) else [], stage)
++    pl.process.map(f, stage) = pl.process.flat_map(lambda x: [f(x)], stage)
++    pl.process.filter(f, stage) = pl.process.flat_map(lambda x: [x] if f(x) else [], stage)
+     ```
+ 
+     Using `flat_map` with a generator function is very useful as e.g. you are able to filter out unwanted elements when there are exceptions, missing data, etc.
+@@ -287,7 +286,7 @@
+         return x > 3
+ 
+     data = range(10) # [0, 1, 2, ..., 9]
+-    stage = pl.sync.filter(slow_gt3, data, workers=3, maxsize=4)
++    stage = pl.process.filter(slow_gt3, data, workers=3, maxsize=4)
+ 
+     data = list(stage) # e.g. [5, 6, 3, 4, 7, 8, 9]
+     ```
+@@ -362,8 +361,8 @@
+         save_image(image_path, image)
+ 
+     files_paths = get_file_paths()
+-    stage = pl.sync.each(process_image, file_paths, workers=4)
+-    pl.sync.run(stage)
++    stage = pl.process.each(process_image, file_paths, workers=4)
++    pl.process.run(stage)
+ 
+     ```
+ 
+@@ -371,7 +370,7 @@
+ 
+     ```python
+     files_paths = get_file_paths()
+-    pl.sync.each(process_image, file_paths, workers=4, run=True)
++    pl.process.each(process_image, file_paths, workers=4, run=True)
+     ```
+ 
+     !!! note
+@@ -440,7 +439,7 @@
+     stage_1 = [1, 2, 3]
+     stage_2 = [4, 5, 6, 7]
+ 
+-    stage_3 = pl.sync.concat([stage_1, stage_2]) # e.g. [1, 4, 5, 2, 6, 3, 7]
++    stage_3 = pl.process.concat([stage_1, stage_2]) # e.g. [1, 4, 5, 2, 6, 3, 7]
+     ```
+ 
+     Arguments:
+@@ -476,10 +475,10 @@
+     import pypeln as pl
+ 
+     data = get_data()
+-    stage = pl.sync.each(slow_fn, data, workers=6)
++    stage = pl.process.each(slow_fn, data, workers=6)
+ 
+     # execute pipeline
+-    pl.sync.run(stage)
++    pl.process.run(stage)
+     ```
+ 
+     Arguments:
+@@ -530,4 +529,4 @@
+     else:
+         iterable = stage
+ 
+-    return iterable
+\ No newline at end of file
++    return iterable
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/stage.py b/pypeln/sync/stage.py
+--- a/pypeln/sync/stage.py	2026-09-21 10:10:29
++++ b/pypeln/sync/stage.py	2026-09-21 10:09:33
+@@ -2,11 +2,9 @@
+ import sys
+ import traceback
+ from collections import namedtuple
+-from queue import Queue
+-from threading import Lock
+-from threading import Thread
+ 
+ from pypeln import utils as pypeln_utils
++
+ from . import utils
+ 
+ 
+@@ -23,7 +21,7 @@
+     ):
+ 
+         if worker_constructor is None:
+-            worker_constructor = Thread
++            worker_constructor = utils.CONTEXT.Process
+ 
+         self.f = f
+         self.workers = workers
+@@ -116,7 +114,7 @@
+ 
+         self.pipeline_namespace = pipeline_namespace
+         self.pipeline_error_queue = pipeline_error_queue
+-        self.stage_lock = Lock()
++        self.stage_lock = utils.CONTEXT.Lock()
+         self.stage_namespace = utils.get_namespace()
+         self.stage_namespace.active_workers = self.workers
+         self.input_queue = utils.IterableQueue(
+@@ -137,7 +135,7 @@
+ 
+         pipeline_namespace = utils.get_namespace()
+         pipeline_namespace.error = False
+-        pipeline_error_queue = Queue()
++        pipeline_error_queue = utils.CONTEXT.Queue()
+ 
+         output_queue = utils.IterableQueue(maxsize, self.workers, pipeline_namespace)
+         pipeline_stages = set()
+@@ -184,4 +182,4 @@
+             raise
+ 
+     def __or__(self, f):
+-        return f(self)
+\ No newline at end of file
++        return f(self)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pypeln/sync/utils.py b/pypeln/sync/utils.py
+--- a/pypeln/sync/utils.py	2026-09-21 10:10:24
++++ b/pypeln/sync/utils.py	2026-09-21 10:09:27
+@@ -1,70 +1,29 @@
+ from collections import namedtuple
+-from queue import Empty, Full, Queue
+-from threading import Lock
++from threading import get_ident
+ 
+ from pypeln import utils as pypeln_utils
+ 
+ 
+ def get_namespace():
+-    return pypeln_utils.Namespace()
++    """
++    Creates a namespace object that can be used to share data between workers.
++    
++    Returns:
++        A namespace object that can be used to store and retrieve data.
++    """
++    # For synchronous operations, we use threading to manage namespaces
++    # This is simpler than multiprocessing for sync operations
++    import threading
++    
++    # Create a thread-local namespace to avoid conflicts
++    thread_local = threading.local()
++    
++    if not hasattr(thread_local, 'namespace'):
++        thread_local.namespace = type('Namespace', (), {})()
++        
++    return thread_local.namespace
+ 
+ 
+-class IterableQueue(object):
+-    def __init__(self, maxsize, total_done, pipeline_namespace, **kwargs):
+-
+-        self.queue = Queue(maxsize=maxsize, **kwargs)
+-        self.lock = Lock()
+-        self.queue_namespace = get_namespace()
+-        self.queue_namespace.remaining = total_done
+-
+-        self.pipeline_namespace = pipeline_namespace
+-
+-    def __iter__(self):
+-
+-        while not self.is_done():
+-            x = self.get()
+-
+-            if self.pipeline_namespace.error:
+-                return
+-
+-            if not pypeln_utils.is_continue(x):
+-                yield x
+-
+-    def get(self):
+-
+-        try:
+-            x = self.queue.get(timeout=pypeln_utils.TIMEOUT)
+-        except (Empty, Full):
+-            return pypeln_utils.CONTINUE
+-
+-        if not pypeln_utils.is_done(x):
+-            return x
+-        else:
+-            with self.lock:
+-                self.queue_namespace.remaining -= 1
+-
+-            return pypeln_utils.CONTINUE
+-
+-    def is_done(self):
+-        return self.queue_namespace.remaining == 0 and self.queue.empty()
+-
+-    def put(self, x):
+-        self.queue.put(x)
+-
+-    def done(self):
+-        self.queue.put(pypeln_utils.DONE)
+-
+-
+-class MultiQueue(list):
+-    def put(self, x):
+-        for queue in self:
+-            queue.put(x)
+-
+-    def done(self):
+-        for queue in self:
+-            queue.done()
+-
+-
+ class StageStatus:
+     """
+     Object passed to various `on_done` callbacks. It contains information about the stage in case book keeping is needed.
+@@ -94,9 +53,4 @@
+         return f"StageStatus(done = {done}, active_workers = {active_workers})"
+ 
+ 
+-WorkerInfo = namedtuple("WorkerInfo", ["index"])
+-
+-
+-class StageReuseError(Exception):
+-    def __init__(self, *args, **kwargs):
+-        super().__init__(*args, **kwargs)
+\ No newline at end of file
++WorkerInfo = namedtuple("WorkerInfo", ["index"])
+\ No newline at end of file

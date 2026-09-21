@@ -1,0 +1,30 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 12:31:03
++++ b/apprise/plugins/base.py	2026-09-21 12:35:41
+@@ -480,6 +480,11 @@
+             return False
+ 
+         else:
++            # If no send calls were generated (due to disabled plugin or other
++            # reasons), return True (no failure occurred)
++            if not send_calls:
++                return True
++
+             loop = asyncio.get_event_loop()
+ 
+             # Wrap each call in a coroutine that uses the default executor.
+@@ -857,9 +862,11 @@
+         **kwargs: Any,
+     ) -> bool:
+         """Should preform the actual notification itself."""
+-        # Default implementation returns False to indicate failure
+-        # This allows plugin initialization to succeed and enables testing
+-        return False
++        # Default implementation raises NotImplementedError to indicate
++        # that subclasses must implement this method
++        raise NotImplementedError(
++            "The send() method must be implemented by subclasses"
++        )
+ 
+     def url_parameters(
+         self,

@@ -1,0 +1,93 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 11:55:42
++++ b/apprise/plugins/nextcloud.py	2026-09-21 12:00:30
+@@ -354,7 +354,7 @@
+                 else f":{self.port}"
+             ),
+             targets="/".join([
+-                NotifyNextcloud.quote(x) if not x.startswith("#") else x
++                NotifyNextcloud.quote(x) if not x.startswith("#") and not x.startswith("@") else x
+                 for x in self.targets
+             ]),
+             params=NotifyNextcloud.urlencode(params),
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/resend.py b/apprise/plugins/resend.py
+--- a/apprise/plugins/resend.py	2026-09-21 11:55:36
++++ b/apprise/plugins/resend.py	2026-09-21 12:00:36
+@@ -143,7 +143,7 @@
+     )
+ 
+     def __init__(
+-        self, apikey, from_addr, targets=None, cc=None, bcc=None, **kwargs
++        self, apikey, from_email, targets=None, cc=None, bcc=None, **kwargs
+     ):
+         """Initialize Notify Resend Object."""
+         super().__init__(**kwargs)
+@@ -157,9 +157,9 @@
+             self.logger.warning(msg)
+             raise TypeError(msg)
+ 
+-        result = is_email(from_addr)
++        result = is_email(from_email)
+         if not result:
+-            msg = f"Invalid ~From~ email specified: {from_addr}"
++            msg = f"Invalid ~From~ email specified: {from_email}"
+             self.logger.warning(msg)
+             raise TypeError(msg)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/sendgrid.py b/apprise/plugins/sendgrid.py
+--- a/apprise/plugins/sendgrid.py	2026-09-21 11:55:53
++++ b/apprise/plugins/sendgrid.py	2026-09-21 12:00:28
+@@ -169,7 +169,7 @@
+     def __init__(
+         self,
+         apikey,
+-        from_addr,
++        from_email,
+         targets=None,
+         cc=None,
+         bcc=None,
+@@ -189,9 +189,9 @@
+             self.logger.warning(msg)
+             raise TypeError(msg)
+ 
+-        result = is_email(from_addr)
++        result = is_email(from_email)
+         if not result:
+-            msg = f"Invalid ~From~ email specified: {from_addr}"
++            msg = f"Invalid ~From~ email specified: {from_email}"
+             self.logger.warning(msg)
+             raise TypeError(msg)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/slack.py b/apprise/plugins/slack.py
+--- a/apprise/plugins/slack.py	2026-09-21 11:55:48
++++ b/apprise/plugins/slack.py	2026-09-21 12:00:34
+@@ -1270,20 +1270,27 @@
+             if native_result:
+                 # Merge the results
+                 results.update(native_result)
++            else:
++                # Try to parse a native Slack URL with more flexible pattern
++                # This handles URLs like: https://hooks.slack.com/services/TOKEN_A/TOKEN_B/TOKEN_C
++                flexible_result = NotifySlack.parse_flexible_native_url(url)
++                if flexible_result:
++                    results.update(flexible_result)
+ 
+         return results
+ 
+     @staticmethod
+-    def parse_native_url(url):
++    def parse_flexible_native_url(url):
+         """
+         Support https://hooks.slack.com/services/TOKEN_A/TOKEN_B/TOKEN_C
++        with more flexible pattern matching
+         """
+ 
+         result = re.match(
+             r"^https?://hooks\.slack\.com/services/"
+             r"(?P<token_a>[A-Z0-9]+)/"
+             r"(?P<token_b>[A-Z0-9]+)/"
+-            r"(?P<token_c>[A-Z0-9]+)/?"
++            r"(?P<token_c>[A-Z0-9]+(?:/[A-Za-z0-9_-]+)?)"
+             r"(?P<params>\?.+)?$",
+             url,
+             re.I,

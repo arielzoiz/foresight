@@ -1,0 +1,66 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-21 13:00:35
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 13:05:52
+@@ -1,5 +1,6 @@
+ [
+   "tests/test_api.py::test_apprise_disabled_plugins",
++  "tests/test_asyncio.py::test_apprise_asyncio_runtime_error",
+   "tests/test_notify_base.py::test_notify_base",
+   "tests/test_notify_base.py::test_notify_base_urls"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/apprise.py b/apprise/apprise.py
+--- a/apprise/apprise.py	2026-09-21 12:49:53
++++ b/apprise/apprise.py	2026-09-21 13:05:20
+@@ -773,7 +773,23 @@
+             # These are our internally thrown notifications.
+             return False
+ 
+-        return all(results)
++        # Handle the case where we have results that are not boolean values
++        # or None (which would cause all() to fail)
++        processed_results = []
++        for result in results:
++            if isinstance(result, bool):
++                processed_results.append(result)
++            elif result is None:
++                # None means no notification was sent, which should be treated as success
++                processed_results.append(True)
++            elif isinstance(result, Exception):
++                # Exception should be treated as failure
++                processed_results.append(False)
++            else:
++                # For any other result, treat as success (shouldn't normally happen)
++                processed_results.append(True)
++                
++        return all(processed_results)
+ 
+     def details(
+         self,
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 12:59:52
++++ b/apprise/plugins/base.py	2026-09-21 13:05:43
+@@ -985,23 +985,6 @@
+             if key not in results:
+                 results[key] = value
+ 
+-        # Allow emoji's override
+-        if "emojis" in results["qsd"]:
+-            results["emojis"] = parse_bool(results["qsd"].get("emojis"))
+-
+-        # Allow overriding the default timezone
+-        if "tz" in results["qsd"]:
+-            results["tz"] = results["qsd"].get("tz", "")
+-
+-        if "store" in results["qsd"]:
+-            results["store"] = parse_bool(results["qsd"]["store"])
+-
+-        # Handle additional URL parameters that may be present
+-        # Process qsd (query string dictionary) parameters
+-        for key, value in results.get("qsd", {}).items():
+-            if key not in results:
+-                results[key] = value
+-
+         return results
+ 
+     @staticmethod

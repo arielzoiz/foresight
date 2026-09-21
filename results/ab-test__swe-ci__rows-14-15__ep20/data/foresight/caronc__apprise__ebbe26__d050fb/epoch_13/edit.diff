@@ -1,0 +1,63 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 12:45:04
++++ b/apprise/plugins/base.py	2026-09-21 12:54:47
+@@ -485,7 +485,13 @@
+             if not send_calls:
+                 return True
+ 
+-            loop = asyncio.get_event_loop()
++            # Use get_event_loop() with fallback to new event loop if needed
++            try:
++                loop = asyncio.get_event_loop()
++            except RuntimeError:
++                # No event loop exists, create a new one
++                loop = asyncio.new_event_loop()
++                asyncio.set_event_loop(loop)
+ 
+             # Wrap each call in a coroutine that uses the default executor.
+             # TODO: In the future, allow plugins to supply a native
+@@ -951,7 +957,6 @@
+         # Allow emoji's override
+         if "emojis" in results["qsd"]:
+             results["emojis"] = parse_bool(results["qsd"].get("emojis"))
+-            # Store our persistent storage boolean
+ 
+         # Allow overriding the default timezone
+         if "tz" in results["qsd"]:
+@@ -960,6 +965,12 @@
+         if "store" in results["qsd"]:
+             results["store"] = parse_bool(results["qsd"]["store"])
+ 
++        # Handle additional URL parameters that may be present
++        # Process qsd (query string dictionary) parameters
++        for key, value in results.get("qsd", {}).items():
++            if key not in results:
++                results[key] = value
++
+         return results
+ 
+     @staticmethod
+@@ -1010,3 +1021,23 @@
+         otherwise the default timezone is returned.
+         """
+         return self.__tzinfo if self.__tzinfo else self.asset.tzinfo
++
++    def __len__(self):
++        """Returns the number of targets associated with this notification.
++        
++        Default implementation returns 1 for single notifications.
++        Subclasses can override this to provide more specific behavior.
++        """
++        return 1
++
++    @property
++    def url_identifier(self):
++        """Returns all of the identifiers that make this URL unique from
++        another similar one.
++
++        Targets or end points should never be identified here.
++        """
++        # Default implementation returns a tuple of core identifying attributes
++        # This can be overridden by subclasses to provide more specific
++        # identifier logic
++        return (self.service_name,)

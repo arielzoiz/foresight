@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/apprise/apprise.py</location>
+    <description>The Apprise.instantiate() method is not properly handling plugin instantiation failures. Several tests are failing because when a plugin fails to instantiate, it returns None instead of raising an appropriate exception or handling the error correctly.</description>
+    <contract>When a plugin fails to instantiate due to invalid parameters or configuration, the instantiate() method should either raise a TypeError/ValueError with a descriptive message, or return None with proper logging. It should not silently return None without proper error handling.</contract>
+    <acceptance>tests/test_api.py::test_apprise_object and tests/test_api.py::test_apprise_async should pass</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/apprise/plugins/base.py</location>
+    <description>Some notification plugins lack proper error handling for invalid configurations. Specifically, the instantiate method in NotifyBase subclasses is not correctly validating parameters, leading to failed instantiations that aren't properly reported.</description>
+    <contract>Plugins should validate their configuration parameters in the __init__ method and raise appropriate exceptions (TypeError, ValueError) for invalid configurations rather than allowing silent failures or returning None.</contract>
+    <acceptance>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_urls and tests/test_plugin_nextcloud.py::test_plugin_nextcloud_caching_group_and_all should pass</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/apprise/plugins/base.py</location>
+    <description>The notification plugins are not correctly handling the case where notify() calls fail. In some cases, the notify() method is returning None instead of False when notification fails, causing test assertions to fail.</description>
+    <contract>All notify() methods in notification plugins must return boolean values (True for success, False for failure) consistently. Returning None should only happen when no notification is attempted due to configuration issues.</contract>
+    <acceptance>tests/test_plugin_sendgrid.py::test_plugin_sendgrid_urls should pass</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/apprise/apprise.py</location>
+    <description>The Apprise.add() method is not properly handling invalid server specifications. When a server URL is invalid or cannot be parsed, it should return False instead of continuing to process subsequent servers.</description>
+    <contract>The add() method should return False when a server cannot be added due to invalid parameters or parsing failures, and should not continue processing other servers in the list when one fails.</contract>
+    <acceptance>tests/test_apprise_cli.py::test_apprise_cli_persistent_storage should pass</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/apprise/plugins/base.py</location>
+    <description>Some notification plugins don't implement proper validation for required parameters, causing them to silently fail during notification attempts rather than failing early during instantiation.</description>
+    <contract>Notification plugins should validate required parameters during __init__ and raise appropriate exceptions if required fields are missing or invalid, preventing the creation of unusable plugin instances.</contract>
+    <acceptance>tests/test_plugin_resend.py::test_plugin_resend_urls should pass</acceptance>
+  </requirement>
+</requirement_document>

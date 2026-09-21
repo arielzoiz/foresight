@@ -1,0 +1,176 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 10:28:04
++++ b/apprise/plugins/nextcloud.py	2026-09-21 10:34:14
+@@ -328,18 +328,32 @@
+ 
+             # Handle special case 'all' which refers to all users
+             if target.lower() == 'all':
+-                # For now, we'll just add 'all' as a target to send to
+-                # In a real implementation, we'd resolve this to all users
+-                expanded_targets.append(target)
+-                deduplicated_targets.add(target)
++                # Get all users
++                users = self._get_all_users()
++                if users is not None:
++                    for user in users:
++                        if user not in deduplicated_targets:
++                            expanded_targets.append(user)
++                            deduplicated_targets.add(user)
++                else:
++                    # If we can't get users, fall back to notifying 'all'
++                    # This maintains backward compatibility
++                    expanded_targets.append('all')
++                    deduplicated_targets.add('all')
+             elif target.startswith('#'):
+                 # Handle group targets
+                 group_name = target[1:]  # Remove the '#'
+                 if group_name:
+-                    # For now, we'll add the group as-is to send to
+-                    # In a real implementation, we'd resolve this to users
+-                    expanded_targets.append(target)
+-                    deduplicated_targets.add(target)
++                    users = self._get_group_users(group_name)
++                    if users is not None:
++                        for user in users:
++                            if user not in deduplicated_targets:
++                                expanded_targets.append(user)
++                                deduplicated_targets.add(user)
++                    else:
++                        # If we can't resolve group, fall back to notifying group
++                        expanded_targets.append(target)
++                        deduplicated_targets.add(target)
+                 else:
+                     # Empty group name, treat as direct target
+                     expanded_targets.append(target)
+@@ -356,69 +370,28 @@
+         """Check if a target is valid (not empty or whitespace only)."""
+         return target and target.strip()
+ 
+-    def _get_cache_key(self, target):
+-        """Generate a cache key for a target."""
+-        return f"nextcloud:{target}"
++    def _get_cache_key(self, key_type, identifier):
++        """Generate a cache key for the given type and identifier."""
++        return f"{key_type}:{identifier}"
+ 
+     def _is_cache_valid(self, cache_key):
+-        """Check if cached entry is still valid."""
++        """Check if cached data is still valid."""
+         if cache_key not in self._cache:
+             return False
+-        cached_entry = self._cache[cache_key]
+-        return time.time() - cached_entry['timestamp'] < self._cache_expiration
++        timestamp, _ = self._cache[cache_key]
++        return time.time() - timestamp < self._cache_expiration
+ 
+     def _get_from_cache(self, cache_key):
+-        """Get cached value if valid."""
++        """Get data from cache if valid."""
+         if self._is_cache_valid(cache_key):
+-            return self._cache[cache_key]['value']
++            _, data = self._cache[cache_key]
++            return data
+         return None
+ 
+-    def _set_cache(self, cache_key, value):
+-        """Set a value in cache."""
+-        self._cache[cache_key] = {
+-            'value': value,
+-            'timestamp': time.time()
+-        }
++    def _set_cache(self, cache_key, data):
++        """Set data in cache."""
++        self._cache[cache_key] = (time.time(), data)
+ 
+-    def _expand_targets(self, targets):
+-        """
+-        Expand targets that are groups (#group) or 'all' into individual users.
+-        Uses caching to avoid repeated API calls.
+-        """
+-        expanded_targets = []
+-        deduplicated_targets = set()
+-
+-        # First pass: process targets and prepare for expansion
+-        for target in targets:
+-            if not self._is_valid_target(target):
+-                continue
+-
+-            # Handle special case 'all' which refers to all users
+-            if target.lower() == 'all':
+-                # For now, we'll just add 'all' as a target to send to
+-                # In a real implementation, we'd resolve this to all users
+-                expanded_targets.append(target)
+-                deduplicated_targets.add(target)
+-            elif target.startswith('#'):
+-                # Handle group targets
+-                group_name = target[1:]  # Remove the '#'
+-                if group_name:
+-                    # For now, we'll add the group as-is to send to
+-                    # In a real implementation, we'd resolve this to users
+-                    expanded_targets.append(target)
+-                    deduplicated_targets.add(target)
+-                else:
+-                    # Empty group name, treat as direct target
+-                    expanded_targets.append(target)
+-                    deduplicated_targets.add(target)
+-            else:
+-                # Regular user target
+-                if target not in deduplicated_targets:
+-                    expanded_targets.append(target)
+-                    deduplicated_targets.add(target)
+-
+-        return expanded_targets
+-
+     @property
+     def url_identifier(self):
+         """Returns all of the identifiers that make this URL unique from
+@@ -751,37 +724,4 @@
+                 group_name, str(e)
+             )
+ 
+-        # Return None to indicate failure
+-        return None
+ 
+-        # Fetch our targets
+-        results["targets"] = NotifyNextcloud.split_path(results["fullpath"])
+-
+-        # The 'to' makes it easier to use yaml configuration
+-        if "to" in results["qsd"] and len(results["qsd"]["to"]):
+-            results["targets"] += NotifyNextcloud.parse_list(
+-                results["qsd"]["to"]
+-            )
+-
+-        # Allow users to over-ride the Nextcloud version being used
+-        if "version" in results["qsd"] and len(results["qsd"]["version"]):
+-            results["version"] = NotifyNextcloud.unquote(
+-                results["qsd"]["version"]
+-            )
+-
+-        # Support URL Prefixes
+-        if "url_prefix" in results["qsd"] and len(
+-            results["qsd"]["url_prefix"]
+-        ):
+-            results["url_prefix"] = NotifyNextcloud.unquote(
+-                results["qsd"]["url_prefix"]
+-            )
+-
+-        # Add our headers that the user can potentially over-ride if they wish
+-        # to to our returned result set and tidy entries by unquoting them
+-        results["headers"] = {
+-            NotifyNextcloud.unquote(x): NotifyNextcloud.unquote(y)
+-            for x, y in results["qsd+"].items()
+-        }
+-
+-        return results
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/slack.py b/apprise/plugins/slack.py
+--- a/apprise/plugins/slack.py	2026-09-21 10:13:26
++++ b/apprise/plugins/slack.py	2026-09-21 10:34:06
+@@ -1207,7 +1207,7 @@
+         # Support the token flag where you can set it to the bot token
+         # or the webhook token (with slash delimiters)
+         if "token" in results["qsd"] and len(results["qsd"]["token"]):
+-            # Break our entries up into a list; we can ue the Channel
++            # Break our entries up into a list; we can use the Channel
+             # list delimiter above since it doesn't contain any characters
+             # we don't otherwise accept anyway in our token
+             entries = list(

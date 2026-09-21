@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/apprise/plugins/base.py</location>
+    <description>The _apply_overflow method in NotifyBase has issues with title_maxlen handling and emoji processing that causes test failures. Specifically, the logic for handling title_maxlen when it's 0 and title is provided is not working correctly, and emoji processing is not consistently applied.</description>
+    <contract>Fix the _apply_overflow method to properly handle title_maxlen=0 scenarios where titles should be amalgamated into the body, and ensure emoji processing is consistently applied before overflow handling. The method should properly process titles with emoji codes (like ":smile:") according to the plugin's emoji settings.</contract>
+    <acceptance>Tests for emoji handling (test_notify_emoji_general) and title_maxlen behavior (test_plugin_title_maxlen) should pass. The title should be properly converted from emoji codes to Unicode characters when emojis=yes is set in URL parameters, and title_maxlen=0 should properly amalgamate title into body.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/apprise/apprise.py</location>
+    <description>The notify method in Apprise class does not properly pass the title through the emoji processing pipeline before applying overflow handling. This causes emoji codes to remain in the final notification title when they should be converted to Unicode characters.</description>
+    <contract>Modify the _create_notify_gen method in Apprise class to ensure emoji processing occurs before overflow handling. The title should be processed by apply_emojis() before being passed to _apply_overflow for title length management.</contract>
+    <acceptance>Emoji test cases should pass where ":smile:" becomes "😄" when emojis=yes is specified in URL parameters.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/apprise/plugins/base.py</location>
+    <description>Missing or incorrect handling of title_maxlen=0 in the _apply_overflow method when title is present. The amalgamation logic needs to properly merge title into body when title_maxlen is 0.</description>
+    <contract>Update the _apply_overflow method to correctly implement title amalgamation when title_maxlen=0. When title is provided but title_maxlen=0, the title should be merged into the body with appropriate formatting based on the notify_format.</contract>
+    <acceptance>Tests that verify title_maxlen=0 behavior should pass, ensuring titles are properly amalgamated into body when title_maxlen=0.</acceptance>
+  </item>
+</requirement>

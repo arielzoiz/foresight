@@ -1,0 +1,50 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/resend.py b/apprise/plugins/resend.py
+--- a/apprise/plugins/resend.py	2026-09-21 12:15:49
++++ b/apprise/plugins/resend.py	2026-09-21 12:20:25
+@@ -151,6 +151,9 @@
+         # Handle backward compatibility: from_addr parameter
+         if from_addr is not None and from_email is None:
+             from_email = from_addr
++        elif from_addr is not None and from_email is not None:
++            # Both parameters provided - use from_email as primary
++            pass
+ 
+         # API Key (associated with project)
+         self.apikey = validate_regex(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/sendgrid.py b/apprise/plugins/sendgrid.py
+--- a/apprise/plugins/sendgrid.py	2026-09-21 12:10:11
++++ b/apprise/plugins/sendgrid.py	2026-09-21 12:20:18
+@@ -319,7 +319,6 @@
+         title="",
+         notify_type=NotifyType.INFO,
+         attach=None,
+-        notify_response=None,
+         **kwargs,
+     ):
+         """Perform SendGrid Notification."""
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/slack.py b/apprise/plugins/slack.py
+--- a/apprise/plugins/slack.py	2026-09-21 12:00:34
++++ b/apprise/plugins/slack.py	2026-09-21 12:20:22
+@@ -1265,17 +1265,11 @@
+ 
+         # Check if we have a native Slack URL
+         if not results.get("token_a") and not results.get("access_token"):
+-            # Try to parse a native Slack URL
+-            native_result = NotifySlack.parse_native_url(url)
+-            if native_result:
+-                # Merge the results
+-                results.update(native_result)
+-            else:
+-                # Try to parse a native Slack URL with more flexible pattern
+-                # This handles URLs like: https://hooks.slack.com/services/TOKEN_A/TOKEN_B/TOKEN_C
+-                flexible_result = NotifySlack.parse_flexible_native_url(url)
+-                if flexible_result:
+-                    results.update(flexible_result)
++            # Try to parse a native Slack URL with more flexible pattern
++            # This handles URLs like: https://hooks.slack.com/services/TOKEN_A/TOKEN_B/TOKEN_C
++            flexible_result = NotifySlack.parse_flexible_native_url(url)
++            if flexible_result:
++                results.update(flexible_result)
+ 
+         return results
+ 

@@ -1,0 +1,36 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 13:15:34
++++ b/apprise/plugins/base.py	2026-09-21 13:25:02
+@@ -304,6 +304,11 @@
+         consistent when working with the notifiers that will inherit this
+         class."""
+ 
++        # Check if plugin is disabled early
++        if not self.enabled:
++            # Return early if plugin is disabled
++            return
++
+         super().__init__(**kwargs)
+ 
+         # Store our interpret_emoji's setting
+@@ -945,6 +950,20 @@
+         if not results:
+             # We're done; we failed to parse our url
+             return results
++
++        # Handle URL parsing consistently for all URL components
++        # Process all URL components that should be available to all plugins
++        # Handle user and password
++        if "user" in results:
++            results["user"] = results.get("user", None)
++        if "password" in results:
++            results["password"] = results.get("password", None)
++        if "host" in results:
++            results["host"] = results.get("host", None)
++        if "port" in results:
++            results["port"] = results.get("port", None)
++        if "path" in results:
++            results["path"] = results.get("path", None)
+ 
+         # Allow overriding the default format
+         if "format" in results["qsd"]:

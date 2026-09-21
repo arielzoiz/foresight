@@ -1,0 +1,134 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 10:03:13
++++ b/apprise/plugins/base.py	2026-09-21 10:43:19
+@@ -1002,3 +1002,19 @@
+         otherwise the default timezone is returned.
+         """
+         return self.__tzinfo if self.__tzinfo else self.asset.tzinfo
++
++    def details(self):
++        """Return plugin details for API verification."""
++        return {
++            'service_name': self.service_name,
++            'service_url': self.service_url,
++            'protocol': getattr(self, 'protocol', None),
++            'secure_protocol': getattr(self, 'secure_protocol', None),
++            'setup_url': self.setup_url,
++            'title_maxlen': self.title_maxlen,
++            'body_maxlen': self.body_maxlen,
++            'templates': self.templates,
++            'template_tokens': self.template_tokens,
++            'template_args': self.template_args,
++            'template_kwargs': self.template_kwargs,
++        }
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 10:39:08
++++ b/apprise/plugins/nextcloud.py	2026-09-21 10:43:18
+@@ -515,85 +515,6 @@
+ 
+         return results
+ 
+-    def _is_valid_target(self, target):
+-        """Check if a target is valid (not empty or whitespace only)."""
+-        return target and target.strip()
+-
+-    def _expand_targets(self, targets):
+-        """
+-        Expand targets that are groups (#group) or 'all' into individual users.
+-        Uses caching to avoid repeated API calls.
+-        """
+-        expanded_targets = []
+-        deduplicated_targets = set()
+-
+-        # First pass: process targets and prepare for expansion
+-        for target in targets:
+-            if not self._is_valid_target(target):
+-                continue
+-
+-            # Handle special case 'all' which refers to all users
+-            if target.lower() == 'all':
+-                # Get all users
+-                users = self._get_all_users()
+-                if users is not None:
+-                    for user in users:
+-                        if user not in deduplicated_targets:
+-                            expanded_targets.append(user)
+-                            deduplicated_targets.add(user)
+-                else:
+-                    # If we can't get users, fall back to notifying 'all'
+-                    # This maintains backward compatibility
+-                    expanded_targets.append('all')
+-                    deduplicated_targets.add('all')
+-            elif target.startswith('#'):
+-                # Handle group targets
+-                group_name = target[1:]  # Remove the '#'
+-                if group_name:
+-                    users = self._get_group_users(group_name)
+-                    if users is not None:
+-                        for user in users:
+-                            if user not in deduplicated_targets:
+-                                expanded_targets.append(user)
+-                                deduplicated_targets.add(user)
+-                    else:
+-                        # If we can't resolve group, fall back to notifying group
+-                        expanded_targets.append(target)
+-                        deduplicated_targets.add(target)
+-                else:
+-                    # Empty group name, treat as direct target
+-                    expanded_targets.append(target)
+-                    deduplicated_targets.add(target)
+-            else:
+-                # Regular user target
+-                if target not in deduplicated_targets:
+-                    expanded_targets.append(target)
+-                    deduplicated_targets.add(target)
+-
+-        return expanded_targets
+-
+-    def _get_cache_key(self, key_type, identifier):
+-        """Generate a cache key for the given type and identifier."""
+-        return f"{key_type}:{identifier}"
+-
+-    def _is_cache_valid(self, cache_key):
+-        """Check if cached data is still valid."""
+-        if cache_key not in self._cache:
+-            return False
+-        timestamp, _ = self._cache[cache_key]
+-        return time.time() - timestamp < self._cache_expiration
+-
+-    def _get_from_cache(self, cache_key):
+-        """Get data from cache if valid."""
+-        if self._is_cache_valid(cache_key):
+-            _, data = self._cache[cache_key]
+-            return data
+-        return None
+-
+-    def _set_cache(self, cache_key, data):
+-        """Set data in cache."""
+-        self._cache[cache_key] = (time.time(), data)
+-
+     def _get_all_users(self):
+         """Get list of all users from Nextcloud."""
+         cache_key = self._get_cache_key("all_users", "")
+@@ -654,8 +575,8 @@
+                 "Request exception when getting all users: %s", str(e)
+             )
+ 
+-        # Return empty list to indicate failure instead of None
+-        return []
++        # Return None to indicate failure
++        return None
+ 
+     def _get_group_users(self, group_name):
+         """Get list of users in a specific group from Nextcloud."""
+@@ -720,8 +641,8 @@
+                 group_name, str(e)
+             )
+ 
+-        # Return empty list to indicate failure instead of None
+-        return []
++        # Return None to indicate failure
++        return None
+ 
+ 
+ 

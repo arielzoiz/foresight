@@ -1,0 +1,108 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-21 12:59:15
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-21 12:59:15
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-21 12:59:15
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-21 13:00:02
+@@ -0,0 +1,3 @@
++{
++  "tests/test_api.py::test_apprise_disabled_plugins": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 13:00:35
+@@ -0,0 +1,5 @@
++[
++  "tests/test_api.py::test_apprise_disabled_plugins",
++  "tests/test_notify_base.py::test_notify_base",
++  "tests/test_notify_base.py::test_notify_base_urls"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/base.py b/apprise/plugins/base.py
+--- a/apprise/plugins/base.py	2026-09-21 12:54:47
++++ b/apprise/plugins/base.py	2026-09-21 12:59:52
+@@ -936,23 +936,54 @@
+ 
+         # Allow overriding the default format
+         if "format" in results["qsd"]:
+-            results["format"] = results["qsd"].get("format", "").lower()
+-            if results["format"] not in NOTIFY_FORMATS:
++            format_value = results["qsd"].get("format", "").lower()
++            if format_value in NOTIFY_FORMATS:
++                results["format"] = format_value
++            else:
+                 URLBase.logger.warning(
+                     "Unsupported format specified "
+                     f"{results['qsd']['format']!r}"
+                 )
+-                del results["format"]
++                # Remove format key if it was set
++                if "format" in results:
++                    del results["format"]
++                # Remove from qsd to prevent it from being copied later
++                if "format" in results["qsd"]:
++                    del results["qsd"]["format"]
+ 
+         # Allow overriding the default overflow
+         if "overflow" in results["qsd"]:
+-            results["overflow"] = results["qsd"].get("overflow", "").lower()
+-            if results["overflow"] not in OVERFLOW_MODES:
++            overflow_value = results["qsd"].get("overflow", "").lower()
++            if overflow_value in OVERFLOW_MODES:
++                results["overflow"] = overflow_value
++            else:
+                 URLBase.logger.warning(
+                     "Unsupported overflow mode specified "
+                     f"{results['qsd']['overflow']!r}"
+                 )
+-                del results["overflow"]
++                # Remove overflow key if it was set
++                if "overflow" in results:
++                    del results["overflow"]
++                # Remove from qsd to prevent it from being copied later
++                if "overflow" in results["qsd"]:
++                    del results["qsd"]["overflow"]
++
++        # Allow emoji's override
++        if "emojis" in results["qsd"]:
++            results["emojis"] = parse_bool(results["qsd"].get("emojis"))
++
++        # Allow overriding the default timezone
++        if "tz" in results["qsd"]:
++            results["tz"] = results["qsd"].get("tz", "")
++
++        if "store" in results["qsd"]:
++            results["store"] = parse_bool(results["qsd"]["store"])
++
++        # Handle additional URL parameters that may be present
++        # Process qsd (query string dictionary) parameters
++        for key, value in results.get("qsd", {}).items():
++            if key not in results:
++                results[key] = value
+ 
+         # Allow emoji's override
+         if "emojis" in results["qsd"]:

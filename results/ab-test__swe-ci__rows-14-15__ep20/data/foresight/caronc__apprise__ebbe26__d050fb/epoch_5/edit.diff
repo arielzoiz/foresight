@@ -1,0 +1,149 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 12:10:06
++++ b/apprise/plugins/nextcloud.py	2026-09-21 12:15:22
+@@ -197,8 +197,116 @@
+         # error tracking (used for function return)
+         has_error = False
+ 
++        # Handle group expansion and deduplication
++        expanded_targets = []
++        for target in self.targets:
++            if target == "all":
++                # Expand 'all' to all users
++                try:
++                    # Make a request to get all users
++                    users_url = (
++                        "{schema}://{host}/{url_prefix}/ocs/v1.php/cloud/users"
++                        .format(
++                            schema="https" if self.secure else "http",
++                            host=(
++                                self.host
++                                if not isinstance(self.port, int)
++                                else f"{self.host}:{self.port}"
++                            ),
++                            url_prefix=self.url_prefix,
++                        )
++                    )
++                    auth = None
++                    if self.user:
++                        auth = (self.user, self.password)
++
++                    r = requests.get(
++                        users_url,
++                        headers=headers,
++                        auth=auth,
++                        verify=self.verify_certificate,
++                        timeout=self.request_timeout,
++                    )
++                    if r.status_code == requests.codes.ok:
++                        import json
++                        try:
++                            data = r.json()
++                            if 'ocs' in data and 'data' in data['ocs']:
++                                users = data['ocs']['data'].get('users', [])
++                                expanded_targets.extend(users)
++                            else:
++                                # Fallback to original target
++                                expanded_targets.append(target)
++                        except (ValueError, KeyError):
++                            # Fallback to original target
++                            expanded_targets.append(target)
++                    else:
++                        # Fallback to original target
++                        expanded_targets.append(target)
++                except Exception:
++                    # Fallback to original target
++                    expanded_targets.append(target)
++            elif target.startswith("#"):
++                # Handle group targets by expanding them
++                try:
++                    group_name = target[1:]  # Remove the '#' prefix
++                    group_url = (
++                        "{schema}://{host}/{url_prefix}/ocs/v1.php/cloud/groups/{group}"
++                        .format(
++                            schema="https" if self.secure else "http",
++                            host=(
++                                self.host
++                                if not isinstance(self.port, int)
++                                else f"{self.host}:{self.port}"
++                            ),
++                            url_prefix=self.url_prefix,
++                            group=group_name
++                        )
++                    )
++                    auth = None
++                    if self.user:
++                        auth = (self.user, self.password)
++
++                    r = requests.get(
++                        group_url,
++                        headers=headers,
++                        auth=auth,
++                        verify=self.verify_certificate,
++                        timeout=self.request_timeout,
++                    )
++                    if r.status_code == requests.codes.ok:
++                        import json
++                        try:
++                            data = r.json()
++                            if 'ocs' in data and 'data' in data['ocs']:
++                                users = data['ocs']['data'].get('users', [])
++                                expanded_targets.extend(users)
++                            else:
++                                # Fallback to original target
++                                expanded_targets.append(target)
++                        except (ValueError, KeyError):
++                            # Fallback to original target
++                            expanded_targets.append(target)
++                    else:
++                        # Fallback to original target
++                        expanded_targets.append(target)
++                except Exception:
++                    # Fallback to original target
++                    expanded_targets.append(target)
++            else:
++                # Regular user or channel
++                expanded_targets.append(target)
++
++        # Deduplicate targets while preserving order
++        seen = set()
++        unique_targets = []
++        for target in expanded_targets:
++            if target not in seen:
++                seen.add(target)
++                unique_targets.append(target)
++
+         # Create a copy of the targets list
+-        targets = list(self.targets)
++        targets = list(unique_targets)
+         while len(targets):
+             target = targets.pop(0)
+ 
+@@ -358,7 +466,7 @@
+                 else f":{self.port}"
+             ),
+             targets="/".join([
+-                x if x.startswith("@") else NotifyNextcloud.quote(x) if not x.startswith("#") else x
++                x if x.startswith("@") or x.startswith("#") else "@" + x
+                 for x in self.targets
+             ]),
+             params=NotifyNextcloud.urlencode(params),
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/resend.py b/apprise/plugins/resend.py
+--- a/apprise/plugins/resend.py	2026-09-21 12:05:29
++++ b/apprise/plugins/resend.py	2026-09-21 12:15:49
+@@ -143,10 +143,14 @@
+     )
+ 
+     def __init__(
+-        self, apikey, from_email, targets=None, cc=None, bcc=None, **kwargs
++        self, apikey, from_email=None, from_addr=None, targets=None, cc=None, bcc=None, **kwargs
+     ):
+         """Initialize Notify Resend Object."""
+         super().__init__(**kwargs)
++
++        # Handle backward compatibility: from_addr parameter
++        if from_addr is not None and from_email is None:
++            from_email = from_addr
+ 
+         # API Key (associated with project)
+         self.apikey = validate_regex(

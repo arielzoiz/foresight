@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/apprise/plugins/nextcloud.py</location>
+    <description>The _expand_targets method in NotifyNextcloud class has issues with target expansion and group resolution that causes test failures. Specifically, when expanding targets like 'all' or groups (#group), the method returns an empty list instead of properly resolving users, leading to failed notifications.</description>
+    <contract>
+      <description>The _expand_targets method should properly resolve all users when target is 'all', and should resolve users in groups when targets start with '#' prefix. The method should return a list of resolved user targets, or return False if expansion fails completely.</description>
+      <input>targets: list of target strings (user names, 'all', or '#group')</input>
+      <output>List of resolved user targets or False if expansion fails</output>
+      <behavior>
+        <item>When target is 'all', should resolve all users and return them</item>
+        <item>When target starts with '#', should resolve users in that group</item>
+        <item>When target is a regular user, should return as-is</item>
+        <item>Should handle None/empty responses from API calls gracefully</item>
+      </behavior>
+    </contract>
+    <acceptance>
+      <item>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_and_all</item>
+      <item>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_caching_group_and_all</item>
+      <item>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_groups_errors_and_dedup</item>
+      <item>tests/test_plugin_nextcloud.py::test_plugin_nextcloud_req_exception_and_empty_targets</item>
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/apprise/apprise.py</location>
+    <description>The Apprise class instantiate method fails to properly validate and return instances. Several tests fail because isinstance() checks return False instead of proper NotifyBase instances, indicating the instantiate method isn't properly creating objects.</description>
+    <contract>
+      <description>The instantiate method should return a proper NotifyBase instance when given valid parameters, or None when instantiation fails. The method should handle all valid input types (strings, dictionaries) and properly validate schema existence.</description>
+      <input>url: string or dict representing notification URL, asset: AppriseAsset (optional), tag: string or list (optional), suppress_exceptions: boolean (default True)</input>
+      <output>NotifyBase instance or None</output>
+      <behavior>
+        <item>Should parse URL strings correctly and instantiate plugins</item>
+        <item>Should handle dictionary-based URLs correctly</item>
+        <item>Should return None for invalid URLs or unsupported schemas</item>
+        <item>Should respect suppress_exceptions flag appropriately</item>
+      </behavior>
+    </contract>
+    <acceptance>
+      <item>tests/test_api.py::test_apprise_details_plugin_verification</item>
+      <item>tests/test_api.py::test_apprise_async</item>
+      <item>tests/test_api.py::test_apprise_object</item>
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/apprise/plugins/sendgrid.py</location>
+    <description>The sendgrid plugin has issues with email address validation that causes test failures. The plugin fails to properly validate email addresses, particularly when checking for valid email formats in the notify() method.</description>
+    <contract>
+      <description>The sendgrid plugin should properly validate email addresses and handle invalid emails gracefully. When an invalid email address is provided, the plugin should either reject it or handle it gracefully without throwing exceptions.</description>
+      <input>body: notification body, title: notification title, notify_type: notification type</input>
+      <output>Boolean indicating success/failure of notification</output>
+      <behavior>
+        <item>Should validate email addresses properly</item>
+        <item>Should handle invalid email addresses gracefully</item>
+        <item>Should return False when notification fails due to invalid email</item>
+      </behavior>
+    </contract>
+    <acceptance>
+      <item>tests/test_plugin_sendgrid.py::test_plugin_sendgrid_urls</item>
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/tests/test_apprise_cli.py</location>
+    <description>The CLI persistent storage test fails because the test expects certain file IDs to be present in the storage listing, but they're not found. This suggests the storage mechanism isn't creating files with the expected naming convention or the listing logic is incorrect.</description>
+    <contract>
+      <description>The CLI persistent storage functionality should properly create and list storage files with expected naming patterns. The test should verify that storage files are created with the correct IDs and can be listed properly.</description>
+      <input>Storage path, config file with storage-enabled entries</input>
+      <output>Storage file listing with expected IDs</output>
+      <behavior>
+        <item>Should create storage files with deterministic IDs</item>
+        <item>Should list storage files correctly with matching IDs</item>
+        <item>Should handle file operations without errors</item>
+      </behavior>
+    </contract>
+    <acceptance>
+      <item>tests/test_apprise_cli.py::test_apprise_cli_persistent_storage</item>
+    </acceptance>
+  </requirement>
+</requirement_document>

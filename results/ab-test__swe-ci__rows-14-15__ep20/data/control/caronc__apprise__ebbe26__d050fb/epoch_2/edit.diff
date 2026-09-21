@@ -1,0 +1,31 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/plugins/nextcloud.py b/apprise/plugins/nextcloud.py
+--- a/apprise/plugins/nextcloud.py	2026-09-21 10:03:13
++++ b/apprise/plugins/nextcloud.py	2026-09-21 10:17:44
+@@ -342,6 +342,18 @@
+             )
+ 
+         default_port = 443 if self.secure else 80
++        
++        # Process targets for URL building, prefixing user targets with @
++        processed_targets = []
++        for target in self.targets:
++            # Check if target is a user (starts with @ or is a username without prefix)
++            # and prefix with @ for privacy URLs
++            if privacy and target and not target.startswith('#'):
++                # For privacy URLs, user targets should be prefixed with @
++                processed_targets.append(f"@{target}")
++            else:
++                processed_targets.append(target)
++                
+         return "{schema}://{auth}{hostname}{port}/{targets}?{params}".format(
+             schema=self.secure_protocol if self.secure else self.protocol,
+             auth=auth,
+@@ -353,7 +365,7 @@
+                 if self.port is None or self.port == default_port
+                 else f":{self.port}"
+             ),
+-            targets="/".join([NotifyNextcloud.quote(x) for x in self.targets]),
++            targets="/".join([NotifyNextcloud.quote(x) for x in processed_targets]),
+             params=NotifyNextcloud.urlencode(params),
+         )
+ 

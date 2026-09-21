@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/apprise/plugins/base.py</location>
+    <description>The base NotifyBase class has a bug in the _build_send_calls method where it raises a TypeError when a notification fails to send due to missing body or attachment, but it should return False instead to indicate failure.</description>
+    <contract>
+      <behavior>The _build_send_calls method should catch TypeError exceptions raised during notification preparation and return False to indicate that the notification failed to send, rather than propagating the exception.</behavior>
+      <inputs>Method receives body, title, notify_type, overflow, attach, body_format parameters</inputs>
+      <outputs>Should return False when notification preparation fails, True when successful</outputs>
+      <exceptions>No TypeError should be propagated from _build_send_calls</exceptions>
+    </contract>
+    <acceptance>test_apprise_details_plugin_verification</acceptance>
+  </item>
+  <item>
+    <location>/app/code/apprise/plugins/nextcloud.py</location>
+    <description>The Nextcloud plugin has issues with notification type handling in certain error scenarios where it doesn't properly handle NotifyType.INFO values during group expansion and error fallbacks.</description>
+    <contract>
+      <behavior>The send method should properly handle notification type when performing group expansion and error fallbacks, ensuring that notification type is correctly maintained throughout the process.</behavior>
+      <inputs>Method receives body, title, notify_type parameters</inputs>
+      <outputs>Should return False when all targets fail to send, True when at least one succeeds</outputs>
+      <exceptions>Should not raise TypeError when notification type is NotifyType.INFO</exceptions>
+    </contract>
+    <acceptance>test_plugin_nextcloud_req_exception_and_empty_targets</acceptance>
+  </item>
+  <item>
+    <location>/app/code/apprise/plugins/resend.py</location>
+    <description>The Resend plugin incorrectly handles URL parsing for malformed URLs, particularly when targets are empty or invalid, causing incorrect behavior in URL validation.</description>
+    <contract>
+      <behavior>The parse_url method should correctly parse and validate Resend URLs, returning None for malformed URLs instead of raising exceptions or returning incomplete results.</behavior>
+      <inputs>URL string to parse</inputs>
+      <outputs>Dictionary with parsed parameters or None if invalid</outputs>
+      <exceptions>Should not raise exceptions for invalid URLs</exceptions>
+    </contract>
+    <acceptance>test_plugin_resend_urls</acceptance>
+  </item>
+  <item>
+    <location>/app/code/apprise/plugins/sendgrid.py</location>
+    <description>The SendGrid plugin fails to properly validate target email addresses in certain edge cases, particularly when handling invalid email addresses that should be dropped but aren't.</description>
+    <contract>
+      <behavior>The __init__ method should properly validate and filter target email addresses, dropping invalid ones and ensuring at least one valid target exists for notification.</behavior>
+      <inputs>API key, from_email, targets, cc, bcc parameters</inputs>
+      <outputs>Instance with validated targets list, or TypeError for invalid from_email</outputs>
+      <exceptions>Should not allow invalid email addresses to remain in targets list</exceptions>
+    </contract>
+    <acceptance>test_plugin_sendgrid_urls</acceptance>
+  </item>
+  <item>
+    <location>/app/code/apprise/plugins/slack.py</location>
+    <description>The Slack plugin has issues with URL parsing for native Slack URLs, particularly when parsing webhook URLs that don't match the expected pattern.</description>
+    <contract>
+      <behavior>The parse_url method should correctly parse native Slack webhook URLs (like https://hooks.slack.com/services/...) and return appropriate parameters.</behavior>
+      <inputs>URL string to parse</inputs>
+      <outputs>Dictionary with parsed parameters including token_a, token_b, token_c, or None for invalid URLs</outputs>
+      <exceptions>Should not fail when parsing standard Slack webhook URLs</exceptions>
+    </contract>
+    <acceptance>test_plugin_slack_urls</acceptance>
+  </item>
+</requirement>

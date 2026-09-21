@@ -1,0 +1,53 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/apprise/apprise.py b/apprise/apprise.py
+--- a/apprise/apprise.py	2026-09-21 11:26:30
++++ b/apprise/apprise.py	2026-09-21 11:39:22
+@@ -221,6 +221,21 @@
+                     )
+                 )
+ 
++            except (TypeError, ValueError) as e:
++                # CWE-312 (Secure Logging) Handling
++                loggable_url = (
++                    url if not asset.secure_logging else cwe312_url(url)
++                )
++
++                # the arguments are invalid or can not be used.
++                logger.error(
++                    "Could not load {} URL: {}".format(
++                        N_MGR[results["schema"]].service_name, loggable_url
++                    )
++                )
++                # Re-raise the exception to be more explicit about the failure
++                raise e
++
+             except Exception:
+                 # CWE-312 (Secure Logging) Handling
+                 loggable_url = (
+@@ -238,7 +253,11 @@
+         else:
+             # Attempt to create an instance of our plugin using the parsed
+             # URL information but don't wrap it in a try catch
+-            plugin = N_MGR[results["schema"]](**results)
++            try:
++                plugin = N_MGR[results["schema"]](**results)
++            except (TypeError, ValueError) as e:
++                # Re-raise TypeError/ValueError for proper handling
++                raise e
+ 
+         if not plugin.enabled:
+             #
+@@ -330,7 +349,13 @@
+ 
+             # Instantiate ourselves an object, this function throws or
+             # returns None if it fails
+-            instance = Apprise.instantiate(_server, asset=asset, tag=tag)
++            try:
++                instance = Apprise.instantiate(_server, asset=asset, tag=tag)
++            except (TypeError, ValueError):
++                # If instantiation fails due to invalid parameters, return False
++                return_status = False
++                continue
++            
+             if instance is None or not isinstance(instance, NotifyBase):
+                 # No logging is required as instantiate() handles failure
+                 # and/or success reasons for us
