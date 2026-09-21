@@ -1,0 +1,92 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:58:15
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:00:30
+@@ -73,7 +73,7 @@
+         return serialize
+     
+     # Special handling for Artifact outputs - if they have a dumps function, use it
+-    if isinstance(destination, Artifact) and destination.dumps is not None:
++    if isinstance(destination, Artifact) and hasattr(destination, 'dumps') and destination.dumps is not None:
+         return destination.dumps
+     
+     return serialize
+@@ -220,7 +220,7 @@
+     if artifact_annotation.loader is None:
+         # For artifacts with no specific loader, return the path directly
+         return artifact_annotation.path
+-    elif artifact_annotation.loadb is not None:
++    elif hasattr(artifact_annotation, 'loadb') and artifact_annotation.loadb is not None:
+         # Handle bytes loading using loadb method
+         path = Path(artifact_annotation.path)
+         if not path.exists():
+@@ -371,42 +371,19 @@
+                             f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+                         )
+                 else:
+-                    # For other generic types, fall back to standard type checking
++                    # For other generic types, do a more flexible comparison
+                     if not isinstance(output_value, actual_type):
+-                        # Allow for flexible matching of generic types
+-                        try:
+-                            # Try to compare the underlying types more flexibly
+-                            if hasattr(actual_type, '__args__') and hasattr(output_value, '__class__'):
+-                                # For cases like typing.Dict[str, str] vs dict, check if it's the right type
+-                                if actual_type.__origin__ is dict and isinstance(output_value, dict):
+-                                    pass  # This is acceptable
+-                                elif actual_type.__origin__ is list and isinstance(output_value, list):
+-                                    pass  # This is acceptable
+-                                else:
+-                                    # Additional check for special cases
+-                                    if hasattr(actual_type, '__name__') and actual_type.__name__ == 'Dict':
+-                                        if isinstance(output_value, dict):
+-                                            pass  # Accept dict for Dict type
+-                                        else:
+-                                            raise ValueError(
+-                                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                            )
+-                                    elif hasattr(actual_type, '__name__') and actual_type.__name__ == 'List':
+-                                        if isinstance(output_value, list):
+-                                            pass  # Accept list for List type
+-                                        else:
+-                                            raise ValueError(
+-                                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                            )
+-                                    else:
+-                                        raise ValueError(
+-                                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                        )
++                        # Allow flexible matching for common cases
++                        if hasattr(actual_type, '__name__'):
++                            if actual_type.__name__ == 'Dict' and isinstance(output_value, dict):
++                                pass  # Accept dict for typing.Dict
++                            elif actual_type.__name__ == 'List' and isinstance(output_value, list):
++                                pass  # Accept list for typing.List
+                             else:
+                                 raise ValueError(
+                                     f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+                                 )
+-                        except Exception:
++                        else:
+                             raise ValueError(
+                                 f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+                             )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/artifact.py b/src/hera/workflows/artifact.py
+--- a/src/hera/workflows/artifact.py	2026-09-21 06:50:35
++++ b/src/hera/workflows/artifact.py	2026-09-21 07:00:07
+@@ -94,6 +94,16 @@
+     
+     This is similar to 'loader' but for deserializing data instead of loading it. Can be a callable function."""
+ 
++    dumpb: Optional[Callable] = None
++    """used for output Artifact annotations for custom serialization of bytes data.
++    
++    Can be a callable function that takes bytes and returns bytes."""
++
++    dumps: Optional[Callable] = None
++    """used for output Artifact annotations for custom serialization of artifact data.
++    
++    Can be a callable function that takes a Pydantic model and returns a serialized string representation."""
++
+     optional: Optional[bool] = None
+     """whether the Artifact is optional. For an input Artifact, this means it may possibly not
+     exist at the specified path during the template's runtime. For an output Artifact, it may

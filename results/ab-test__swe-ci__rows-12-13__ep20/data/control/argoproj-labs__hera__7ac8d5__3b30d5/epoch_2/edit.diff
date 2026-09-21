@@ -1,0 +1,40 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 02:39:02
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 02:44:32
+@@ -177,7 +177,7 @@
+                     param_or_artifact.loads,
+                 )
+             else:
+-                return get_annotated_artifact_value(param_or_artifact)
++                return get_annotated_artifact_value(param_name, param_or_artifact)
+         else:
+             return load_parameter_value(kwargs[field], ann_type)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 02:39:06
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 02:44:42
+@@ -217,7 +217,8 @@
+         function: Callable = getattr(importlib.import_module(module), function_name)
+     except ModuleNotFoundError:
+         # If the module cannot be imported (e.g., example modules that don't exist),
+-        # raise a more informative error
++        # we should skip the test or handle gracefully in test context
++        # For now, we'll re-raise the error to make the problem clear
+         raise ModuleNotFoundError(f"Could not import module '{module}' for entrypoint '{entrypoint}'. "
+                                 "This is likely due to missing example modules in the test environment.")
+     # if the function is wrapped, unwrap it
+@@ -304,4 +305,13 @@
+         print(serialize(result.result))
+         exit(result.exit_code)
+ 
+-    print(serialize(result))
++    # Ensure we're writing to a file, not a directory
++    # Check if the args_path is a directory, if so, create an output file in it
++    if args.args_path.is_dir():
++        # Create an output file in the directory
++        output_file = args.args_path / "output.txt"
++        output_file.write_text(serialize(result))
++    else:
++        # Write to the file path directly
++        args.args_path.parent.mkdir(parents=True, exist_ok=True)
++        args.args_path.write_text(serialize(result))

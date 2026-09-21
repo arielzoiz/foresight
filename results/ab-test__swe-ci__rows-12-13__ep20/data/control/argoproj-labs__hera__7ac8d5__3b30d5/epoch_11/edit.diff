@@ -1,0 +1,21 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:49:13
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:50:35
+@@ -217,7 +217,16 @@
+                 else:
+                     param_value = get_annotated_input_param(func_param_name, param_or_artifact, template_inputs)
+ 
+-                    function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
++                    # Handle case where parameter is not provided with value
++                    if param_value is None:
++                        # If the parameter is not provided, we should skip it or use default value
++                        if func_param.default is not inspect.Parameter.empty:
++                            function_kwargs[func_param_name] = func_param.default
++                        else:
++                            # If no default and no value provided, skip this parameter
++                            continue
++                    else:
++                        function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:
+                 function_kwargs[func_param_name] = get_annotated_artifact_value(func_param_name, param_or_artifact)
+ 

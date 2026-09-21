@@ -1,0 +1,66 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 02:30:16
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 02:39:02
+@@ -1,5 +1,6 @@
+ """The script_annotations_util module contains functionality for the script annotations feature when used with the runner."""
+ 
++import base64
+ import json
+ import os
+ import sys
+@@ -87,7 +88,7 @@
+     return path
+ 
+ 
+-def get_annotated_artifact_value(artifact_annotation: Artifact) -> Union[Path, Any]:
++def get_annotated_artifact_value(param_name: str, artifact_annotation: Artifact) -> Union[Path, Any]:
+     """Get the value of the given Artifact annotation.
+ 
+     If the artifact is an output, return the path it will write to.
+@@ -288,7 +289,18 @@
+ 
+ def _write_to_path(path: Path, output_value: Any, dumper: Callable = serialize) -> None:
+     """Write the output_value as serialized text to the provided path. Create the necessary parent directories."""
+-    output_string = dumper(output_value)
++    try:
++        output_string = dumper(output_value)
++    except (TypeError, ValueError):
++        # Handle bytes objects that can't be JSON serialized
++        if isinstance(output_value, bytes):
++            # Convert bytes to base64 string for serialization
++            output_string = base64.b64encode(output_value).decode('utf-8')
++        else:
++            # For other non-serializable objects, try to use the serialize function
++            # which has better handling for Pydantic models
++            output_string = serialize(output_value)
++    
+     if output_string is not None:
+         path.parent.mkdir(parents=True, exist_ok=True)
+         path.write_text(output_string)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 02:30:16
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 02:39:06
+@@ -189,7 +189,7 @@
+ 
+                     function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:
+-                function_kwargs[func_param_name] = get_annotated_artifact_value(param_or_artifact)
++                function_kwargs[func_param_name] = get_annotated_artifact_value(func_param_name, param_or_artifact)
+ 
+         elif not is_subscripted(func_param.annotation) and issubclass(func_param.annotation, (InputV1, InputV2)):
+             # We collect all relevant kwargs for the single `Input` function parameter
+@@ -213,7 +213,13 @@
+     """
+     # import the module and get the function
+     module, function_name = entrypoint.split(":")
+-    function: Callable = getattr(importlib.import_module(module), function_name)
++    try:
++        function: Callable = getattr(importlib.import_module(module), function_name)
++    except ModuleNotFoundError:
++        # If the module cannot be imported (e.g., example modules that don't exist),
++        # raise a more informative error
++        raise ModuleNotFoundError(f"Could not import module '{module}' for entrypoint '{entrypoint}'. "
++                                "This is likely due to missing example modules in the test environment.")
+     # if the function is wrapped, unwrap it
+     # this may happen if the function is decorated with @script
+     if hasattr(function, "wrapped_function"):

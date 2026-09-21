@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The receive_messages method doesn't properly implement the async iterator protocol. Tests are failing with "TypeError: 'async for' requires an object with __aiter__ method, got coroutine" because the method returns a coroutine instead of an AsyncIterator.</description>
+        <contract>The receive_messages method must return an AsyncIterator[dict[str, Any]] that can be used directly in async for loops. The method signature should be: async def receive_messages(self) -> AsyncIterator[dict[str, Any]] and it should properly yield messages without returning a coroutine.</contract>
+        <acceptance>Tests: tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The transport's close method is not properly called in context managers and manual disconnection scenarios. Tests are failing with "AssertionError: Expected 'close' to have been called once. Called 0 times." indicating the disconnect/close methods aren't being invoked properly.</description>
+        <contract>The __aexit__ method in SubprocessCLITransport must properly call disconnect(), and the disconnect method must properly close all resources and call close(). The close method should be idempotent and safe to call multiple times.</contract>
+        <acceptance>Tests: tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_auto_connect_with_context_manager, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_manual_connect_disconnect, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The interrupt functionality is not working properly. The interrupt method should send a control request but tests are failing because the control request isn't being processed correctly.</description>
+        <contract>The interrupt() method must properly send a control request via _send_control_request and handle the control response appropriately. The _send_control_request method should properly wait for and return control responses.</contract>
+        <acceptance>Test: tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/client.py</location>
+        <description>The client's receive_response method is not properly terminating when a ResultMessage is encountered, causing it to continue iterating beyond the expected termination point.</description>
+        <contract>The receive_response method must properly terminate the async iteration when it encounters a ResultMessage, by breaking the loop and returning from the generator function.</contract>
+        <acceptance>Test: tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/_internal/client.py</location>
+        <description>The InternalClient's process_query method is not correctly handling the async iteration flow for streaming queries. The transport's receive_messages method is not properly yielding results in the expected format.</description>
+        <contract>The process_query method in InternalClient should properly yield messages from transport.receive_messages() and ensure the async iteration works correctly for one-shot queries.</contract>
+        <acceptance>Test: tests/test_integration.py::TestIntegration::test_simple_query_response</acceptance>
+    </item>
+</requirement>

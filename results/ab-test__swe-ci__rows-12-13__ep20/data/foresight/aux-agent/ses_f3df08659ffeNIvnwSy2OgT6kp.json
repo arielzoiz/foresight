@@ -1,0 +1,910 @@
+{
+  "info": {
+    "id": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+    "slug": "silent-orchid",
+    "projectID": "global",
+    "directory": "/app",
+    "path": "app",
+    "title": "Python project task planning and requirement document generation",
+    "agent": "build",
+    "model": {
+      "id": "aux-model",
+      "providerID": "custom",
+      "variant": "default"
+    },
+    "version": "1.18.31",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 127821,
+      "output": 651,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1789962189222,
+      "updated": 1789962197484
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1789962189295
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "custom",
+          "modelID": "aux-model"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"You are inspecting a Python project inside a container at /app.\n\nREAD ONLY. Do not create, modify or delete any file under /app.\nAny write there invalidates this run.\n\nA developer is about to work on the task described below.\n\n\\\"\n<prompt>\n    <role_setting>\n        <identity>You are a senior software architect proficient in Python software engineering and Test-Driven Development (TDD).</identity>\n        <expertise>You excel at accurately identifying functional gaps from test feedback and writing high-quality software development requirement documents.</expertise>\n        <scene>You are collaborating closely with a senior programmer and plan to complete the development of a Python software incrementally through multiple rounds of \\\\\"planning-coding\\\\\" in small, rapid steps.</scene>\n        <responsibilities>Your responsibility is to analyze functional gaps in the code based on the currently non-passed test cases and write a clear, specific incremental development requirement document for the programmer.</responsibilities>\n    </role_setting>\n\n    <input>\n        <permission>You are allowed to browse all content in the current working directory.</permission>\n        <item name=\\\\\"/app/code/\\\\\">The folder containing all source code for this Python project.</item>\n        <item name=\\\\\"/app/code/tests/\\\\\">The folder containing all unit tests for this Python project.</item>\n        <item name=\\\\\"/app/non-passed/\\\\\">The folder containing full information for all test cases that are expected to pass but currently non-passed in the current implementation.</item>\n        <item name=\\\\\"/app/non-passed/summary.jsonl\\\\\">A file that records the meta-information of all test cases that are expected to pass but currently non-passed.</item>\n    </input>\n\n    <workflow>\n        <rule>You MUST strictly follow the workflow below:</rule>\n        <step index=\\\\\"1\\\\\" action=\\\\\"summary\\\\\">\n            Consult the file /app/non-passed/summary.jsonl to grasp the meta-information of all non-passed test cases, and locate and summarize the core reasons leading to the test failures. If necessary, you may consult other JSON files in /app/non-passed/ to obtain detailed report information for the failed tests.\n        </step>\n        <step index=\\\\\"2\\\\\" action=\\\\\"trace\\\\\">\n            Consult the corresponding test files in /app/code/tests/ to analyze environmental dependencies, assertion intentions, inputs and outputs, exception handling, and boundary conditions of the non-passed tests, and determine the involved source code modules and interface contracts.\n        </step>\n        <step index=\\\\\"3\\\\\" action=\\\\\"attribute\\\\\">\n            Consult the relevant source code in /app/code/ and, combined with the test results and detailed report information, locate the root causes of the failures within the source code.\n        </step>\n        <step index=\\\\\"4\\\\\" action=\\\\\"filter\\\\\">\n            From all identified reasons, filter out the most critical code change requirements, limited to **1 to 5 items**. Follow the principle of small-step iterations and consider the programmer's workload; do not attempt to fix too many failed tests or propose too many requirements at once.\n            You MUST use the following priority rules for filtering and sorting:\n            <priority_rules>\n                <rule>Prioritize changes that enable the highest number of non-passed tests to pass.</rule>\n                <rule>When benefits are similar, prioritize fixing error/collection/import issues, followed by failed, and then missing.</rule>\n                <rule>When benefits are similar, prioritize fixes for low-level common modules/interfaces over fixes for specific test case exceptions.</rule>\n                <rule>If a clear dependency chain exists, fix downstream base capabilities before fixing upper-level behaviors.</rule>\n            </priority_rules>\n        </step>\n        <step index=\\\\\"5\\\\\" action=\\\\\"document\\\\\">\n            Based on the filtered change requirements, create a clear, specific, and verifiable requirement document in XML format and save it to /app/requirement.xml. As an architect, you MUST focus on \\\\\"what needs to be achieved\\\\\" and avoid excessive involvement in implementation details.\n        </step>\n    </workflow>\n\n    <output>\n        <product>A single, independent XML requirement document saved at /app/requirement.xml</product>\n        <content>\n            The document should contain 1 to 5 code change requirements. Each item MUST include the following:\n            <item name=\\\\\"location\\\\\">Specify the source file path and its corresponding class or function scope (if it does not exist yet, specify the expected location).</item>\n            <item name=\\\\\"description\\\\\">Detail the current state and the type of problem (e.g., collection/import blockages, missing logic, undefined interfaces, return values/exception handling inconsistent with expectations, etc.).</item>\n            <item name=\\\\\"contract\\\\\">Define the expected behavioral goals in detail (interface inputs/outputs, exception types, data structure fields, boundary conditions, and business constraints, etc.). Describe \\\\\"what to achieve\\\\\" in detail and avoid over-describing \\\\\"how specifically to do it.\\\\\" You are allowed to describe function/method signature-level information and return value structures, but should not involve specific implementation details.</item>\n            <item name=\\\\\"acceptance\\\\\">Detail the acceptance criteria that can verify whether this code change is successful. This can be the nodeid of specific test cases in the tests folder or your custom criteria.</item>\n        </content>\n    </output>\n\n    <constraints>\n        <operation>Strictly PROHIBITED from modifying, deleting, or creating any other files except for the generated requirement.xml.</operation>\n        <test_integrity>Strictly PROHIBITED from guiding the programmer to make any modifications to the test case folder /app/code/tests/.</test_integrity>\n        <granularity>You MUST focus on the core contradictions of the current code and select the most urgent requirements.</granularity>\n        <non_implementation>As an architect, you MUST focus on behavioral contracts and verifiable results, and avoid providing specific code implementations in the requirement document.</non_implementation>\n        <no_execution>You are strictly PROHIBITED from actively executing pytest, unittest, or any other test commands or scripts.</no_execution>\n    </constraints>\n</prompt>\n\n\\\"\n\nRead enough of /app/code to answer concretely, then name 3 to 5\nplausible FUTURE tasks that could reasonably follow this one in THIS codebase.\nRefer to real files, functions or modules you actually read. Do not solve the\ntask, and do not write any file.\"",
+          "id": "prt_0c20f7a2d001ajKdE2Fa5Cyxrg",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f79ef001T9XuFfC9KTNbo2"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8801,
+          "input": 8724,
+          "output": 77,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962189926,
+          "completed": 1789962191356
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f7c66001zzFnlw2x5RspLb",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f80590018ZUwh0mNDhtzhJ",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f7c66001zzFnlw2x5RspLb"
+        },
+        {
+          "type": "text",
+          "text": "I'll analyze the Python project structure and identify plausible future tasks based on the codebase.\n\nFirst, let me examine the directory structure to understand what we're working with.\n",
+          "time": {
+            "start": 1789962190940,
+            "end": 1789962191173
+          },
+          "id": "prt_0c20f805c001OAACEOWdfD0TfX",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f7c66001zzFnlw2x5RspLb"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-8fb206f1405d3b53",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app -type f -not -path \"/app/non-passed/*\" | head -20"
+            },
+            "output": "/app/code/Makefile\n/app/code/GOVERNANCE.md\n/app/code/codecov.yml\n/app/code/proposals/heps/0001-decorators.md\n/app/code/proposals/heps/0000-template.md\n/app/code/proposals/README.md\n/app/code/CHANGELOG.md\n/app/code/mkdocs.yml\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_raw_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_optional_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_parameters_enum_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_optional_old.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_hdfs_old.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_azure_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_configmap_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_artifactory_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_git_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_parameters_combined_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_parameters_description_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_artifactory_old.py\n",
+            "metadata": {
+              "output": "/app/code/Makefile\n/app/code/GOVERNANCE.md\n/app/code/codecov.yml\n/app/code/proposals/heps/0001-decorators.md\n/app/code/proposals/heps/0000-template.md\n/app/code/proposals/README.md\n/app/code/CHANGELOG.md\n/app/code/mkdocs.yml\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_raw_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_optional_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_parameters_enum_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_optional_old.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_hdfs_old.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_azure_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_configmap_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_artifactory_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_git_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_parameters_combined_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_parameters_description_new.py\n/app/code/tests/script_annotations_inputs_regression/script_annotations_artifacts_artifactory_old.py\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app -type f -not -path \"/app/non-passed/*\" | head -20",
+            "time": {
+              "start": 1789962191164,
+              "end": 1789962191340
+            }
+          },
+          "id": "prt_0c20f809400184nbwGLwNXWyaR",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f7c66001zzFnlw2x5RspLb"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 8801,
+            "input": 8724,
+            "output": 77,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f81f1001NAf3fPUpWBKrBo",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f7c66001zzFnlw2x5RspLb"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 9116,
+          "input": 9072,
+          "output": 44,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962191359,
+          "completed": 1789962191924
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f81ff00193eeU3d9KDx1k2",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f82af001cAJgZhbpjQAavi",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f81ff00193eeU3d9KDx1k2"
+        },
+        {
+          "type": "text",
+          "text": "Let me look at the main code structure and test structure to understand the project better.\n\n",
+          "time": {
+            "start": 1789962191539,
+            "end": 1789962191877
+          },
+          "id": "prt_0c20f82b3001QwQOdVJnSxzKO7",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f81ff00193eeU3d9KDx1k2"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-b4b51b3e96275ec3",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "ls -la /app/code/"
+            },
+            "output": "total 256\ndrwxr-xr-x  8  501 dialout   4096 Sep 21 02:09 .\ndrwxrwxrwx  1 root root      4096 Sep 21 03:43 ..\n-rw-r--r--  1  501 dialout    167 Sep 21 02:09 .readthedocs.yaml\n-rw-r--r--  1  501 dialout  15093 Sep 21 02:09 CHANGELOG.md\n-rw-r--r--  1  501 dialout    581 Sep 21 02:09 CODE_OF_CONDUCT.md\n-rw-r--r--  1  501 dialout  10381 Sep 21 02:09 CONTRIBUTING.md\n-rw-r--r--  1  501 dialout   4607 Sep 21 02:09 GOVERNANCE.md\n-rw-r--r--  1  501 dialout  11351 Sep 21 02:09 LICENSE\n-rw-r--r--  1  501 dialout    244 Sep 21 02:09 MEMBERS.md\n-rw-r--r--  1  501 dialout   8138 Sep 21 02:09 Makefile\n-rw-r--r--  1  501 dialout   8872 Sep 21 02:09 README.md\n-rw-r--r--  1  501 dialout   2104 Sep 21 02:09 RELEASE.md\n-rw-r--r--  1  501 dialout   1073 Sep 21 02:09 SECURITY.md\n-rw-r--r--  1  501 dialout    598 Sep 21 02:09 USERS.md\n-rw-r--r--  1  501 dialout    617 Sep 21 02:09 codecov.yml\ndrwxr-xr-x  9  501 dialout   4096 Sep 21 02:09 docs\ndrwxr-xr-x  3  501 dialout   4096 Sep 21 02:09 examples\n-rw-r--r--  1  501 dialout   4618 Sep 21 02:09 mkdocs.yml\n-rw-r--r--  1  501 dialout    302 Sep 21 02:09 mypy.ini\n-rw-r--r--  1  501 dialout 112913 Sep 21 02:09 poetry.lock\ndrwxr-xr-x  3  501 dialout   4096 Sep 21 02:09 proposals\n-rw-r--r--  1  501 dialout   3944 Sep 21 02:09 pyproject.toml\ndrwxr-xr-x  2  501 dialout   4096 Sep 21 02:09 scripts\ndrwxr-xr-x  3  501 dialout   4096 Sep 21 02:09 src\ndrwxr-xr-x 10  501 dialout   4096 Sep 21 02:09 tests\n",
+            "metadata": {
+              "output": "total 256\ndrwxr-xr-x  8  501 dialout   4096 Sep 21 02:09 .\ndrwxrwxrwx  1 root root      4096 Sep 21 03:43 ..\n-rw-r--r--  1  501 dialout    167 Sep 21 02:09 .readthedocs.yaml\n-rw-r--r--  1  501 dialout  15093 Sep 21 02:09 CHANGELOG.md\n-rw-r--r--  1  501 dialout    581 Sep 21 02:09 CODE_OF_CONDUCT.md\n-rw-r--r--  1  501 dialout  10381 Sep 21 02:09 CONTRIBUTING.md\n-rw-r--r--  1  501 dialout   4607 Sep 21 02:09 GOVERNANCE.md\n-rw-r--r--  1  501 dialout  11351 Sep 21 02:09 LICENSE\n-rw-r--r--  1  501 dialout    244 Sep 21 02:09 MEMBERS.md\n-rw-r--r--  1  501 dialout   8138 Sep 21 02:09 Makefile\n-rw-r--r--  1  501 dialout   8872 Sep 21 02:09 README.md\n-rw-r--r--  1  501 dialout   2104 Sep 21 02:09 RELEASE.md\n-rw-r--r--  1  501 dialout   1073 Sep 21 02:09 SECURITY.md\n-rw-r--r--  1  501 dialout    598 Sep 21 02:09 USERS.md\n-rw-r--r--  1  501 dialout    617 Sep 21 02:09 codecov.yml\ndrwxr-xr-x  9  501 dialout   4096 Sep 21 02:09 docs\ndrwxr-xr-x  3  501 dialout   4096 Sep 21 02:09 examples\n-rw-r--r--  1  501 dialout   4618 Sep 21 02:09 mkdocs.yml\n-rw-r--r--  1  501 dialout    302 Sep 21 02:09 mypy.ini\n-rw-r--r--  1  501 dialout 112913 Sep 21 02:09 poetry.lock\ndrwxr-xr-x  3  501 dialout   4096 Sep 21 02:09 proposals\n-rw-r--r--  1  501 dialout   3944 Sep 21 02:09 pyproject.toml\ndrwxr-xr-x  2  501 dialout   4096 Sep 21 02:09 scripts\ndrwxr-xr-x  3  501 dialout   4096 Sep 21 02:09 src\ndrwxr-xr-x 10  501 dialout   4096 Sep 21 02:09 tests\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "ls -la /app/code/",
+            "time": {
+              "start": 1789962191868,
+              "end": 1789962191895
+            }
+          },
+          "id": "prt_0c20f82fd001jCjpHfr8aHlNQS",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f81ff00193eeU3d9KDx1k2"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 9116,
+            "input": 9072,
+            "output": 44,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f841c0015PTT69mD5fEugA",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f81ff00193eeU3d9KDx1k2"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10044,
+          "input": 10008,
+          "output": 36,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962191929,
+          "completed": 1789962192311
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f8439001gomlqbtbOC2nkz",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f8513001hixTk7taIDcFQK",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8439001gomlqbtbOC2nkz"
+        },
+        {
+          "type": "text",
+          "text": "Let me examine the source code structure:\n\n",
+          "time": {
+            "start": 1789962192150,
+            "end": 1789962192268
+          },
+          "id": "prt_0c20f8516001ELANAZ0gsVPj2O",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8439001gomlqbtbOC2nkz"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-8910f8334378e9d1",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "ls -la /app/code/src/"
+            },
+            "output": "total 12\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 .\ndrwxr-xr-x 8 501 dialout 4096 Sep 21 02:09 ..\ndrwxr-xr-x 9 501 dialout 4096 Sep 21 02:09 hera\n",
+            "metadata": {
+              "output": "total 12\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 .\ndrwxr-xr-x 8 501 dialout 4096 Sep 21 02:09 ..\ndrwxr-xr-x 9 501 dialout 4096 Sep 21 02:09 hera\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "ls -la /app/code/src/",
+            "time": {
+              "start": 1789962192262,
+              "end": 1789962192298
+            }
+          },
+          "id": "prt_0c20f85430019jfOSzE6DsSsZ9",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8439001gomlqbtbOC2nkz"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10044,
+            "input": 10008,
+            "output": 36,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f85b00017ejN14s1rn6o3D",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8439001gomlqbtbOC2nkz"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10184,
+          "input": 10154,
+          "output": 30,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962192314,
+          "completed": 1789962192749
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f85ba001RNNWHu458SPhVB",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f867d0018Dkqv3R6Rz4doT",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f85ba001RNNWHu458SPhVB"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-adb6ad217d291100",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "ls -la /app/code/src/hera/"
+            },
+            "output": "total 52\ndrwxr-xr-x 9 501 dialout 4096 Sep 21 02:09 .\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 ..\n-rw-r--r-- 1 501 dialout  545 Sep 21 02:09 __init__.py\n-rw-r--r-- 1 501 dialout  768 Sep 21 02:09 __main__.py\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 _cli\n-rw-r--r-- 1 501 dialout  300 Sep 21 02:09 _version.py\n-rw-r--r-- 1 501 dialout 1129 Sep 21 02:09 _yaml.py\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 auth\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 events\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 exceptions\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 expr\n-rw-r--r-- 1 501 dialout    0 Sep 21 02:09 py.typed\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 shared\ndrwxr-xr-x 5 501 dialout 4096 Sep 21 02:09 workflows\n",
+            "metadata": {
+              "output": "total 52\ndrwxr-xr-x 9 501 dialout 4096 Sep 21 02:09 .\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 ..\n-rw-r--r-- 1 501 dialout  545 Sep 21 02:09 __init__.py\n-rw-r--r-- 1 501 dialout  768 Sep 21 02:09 __main__.py\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 _cli\n-rw-r--r-- 1 501 dialout  300 Sep 21 02:09 _version.py\n-rw-r--r-- 1 501 dialout 1129 Sep 21 02:09 _yaml.py\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 auth\ndrwxr-xr-x 3 501 dialout 4096 Sep 21 02:09 events\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 exceptions\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 expr\n-rw-r--r-- 1 501 dialout    0 Sep 21 02:09 py.typed\ndrwxr-xr-x 2 501 dialout 4096 Sep 21 02:09 shared\ndrwxr-xr-x 5 501 dialout 4096 Sep 21 02:09 workflows\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "ls -la /app/code/src/hera/",
+            "time": {
+              "start": 1789962192652,
+              "end": 1789962192740
+            }
+          },
+          "id": "prt_0c20f8682001jOzIWLaqJfeFVN",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f85ba001RNNWHu458SPhVB"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10184,
+            "input": 10154,
+            "output": 30,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f8768001VXRj0BiW9PjQJ5",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f85ba001RNNWHu458SPhVB"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10695,
+          "input": 10645,
+          "output": 50,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962192753,
+          "completed": 1789962193398
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f8771001dEfLllRWk0J3q4",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f88ba001hik3JmAESXEFki",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8771001dEfLllRWk0J3q4"
+        },
+        {
+          "type": "text",
+          "text": "Now let me examine the test structure to understand what kind of tests are failing:\n\n",
+          "time": {
+            "start": 1789962193086,
+            "end": 1789962193338
+          },
+          "id": "prt_0c20f88be001j1EQqcX3IRazva",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8771001dEfLllRWk0J3q4"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-9adb8cc5923d6c8d",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "ls -la /app/code/tests/ | head -10"
+            },
+            "output": "total 156\ndrwxr-xr-x 10 501 dialout  4096 Sep 21 02:09 .\ndrwxr-xr-x  8 501 dialout  4096 Sep 21 02:09 ..\n-rw-r--r--  1 501 dialout     0 Sep 21 02:09 __init__.py\ndrwxr-xr-x  3 501 dialout  4096 Sep 21 02:09 cli\n-rw-r--r--  1 501 dialout   305 Sep 21 02:09 conftest.py\n-rw-r--r--  1 501 dialout    28 Sep 21 02:09 helper.py\ndrwxr-xr-x  2 501 dialout  4096 Sep 21 02:09 script_annotations\ndrwxr-xr-x  2 501 dialout  4096 Sep 21 02:09 script_annotations_inputs_regression\ndrwxr-xr-x  2 501 dialout  4096 Sep 21 02:09 script_runner\n",
+            "metadata": {
+              "output": "total 156\ndrwxr-xr-x 10 501 dialout  4096 Sep 21 02:09 .\ndrwxr-xr-x  8 501 dialout  4096 Sep 21 02:09 ..\n-rw-r--r--  1 501 dialout     0 Sep 21 02:09 __init__.py\ndrwxr-xr-x  3 501 dialout  4096 Sep 21 02:09 cli\n-rw-r--r--  1 501 dialout   305 Sep 21 02:09 conftest.py\n-rw-r--r--  1 501 dialout    28 Sep 21 02:09 helper.py\ndrwxr-xr-x  2 501 dialout  4096 Sep 21 02:09 script_annotations\ndrwxr-xr-x  2 501 dialout  4096 Sep 21 02:09 script_annotations_inputs_regression\ndrwxr-xr-x  2 501 dialout  4096 Sep 21 02:09 script_runner\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "ls -la /app/code/tests/ | head -10",
+            "time": {
+              "start": 1789962193315,
+              "end": 1789962193391
+            }
+          },
+          "id": "prt_0c20f8902001xbP5lWuRx6ME0Q",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8771001dEfLllRWk0J3q4"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10695,
+            "input": 10645,
+            "output": 50,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f89f20012L436tM4iWlthh",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8771001dEfLllRWk0J3q4"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 11058,
+          "input": 11015,
+          "output": 43,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962193402,
+          "completed": 1789962193771
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f89f9001CFjkrMPePMrZjT",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f8aa3001vKTlDlFRU04Qqh",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f89f9001CFjkrMPePMrZjT"
+        },
+        {
+          "type": "text",
+          "text": "Let me check the non-passed test information to understand what's failing:\n\n",
+          "time": {
+            "start": 1789962193574,
+            "end": 1789962193721
+          },
+          "id": "prt_0c20f8aa6001aKkF8HwPQ5b2ei",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f89f9001CFjkrMPePMrZjT"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9c3d16663a6b5d56",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/non-passed/summary.jsonl"
+            },
+            "output": "<path>/app/non-passed/summary.jsonl</path>\n<type>file</type>\n<content>\n1: {\"test\": \"tests/test_examples.py::test_hera_output[script_runner_io]\", \"description\": \"Test failed at call stage. Reason: E       }. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_examples.py__test_hera_output_script_runner_io_\"}\n2: {\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-non-base-model-with-class-loader-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v2.NonUserNonBaseModelClass object at 0x7fb413f77160>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_non_base_model_with_class_loader_2_\"}\n3: {\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[file_loader-/this/file/contains/a/path-/this/file/contains/a/path]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_file_loader__this_file_contains_a_path_ce94c0fa159b.json\"}\n4: {\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab_object-kwargs_list4-{\\\"output\\\": [{\\\"a\\\": 3, \\\"b\\\": \\\"bar\\\", \\\"c\\\": \\\"abc\\\"}]}]\", \"description\": \"Test failed at call stage. Reason: E   KeyError: 'input_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_2a2a51b4ae12.json\"}\n5: {\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_base_models_automatically_2_\"}\n6: {\"test\": \"tests/test_examples.py::test_hera_output[passing_task_result]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n7: {\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-pydantic-output-with-custom-field-serialiser-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v1.NonUserNonBaseModelClass object at 0x7fb4144a8370>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_pydantic_output_with_custom_field_serialiser_1_4b363edb9789.json\"}\n8: {\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[annotated-object]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_annotated_object_\"}\n9: {\"test\": \"tests/test_examples.py::test_hera_output[basic_fanout]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n10: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_base_models_automatically_2_\"}\n11: {\"test\": \"tests/test_serialisers.py::test_parameter_dumping[save-base-models-automatically-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_parameter_dumping_save_base_models_automatically_1_\"}\n12: {\"test\": \"tests/test_examples.py::test_hera_output[create_volume_for_workflow]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n13: {\"test\": \"tests/test_remaining_examples.py::test_upstream_examples_roundtrip[dag-daemon-retry-strategy.upstream.yaml]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n14: {\"test\": \"tests/test_serialisers.py::test_artifact_byte_loading[load-bytes-with-loader-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_loading_load_bytes_with_loader_1_\"}\n15: {\"test\": \"tests/test_runner.py::test_runner_pydantic_input_artifacts[pydantic io artifact input variations-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_input_artifacts_pydantic_io_artifact_input_variations_2_\"}\n16: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-class-loader-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_class_loader_2_\"}\n17: {\"test\": \"tests/test_examples.py::test_hera_output[run_script_on_task_exit]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n18: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_result[pydantic output with result output-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi3/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_result_pydantic_output_with_result_output_2_\"}\n19: {\"test\": \"tests/test_examples.py::test_hera_output[inner_steps]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n20: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[pydantic-input-with-loader-on-attribute-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_pydantic_input_with_loader_on_attribute_1_\"}\n21: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_params[pydantic output parameter variations-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_pa1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_params_pydantic_output_parameter_variations_2_\"}\n22: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_exit_code[pydantic output with exit code-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_exit_code_pydantic_output_with_exit_code_2_\"}\n23: {\"test\": \"tests/test_examples.py::test_hera_output[conditional_dag_parameter_output]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n24: {\"test\": \"tests/test_examples.py::test_hera_output[output_parameters]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n25: {\"test\": \"tests/test_examples.py::test_hera_output[custom_serialiser]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n26: {\"test\": \"tests/test_runner.py::test_script_annotations_artifacts_no_name_or_path[tests.script_runner.artifact_loaders:file_loader_default_path-an_artifact-Hello there!-Hello there!]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifacts_no_name_or_path_tests.script_runner.artifact_65f45cf13f48.json\"}\n27: {\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[annotated-param-no-name]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_annotated_param_no_name_\"}\n28: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-base-models-automatically-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_base_models_automatically_1_\"}\n29: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-lambda-function-loader-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_lambda_function_loader_2_\"}\n30: {\"test\": \"tests/test_runner.py::test_script_annotations_outputs[return_base_model-kwargs_list13-expected_files13]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='foo' b='bar'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_return_base_model_kwargs_list13_expected_files_b2c4c4b0140f.json\"}\n31: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-lambda-function-loader-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_lambda_function_loader_1_\"}\n32: {\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:str_function-kwargs_list2-{\\\"output\\\": [{\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42}]}]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[{'a': 2, 'b': 'bar', 'c': 42.0}]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_f5fafb9844c7.json\"}\n33: {\"test\": \"tests/test_examples.py::test_hera_output[basic_artifacts0]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n34: {\"test\": \"tests/test_script_annotations.py::test_script_pydantic_io[runnerinput-within-generic-1]\", \"description\": \"Test failed at call stage. Reason: E       }. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_script_annotations.py__test_script_pydantic_io_runnerinput_within_generic_1_\"}\n35: {\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[json_object_loader-{\\\"a\\\": \\\"Hello \\\", \\\"b\\\": \\\"there!\\\"}-Hello there!]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_json_object_loader___a____Hello_____b__e0fcd37a1691.json\"}\n36: {\"test\": \"tests/test_unit/test_script_annotations_util.py::test_map_runner_input_annotated_artifact\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_unit_test_script_annotations_util.py__test_map_runner_input_annotated_artifact\"}\n37: {\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[no_loader_as_string-Another test-Another test]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_no_loader_as_string_Another_test_Anoth_be6ad5113e73.json\"}\n38: {\"test\": \"tests/test_remaining_examples.py::test_upstream_examples_roundtrip[steps-daemon-retry-strategy.upstream.yaml]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n39: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_artifacts[pydantic io artifact output variations-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_ar0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_artifacts_pydantic_io_artifact_output_variations_1_65d136e8cbf3.json\"}\n40: {\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:my_function-kwargs_list0-{\\\"output\\\": [{\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42}]}]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[{'a': 2, 'b': 'bar', 'c': 42.0}]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_c5f3b0922e15.json\"}\n41: {\"test\": \"tests/test_runner.py::test_script_annotations_outputs[script_outputs_in_function_signature-kwargs_list8-expected_files8]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_script_outputs_in_function_signature_kwargs_li_a47d38e5030b.json\"}\n42: {\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[str-param-given-int1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='1')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_str_param_given_int1_\"}\n43: {\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-non-base-model-with-class-loader-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v1.NonUserNonBaseModelClass object at 0x7fb413d22590>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_non_base_model_with_class_loader_1_\"}\n44: {\"test\": \"tests/test_examples.py::test_hera_output[masked_parameter_anti_pattern]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n45: {\"test\": \"tests/test_examples.py::test_hera_output[basic_artifacts1]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n46: {\"test\": \"tests/test_examples.py::test_hera_output[fan_in]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n47: {\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:another_function-kwargs_list1-{\\\"output\\\": [{\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42}, {\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42.0}]}]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[{'a': 2, 'b': 'bar', 'c': 42.0}, {'a': 2, 'b': 'bar', 'c': 42.0}]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_cac53fc3aca9.json\"}\n48: {\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[annotated-object-v1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[InputV1(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_annotated_object_v1_\"}\n49: {\"test\": \"tests/test_serialisers.py::test_artifact_byte_dumping[save-bytes-2]\", \"description\": \"Test failed at call stage. Reason: E     + (b'\\\"b\\\\'hello world\\\\'\\\"'). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_dumping_save_bytes_2_\"}\n50: {\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-base-models-automatically-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_base_models_automatically_1_\"}\n51: {\"test\": \"tests/test_serialisers.py::test_artifact_byte_loading[load-bytes-with-loader-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_loading_load_bytes_with_loader_2_\"}\n52: {\"test\": \"tests/test_examples.py::test_hera_output[passing_parameters_between_tasks]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n53: {\"test\": \"tests/test_examples.py::test_hera_output[dag_diamond_with_script]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n54: {\"test\": \"tests/test_script_annotations.py::test_script_pydantic_io[runnerinput-within-generic-2]\", \"description\": \"Test failed at call stage. Reason: E       }. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_script_annotations.py__test_script_pydantic_io_runnerinput_within_generic_2_\"}\n55: {\"test\": \"tests/test_examples.py::test_hera_output[script_decorator_kwargs]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n56: {\"test\": \"tests/test_examples.py::test_hera_output[artifact_loaders]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n57: {\"test\": \"tests/test_examples.py::test_hera_output[default_parameters]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n58: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_exit_code[pydantic output with exit code-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_exit_code_pydantic_output_with_exit_code_1_\"}\n59: {\"test\": \"tests/test_examples.py::test_hera_output[inner_dag]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n60: {\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-pydantic-output-with-custom-field-serialiser-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v2.NonUserNonBaseModelClass object at 0x7fb4141ba590>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_pydantic_output_with_custom_field_serialiser_2_6c53561e0f42.json\"}\n61: {\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab-kwargs_list3-{\\\"output\\\": [{\\\"a\\\": 3, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42.0}]}]\", \"description\": \"Test failed at call stage. Reason: E   KeyError: 'a_but_kebab'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_b3459779f769.json\"}\n62: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[pydantic-input-with-loader-on-attribute-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_pydantic_input_with_loader_on_attribute_2_\"}\n63: {\"test\": \"tests/test_runner.py::test_runner_pydantic_input_artifacts[pydantic io artifact input variations-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_input_artifacts_pydantic_io_artifact_input_variations_1_\"}\n64: {\"test\": \"tests/test_examples.py::test_hera_output[typed_script_input_output]\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: module 'examples.workflows.hera_runner.typed_script_input_output' has no attribute 'w'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_examples.py__test_hera_output_typed_script_input_output_\"}\n65: {\"test\": \"tests/test_examples.py::test_hera_output[json_payload_fanout]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n66: {\"test\": \"tests/test_examples.py::test_hera_output[script_argument_mapping]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n67: {\"test\": \"tests/test_examples.py::test_hera_output[conditional_on_task_status]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n68: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_result[pydantic output with result output-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi2/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_result_pydantic_output_with_result_output_1_\"}\n69: {\"test\": \"tests/test_runner.py::test_run_pydantic_output_with_exit_code[use _run to check actual system exit-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_run_pydantic_output_with_1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_run_pydantic_output_with_exit_code_use__run_to_check_actual_system_exit_2_f656167f8bf2.json\"}\n70: {\"test\": \"tests/test_examples.py::test_hera_output[dag_diamond_with_container]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n71: {\"test\": \"tests/test_serialisers.py::test_artifact_byte_dumping[save-bytes-1]\", \"description\": \"Test failed at call stage. Reason: E     + (b'\\\"b\\\\'hello world\\\\'\\\"'). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_dumping_save_bytes_1_\"}\n72: {\"test\": \"tests/test_runner.py::test_run_pydantic_output_with_exit_code[use _run to check actual system exit-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_run_pydantic_output_with_0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_run_pydantic_output_with_exit_code_use__run_to_check_actual_system_exit_1_2b4781cfe9d1.json\"}\n73: {\"test\": \"tests/test_serialisers.py::test_parameter_dumping[save-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_parameter_dumping_save_base_models_automatically_2_\"}\n74: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_params[pydantic output parameter variations-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_pa0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_params_pydantic_output_parameter_variations_1_\"}\n75: {\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[basic-test]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_basic_test_\"}\n76: {\"test\": \"tests/test_runner.py::test_script_annotations_outputs[script_outputs_in_function_signature_with_path-kwargs_list9-expected_files9]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_script_outputs_in_function_signature_with_path_6dabc5e00302.json\"}\n77: {\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-class-loader-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_class_loader_1_\"}\n78: {\"test\": \"tests/test_runner.py::test_script_annotations_outputs[script_param_artifact_in_function_signature_and_return_type-kwargs_list10-expected_files10]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_script_param_artifact_in_function_signature_an_b1afafc40d0a.json\"}\n79: {\"test\": \"tests/test_examples.py::test_hera_output[dag_input_output]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n80: {\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[str-param-given-int0]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='1')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_str_param_given_int0_\"}\n81: {\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[file_loader-This file had a path-This file had a path]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_file_loader_This_file_had_a_path_This__ad0b9686f9e7.json\"}\n82: {\"test\": \"tests/test_runner.py::test_runner_pydantic_output_artifacts[pydantic io artifact output variations-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_ar1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_artifacts_pydantic_io_artifact_output_variations_2_6141a9b12ba3.json\"}\n83: {\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[no_loader-First test!-First test!]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_no_loader_First_test__First_test__\"}\n84: {\"test\": \"tests/test_examples.py::test_hera_output[fanout_extra_kwargs]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n\n(End of file - total 84 lines)\n</content>",
+            "metadata": {
+              "preview": "{\"test\": \"tests/test_examples.py::test_hera_output[script_runner_io]\", \"description\": \"Test failed at call stage. Reason: E       }. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_examples.py__test_hera_output_script_runner_io_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-non-base-model-with-class-loader-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v2.NonUserNonBaseModelClass object at 0x7fb413f77160>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_non_base_model_with_class_loader_2_\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[file_loader-/this/file/contains/a/path-/this/file/contains/a/path]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_file_loader__this_file_contains_a_path_ce94c0fa159b.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab_object-kwargs_list4-{\\\"output\\\": [{\\\"a\\\": 3, \\\"b\\\": \\\"bar\\\", \\\"c\\\": \\\"abc\\\"}]}]\", \"description\": \"Test failed at call stage. Reason: E   KeyError: 'input_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_2a2a51b4ae12.json\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_base_models_automatically_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[passing_task_result]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-pydantic-output-with-custom-field-serialiser-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v1.NonUserNonBaseModelClass object at 0x7fb4144a8370>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_pydantic_output_with_custom_field_serialiser_1_4b363edb9789.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[annotated-object]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_annotated_object_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[basic_fanout]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_base_models_automatically_2_\"}\n{\"test\": \"tests/test_serialisers.py::test_parameter_dumping[save-base-models-automatically-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_parameter_dumping_save_base_models_automatically_1_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[create_volume_for_workflow]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_remaining_examples.py::test_upstream_examples_roundtrip[dag-daemon-retry-strategy.upstream.yaml]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_byte_loading[load-bytes-with-loader-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_loading_load_bytes_with_loader_1_\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_input_artifacts[pydantic io artifact input variations-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_input_artifacts_pydantic_io_artifact_input_variations_2_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-class-loader-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_class_loader_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[run_script_on_task_exit]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_result[pydantic output with result output-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi3/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_result_pydantic_output_with_result_output_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[inner_steps]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[pydantic-input-with-loader-on-attribute-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_pydantic_input_with_loader_on_attribute_1_\"}",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/non-passed/summary.jsonl",
+                "text": "{\"test\": \"tests/test_examples.py::test_hera_output[script_runner_io]\", \"description\": \"Test failed at call stage. Reason: E       }. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_examples.py__test_hera_output_script_runner_io_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-non-base-model-with-class-loader-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v2.NonUserNonBaseModelClass object at 0x7fb413f77160>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_non_base_model_with_class_loader_2_\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[file_loader-/this/file/contains/a/path-/this/file/contains/a/path]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_file_loader__this_file_contains_a_path_ce94c0fa159b.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab_object-kwargs_list4-{\\\"output\\\": [{\\\"a\\\": 3, \\\"b\\\": \\\"bar\\\", \\\"c\\\": \\\"abc\\\"}]}]\", \"description\": \"Test failed at call stage. Reason: E   KeyError: 'input_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_2a2a51b4ae12.json\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_base_models_automatically_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[passing_task_result]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-pydantic-output-with-custom-field-serialiser-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v1.NonUserNonBaseModelClass object at 0x7fb4144a8370>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_pydantic_output_with_custom_field_serialiser_1_4b363edb9789.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[annotated-object]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_annotated_object_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[basic_fanout]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_base_models_automatically_2_\"}\n{\"test\": \"tests/test_serialisers.py::test_parameter_dumping[save-base-models-automatically-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_parameter_dumping_save_base_models_automatically_1_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[create_volume_for_workflow]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_remaining_examples.py::test_upstream_examples_roundtrip[dag-daemon-retry-strategy.upstream.yaml]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_byte_loading[load-bytes-with-loader-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_loading_load_bytes_with_loader_1_\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_input_artifacts[pydantic io artifact input variations-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_input_artifacts_pydantic_io_artifact_input_variations_2_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-class-loader-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_class_loader_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[run_script_on_task_exit]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_result[pydantic output with result output-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi3/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_result_pydantic_output_with_result_output_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[inner_steps]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[pydantic-input-with-loader-on-attribute-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_pydantic_input_with_loader_on_attribute_1_\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_params[pydantic output parameter variations-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_pa1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_params_pydantic_output_parameter_variations_2_\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_exit_code[pydantic output with exit code-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_exit_code_pydantic_output_with_exit_code_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[conditional_dag_parameter_output]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[output_parameters]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[custom_serialiser]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_artifacts_no_name_or_path[tests.script_runner.artifact_loaders:file_loader_default_path-an_artifact-Hello there!-Hello there!]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifacts_no_name_or_path_tests.script_runner.artifact_65f45cf13f48.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[annotated-param-no-name]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_annotated_param_no_name_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-base-models-automatically-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_base_models_automatically_1_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-lambda-function-loader-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_lambda_function_loader_2_\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_outputs[return_base_model-kwargs_list13-expected_files13]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='foo' b='bar'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_return_base_model_kwargs_list13_expected_files_b2c4c4b0140f.json\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-lambda-function-loader-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_lambda_function_loader_1_\"}\n{\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:str_function-kwargs_list2-{\\\"output\\\": [{\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42}]}]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[{'a': 2, 'b': 'bar', 'c': 42.0}]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_f5fafb9844c7.json\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[basic_artifacts0]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_script_annotations.py::test_script_pydantic_io[runnerinput-within-generic-1]\", \"description\": \"Test failed at call stage. Reason: E       }. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_script_annotations.py__test_script_pydantic_io_runnerinput_within_generic_1_\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[json_object_loader-{\\\"a\\\": \\\"Hello \\\", \\\"b\\\": \\\"there!\\\"}-Hello there!]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_json_object_loader___a____Hello_____b__e0fcd37a1691.json\"}\n{\"test\": \"tests/test_unit/test_script_annotations_util.py::test_map_runner_input_annotated_artifact\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_unit_test_script_annotations_util.py__test_map_runner_input_annotated_artifact\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[no_loader_as_string-Another test-Another test]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_no_loader_as_string_Another_test_Anoth_be6ad5113e73.json\"}\n{\"test\": \"tests/test_remaining_examples.py::test_upstream_examples_roundtrip[steps-daemon-retry-strategy.upstream.yaml]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_artifacts[pydantic io artifact output variations-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_ar0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_artifacts_pydantic_io_artifact_output_variations_1_65d136e8cbf3.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:my_function-kwargs_list0-{\\\"output\\\": [{\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42}]}]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[{'a': 2, 'b': 'bar', 'c': 42.0}]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_c5f3b0922e15.json\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_outputs[script_outputs_in_function_signature-kwargs_list8-expected_files8]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_script_outputs_in_function_signature_kwargs_li_a47d38e5030b.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[str-param-given-int1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='1')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_str_param_given_int1_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-non-base-model-with-class-loader-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v1.NonUserNonBaseModelClass object at 0x7fb413d22590>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_non_base_model_with_class_loader_1_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[masked_parameter_anti_pattern]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[basic_artifacts1]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[fan_in]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:another_function-kwargs_list1-{\\\"output\\\": [{\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42}, {\\\"a\\\": 2, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42.0}]}]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[{'a': 2, 'b': 'bar', 'c': 42.0}, {'a': 2, 'b': 'bar', 'c': 42.0}]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_cac53fc3aca9.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[annotated-object-v1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[InputV1(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_annotated_object_v1_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_byte_dumping[save-bytes-2]\", \"description\": \"Test failed at call stage. Reason: E     + (b'\\\"b\\\\'hello world\\\\'\\\"'). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_dumping_save_bytes_2_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-base-models-automatically-1]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_base_models_automatically_1_\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_byte_loading[load-bytes-with-loader-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_loading_load_bytes_with_loader_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[passing_parameters_between_tasks]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[dag_diamond_with_script]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_script_annotations.py::test_script_pydantic_io[runnerinput-within-generic-2]\", \"description\": \"Test failed at call stage. Reason: E       }. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_script_annotations.py__test_script_pydantic_io_runnerinput_within_generic_2_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[script_decorator_kwargs]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[artifact_loaders]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[default_parameters]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_exit_code[pydantic output with exit code-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_exit_code_pydantic_output_with_exit_code_1_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[inner_dag]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_dumping[save-pydantic-output-with-custom-field-serialiser-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"<tests.script_runner.artifact_serialisers_v2.NonUserNonBaseModelClass object at 0x7fb4141ba590>\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_dumping_save_pydantic_output_with_custom_field_serialiser_2_6c53561e0f42.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab-kwargs_list3-{\\\"output\\\": [{\\\"a\\\": 3, \\\"b\\\": \\\"bar\\\", \\\"c\\\": 42.0}]}]\", \"description\": \"Test failed at call stage. Reason: E   KeyError: 'a_but_kebab'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_parameter_inputs_examples.workflows.hera_runner.typed_script_input_b3459779f769.json\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[pydantic-input-with-loader-on-attribute-2]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_pydantic_input_with_loader_on_attribute_2_\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_input_artifacts[pydantic io artifact input variations-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_input_artifacts_pydantic_io_artifact_input_variations_1_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[typed_script_input_output]\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: module 'examples.workflows.hera_runner.typed_script_input_output' has no attribute 'w'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_examples.py__test_hera_output_typed_script_input_output_\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[json_payload_fanout]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[script_argument_mapping]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[conditional_on_task_status]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_with_result[pydantic output with result output-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_wi2/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_with_result_pydantic_output_with_result_output_1_\"}\n{\"test\": \"tests/test_runner.py::test_run_pydantic_output_with_exit_code[use _run to check actual system exit-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_run_pydantic_output_with_1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_run_pydantic_output_with_exit_code_use__run_to_check_actual_system_exit_2_f656167f8bf2.json\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[dag_diamond_with_container]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_byte_dumping[save-bytes-1]\", \"description\": \"Test failed at call stage. Reason: E     + (b'\\\"b\\\\'hello world\\\\'\\\"'). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_byte_dumping_save_bytes_1_\"}\n{\"test\": \"tests/test_runner.py::test_run_pydantic_output_with_exit_code[use _run to check actual system exit-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_run_pydantic_output_with_0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_run_pydantic_output_with_exit_code_use__run_to_check_actual_system_exit_1_2b4781cfe9d1.json\"}\n{\"test\": \"tests/test_serialisers.py::test_parameter_dumping[save-base-models-automatically-2]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"a='hello ' b='world'\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_parameter_dumping_save_base_models_automatically_2_\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_params[pydantic output parameter variations-1]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_pa0/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_params_pydantic_output_parameter_variations_1_\"}\n{\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[basic-test]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='bar')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_basic_test_\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_outputs[script_outputs_in_function_signature_with_path-kwargs_list9-expected_files9]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_script_outputs_in_function_signature_with_path_6dabc5e00302.json\"}\n{\"test\": \"tests/test_serialisers.py::test_artifact_loading[load-non-base-model-with-class-loader-1]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_serialisers.py__test_artifact_loading_load_non_base_model_with_class_loader_1_\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_outputs[script_param_artifact_in_function_signature_and_return_type-kwargs_list10-expected_files10]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_outputs_script_param_artifact_in_function_signature_an_b1afafc40d0a.json\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[dag_input_output]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/test_runner.py::test_runner_annotated_parameter_inputs[str-param-given-int0]\", \"description\": \"Test failed at call stage. Reason: E     + \\\"output=[Input(a=3, b='1')]\\\". Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_annotated_parameter_inputs_str_param_given_int0_\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[file_loader-This file had a path-This file had a path]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_file_loader_This_file_had_a_path_This__ad0b9686f9e7.json\"}\n{\"test\": \"tests/test_runner.py::test_runner_pydantic_output_artifacts[pydantic io artifact output variations-2]\", \"description\": \"Test failed at call stage. Reason: E   IsADirectoryError: [Errno 21] Is a directory: '/tmp/pytest-of-root/pytest-0/test_runner_pydantic_output_ar1/tmp/hera-outputs'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_runner_pydantic_output_artifacts_pydantic_io_artifact_output_variations_2_6141a9b12ba3.json\"}\n{\"test\": \"tests/test_runner.py::test_script_annotations_artifact_inputs[no_loader-First test!-First test!]\", \"description\": \"Test failed at call stage. Reason: E   TypeError: get_annotated_artifact_value() missing 1 required positional argument: 'artifact_annotation'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-12-13__ep20/argoproj-labs__hera__7ac8d5__3b30d5/tmp/non-passed/tests_test_runner.py__test_script_annotations_artifact_inputs_no_loader_First_test__First_test__\"}\n{\"test\": \"tests/test_examples.py::test_hera_output[fanout_extra_kwargs]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}",
+                "lineStart": 1,
+                "lineEnd": 84,
+                "totalLines": 84,
+                "truncated": false
+              }
+            },
+            "title": "app/non-passed/summary.jsonl",
+            "time": {
+              "start": 1789962193718,
+              "end": 1789962193762
+            }
+          },
+          "id": "prt_0c20f8adf001WFnuDp4T6Me93u",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f89f9001CFjkrMPePMrZjT"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 11058,
+            "input": 11015,
+            "output": 43,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f8b66001kPgBPFQL1pr4Bk",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f89f9001CFjkrMPePMrZjT"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 21451,
+          "input": 21395,
+          "output": 56,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962193776,
+          "completed": 1789962195405
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f8b700016SqHhkokLOWeMz",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f8d3d001t6UbLlQm1tomWA",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8b700016SqHhkokLOWeMz"
+        },
+        {
+          "type": "text",
+          "text": "Now let me look at some of the key source files to understand the structure better:\n\n",
+          "time": {
+            "start": 1789962194240,
+            "end": 1789962194391
+          },
+          "id": "prt_0c20f8d40001GxKhMl7lbz8fVR",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8b700016SqHhkokLOWeMz"
+        },
+        {
+          "type": "tool",
+          "tool": "grep",
+          "callID": "chatcmpl-tool-8f9e92f093e8ed52",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "get_annotated_artifact_value",
+              "path": "/app/code/src"
+            },
+            "output": "Found 4 matches\n/app/code/src/hera/workflows/_runner/util.py:\n  Line 30:     get_annotated_artifact_value,\n\n  Line 192:                 function_kwargs[func_param_name] = get_annotated_artifact_value(param_or_artifact)\n\n\n/app/code/src/hera/workflows/_runner/script_annotations_util.py:\n  Line 90: def get_annotated_artifact_value(func_param_name: str, artifact_annotation: Artifact) -> Union[Path, Any]:\n\n  Line 179:                 return get_annotated_artifact_value(param_or_artifact)\n",
+            "metadata": {
+              "matches": 4,
+              "truncated": false
+            },
+            "title": "get_annotated_artifact_value",
+            "time": {
+              "start": 1789962194387,
+              "end": 1789962195397
+            }
+          },
+          "id": "prt_0c20f8d570013drX4OS0t4sTQT",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8b700016SqHhkokLOWeMz"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 21451,
+            "input": 21395,
+            "output": 56,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f91c70013y2YduHhfBfet1",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f8b700016SqHhkokLOWeMz"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 21636,
+          "input": 21591,
+          "output": 45,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962195410,
+          "completed": 1789962195838
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c20f91d2001mpbsrTKWh9wz94",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f92b5001Fb02TTEL9OBCrw",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f91d2001mpbsrTKWh9wz94"
+        },
+        {
+          "type": "text",
+          "text": "Let me examine the key files related to the failing tests:\n\n",
+          "time": {
+            "start": 1789962195640,
+            "end": 1789962195792
+          },
+          "id": "prt_0c20f92b700144MKHXMjpXXSr1",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f91d2001mpbsrTKWh9wz94"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-ae7beddec690d15e",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/src/hera/workflows/_runner/script_annotations_util.py"
+            },
+            "output": "<path>/app/code/src/hera/workflows/_runner/script_annotations_util.py</path>\n<type>file</type>\n<content>\n1: \"\"\"The script_annotations_util module contains functionality for the script annotations feature when used with the runner.\"\"\"\n2: \n3: import json\n4: import os\n5: import sys\n6: from pathlib import Path\n7: from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast\n8: \n9: if sys.version_info >= (3, 10):\n10:     from types import NoneType\n11: else:\n12:     NoneType = type(None)\n13: \n14: from hera.shared._pydantic import BaseModel, get_field_annotations, get_fields\n15: from hera.shared._type_util import (\n16:     get_unsubscripted_type,\n17:     get_workflow_annotation,\n18:     origin_type_issubtype,\n19:     unwrap_annotation,\n20: )\n21: from hera.shared.serialization import serialize\n22: from hera.workflows import Artifact, Parameter\n23: from hera.workflows.artifact import ArtifactLoader\n24: from hera.workflows.io.v1 import Output as OutputV1\n25: \n26: try:\n27:     from hera.workflows.io.v2 import Output as OutputV2\n28: except ImportError:\n29:     from hera.workflows.io.v1 import Output as OutputV2  # type: ignore\n30: \n31: \n32: def _get_outputs_path(destination: Union[Parameter, Artifact]) -> Path:\n33:     \"\"\"Get the path from the destination annotation using the defined outputs directory.\"\"\"\n34:     path = Path(os.environ.get(\"hera__outputs_directory\", \"/tmp/hera-outputs\"))\n35:     if isinstance(destination, Parameter) and destination.name:\n36:         path = path / f\"parameters/{destination.name}\"\n37:     elif isinstance(destination, Artifact):\n38:         if destination.path:\n39:             path = Path(destination.path)\n40:         elif destination.name:\n41:             path = path / f\"artifacts/{destination.name}\"\n42:     return path\n43: \n44: \n45: def _get_dumper_function(destination: Union[Parameter, Artifact]) -> Callable:\n46:     if isinstance(destination, Parameter) and destination.dumps is not None:\n47:         return destination.dumps\n48: \n49:     return serialize\n50: \n51: \n52: def get_annotated_input_param(\n53:     func_param_name: str,\n54:     param_annotation: Parameter,\n55:     kwargs: Dict[str, str],\n56: ) -> str:\n57:     \"\"\"Get the value from a given function param and its annotation.\n58: \n59:     Return the string value from the kwargs dict,\n60:     which could be from the param_annotation.name if given, or func_param_name.\n61:     \"\"\"\n62:     if param_annotation.name in kwargs:\n63:         return kwargs[param_annotation.name]\n64: \n65:     if func_param_name in kwargs:\n66:         return kwargs[func_param_name]\n67: \n68:     raise RuntimeError(\n69:         f\"Parameter {param_annotation.name if param_annotation.name else func_param_name} was not given a value\"\n70:     )\n71: \n72: \n73: def load_param_input(\n74:     param_value: str,\n75:     loader: Optional[Callable[[str], Any]],\n76: ) -> Any:\n77:     return param_value if loader is None else loader(param_value)\n78: \n79: \n80: def get_annotated_output_param(param_annotation: Parameter) -> Path:\n81:     if param_annotation.value_from and param_annotation.value_from.path:\n82:         path = Path(param_annotation.value_from.path)\n83:     else:\n84:         path = _get_outputs_path(param_annotation)\n85:     # Automatically create the parent directory (if required)\n86:     path.parent.mkdir(parents=True, exist_ok=True)\n87:     return path\n88: \n89: \n90: def get_annotated_artifact_value(func_param_name: str, artifact_annotation: Artifact) -> Union[Path, Any]:\n91:     \"\"\"Get the value of the given Artifact annotation.\n92: \n93:     If the artifact is an output, return the path it will write to.\n94:     If the artifact is an input, and it has an ArtifactLoader enum as its loader, return the\n95:     loaded value according to the predefined behaviour (json obj, path or string), otherwise,\n96:     if the loader is a Callable, it is used directly to load the value.\n97: \n98:     As Artifacts are always Annotated in function parameters, we don't need to consider\n99:     the `kwargs` or the function parameter name.\n100:     \"\"\"\n101:     if artifact_annotation.output:\n102:         if artifact_annotation.path:\n103:             path = Path(artifact_annotation.path)\n104:         else:\n105:             path = _get_outputs_path(artifact_annotation)\n106:         # Automatically create the parent directory (if required)\n107:         path.parent.mkdir(parents=True, exist_ok=True)\n108:         return path\n109: \n110:     if not artifact_annotation.path:\n111:         # Path is added to the spec automatically when built. As it isn't present in the annotation itself,\n112:         # we need to add it back in for the runner.\n113:         artifact_annotation.path = artifact_annotation._get_default_inputs_path()\n114: \n115:     if artifact_annotation.loader == ArtifactLoader.json.value:\n116:         path = Path(artifact_annotation.path)\n117:         with path.open() as f:\n118:             return json.load(f)\n119: \n120:     if artifact_annotation.loader == ArtifactLoader.file.value:\n121:         path = Path(artifact_annotation.path)\n122:         return path.read_text()\n123: \n124:     if artifact_annotation.loader is None:\n125:         return artifact_annotation.path\n126: \n127:     raise RuntimeError(f\"Artifact {artifact_annotation.name} was not given a value\")\n128: \n129: \n130: T = TypeVar(\"T\", bound=Type[BaseModel])\n131: \n132: \n133: def map_runner_input(\n134:     runner_input_class: T,\n135:     kwargs: Dict[str, str],\n136: ) -> T:\n137:     \"\"\"Map argo input kwargs to the fields of the given Input, return an instance of the class.\n138: \n139:     If the field is annotated, we look for the kwarg with the name from the annotation (Parameter or Artifact).\n140:     Otherwise, we look for the kwarg with the name of the field.\n141:     \"\"\"\n142:     input_model_obj = {}\n143: \n144:     def load_parameter_value(\n145:         value: str,\n146:         value_type: type,\n147:         loader: Optional[Callable[[str], Any]] = None,\n148:     ) -> Any:\n149:         if origin_type_issubtype(value_type, (str, NoneType)):\n150:             return value\n151: \n152:         if loader is not None:\n153:             return load_param_input(value, loader)\n154: \n155:         try:\n156:             return json.loads(value)\n157:         except json.JSONDecodeError:\n158:             return value\n159: \n160:     runner_input_annotations = get_field_annotations(runner_input_class)\n161: \n162:     def map_field(\n163:         field: str,\n164:         kwargs: Dict[str, str],\n165:     ) -> Any:\n166:         annotation = runner_input_annotations.get(field)\n167:         assert annotation is not None, \"Input fields must be type-annotated\"  # Note: not necessarily with `Annotated`\n168:         ann_type = unwrap_annotation(annotation)\n169: \n170:         if param_or_artifact := get_workflow_annotation(annotation):\n171:             if isinstance(param_or_artifact, Parameter):\n172:                 assert not param_or_artifact.output\n173:                 return load_parameter_value(\n174:                     get_annotated_input_param(field, param_or_artifact, kwargs),\n175:                     ann_type,\n176:                     param_or_artifact.loads,\n177:                 )\n178:             else:\n179:                 return get_annotated_artifact_value(param_or_artifact)\n180:         else:\n181:             return load_parameter_value(kwargs[field], ann_type)\n182: \n183:     for field in get_fields(runner_input_class):\n184:         input_model_obj[field] = map_field(field, kwargs)\n185: \n186:     return cast(T, runner_input_class.parse_obj(input_model_obj))\n187: \n188: \n189: def _save_annotated_return_outputs(\n190:     function_outputs: Union[Tuple[Any], Any],\n191:     output_annotations: List[Union[Tuple[type, Union[Parameter, Artifact]], Union[Type[OutputV1], Type[OutputV2]]]],\n192: ) -> Optional[Union[OutputV1, OutputV2]]:\n193:     \"\"\"Save the outputs of the function to the specified output destinations.\n194: \n195:     The output values are matched with the output annotations and saved using the schema:\n196:     <parent_directory>/artifacts/<name>\n197:     <parent_directory>/parameters/<name>\n198:     If the artifact path or parameter value_from.path is specified, that is used instead.\n199:     <parent_directory> can be provided by the user or is set to /tmp/hera-outputs by default\n200:     \"\"\"\n201:     if not isinstance(function_outputs, tuple):\n202:         function_outputs = [function_outputs]\n203:     if len(function_outputs) != len(output_annotations):\n204:         raise ValueError(\"The number of outputs does not match the annotation\")\n205: \n206:     if os.environ.get(\"hera__script_pydantic_io\", None) is not None:\n207:         return_obj = None\n208: \n209:     for output_value, dest in zip(function_outputs, output_annotations):\n210:         if isinstance(output_value, (OutputV1, OutputV2)):\n211:             if os.environ.get(\"hera__script_pydantic_io\", None) is None:\n212:                 raise ValueError(\"hera__script_pydantic_io environment variable is not set\")\n213: \n214:             return_obj = output_value\n215: \n216:             for field, value in output_value.dict().items():\n217:                 if field in {\"exit_code\", \"result\"}:\n218:                     continue\n219: \n220:                 matching_output = output_value._get_output(field)\n221:                 path = _get_outputs_path(matching_output)\n222:                 _write_to_path(path, value, _get_dumper_function(matching_output))\n223:         else:\n224:             assert isinstance(dest, tuple)\n225: \n226:             type_ = get_unsubscripted_type(dest[0])\n227:             if not isinstance(output_value, type_):\n228:                 raise ValueError(\n229:                     f\"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{dest[0]}`\"\n230:                 )\n231: \n232:             if not dest[1].name:\n233:                 raise ValueError(\"The name was not provided for one of the outputs.\")\n234: \n235:             path = _get_outputs_path(dest[1])\n236:             _write_to_path(path, output_value, _get_dumper_function(dest[1]))\n237: \n238:     if os.environ.get(\"hera__script_pydantic_io\", None) is not None:\n239:         return return_obj\n240: \n241:     return None\n242: \n243: \n244: def _save_dummy_outputs(\n245:     output_annotations: List[\n246:         Union[\n247:             Tuple[type, Union[Parameter, Artifact]],\n248:             Union[Type[OutputV1], Type[OutputV2]],\n249:         ]\n250:     ],\n251: ) -> None:\n252:     \"\"\"Save dummy values into the outputs specified.\n253: \n254:     This function is used at runtime by the Hera Runner to create files in the container so that Argo\n255:     does not log confusing error messages that obfuscate the real error, which look like:\n256:     ```\n257:     msg=\"cannot save parameter /tmp/hera-outputs/parameters/my-parameter\"\n258:     argo=true\n259:     error=\"open /tmp/hera-outputs/parameters/my-parameter: no such file or directory\"`\n260:     ```\n261: \n262:     The output annotations are used to write files using the schema:\n263:     <parent_directory>/artifacts/<name>\n264:     <parent_directory>/parameters/<name>\n265:     If the artifact path or parameter value_from.path is specified, that is used instead.\n266:     <parent_directory> can be provided by the user or is set to /tmp/hera-outputs by default\n267:     \"\"\"\n268:     for dest in output_annotations:\n269:         if isinstance(dest, type) and issubclass(dest, (OutputV1, OutputV2)):\n270:             if os.environ.get(\"hera__script_pydantic_io\", None) is None:\n271:                 raise ValueError(\"hera__script_pydantic_io environment variable is not set\")\n272: \n273:             for field in get_fields(dest):\n274:                 if field in {\"exit_code\", \"result\"}:\n275:                     continue\n276: \n277:                 annotation = dest._get_output(field)\n278:                 path = _get_outputs_path(annotation)\n279:                 _write_to_path(path, \"\")\n280:         else:\n281:             assert isinstance(dest, tuple)\n282:             if not dest[1].name:\n283:                 raise ValueError(\"The name was not provided for one of the outputs.\")\n284: \n285:             path = _get_outputs_path(dest[1])\n286:             _write_to_path(path, \"\")\n287: \n288: \n289: def _write_to_path(path: Path, output_value: Any, dumper: Callable = serialize) -> None:\n290:     \"\"\"Write the output_value as serialized text to the provided path. Create the necessary parent directories.\"\"\"\n291:     output_string = dumper(output_value)\n292:     if output_string is not None:\n293:         path.parent.mkdir(parents=True, exist_ok=True)\n294:         path.write_text(output_string)\n\n(End of file - total 294 lines)\n</content>",
+            "metadata": {
+              "preview": "\"\"\"The script_annotations_util module contains functionality for the script annotations feature when used with the runner.\"\"\"\n\nimport json\nimport os\nimport sys\nfrom pathlib import Path\nfrom typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast\n\nif sys.version_info >= (3, 10):\n    from types import NoneType\nelse:\n    NoneType = type(None)\n\nfrom hera.shared._pydantic import BaseModel, get_field_annotations, get_fields\nfrom hera.shared._type_util import (\n    get_unsubscripted_type,\n    get_workflow_annotation,\n    origin_type_issubtype,\n    unwrap_annotation,\n)",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/src/hera/workflows/_runner/script_annotations_util.py",
+                "text": "\"\"\"The script_annotations_util module contains functionality for the script annotations feature when used with the runner.\"\"\"\n\nimport json\nimport os\nimport sys\nfrom pathlib import Path\nfrom typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast\n\nif sys.version_info >= (3, 10):\n    from types import NoneType\nelse:\n    NoneType = type(None)\n\nfrom hera.shared._pydantic import BaseModel, get_field_annotations, get_fields\nfrom hera.shared._type_util import (\n    get_unsubscripted_type,\n    get_workflow_annotation,\n    origin_type_issubtype,\n    unwrap_annotation,\n)\nfrom hera.shared.serialization import serialize\nfrom hera.workflows import Artifact, Parameter\nfrom hera.workflows.artifact import ArtifactLoader\nfrom hera.workflows.io.v1 import Output as OutputV1\n\ntry:\n    from hera.workflows.io.v2 import Output as OutputV2\nexcept ImportError:\n    from hera.workflows.io.v1 import Output as OutputV2  # type: ignore\n\n\ndef _get_outputs_path(destination: Union[Parameter, Artifact]) -> Path:\n    \"\"\"Get the path from the destination annotation using the defined outputs directory.\"\"\"\n    path = Path(os.environ.get(\"hera__outputs_directory\", \"/tmp/hera-outputs\"))\n    if isinstance(destination, Parameter) and destination.name:\n        path = path / f\"parameters/{destination.name}\"\n    elif isinstance(destination, Artifact):\n        if destination.path:\n            path = Path(destination.path)\n        elif destination.name:\n            path = path / f\"artifacts/{destination.name}\"\n    return path\n\n\ndef _get_dumper_function(destination: Union[Parameter, Artifact]) -> Callable:\n    if isinstance(destination, Parameter) and destination.dumps is not None:\n        return destination.dumps\n\n    return serialize\n\n\ndef get_annotated_input_param(\n    func_param_name: str,\n    param_annotation: Parameter,\n    kwargs: Dict[str, str],\n) -> str:\n    \"\"\"Get the value from a given function param and its annotation.\n\n    Return the string value from the kwargs dict,\n    which could be from the param_annotation.name if given, or func_param_name.\n    \"\"\"\n    if param_annotation.name in kwargs:\n        return kwargs[param_annotation.name]\n\n    if func_param_name in kwargs:\n        return kwargs[func_param_name]\n\n    raise RuntimeError(\n        f\"Parameter {param_annotation.name if param_annotation.name else func_param_name} was not given a value\"\n    )\n\n\ndef load_param_input(\n    param_value: str,\n    loader: Optional[Callable[[str], Any]],\n) -> Any:\n    return param_value if loader is None else loader(param_value)\n\n\ndef get_annotated_output_param(param_annotation: Parameter) -> Path:\n    if param_annotation.value_from and param_annotation.value_from.path:\n        path = Path(param_annotation.value_from.path)\n    else:\n        path = _get_outputs_path(param_annotation)\n    # Automatically create the parent directory (if required)\n    path.parent.mkdir(parents=True, exist_ok=True)\n    return path\n\n\ndef get_annotated_artifact_value(func_param_name: str, artifact_annotation: Artifact) -> Union[Path, Any]:\n    \"\"\"Get the value of the given Artifact annotation.\n\n    If the artifact is an output, return the path it will write to.\n    If the artifact is an input, and it has an ArtifactLoader enum as its loader, return the\n    loaded value according to the predefined behaviour (json obj, path or string), otherwise,\n    if the loader is a Callable, it is used directly to load the value.\n\n    As Artifacts are always Annotated in function parameters, we don't need to consider\n    the `kwargs` or the function parameter name.\n    \"\"\"\n    if artifact_annotation.output:\n        if artifact_annotation.path:\n            path = Path(artifact_annotation.path)\n        else:\n            path = _get_outputs_path(artifact_annotation)\n        # Automatically create the parent directory (if required)\n        path.parent.mkdir(parents=True, exist_ok=True)\n        return path\n\n    if not artifact_annotation.path:\n        # Path is added to the spec automatically when built. As it isn't present in the annotation itself,\n        # we need to add it back in for the runner.\n        artifact_annotation.path = artifact_annotation._get_default_inputs_path()\n\n    if artifact_annotation.loader == ArtifactLoader.json.value:\n        path = Path(artifact_annotation.path)\n        with path.open() as f:\n            return json.load(f)\n\n    if artifact_annotation.loader == ArtifactLoader.file.value:\n        path = Path(artifact_annotation.path)\n        return path.read_text()\n\n    if artifact_annotation.loader is None:\n        return artifact_annotation.path\n\n    raise RuntimeError(f\"Artifact {artifact_annotation.name} was not given a value\")\n\n\nT = TypeVar(\"T\", bound=Type[BaseModel])\n\n\ndef map_runner_input(\n    runner_input_class: T,\n    kwargs: Dict[str, str],\n) -> T:\n    \"\"\"Map argo input kwargs to the fields of the given Input, return an instance of the class.\n\n    If the field is annotated, we look for the kwarg with the name from the annotation (Parameter or Artifact).\n    Otherwise, we look for the kwarg with the name of the field.\n    \"\"\"\n    input_model_obj = {}\n\n    def load_parameter_value(\n        value: str,\n        value_type: type,\n        loader: Optional[Callable[[str], Any]] = None,\n    ) -> Any:\n        if origin_type_issubtype(value_type, (str, NoneType)):\n            return value\n\n        if loader is not None:\n            return load_param_input(value, loader)\n\n        try:\n            return json.loads(value)\n        except json.JSONDecodeError:\n            return value\n\n    runner_input_annotations = get_field_annotations(runner_input_class)\n\n    def map_field(\n        field: str,\n        kwargs: Dict[str, str],\n    ) -> Any:\n        annotation = runner_input_annotations.get(field)\n        assert annotation is not None, \"Input fields must be type-annotated\"  # Note: not necessarily with `Annotated`\n        ann_type = unwrap_annotation(annotation)\n\n        if param_or_artifact := get_workflow_annotation(annotation):\n            if isinstance(param_or_artifact, Parameter):\n                assert not param_or_artifact.output\n                return load_parameter_value(\n                    get_annotated_input_param(field, param_or_artifact, kwargs),\n                    ann_type,\n                    param_or_artifact.loads,\n                )\n            else:\n                return get_annotated_artifact_value(param_or_artifact)\n        else:\n            return load_parameter_value(kwargs[field], ann_type)\n\n    for field in get_fields(runner_input_class):\n        input_model_obj[field] = map_field(field, kwargs)\n\n    return cast(T, runner_input_class.parse_obj(input_model_obj))\n\n\ndef _save_annotated_return_outputs(\n    function_outputs: Union[Tuple[Any], Any],\n    output_annotations: List[Union[Tuple[type, Union[Parameter, Artifact]], Union[Type[OutputV1], Type[OutputV2]]]],\n) -> Optional[Union[OutputV1, OutputV2]]:\n    \"\"\"Save the outputs of the function to the specified output destinations.\n\n    The output values are matched with the output annotations and saved using the schema:\n    <parent_directory>/artifacts/<name>\n    <parent_directory>/parameters/<name>\n    If the artifact path or parameter value_from.path is specified, that is used instead.\n    <parent_directory> can be provided by the user or is set to /tmp/hera-outputs by default\n    \"\"\"\n    if not isinstance(function_outputs, tuple):\n        function_outputs = [function_outputs]\n    if len(function_outputs) != len(output_annotations):\n        raise ValueError(\"The number of outputs does not match the annotation\")\n\n    if os.environ.get(\"hera__script_pydantic_io\", None) is not None:\n        return_obj = None\n\n    for output_value, dest in zip(function_outputs, output_annotations):\n        if isinstance(output_value, (OutputV1, OutputV2)):\n            if os.environ.get(\"hera__script_pydantic_io\", None) is None:\n                raise ValueError(\"hera__script_pydantic_io environment variable is not set\")\n\n            return_obj = output_value\n\n            for field, value in output_value.dict().items():\n                if field in {\"exit_code\", \"result\"}:\n                    continue\n\n                matching_output = output_value._get_output(field)\n                path = _get_outputs_path(matching_output)\n                _write_to_path(path, value, _get_dumper_function(matching_output))\n        else:\n            assert isinstance(dest, tuple)\n\n            type_ = get_unsubscripted_type(dest[0])\n            if not isinstance(output_value, type_):\n                raise ValueError(\n                    f\"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{dest[0]}`\"\n                )\n\n            if not dest[1].name:\n                raise ValueError(\"The name was not provided for one of the outputs.\")\n\n            path = _get_outputs_path(dest[1])\n            _write_to_path(path, output_value, _get_dumper_function(dest[1]))\n\n    if os.environ.get(\"hera__script_pydantic_io\", None) is not None:\n        return return_obj\n\n    return None\n\n\ndef _save_dummy_outputs(\n    output_annotations: List[\n        Union[\n            Tuple[type, Union[Parameter, Artifact]],\n            Union[Type[OutputV1], Type[OutputV2]],\n        ]\n    ],\n) -> None:\n    \"\"\"Save dummy values into the outputs specified.\n\n    This function is used at runtime by the Hera Runner to create files in the container so that Argo\n    does not log confusing error messages that obfuscate the real error, which look like:\n    ```\n    msg=\"cannot save parameter /tmp/hera-outputs/parameters/my-parameter\"\n    argo=true\n    error=\"open /tmp/hera-outputs/parameters/my-parameter: no such file or directory\"`\n    ```\n\n    The output annotations are used to write files using the schema:\n    <parent_directory>/artifacts/<name>\n    <parent_directory>/parameters/<name>\n    If the artifact path or parameter value_from.path is specified, that is used instead.\n    <parent_directory> can be provided by the user or is set to /tmp/hera-outputs by default\n    \"\"\"\n    for dest in output_annotations:\n        if isinstance(dest, type) and issubclass(dest, (OutputV1, OutputV2)):\n            if os.environ.get(\"hera__script_pydantic_io\", None) is None:\n                raise ValueError(\"hera__script_pydantic_io environment variable is not set\")\n\n            for field in get_fields(dest):\n                if field in {\"exit_code\", \"result\"}:\n                    continue\n\n                annotation = dest._get_output(field)\n                path = _get_outputs_path(annotation)\n                _write_to_path(path, \"\")\n        else:\n            assert isinstance(dest, tuple)\n            if not dest[1].name:\n                raise ValueError(\"The name was not provided for one of the outputs.\")\n\n            path = _get_outputs_path(dest[1])\n            _write_to_path(path, \"\")\n\n\ndef _write_to_path(path: Path, output_value: Any, dumper: Callable = serialize) -> None:\n    \"\"\"Write the output_value as serialized text to the provided path. Create the necessary parent directories.\"\"\"\n    output_string = dumper(output_value)\n    if output_string is not None:\n        path.parent.mkdir(parents=True, exist_ok=True)\n        path.write_text(output_string)",
+                "lineStart": 1,
+                "lineEnd": 294,
+                "totalLines": 294,
+                "truncated": false
+              }
+            },
+            "title": "app/code/src/hera/workflows/_runner/script_annotations_util.py",
+            "time": {
+              "start": 1789962195787,
+              "end": 1789962195829
+            }
+          },
+          "id": "prt_0c20f92e4001YJc6vj036VPc1l",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f91d2001mpbsrTKWh9wz94"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 21636,
+            "input": 21591,
+            "output": 45,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f9379001ivJS30xZ0f7ekZ",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f91d2001mpbsrTKWh9wz94"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c20f79ef001T9XuFfC9KTNbo2",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25487,
+          "input": 25217,
+          "output": 270,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789962196097,
+          "completed": 1789962197456
+        },
+        "finish": "stop",
+        "id": "msg_0c20f9481001w0pYHoAFCbWx1o",
+        "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c20f9591001PNNa5HGH2mwWkZ",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f9481001w0pYHoAFCbWx1o"
+        },
+        {
+          "type": "text",
+          "text": "Based on my analysis of the Python project, here are 3 to 5 plausible future tasks that could reasonably follow this one in this codebase:\n\n1. **Fix the `get_annotated_artifact_value` function signature mismatch** - The function is called with only one argument (`param_or_artifact`) but defined with two arguments (`func_param_name`, `artifact_annotation`). This is causing TypeError in multiple test cases.\n\n2. **Implement proper artifact loading functionality** - Need to resolve the missing `artifact_annotation` parameter in several failing tests related to artifact loading and dumping operations.\n\n3. **Address parameter handling inconsistencies** - Several tests are failing due to KeyError issues with parameter names and missing 'input_value' fields, indicating problems with parameter mapping and handling.\n\n4. **Fix directory creation issues in output handling** - Multiple tests are failing with \"IsADirectoryError\" when trying to write to output paths, suggesting issues with directory creation logic in the output handling code.\n\n5. **Complete Pydantic model serialization support** - Some tests are failing because Pydantic models aren't being properly serialized or deserialized, particularly around artifact dumping/loading operations with Pydantic models.\n\nThese tasks address the core issues identified in the failing tests, particularly around artifact handling, parameter processing, and output management in the Hera workflow runner system.",
+          "time": {
+            "start": 1789962196372,
+            "end": 1789962197447
+          },
+          "id": "prt_0c20f9594001d82c6JALQxe40O",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f9481001w0pYHoAFCbWx1o"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 25487,
+            "input": 25217,
+            "output": 270,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c20f99cb001bsHgDb0b21D7MM",
+          "sessionID": "ses_f3df08659ffeNIvnwSy2OgT6kp",
+          "messageID": "msg_0c20f9481001w0pYHoAFCbWx1o"
+        }
+      ]
+    }
+  ]
+}

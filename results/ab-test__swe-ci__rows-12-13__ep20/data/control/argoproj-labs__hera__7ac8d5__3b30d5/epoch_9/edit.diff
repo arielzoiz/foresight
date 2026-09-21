@@ -1,0 +1,66 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:45:35
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:47:21
+@@ -120,13 +120,19 @@
+             # If we can't get a default path, create a temporary path to avoid crashes
+             artifact_annotation.path = Path("/tmp/hera-outputs/artifacts/temp_artifact")
+ 
++    # Check if the artifact file exists before trying to load it
++    path = Path(artifact_annotation.path)
+     if artifact_annotation.loader == ArtifactLoader.json.value:
+-        path = Path(artifact_annotation.path)
++        # Check if file exists first to prevent FileNotFoundError
++        if not path.exists():
++            raise FileNotFoundError(f"Artifact file not found: {path}")
+         with path.open() as f:
+             return json.load(f)
+ 
+     if artifact_annotation.loader == ArtifactLoader.file.value:
+-        path = Path(artifact_annotation.path)
++        # Check if file exists first to prevent FileNotFoundError
++        if not path.exists():
++            raise FileNotFoundError(f"Artifact file not found: {path}")
+         return path.read_text()
+ 
+     if artifact_annotation.loader is None:
+@@ -319,6 +325,9 @@
+ 
+ def _write_to_path(path: Path, output_value: Any, dumper: Callable = serialize) -> None:
+     """Write the output_value as serialized text to the provided path. Create the necessary parent directories."""
++    # Ensure the parent directory exists
++    path.parent.mkdir(parents=True, exist_ok=True)
++    
+     try:
+         output_string = dumper(output_value)
+     except (TypeError, ValueError):
+@@ -336,5 +345,4 @@
+                 output_string = str(output_value)
+     
+     if output_string is not None:
+-        path.parent.mkdir(parents=True, exist_ok=True)
+         path.write_text(output_string)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:45:39
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:47:14
+@@ -266,10 +266,13 @@
+     for kwarg in template_inputs_list:
+         if "name" not in kwarg or "value" not in kwarg:
+             continue
+-        # sanitize the key for python
++        # sanitize the key for python - handle kebab-case names properly
+         key = cast(str, serialize(kwarg["name"]))
++        # For kebab-case parameters, we need to convert them to snake_case for Python compatibility
++        # But we should also preserve the original name for mapping purposes
++        key_normalized = key.replace("-", "_")
+         value = kwarg["value"]
+-        template_inputs[key] = value
++        template_inputs[key_normalized] = value
+ 
+     function_kwargs = _map_function_annotations(function, template_inputs)
+ 
+@@ -375,4 +378,5 @@
+             output_file.parent.mkdir(parents=True, exist_ok=True)
+             output_file.write_text(serialize(result))
+         else:
++            # For other OSError, re-raise the error
+             raise e

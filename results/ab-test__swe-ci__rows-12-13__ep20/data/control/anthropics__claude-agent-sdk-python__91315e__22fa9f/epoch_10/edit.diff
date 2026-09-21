@@ -1,0 +1,20 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 02:40:48
++++ b/src/claude_code_sdk/client.py	2026-09-21 02:41:48
+@@ -229,9 +229,11 @@
+         """Exit async context - always disconnects."""
+         # Always attempt to disconnect, but suppress any exceptions to avoid masking
+         # the original exception that might have caused the context exit
+-        try:
+-            await self.disconnect()
+-        except Exception:
+-            # Suppress disconnect exceptions to preserve the original exception
+-            pass
++        if self._transport:
++            try:
++                await self._transport.disconnect()
++            except Exception:
++                # Suppress disconnect exceptions to preserve the original exception
++                pass
++        self._transport = None
+         return False

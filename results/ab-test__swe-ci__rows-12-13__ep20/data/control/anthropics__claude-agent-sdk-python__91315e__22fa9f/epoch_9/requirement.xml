@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:128</location>
+    <description>The receive_messages method in ClaudeSDKClient is failing because it's trying to iterate over a coroutine instead of an async iterator. The transport's receive_messages() method is returning a coroutine when it should return an async iterator.</description>
+    <contract>The ClaudeSDKClient.receive_messages() method should return an AsyncIterator[Message] that properly iterates over messages from the underlying transport.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:207</location>
+    <description>The receive_response method in ClaudeSDKClient is also affected by the same async iteration issue, as it relies on receive_messages().</description>
+    <contract>The ClaudeSDKClient.receive_response() method should return an AsyncIterator[Message] that properly iterates over messages from the underlying transport and stops at ResultMessage.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:314</location>
+    <description>The SubprocessCLITransport.receive_messages() method has an issue with its async iteration implementation. While the method is defined correctly as an async generator, the way it's being used in tests suggests it's not properly yielding results.</description>
+    <contract>The SubprocessCLITransport.receive_messages() method should properly yield message dictionaries from the subprocess output.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:119</location>
+    <description>The context manager cleanup in ClaudeSDKClient is not properly closing transports, causing 'close' to have been called zero times error.</description>
+    <contract>The ClaudeSDKClient.__aexit__ method should properly ensure transport disconnection regardless of exceptions during the context execution.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:212</location>
+    <description>The disconnect method in ClaudeSDKClient doesn't properly handle the case when _transport is None.</description>
+    <contract>The ClaudeSDKClient.disconnect method should safely handle cases where transport is already disconnected or None.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_auto_connect_with_context_manager</acceptance>
+  </requirement>
+</requirements>

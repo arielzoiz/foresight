@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The SubprocessCLITransport.receive_messages() method is returning a coroutine instead of an async iterator, causing 'async for' to fail with TypeError. This affects multiple test cases that rely on async iteration.</description>
+    <contract>The receive_messages() method must return a proper AsyncIterator[dict[str, Any]] that can be used with 'async for' loops. It should properly yield parsed message dictionaries from the subprocess stdout stream.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_simple_query_response</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The ClaudeSDKClient.receive_messages() method is incorrectly implemented. It's trying to await the async iterator returned by transport.receive_messages() but should directly yield from it.</description>
+    <contract>The receive_messages() method must properly yield messages from the transport's async iterator without attempting to await it. It should return an AsyncIterator[Message] that clients can iterate over with 'async for'.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The ClaudeSDKClient.receive_response() method is not properly implemented. It inherits from receive_messages() but doesn't correctly terminate after yielding a ResultMessage.</description>
+    <contract>The receive_response() method must yield messages from receive_messages() and terminate immediately after yielding a ResultMessage. The final message in the sequence should always be a ResultMessage.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _stream_to_stdin method in SubprocessCLITransport has a bug where it doesn't properly handle the case when the prompt is an async iterable and the stdin stream becomes unavailable.</description>
+    <contract>The _stream_to_stdin method must properly handle cases where stdin stream is closed or becomes unavailable during streaming, and should gracefully handle exceptions without breaking the overall process.</contract>
+    <acceptance>tests/test_streaming_client.py::TestQueryWithAsyncIterable::test_query_with_async_iterable</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The ClaudeSDKClient.query() method has issues when handling AsyncIterable prompts, particularly around session_id handling and message formatting.</description>
+    <contract>The query() method must properly handle AsyncIterable prompts by iterating through them, setting session_id on each message, and sending them to the transport correctly.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive</acceptance>
+  </requirement>
+</requirement_document>

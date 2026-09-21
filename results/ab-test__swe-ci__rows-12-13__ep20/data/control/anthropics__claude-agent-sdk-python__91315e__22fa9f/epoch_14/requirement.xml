@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:335</location>
+    <description>The receive_messages method is returning a coroutine instead of an async iterator, causing 'async for' to fail with 'TypeError: 'async for' requires an object with __aiter__ method, got coroutine'. This happens because the method doesn't properly yield control to the async generator.</description>
+    <contract>The receive_messages method must return a proper AsyncIterator[dict[str, Any]] that can be used with 'async for' loops. It should correctly implement async iteration semantics.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:223</location>
+    <description>The __aexit__ method in ClaudeSDKClient is not properly calling disconnect() when exiting the context manager, causing the close() method to not be invoked. This leads to the assertion error 'Expected 'close' to have been called once. Called 0 times.'</description>
+    <contract>The __aexit__ method must ensure that disconnect() is called to properly close the transport connection when exiting the async context manager.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_auto_connect_with_context_manager, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_manual_connect_disconnect</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:335</location>
+    <description>The receive_messages method in SubprocessCLITransport has incorrect async iteration handling. The method should properly yield messages from the stdout stream without returning a coroutine directly.</description>
+    <contract>The receive_messages method must properly implement async iteration by yielding each parsed message from the stdout stream as it becomes available.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/client.py:19</location>
+    <description>The process_query method in InternalClient is incorrectly implemented. It should properly handle the transport's receive_messages async iterator to yield messages.</description>
+    <contract>The process_query method must correctly iterate over the transport's receive_messages async iterator and yield each message to the caller.</contract>
+    <acceptance>tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:434</location>
+    <description>The read_messages method is an alias for receive_messages but may have inconsistent behavior. Both methods should behave identically for proper compatibility.</description>
+    <contract>The read_messages method should behave identically to receive_messages and properly yield messages from the transport's output stream.</contract>
+    <acceptance>tests/test_streaming_client.py::TestQueryWithAsyncIterable::test_query_with_async_iterable</acceptance>
+  </requirement>
+</requirements>

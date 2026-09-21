@@ -1,0 +1,41 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:50:50
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:51:28
+@@ -302,8 +302,13 @@
+             # The stdin will be closed by disconnect() or end_input() methods
+         except Exception as e:
+             logger.debug(f"Error streaming to stdin: {e}")
++            # Even if we encounter an error, we should still try to close stdin properly
++            # to prevent hanging processes
+             if self._stdin_stream:
+-                await self._stdin_stream.aclose()
++                try:
++                    await self._stdin_stream.aclose()
++                except Exception:
++                    pass
+                 self._stdin_stream = None
+             raise  # Re-raise to propagate the error
+         finally:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 02:50:48
++++ b/src/claude_code_sdk/client.py	2026-09-21 02:51:32
+@@ -124,9 +124,8 @@
+ 
+         from ._internal.message_parser import parse_message
+ 
+-        # Make sure we're properly awaiting the async iterator
+-        async_iterator = self._transport.receive_messages()
+-        async for data in async_iterator:
++        # Directly yield from the transport's async iterator
++        async for data in self._transport.receive_messages():
+             yield parse_message(data)
+ 
+     async def query(
+@@ -200,7 +199,6 @@
+                         print(f"Cost: ${msg.total_cost_usd:.4f}")
+                         # Iterator will terminate after this message
+             ```
+-
+         Note:
+             To collect all messages: `messages = [msg async for msg in client.receive_response()]`
+             The final message in the list will always be a ResultMessage.

@@ -1,0 +1,48 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-21 02:33:36
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-21 02:46:20
+@@ -1,3 +1,4 @@
+ {
+-  "tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages": true
++  "tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages": true,
++  "tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-21 02:44:28
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 02:46:20
+@@ -16,6 +16,7 @@
+   "tests/test_message_parser.py::TestMessageParser::test_parse_valid_result_message",
+   "tests/test_message_parser.py::TestMessageParser::test_parse_valid_system_message",
+   "tests/test_message_parser.py::TestMessageParser::test_parse_valid_user_message",
++  "tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception",
+   "tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_messages_not_connected",
+   "tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:45:06
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:46:44
+@@ -195,7 +195,7 @@
+                     # Start streaming messages to stdin in background
+                     self._task_group = anyio.create_task_group()
+                     await self._task_group.__aenter__()
+-                    self._task_group.start_soon(self._stream_to_stdin)
++                    await self._task_group.start_soon(self._stream_to_stdin)
+             else:
+                 # String mode: close stdin immediately (backward compatible)
+                 if self._process.stdin:
+@@ -233,13 +233,6 @@
+             except Exception:
+                 pass
+             self._stdin_stream = None
+-
+-        # Close stdin if it's still open (specifically for streaming mode)
+-        if self._is_streaming and self._process.stdin:
+-            try:
+-                await self._process.stdin.aclose()
+-            except Exception:
+-                pass
+ 
+         # Close stdin specifically in streaming mode to ensure cleanup
+         if self._is_streaming and self._stdin_stream:

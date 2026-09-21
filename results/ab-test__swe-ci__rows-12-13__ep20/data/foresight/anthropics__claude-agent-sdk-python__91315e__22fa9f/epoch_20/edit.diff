@@ -1,0 +1,46 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/client.py b/src/claude_code_sdk/_internal/client.py
+--- a/src/claude_code_sdk/_internal/client.py	2026-09-21 05:14:17
++++ b/src/claude_code_sdk/_internal/client.py	2026-09-21 06:40:31
+@@ -31,3 +31,4 @@
+ 
+         finally:
+             await transport.close()
++        return  # Explicitly return to indicate completion
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:37:17
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 06:40:26
+@@ -306,6 +306,7 @@
+                         message["session_id"] = options.get("session_id", "default")
+ 
+                 await self._stdin_stream.send(json.dumps(message) + "\n")
++        return  # Explicitly return to indicate completion
+ 
+     async def _stream_to_stdin(self) -> None:
+         """Stream messages to stdin for streaming mode."""
+@@ -338,6 +339,7 @@
+             await self._stdin_stream.aclose()
+             self._stdin_stream = None
+         # Otherwise keep stdin open for send_request (ClaudeSDKClient interactive mode)
++        return  # Explicitly return to indicate completion
+ 
+     async def receive_messages(self) -> AsyncIterator[dict[str, Any]]:
+         """Receive messages from CLI."""
+@@ -399,6 +401,7 @@
+             pass
+         # Note: Error handling for process completion moved to the calling code
+         # to maintain async generator protocol compliance
++        return  # Explicitly return to indicate end of generator
+ 
+     def is_connected(self) -> bool:
+         """Check if subprocess is running."""
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 05:36:36
++++ b/src/claude_code_sdk/client.py	2026-09-21 06:40:29
+@@ -127,6 +127,7 @@
+ 
+         async for data in self._transport.receive_messages():
+             yield parse_message(data)
++        return  # Explicitly return to indicate completion
+ 
+     async def query(
+         self, prompt: str | AsyncIterable[dict[str, Any]], session_id: str = "default"

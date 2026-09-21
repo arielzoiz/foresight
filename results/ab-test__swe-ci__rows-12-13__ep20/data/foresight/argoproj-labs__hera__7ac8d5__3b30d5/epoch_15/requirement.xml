@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>The _get_artifact_path function has a bug where it tries to use the '/' operator with a NoneType when no path or name is provided for artifacts, causing TypeError: unsupported operand type(s) for /: 'PosixPath' and 'NoneType'</description>
+        <contract>When an Artifact annotation has neither a path nor a name property, the function should return a safe default path instead of attempting to use '/' operator with None.</contract>
+        <acceptance>Tests that previously failed with "TypeError: unsupported operand type(s) for /: 'PosixPath' and 'NoneType'" should now pass, specifically test_script_annotations_artifacts_no_name_or_path and test_runner_pydantic_input_artifacts</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>The type checking in _save_annotated_return_outputs function is too strict and doesn't properly handle generic types like typing.Dict[str, str] vs dict, causing "The type of output ..., &lt;class 'dict'&gt; does not match the annotated type typing.Dict[str, str]" errors</description>
+        <contract>When validating output types, the function should accept compatible concrete types (e.g., dict for typing.Dict) instead of requiring exact type matches, allowing more flexible type checking for generic types.</contract>
+        <acceptance>Tests that previously failed with "The type of output ... does not match the annotated type" should now pass, specifically test_script_annotations_outputs with return_dict and return_list_str</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/util.py</location>
+        <description>Missing parameter handling in _map_function_annotations function causes "missing_argument" errors when parameters are not provided but are required by the function signature</description>
+        <contract>When mapping function annotations, parameters that are not provided in template inputs but have default values should be passed to the function with their defaults. Parameters without defaults should be omitted to avoid missing argument errors.</contract>
+        <acceptance>Tests that previously failed with "missing_argument" errors should now pass, specifically test_runner_parameter_inputs tests</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>Incorrect handling of Pydantic output parameter paths leads to malformed paths in test_runner_pydantic_output_params</description>
+        <contract>When constructing output paths for Pydantic output parameters, the function should properly handle path construction without concatenating None values.</contract>
+        <acceptance>Tests that previously failed with malformed paths in test_runner_pydantic_output_params should now pass</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>Missing error handling for artifact loading when files don't exist, causing unhandled exceptions in artifact loading scenarios</description>
+        <contract>When loading artifacts that don't exist, the function should properly handle missing files with graceful fallback behavior or appropriate error messages instead of throwing unhandled exceptions.</contract>
+        <acceptance>Tests that previously failed due to artifact loading errors should now pass, specifically test_script_annotations_artifact_inputs and related artifact loading tests</acceptance>
+    </item>
+</requirement>

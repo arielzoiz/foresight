@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:297</location>
+    <description>The receive_messages method is incorrectly implemented. It returns a generator function instead of an async iterator, causing 'async for' to fail with 'requires an object with __aiter__ method, got coroutine'.</description>
+    <contract>The receive_messages method should return an AsyncIterator[dict[str, Any]] that can be properly consumed with async for loops. The method signature and implementation must be corrected to return a proper async iterator.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:218</location>
+    <description>The __aenter__ and __aexit__ methods are not properly managing transport lifecycle. The context manager should ensure that disconnect is called even when exceptions occur.</description>
+    <contract>The ClaudeSDKClient context manager (__aenter__, __aexit__) must ensure proper cleanup by calling disconnect() in all cases, including when exceptions are raised.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_auto_connect_with_context_manager, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_manual_connect_disconnect</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:396</location>
+    <description>The read_messages method is an alias for receive_messages but doesn't correctly implement the async iterator protocol, causing the same async iteration issues.</description>
+    <contract>The read_messages method should behave consistently with receive_messages and properly return an async iterator.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/client.py:29</location>
+    <description>The InternalClient.process_query method calls transport.receive_messages() but doesn't ensure the correct async iterator protocol is maintained.</description>
+    <contract>The process_query method should correctly consume and yield from transport.receive_messages() to maintain proper async iteration behavior.</contract>
+    <acceptance>tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_continuation_option</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:121</location>
+    <description>The receive_messages method in ClaudeSDKClient doesn't properly handle the async iterator protocol from the transport layer.</description>
+    <contract>The receive_messages method should correctly forward the async iterator from the transport layer without breaking the async iteration chain.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive</acceptance>
+  </requirement>
+</requirement_document>

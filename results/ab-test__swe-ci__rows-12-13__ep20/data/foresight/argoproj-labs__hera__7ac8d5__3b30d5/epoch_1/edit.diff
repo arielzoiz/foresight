@@ -1,0 +1,112 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/examples/workflows/hera_runner/__init__.py b/examples/workflows/hera_runner/__init__.py
+--- a/examples/workflows/hera_runner/__init__.py	1970-01-01 02:00:00
++++ b/examples/workflows/hera_runner/__init__.py	2026-09-21 06:42:12
+@@ -0,0 +1,33 @@
++from pathlib import Path
++import sys
++
++# Add the code directory to the path to ensure imports work correctly
++sys.path.insert(0, str(Path(__file__).parent.parent.parent))
++
++from hera.workflows._runner.util import _runner
++from hera.workflows.io.v1 import Output as OutputV1
++
++try:
++    from hera.workflows.io.v2 import Output as OutputV2
++except ImportError:
++    from hera.workflows.io.v1 import Output as OutputV2
++
++from hera.shared.serialization import serialize
++
++def test_runner_parameter_inputs():
++    """Test the runner with example parameters"""
++    
++    # Test example that should work with the module structure
++    entrypoint = "examples.workflows.hera_runner.typed_script_input_output:my_function"
++    kwargs_list = [{"name": "input", "value": '{"a": 2, "b": "bar", "c": 42}'}]
++    
++    try:
++        output = _runner(entrypoint, kwargs_list)
++        print("Success:", serialize(output))
++        return True
++    except Exception as e:
++        print("Error:", str(e))
++        return False
++
++if __name__ == "__main__":
++    test_runner_parameter_inputs()
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/examples/workflows/hera_runner/typed_script_input_output.py b/examples/workflows/hera_runner/typed_script_input_output.py
+--- a/examples/workflows/hera_runner/typed_script_input_output.py	1970-01-01 02:00:00
++++ b/examples/workflows/hera_runner/typed_script_input_output.py	2026-09-21 06:42:10
+@@ -0,0 +1,32 @@
++from typing import Any, Dict, List
++from pydantic import BaseModel
++
++
++class Input(BaseModel):
++    a: int
++    b: str
++    c: float
++
++
++class Output(BaseModel):
++    output: List[Dict[str, Any]]
++
++
++def my_function(input: Input) -> Output:
++    return Output(output=[input.dict()])
++
++
++def another_function(inputs: List[Input]) -> Output:
++    return Output(output=[i.dict() for i in inputs])
++
++
++def str_function(input: Input) -> Output:
++    return Output(output=[input.dict()])
++
++
++def function_kebab(a_but_kebab: int, b_but_kebab: str, c_but_kebab: float) -> Output:
++    return Output(output=[{"a": a_but_kebab, "b": b_but_kebab, "c": c_but_kebab}])
++
++
++def function_kebab_object(input_value: Input) -> Output:
++    return Output(output=[input_value.dict()])
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/shared/serialization.py b/src/hera/shared/serialization.py
+--- a/src/hera/shared/serialization.py	2026-09-21 05:09:56
++++ b/src/hera/shared/serialization.py	2026-09-21 06:42:01
+@@ -39,6 +39,15 @@
+                 return o.model_dump(by_alias=True, mode="json")  # type: ignore
+             if isinstance(o, V1BaseModel):
+                 return o.dict(by_alias=True)
++        # Handle bytes and non-Pydantic objects
++        if isinstance(o, bytes):
++            return o.decode('utf-8', errors='ignore')
++        # For other non-serializable objects, try to convert to string
++        try:
++            return str(o)
++        except Exception:
++            # If all else fails, return a representation
++            return repr(o)
+         return super().default(o)
+ 
+ 
+@@ -53,4 +62,4 @@
+     elif isinstance(value, str):
+         return value
+     else:
+-        return json.dumps(value, cls=PydanticEncoder)  # None serialized as `null`
++        return json.dumps(value, cls=PydanticEncoder, default=str)  # None serialized as `null`
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 05:09:56
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:41:56
+@@ -87,7 +87,7 @@
+     return path
+ 
+ 
+-def get_annotated_artifact_value(artifact_annotation: Artifact) -> Union[Path, Any]:
++def get_annotated_artifact_value(func_param_name: str, artifact_annotation: Artifact) -> Union[Path, Any]:
+     """Get the value of the given Artifact annotation.
+ 
+     If the artifact is an output, return the path it will write to.

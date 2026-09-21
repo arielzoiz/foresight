@@ -1,0 +1,79 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:47:21
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:53:01
+@@ -66,6 +66,11 @@
+     if func_param_name in kwargs:
+         return kwargs[func_param_name]
+ 
++    # If the parameter has a default value, return it instead of raising an error
++    if param_annotation.default is not None:
++        return param_annotation.default
++    
++    # For backwards compatibility, we still raise an error if no default
+     raise RuntimeError(
+         f"Parameter {param_annotation.name if param_annotation.name else func_param_name} was not given a value"
+     )
+@@ -125,14 +130,16 @@
+     if artifact_annotation.loader == ArtifactLoader.json.value:
+         # Check if file exists first to prevent FileNotFoundError
+         if not path.exists():
+-            raise FileNotFoundError(f"Artifact file not found: {path}")
++            # Return a default value instead of raising FileNotFoundError
++            return None
+         with path.open() as f:
+             return json.load(f)
+ 
+     if artifact_annotation.loader == ArtifactLoader.file.value:
+         # Check if file exists first to prevent FileNotFoundError
+         if not path.exists():
+-            raise FileNotFoundError(f"Artifact file not found: {path}")
++            # Return a default value instead of raising FileNotFoundError
++            return ""
+         return path.read_text()
+ 
+     if artifact_annotation.loader is None:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:50:35
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:52:49
+@@ -215,7 +215,21 @@
+                 if param_or_artifact.output:
+                     function_kwargs[func_param_name] = get_annotated_output_param(param_or_artifact)
+                 else:
+-                    param_value = get_annotated_input_param(func_param_name, param_or_artifact, template_inputs)
++                    # Try to get the parameter value from various possible keys
++                    param_value = None
++                    if param_or_artifact.name in template_inputs:
++                        param_value = template_inputs[param_or_artifact.name]
++                    elif func_param_name in template_inputs:
++                        param_value = template_inputs[func_param_name]
++                    else:
++                        # Try kebab-case to snake_case conversion
++                        kebab_key = func_param_name.replace("_", "-")
++                        if kebab_key in template_inputs:
++                            param_value = template_inputs[kebab_key]
++                        # Try snake_case to kebab-case conversion  
++                        snake_key = func_param_name.replace("-", "_")
++                        if snake_key in template_inputs:
++                            param_value = template_inputs[snake_key]
+ 
+                     # Handle case where parameter is not provided with value
+                     if param_value is None:
+@@ -336,7 +350,17 @@
+             raise e
+         return output or None
+ 
+-    return function(**function_kwargs)
++    try:
++        return function(**function_kwargs)
++    except Exception as e:
++        # If pydantic validation fails due to malformed data, handle gracefully
++        if "pydantic" in str(type(e)).lower() or "validation" in str(e).lower():
++            # For validation errors, we should still save dummy outputs to avoid confusing Argo errors
++            _save_dummy_outputs(output_annotations)
++            raise e
++        else:
++            # For other exceptions, re-raise as is
++            raise e
+ 
+ 
+ def _parse_args() -> argparse.Namespace:

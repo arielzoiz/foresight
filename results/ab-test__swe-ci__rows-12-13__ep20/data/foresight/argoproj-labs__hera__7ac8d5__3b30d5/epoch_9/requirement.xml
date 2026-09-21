@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/src/hera/workflows/artifact.py</location>
+        <description>The Artifact class is missing a 'dumps' attribute that is expected by the serialization logic. Tests fail with AttributeError: 'Artifact' object has no attribute 'dumps'.</description>
+        <contract>Add a 'dumps' attribute to the Artifact class that can be used for serializing artifact data, similar to how Parameter class handles 'dumps' attribute. This should be a callable that takes a Pydantic model and returns a serialized string representation.</contract>
+        <acceptance>Tests in test_serialisers.py that are failing due to AttributeError: 'Artifact' object has no attribute 'dumps' should pass, specifically: test_artifact_dumping, test_artifact_byte_dumping, test_artifact_loading</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>The _get_dumper_function logic doesn't properly handle Artifact objects with dumps attribute. The function checks for dumps attribute but doesn't correctly utilize it for Artifact instances.</description>
+        <contract>Modify _get_dumper_function to properly check for and use the 'dumps' attribute on Artifact objects when it's present, similar to how it handles Parameter objects.</contract>
+        <acceptance>Tests that were failing due to missing dumps attribute handling should pass, particularly around artifact serialization scenarios</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>There's an inconsistency in handling Artifact objects with 'loadb' attribute. The code attempts to access 'loadb' but doesn't ensure it's properly defined.</description>
+        <contract>Ensure that Artifact class properly supports 'loadb' attribute for byte loading, and update the handling logic to prevent TypeError when accessing non-existent attributes.</contract>
+        <acceptance>Tests that were failing with TypeError: unsupported operand type(s) for /: 'PosixPath' and 'NoneType' should pass</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>Type checking logic in _save_annotated_return_outputs doesn't properly handle generic types like typing.Dict[str, str] vs dict.</description>
+        <contract>Improve type checking logic to properly validate that output values match their annotated types, especially for generic types like Dict and List.</contract>
+        <acceptance>Tests that were failing with "The type of output ... does not match the annotated type" should pass</acceptance>
+    </item>
+</requirement>

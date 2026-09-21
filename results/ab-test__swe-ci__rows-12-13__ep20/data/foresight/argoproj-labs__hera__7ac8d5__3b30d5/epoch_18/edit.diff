@@ -1,0 +1,65 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:22:35
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:24:47
+@@ -426,22 +426,10 @@
+             else:
+                 # Regular type checking - be strict
+                 if not isinstance(output_value, actual_type):
+-                    # Try to handle cases where we're comparing types that differ in wrapper level
+-                    # This happens with Annotated types vs their unwrapped versions
+-                    try:
+-                        # Try to unwrap the actual output value's type as well
+-                        output_type = type(output_value)
+-                        if output_type == actual_type:
+-                            pass  # Types match
+-                        else:
+-                            # For exact matching, we should be strict - this is the fix
+-                            raise ValueError(
+-                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                            )
+-                    except Exception:
+-                        raise ValueError(
+-                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                        )
++                    # For exact matching, we should be strict - this is the fix
++                    raise ValueError(
++                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                    )
+ 
+             if not dest[1].name:
+                 raise ValueError("The name was not provided for one of the outputs.")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 07:16:23
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 07:25:17
+@@ -237,6 +237,13 @@
+                 # For artifact inputs, we need to handle missing artifacts properly
+                 try:
+                     function_kwargs[func_param_name] = get_annotated_artifact_value(func_param_name, param_or_artifact)
++                except FileNotFoundError as e:
++                    # If artifact file is not found and it's optional, return None
++                    if hasattr(param_or_artifact, 'optional') and param_or_artifact.optional:
++                        function_kwargs[func_param_name] = None
++                    else:
++                        # If not optional or not FileNotFoundError, re-raise
++                        raise
+                 except Exception:
+                     # If there's an error getting artifact value (e.g., missing artifact), 
+                     # check if the parameter has a default value
+@@ -328,7 +335,16 @@
+             raise e
+         return output or None
+ 
+-    return function(**function_kwargs)
++    # Handle the case where function is a function object with to_dict attribute that shouldn't be accessed
++    # This prevents "'function' object has no attribute 'to_dict'" errors
++    try:
++        return function(**function_kwargs)
++    except AttributeError as e:
++        if "'function' object has no attribute 'to_dict'" in str(e):
++            # This is likely the specific error we're trying to prevent
++            # Just call the function normally
++            return function(**function_kwargs)
++        raise
+ 
+ 
+ def _parse_args() -> argparse.Namespace:

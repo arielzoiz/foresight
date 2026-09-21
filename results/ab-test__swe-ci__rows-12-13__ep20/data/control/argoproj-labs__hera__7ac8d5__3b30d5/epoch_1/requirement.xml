@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:90</location>
+    <description>The function get_annotated_artifact_value expects to receive an Artifact annotation but is being called with an incorrect number of arguments in several test cases. The function signature is get_annotated_artifact_value(artifact_annotation: Artifact) but is being called with two arguments in tests.</description>
+    <contract>The function get_annotated_artifact_value should accept only one parameter: artifact_annotation of type Artifact. When called with an artifact annotation, it should return either a Path (for output artifacts) or the loaded artifact value (for input artifacts). The function signature in the test cases needs to be corrected to match the actual implementation.</contract>
+    <acceptance>tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_path_outputs[given-path], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_path_outputs[default-path], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_inputs_with_loaders[json-load], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_inputs_with_loaders[file-load], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_path_inputs[file-load]</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:115</location>
+    <description>JSON serialization issues occur when attempting to serialize bytes objects or non-serializable Pydantic models in artifact dumping tests. The function attempts to serialize bytes directly as JSON which is not supported.</description>
+    <contract>When serializing artifacts, the function should properly handle bytes objects by converting them to a serializable format (e.g., base64 encoded string) and handle non-serializable Pydantic models by implementing custom serialization logic that respects the configured pydantic mode.</contract>
+    <acceptance>tests/test_serialisers.py::test_artifact_byte_dumping[save-bytes-1], tests/test_serialisers.py::test_artifact_byte_dumping[save-bytes-2], tests/test_serialisers.py::test_artifact_dumping[save-pydantic-output-with-custom-field-serialiser-1], tests/test_serialisers.py::test_artifact_dumping[save-pydantic-output-with-custom-field-serialiser-2], tests/test_serialisers.py::test_artifact_dumping[save-non-base-model-with-class-loader-1], tests/test_serialisers.py::test_artifact_dumping[save-non-base-model-with-class-loader-2]</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:100</location>
+    <description>The function get_annotated_artifact_value is missing the required parameter 'param_name' in its signature when called from the runner utility. The call site expects the function to take both a parameter name and artifact annotation, but the implementation only accepts the artifact annotation.</description>
+    <contract>The function signature should be changed to get_annotated_artifact_value(param_name: str, artifact_annotation: Artifact) to match the call sites in the runner utility. This will allow proper handling of artifact loading with parameter names.</contract>
+    <acceptance>tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_path_outputs[given-path], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_path_outputs[default-path], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_inputs_with_loaders[json-load], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_inputs_with_loaders[file-load], tests/test_unit/test_script_annotations_util.py::test_get_annotated_artifact_value_path_inputs[file-load]</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/util.py:192</location>
+    <description>Module import issues occur when trying to import modules like 'examples.workflows.hera_runner'. These modules are not properly available in the test environment causing ModuleNotFoundError in runner tests.</description>
+    <contract>The test environment should properly mock or provide access to example modules, or the tests should be updated to not require importing these modules directly. The runner utility should handle missing modules gracefully.</contract>
+    <acceptance>tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:my_function-kwargs_list0-{\"output\": [{\"a\": 2, \"b\": \"bar\", \"c\": 42}]}, tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab-kwargs_list3-{\"output\": [{\"a\": 3, \"b\": \"bar\", \"c\": 42.0}]}, tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:str_function-kwargs_list2-{\"output\": [{\"a\": 2, \"b\": \"bar\", \"c\": 42}]}, tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab_object-kwargs_list4-{\"output\": [{\"a\": 3, \"b\": \"bar\", \"c\": \"abc\"}]}, tests/test_runner.py::test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:another_function-kwargs_list1-{\"output\": [{\"a\": 2, \"b\": \"bar\", \"c\": 42}, {\"a\": 2, \"b\": \"bar\", \"c\": 42.0}]}]</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/util.py:261</location>
+    <description>Directory creation issues arise when the runner tries to create output directories that already exist as directories instead of files, causing IsADirectoryError in various tests.</description>
+    <contract>The runner should properly handle cases where output directories already exist by checking if the path is a directory before trying to create it, or ensure proper file creation paths are used.</contract>
+    <acceptance>tests/test_runner.py::test_run_pydantic_output_with_exit_code[use _run to check actual system exit-1], tests/test_runner.py::test_run_pydantic_output_with_exit_code[use _run to check actual system exit-2], tests/test_runner.py::test_runner_pydantic_output_with_result[pydantic output with result output-1], tests/test_runner.py::test_runner_pydantic_output_with_result[pydantic output with result output-2], tests/test_runner.py::test_runner_pydantic_output_params[pydantic output parameter variations-1], tests/test_runner.py::test_runner_pydantic_output_params[pydantic output parameter variations-2], tests/test_runner.py::test_runner_pydantic_output_artifacts[pydantic io artifact output variations-1], tests/test_runner.py::test_runner_pydantic_output_artifacts[pydantic io artifact output variations-2], tests/test_runner.py::test_runner_pydantic_input_artifacts[pydantic io artifact input variations-1], tests/test_runner.py::test_runner_pydantic_input_artifacts[pydantic io artifact input variations-2]</acceptance>
+  </requirement>
+</requirement_document>

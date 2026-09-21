@@ -1,0 +1,37 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 02:50:46
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 02:56:00
+@@ -177,7 +177,7 @@
+                     param_or_artifact.loads,
+                 )
+             else:
+-                return get_annotated_artifact_value(func_param_name, param_or_artifact)
++                return get_annotated_artifact_value(field, param_or_artifact)
+         else:
+             return load_parameter_value(kwargs[field], ann_type)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 02:50:42
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 02:55:58
+@@ -215,11 +215,10 @@
+     module, function_name = entrypoint.split(":")
+     try:
+         function: Callable = getattr(importlib.import_module(module), function_name)
+-    except ModuleNotFoundError:
++    except ModuleNotFoundError as e:
+         # If the module cannot be imported (e.g., example modules that don't exist),
+-        # we should handle gracefully in test context
+-        # Return None to indicate failure
+-        return None
++        # we should raise a meaningful error
++        raise ImportError(f"Failed to import module '{module}' for entrypoint '{entrypoint}': {str(e)}")
+     # if the function is wrapped, unwrap it
+     # this may happen if the function is decorated with @script
+     if hasattr(function, "wrapped_function"):
+@@ -317,5 +316,6 @@
+         output_file.write_text(serialize(result))
+     else:
+         # Write to the file path directly
++        # Ensure parent directory exists
+         args.args_path.parent.mkdir(parents=True, exist_ok=True)
+         args.args_path.write_text(serialize(result))

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The SubprocessCLITransport class is missing a close method, causing context managers to fail when exiting with exceptions. The test expects close() to be called once but it's called 0 times.</description>
+        <contract>The SubprocessCLITransport class must implement a close method that properly terminates the subprocess and cleans up resources. This method should be callable from context managers to ensure proper cleanup.</contract>
+        <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The SubprocessCLITransport class doesn't properly support async iteration over read_messages. Tests that use 'async for' syntax fail because the read_messages method returns an AsyncIterator but doesn't correctly implement the async iteration protocol.</description>
+        <contract>The read_messages method must return an AsyncIterator that properly supports async iteration. When used in 'async for' loops, it should yield messages correctly without requiring __aiter__ method.</contract>
+        <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>Multiple tests are failing due to missing or incorrect implementation of the async iteration protocol. The receive_messages method needs to properly yield data for async iteration.</description>
+        <contract>The receive_messages method must correctly implement async iteration to support 'async for' constructs. The method should yield parsed messages and properly handle the async iteration lifecycle.</contract>
+        <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The SubprocessCLITransport class lacks a proper __aiter__ method or equivalent async iteration support, which is needed for async for loops in tests.</description>
+        <contract>The transport class must support proper async iteration protocols. When the read_messages method is used in async for loops, it should correctly iterate over messages without throwing 'TypeError: 'async for' requires an object with __aiter__ method, got coroutine' errors.</contract>
+        <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/src/claude_code_sdk/_internal/message_parser.py</location>
+        <description>There's a mismatch in how assistant messages with thinking content are parsed. The test expects a specific structure but the parsing logic doesn't handle the thinking content correctly.</description>
+        <contract>The parse_message function must correctly parse assistant messages that contain thinking blocks. It should handle both text and thinking content blocks properly and create the expected AssistantMessage structure with content as a list of ContentBlocks.</contract>
+        <acceptance>tests/test_message_parser.py::TestMessageParser::test_parse_assistant_message_with_thinking</acceptance>
+    </requirement>
+</requirement_document>

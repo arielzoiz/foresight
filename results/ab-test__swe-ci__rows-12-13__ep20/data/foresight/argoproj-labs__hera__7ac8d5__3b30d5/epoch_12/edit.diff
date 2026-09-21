@@ -1,0 +1,102 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:05:45
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:08:26
+@@ -34,11 +34,8 @@
+     """Get the path from the destination annotation using the defined outputs directory."""
+     outputs_directory = os.environ.get("hera__outputs_directory", "/tmp/hera-outputs")
+     # Handle case where environment variable is None or empty string
+-    if outputs_directory is None or outputs_directory == "":
++    if outputs_directory is None or outputs_directory == "" or not isinstance(outputs_directory, str):
+         outputs_directory = "/tmp/hera-outputs"
+-    # Ensure outputs_directory is a string to prevent path operations with None
+-    if not isinstance(outputs_directory, str):
+-        outputs_directory = "/tmp/hera-outputs"
+     path = Path(outputs_directory)
+     if isinstance(destination, Parameter) and destination.name:
+         path = path / f"parameters/{destination.name}"
+@@ -62,16 +59,20 @@
+         if _DEFAULT_ARTIFACT_INPUT_DIRECTORY:
+             path = Path(_DEFAULT_ARTIFACT_INPUT_DIRECTORY) / artifact_annotation.name
+             return path
+-        # Fallback to default behavior
+-        return Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
++        # Fallback to default behavior when name is provided
++        if artifact_annotation.name:
++            return Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
++        # If neither path nor name is provided, return a safe default
++        return Path("/tmp/hera-outputs/artifacts/default-artifact")
+     
+     # For output artifacts, use the default outputs path
+     outputs_directory = os.environ.get("hera__outputs_directory", "/tmp/hera-outputs")
+-    if outputs_directory is None or outputs_directory == "":
++    if outputs_directory is None or outputs_directory == "" or not isinstance(outputs_directory, str):
+         outputs_directory = "/tmp/hera-outputs"
+-    if not isinstance(outputs_directory, str):
+-        outputs_directory = "/tmp/hera-outputs"
+-    return Path(outputs_directory) / f"artifacts/{artifact_annotation.name}"
++    if artifact_annotation.name:
++        return Path(outputs_directory) / f"artifacts/{artifact_annotation.name}"
++    # If no name is provided, return a safe default
++    return Path(outputs_directory) / "artifacts/default-artifact"
+ 
+ 
+ def _get_dumper_function(destination: Union[Parameter, Artifact]) -> Callable:
+@@ -183,9 +184,14 @@
+             path = Path(_DEFAULT_ARTIFACT_INPUT_DIRECTORY) / artifact_annotation.name
+             artifact_annotation.path = str(path)
+         else:
+-            # Fallback to default behavior
+-            path = Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
+-            artifact_annotation.path = str(path)
++            # Fallback to default behavior when name is provided
++            if artifact_annotation.name:
++                path = Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
++                artifact_annotation.path = str(path)
++            else:
++                # If no name is provided, use a default path
++                path = Path("/tmp/hera-outputs/artifacts/default-artifact")
++                artifact_annotation.path = str(path)
+ 
+     # Handle custom loaders for non-base model classes
+     if artifact_annotation.loads is not None:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 07:05:47
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 07:08:34
+@@ -220,13 +220,18 @@
+                     elif sanitized_func_param_name in template_inputs:
+                         param_value = template_inputs[sanitized_func_param_name]
+                     
++                    # If we couldn't find the value, check if parameter has a default value
+                     if param_value is None:
+-                        # If we couldn't find the value, provide a better error message
+-                        raise RuntimeError(
+-                            f"Parameter {param_name_from_annotation if param_name_from_annotation else func_param_name} was not given a value"
+-                        )
+-
+-                    function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
++                        # Check if parameter has a default value
++                        if func_param.default is not inspect.Parameter.empty:
++                            # Use the default value
++                            function_kwargs[func_param_name] = func_param.default
++                        else:
++                            # If we still don't have a value and it's not optional, we should not add it
++                            # Let the function handle missing parameters naturally
++                            pass
++                    else:
++                        function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:
+                 function_kwargs[func_param_name] = get_annotated_artifact_value(func_param_name, param_or_artifact)
+ 
+@@ -241,8 +246,10 @@
+             elif func_param_name in template_inputs:
+                 function_kwargs[func_param_name] = template_inputs[func_param_name]
+             else:
+-                # If the parameter is not found, we should not add it to avoid breaking other cases
+-                # Just leave it out, letting the function handle it appropriately
++                # If the parameter is not found and has a default value, use it
++                if func_param.default is not inspect.Parameter.empty:
++                    function_kwargs[func_param_name] = func_param.default
++                # Otherwise, just leave it out - let the function handle it appropriately
+                 pass
+     return function_kwargs
+ 

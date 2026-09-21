@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement id="1">
+    <location>src/hera/workflows/_runner/script_annotations_util.py:_save_annotated_return_outputs</location>
+    <description>The function has strict type checking that fails for generic types like Dict and List. When a function returns a list or dict that matches the annotated type (e.g., List[str] or Dict[str, str]), it raises a ValueError saying the type does not match, even though the types are compatible.</description>
+    <contract>Modify the type checking logic to properly handle generic types such as typing.Dict and typing.List. The function should accept lists and dictionaries that match their annotated generic types without raising ValueError exceptions.</contract>
+    <acceptance>Tests that fail with "The type of output `list-of-str`, `<class 'list'>` does not match the annotated type `typing.List[str]`" should pass.</acceptance>
+  </requirement>
+  <requirement id="2">
+    <location>src/hera/workflows/_runner/script_annotations_util.py:get_annotated_artifact_value</location>
+    <description>The artifact loading mechanism doesn't properly handle missing artifact files. When an artifact file is not found, it raises FileNotFoundError without proper fallback behavior for optional artifacts.</description>
+    <contract>Enhance the artifact loading error handling to properly manage missing artifact files. When an artifact file is not found and the artifact is marked as optional, return None instead of raising an exception. For non-optional artifacts, maintain current error behavior.</contract>
+    <acceptance>Tests that fail with "FileNotFoundError: Artifact file not found: ..." should pass.</acceptance>
+  </requirement>
+  <requirement id="3">
+    <location>src/hera/workflows/_runner/util.py:_map_function_annotations</location>
+    <description>The parameter mapping logic doesn't handle missing arguments properly for functions with optional parameters. When a function has parameters with default values but they're not provided in the inputs, it raises missing argument errors.</description>
+    <contract>Improve parameter mapping logic to better handle Pydantic model parameters and missing arguments. When a parameter is missing but has a default value, use the default value instead of raising errors. This should prevent "missing_argument" errors for optional parameters.</contract>
+    <acceptance>Tests that fail with "missing_argument" errors should pass.</acceptance>
+  </requirement>
+  <requirement id="4">
+    <location>src/hera/workflows/_runner/script_annotations_util.py:_get_artifact_path</location>
+    <description>The artifact path resolution logic doesn't properly resolve paths for both input and output artifacts, particularly when default paths are used. This leads to incorrect artifact handling in various scenarios.</description>
+    <contract>Refine the artifact path resolution logic in `_get_artifact_path` to properly handle both input and output artifact paths, especially when default paths are used. Ensure that paths are correctly resolved regardless of whether they're input or output artifacts.</contract>
+    <acceptance>Tests involving artifact path resolution should pass without path-related errors.</acceptance>
+  </requirement>
+  <requirement id="5">
+    <location>src/hera/workflows/_runner/util.py:_runner</location>
+    <description>The runner logic doesn't properly handle decorated functions (like those with @script) which causes AttributeError when trying to access 'to_dict' attribute on function objects.</description>
+    <contract>Update the runner logic to properly handle decorated functions. When encountering a function with a 'wrapped_function' attribute (common with @script decorator), use the wrapped function instead of the wrapper. Prevent AttributeError when accessing 'to_dict' on function objects.</contract>
+    <acceptance>Tests that fail with "AttributeError: 'function' object has no attribute 'to_dict'" should pass.</acceptance>
+  </requirement>
+</requirement_document>

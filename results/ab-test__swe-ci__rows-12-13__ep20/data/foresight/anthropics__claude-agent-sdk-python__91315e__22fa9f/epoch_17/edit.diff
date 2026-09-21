@@ -1,0 +1,100 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:34:12
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:35:20
+@@ -257,7 +257,7 @@
+         """Close the transport connection."""
+         await self.disconnect()
+ 
+-    async def send_request(self, messages: list[Any], options: dict[str, Any]) -> None:
++    async def send_request(self, messages: list[Any] | AsyncIterable[Any], options: dict[str, Any]) -> None:
+         """Send additional messages in streaming mode."""
+         if not self._is_streaming:
+             raise CLIConnectionError("send_request only works in streaming mode")
+@@ -266,19 +266,39 @@
+             raise CLIConnectionError("stdin not available - stream may have ended")
+ 
+         # If messages is an AsyncIterable, we need to stream it properly
+-        # But for now, let's just send the list of messages
+-        for message in messages:
+-            # Ensure message has required structure
+-            if not isinstance(message, dict):
+-                message = {
+-                    "type": "user",
+-                    "message": {"role": "user", "content": str(message)},
+-                    "parent_tool_use_id": None,
+-                    "session_id": options.get("session_id", "default"),
+-                }
++        if isinstance(messages, AsyncIterable):
++            # For AsyncIterable, we should stream it to stdin
++            try:
++                async for message in messages:
++                    # Ensure message has required structure
++                    if not isinstance(message, dict):
++                        message = {
++                            "type": "user",
++                            "message": {"role": "user", "content": str(message)},
++                            "parent_tool_use_id": None,
++                            "session_id": options.get("session_id", "default"),
++                        }
+ 
+-            await self._stdin_stream.send(json.dumps(message) + "\n")
++                    await self._stdin_stream.send(json.dumps(message) + "\n")
++            except Exception as e:
++                logger.debug(f"Error streaming messages to stdin: {e}")
++                if self._stdin_stream:
++                    await self._stdin_stream.aclose()
++                    self._stdin_stream = None
++        else:
++            # For regular list, send each message
++            for message in messages:
++                # Ensure message has required structure
++                if not isinstance(message, dict):
++                    message = {
++                        "type": "user",
++                        "message": {"role": "user", "content": str(message)},
++                        "parent_tool_use_id": None,
++                        "session_id": options.get("session_id", "default"),
++                    }
+ 
++                await self._stdin_stream.send(json.dumps(message) + "\n")
++
+     async def _stream_to_stdin(self) -> None:
+         """Stream messages to stdin for streaming mode."""
+         if not self._stdin_stream:
+@@ -291,6 +311,14 @@
+                 async for message in self._prompt:
+                     if not self._stdin_stream:
+                         break
++                    # Ensure message has required structure
++                    if not isinstance(message, dict):
++                        message = {
++                            "type": "user",
++                            "message": {"role": "user", "content": str(message)},
++                            "parent_tool_use_id": None,
++                            "session_id": "default",
++                        }
+                     await self._stdin_stream.send(json.dumps(message) + "\n")
+             except Exception as e:
+                 logger.debug(f"Error streaming to stdin: {e}")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 05:34:21
++++ b/src/claude_code_sdk/client.py	2026-09-21 05:35:24
+@@ -154,8 +154,6 @@
+             # For AsyncIterable prompts, we should reuse the existing transport
+             # to maintain the async iteration contract. We should not create a new transport
+             # that would break the connection.
+-            from ._internal.transport.subprocess_cli import SubprocessCLITransport
+-            
+             # Check if we're already using a SubprocessCLITransport
+             if isinstance(self._transport, SubprocessCLITransport):
+                 # Reuse the existing transport connection - send the AsyncIterable as a series of messages
+@@ -165,8 +163,7 @@
+                 # However, we can't modify the transport's prompt after creation.
+                 # So we need to send the AsyncIterable through send_request but handle it differently.
+                 
+-                # For now, let's pass the AsyncIterable directly to send_request and let it handle it properly
+-                # But we need to make sure the transport's _stream_to_stdin properly handles it
++                # Pass the AsyncIterable directly to send_request - the transport will handle it properly
+                 await self._transport.send_request(prompt, {"session_id": session_id})
+             else:
+                 # For non-SubprocessCLITransport, create a new one

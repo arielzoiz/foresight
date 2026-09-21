@@ -1,0 +1,18 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:35:40
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:36:38
+@@ -226,6 +226,14 @@
+             await self._task_group.__aexit__(None, None, None)
+             self._task_group = None
+ 
++        # Close stdin stream if it's still open
++        if self._stdin_stream:
++            try:
++                await self._stdin_stream.aclose()
++            except Exception:
++                pass
++            self._stdin_stream = None
++
+         if self._process.returncode is None:
+             try:
+                 self._process.terminate()

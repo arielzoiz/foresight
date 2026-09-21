@@ -1,0 +1,81 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:00:30
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:03:10
+@@ -32,7 +32,11 @@
+ 
+ def _get_outputs_path(destination: Union[Parameter, Artifact]) -> Path:
+     """Get the path from the destination annotation using the defined outputs directory."""
+-    path = Path(os.environ.get("hera__outputs_directory", "/tmp/hera-outputs"))
++    outputs_directory = os.environ.get("hera__outputs_directory", "/tmp/hera-outputs")
++    # Handle case where environment variable is None or empty string
++    if outputs_directory is None or outputs_directory == "":
++        outputs_directory = "/tmp/hera-outputs"
++    path = Path(outputs_directory)
+     if isinstance(destination, Parameter) and destination.name:
+         path = path / f"parameters/{destination.name}"
+     elif isinstance(destination, Artifact):
+@@ -136,7 +140,9 @@
+     else:
+         path = _get_outputs_path(param_annotation)
+     # Automatically create the parent directory (if required)
+-    path.parent.mkdir(parents=True, exist_ok=True)
++    # Ensure path is not None before creating parent directories
++    if path is not None:
++        path.parent.mkdir(parents=True, exist_ok=True)
+     return path
+ 
+ 
+@@ -157,7 +163,8 @@
+         else:
+             path = _get_outputs_path(artifact_annotation)
+         # Automatically create the parent directory (if required)
+-        path.parent.mkdir(parents=True, exist_ok=True)
++        if path is not None:
++            path.parent.mkdir(parents=True, exist_ok=True)
+         return path
+ 
+     # For input artifacts, construct the path properly
+@@ -481,8 +488,9 @@
+     # Special handling for bytes data
+     if isinstance(output_value, bytes):
+         # For bytes, write directly as bytes
+-        path.parent.mkdir(parents=True, exist_ok=True)
+-        path.write_bytes(output_value)
++        if path is not None:
++            path.parent.mkdir(parents=True, exist_ok=True)
++            path.write_bytes(output_value)
+         return
+     
+     # Special handling for non-base Pydantic models - use their dumps method if available
+@@ -497,7 +505,7 @@
+     else:
+         output_string = dumper(output_value)
+     
+-    if output_string is not None:
++    if output_string is not None and path is not None:
+         # Ensure path is a file path, not a directory path
+         # If the path is a directory, we should create a file inside it with a default name
+         if path.is_dir():
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 06:52:45
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 07:03:03
+@@ -219,6 +219,7 @@
+                         param_value = template_inputs[sanitized_func_param_name]
+                     
+                     if param_value is None:
++                        # If we couldn't find the value, provide a better error message
+                         raise RuntimeError(
+                             f"Parameter {param_name_from_annotation if param_name_from_annotation else func_param_name} was not given a value"
+                         )
+@@ -238,8 +239,9 @@
+             elif func_param_name in template_inputs:
+                 function_kwargs[func_param_name] = template_inputs[func_param_name]
+             else:
+-                # If the parameter is not found, leave it as is to avoid breaking other cases
+-                function_kwargs[func_param_name] = template_inputs.get(func_param_name, None)
++                # If the parameter is not found, we should not add it to avoid breaking other cases
++                # Just leave it out, letting the function handle it appropriately
++                pass
+     return function_kwargs
+ 
+ 

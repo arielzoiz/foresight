@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/util.py</location>
+        <description>The function _map_function_annotations does not properly handle parameter name mapping when using kebab-case parameter names in function signatures. Several tests fail due to incorrect parameter value resolution.</description>
+        <contract>When a function parameter uses kebab-case naming (e.g., "a-but-kebab"), the runner must correctly map the Argo parameter name "a-but-kebab" to the Python function parameter name "a_but_kebab". The mapping should try multiple approaches: exact match, kebab-to-snake conversion of both the annotation name and function parameter name.</contract>
+        <acceptance>tests/test_runner.py::test_runner_parameter_inputs, tests/test_runner.py::test_runner_annotated_parameter_inputs</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>Artifact loading fails when artifact files are not found. Tests show FileNotFoundError when expected artifact files don't exist, but the system should handle missing files gracefully with appropriate fallback behavior.</description>
+        <contract>When an Artifact annotation specifies a path but the file doesn't exist, and the artifact is not marked as optional, the system should raise a FileNotFoundError with a clear message. When an artifact is marked as optional, it should return None instead of raising an error.</contract>
+        <acceptance>tests/test_runner.py::test_script_annotations_artifacts_no_name_or_path, tests/test_runner.py::test_runner_pydantic_input_artifacts</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>Pydantic model serialization/deserialization fails for non-base models. Several tests fail when trying to serialize/deserialize complex Pydantic models that aren't base models, resulting in incorrect representation as object strings instead of proper JSON.</description>
+        <contract>When serializing Pydantic models that are not base models, the system should properly serialize them using the configured serializer or fall back to standard JSON serialization. For artifact loading, the system should correctly deserialize complex Pydantic objects using the appropriate loaders.</contract>
+        <acceptance>tests/test_serialisers.py::test_artifact_dumping, tests/test_serialisers.py::test_artifact_byte_dumping</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+        <description>Return value type checking fails for annotated outputs. When a function returns an annotated output, the system validates the return type but fails to correctly compare types when they differ in annotation level (e.g., int vs. Annotated[int, Parameter]).</description>
+        <contract>When validating annotated return values, the system should properly compare the underlying types regardless of annotation wrappers. The comparison should strip away Annotated wrappers to check the actual type match.</contract>
+        <acceptance>tests/test_runner.py::test_runner_pydantic_output_params</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/util.py</location>
+        <description>Parameter value parsing fails for type mismatches. Tests show issues with string parameters receiving integer values when the annotation expects a string, indicating improper type handling during parameter parsing.</description>
+        <contract>When parsing parameters, the system should correctly apply type conversion based on the annotation type. String parameters should remain strings even when passed integer values, unless explicitly converted by the annotation's loader.</contract>
+        <acceptance>tests/test_runner.py::test_runner_annotated_parameter_inputs</acceptance>
+    </item>
+</requirement>

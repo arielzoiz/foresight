@@ -1,0 +1,53 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:58:22
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:59:51
+@@ -75,7 +75,8 @@
+     param_name = param_annotation.name if param_annotation.name else func_param_name
+     raise RuntimeError(
+         f"Required parameter '{param_name}' was not provided with a value. "
+-        f"Ensure the parameter is passed in template_inputs."
++        f"Ensure the parameter is passed in template_inputs. "
++        f"Expected parameter name: '{param_name}'"
+     )
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:58:24
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:59:54
+@@ -258,19 +258,16 @@
+ 
+                     # Handle case where parameter is not provided with value
+                     if param_value is None:
+-                        # If the parameter is not provided, we should skip it or use default value
++                        # If the parameter has a default value, use it
+                         if func_param.default is not inspect.Parameter.empty:
+                             function_kwargs[func_param_name] = func_param.default
++                        elif param_or_artifact.default is not None:
++                            # Use the default value if provided in the annotation
++                            function_kwargs[func_param_name] = param_or_artifact.default
+                         else:
+                             # For parameters without defaults, we should skip them completely
+-                            # But first check if we should provide a more descriptive error
+-                            # Check if the parameter is required (has no default) and wasn't provided
+-                            if param_or_artifact.default is None:
+-                                # This case is handled elsewhere - we should skip parameters without defaults
+-                                continue
+-                            else:
+-                                # Use the default value if provided
+-                                function_kwargs[func_param_name] = param_or_artifact.default
++                            # This allows for graceful handling of missing required parameters
++                            continue
+                     else:
+                         function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:
+@@ -459,6 +456,10 @@
+             output_file = args.args_path.parent / "output.txt"
+             output_file.parent.mkdir(parents=True, exist_ok=True)
+             output_file.write_text(serialize(result))
++        elif "No such file or directory" in str(e):
++            # If the parent directory doesn't exist, create it
++            args.args_path.parent.mkdir(parents=True, exist_ok=True)
++            args.args_path.write_text(serialize(result))
+         else:
+             # For other OSError, re-raise the error
+             raise e

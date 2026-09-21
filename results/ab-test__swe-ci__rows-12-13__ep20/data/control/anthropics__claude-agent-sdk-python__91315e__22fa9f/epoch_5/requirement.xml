@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The receive_messages method returns a coroutine instead of an AsyncIterator, causing TypeError when used with 'async for' loops.</description>
+    <contract>The receive_messages method must return an AsyncIterator[dict[str, Any]] that can be used directly with 'async for' loops. The method should properly yield parsed JSON messages from the subprocess stdout.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_continuation_option</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The context manager __aexit__ method doesn't properly handle exceptions during disconnection, and some connection cleanup isn't happening correctly.</description>
+    <contract>The __aexit__ method must ensure proper disconnection even when exceptions occur during the context lifecycle. The disconnect method should be called reliably and handle potential errors gracefully.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_auto_connect_with_context_manager, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_manual_connect_disconnect</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _stream_to_stdin method doesn't properly handle the case when stdin is closed after streaming is complete, causing issues with connection management.</description>
+    <contract>The _stream_to_stdin method should properly close stdin when streaming is complete, and the transport should maintain proper state for subsequent operations.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>Missing proper handling of control protocol responses in the receive_messages method.</description>
+    <contract>The receive_messages method must properly handle control protocol responses and maintain the state needed for control requests to work correctly.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/client.py</location>
+    <description>The InternalClient.process_query method doesn't properly manage the lifecycle of the transport, potentially leaving connections open.</description>
+    <contract>The process_query method must ensure proper connection and disconnection of the transport, and handle cleanup in all cases including exceptions.</contract>
+    <acceptance>tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_continuation_option</acceptance>
+  </requirement>
+</requirement_document>

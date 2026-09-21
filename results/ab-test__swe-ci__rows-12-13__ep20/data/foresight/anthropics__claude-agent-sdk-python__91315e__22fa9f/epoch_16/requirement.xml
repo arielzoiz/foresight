@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The SubprocessCLITransport class has incorrect async iteration protocol implementation. The receive_messages() method returns an AsyncIterator but doesn't properly implement the async iteration protocol. Tests are failing with "'async for' requires an object with __aiter__ method, got coroutine" because the method isn't correctly returning an async iterator.</description>
+    <contract>The receive_messages() method must properly implement the async iteration protocol by returning an AsyncIterator[dict[str, Any]] that can be consumed with 'async for'. The method should be a proper async generator that yields messages one-by-one without blocking the iteration.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The ClaudeSDKClient.query() method has a flawed implementation when handling AsyncIterable prompts. The method attempts to consume the AsyncIterable within the method body, which breaks the async iteration contract. This causes issues when trying to iterate over the result of query() with 'async for'.</description>
+    <contract>The query() method should properly forward AsyncIterable prompts to the underlying transport without consuming them internally. When a string prompt is provided, it should be converted to a proper message structure and sent via transport. When an AsyncIterable is provided, it should be passed through to the transport without consumption to maintain the async iteration contract.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/client.py</location>
+    <description>The InternalClient.process_query() method incorrectly handles AsyncIterable prompts. It creates a SubprocessCLITransport and tries to iterate over transport.receive_messages(), but the transport's receive_messages() implementation has issues with the async iteration protocol.</description>
+    <contract>The process_query() method should properly delegate to the transport's receive_messages() method and yield parsed messages from it. The method should not interfere with the async iteration contract established by the transport.</contract>
+    <acceptance>tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The ClaudeSDKClient.interrupt() method is not properly implemented. The method is meant to send an interrupt control request but lacks proper error handling and validation.</description>
+    <contract>The interrupt() method should validate that the transport is connected and in streaming mode before attempting to send an interrupt request. It should properly handle any exceptions that may occur during the interrupt process.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _send_control_request() method has an issue with response handling that affects session management. The method waits for responses in a loop but doesn't properly handle timeouts or errors.</description>
+    <contract>The _send_control_request() method should properly wait for control responses with timeout handling and should raise appropriate exceptions when requests fail or timeout.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id</acceptance>
+  </requirement>
+</requirement_document>

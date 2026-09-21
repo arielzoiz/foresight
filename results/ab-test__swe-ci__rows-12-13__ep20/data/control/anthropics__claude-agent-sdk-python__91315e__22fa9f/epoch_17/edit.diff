@@ -1,0 +1,72 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/client.py b/src/claude_code_sdk/_internal/client.py
+--- a/src/claude_code_sdk/_internal/client.py	2026-09-21 02:49:46
++++ b/src/claude_code_sdk/_internal/client.py	2026-09-21 02:50:46
+@@ -19,7 +19,7 @@
+     ) -> AsyncIterator[Message]:
+         """Process a query through transport."""
+         transport = SubprocessCLITransport(
+-            prompt=prompt, options=options, close_stdin_after_prompt=True
++            prompt=prompt, options=options, close_stdin_after_prompt=False
+         )
+ 
+         try:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:48:26
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:50:50
+@@ -298,11 +298,8 @@
+                     break
+                 await self._stdin_stream.send(json.dumps(message) + "\n")
+ 
+-            # Close stdin after prompt if requested (e.g., for query() one-shot mode)
+-            if self._close_stdin_after_prompt and self._stdin_stream:
+-                await self._stdin_stream.aclose()
+-                self._stdin_stream = None
+-            # Otherwise keep stdin open for send_request (ClaudeSDKClient interactive mode)
++            # Do NOT close stdin here - keep it open for continued interaction
++            # The stdin will be closed by disconnect() or end_input() methods
+         except Exception as e:
+             logger.debug(f"Error streaming to stdin: {e}")
+             if self._stdin_stream:
+@@ -310,19 +307,9 @@
+                 self._stdin_stream = None
+             raise  # Re-raise to propagate the error
+         finally:
+-            # Ensure stdin is closed in all cases
+-            if self._stdin_stream:
+-                try:
+-                    await self._stdin_stream.aclose()
+-                    self._stdin_stream = None
+-                except Exception:
+-                    pass
+-            # Additional cleanup to make sure stdin is closed
+-            if self._process and self._process.stdin:
+-                try:
+-                    await self._process.stdin.aclose()
+-                except Exception:
+-                    pass
++            # Don't close stdin here - let the transport lifecycle manage it
++            # Just ensure cleanup happens in disconnect()
++            pass
+ 
+     async def receive_messages(self) -> AsyncIterator[dict[str, Any]]:
+         """Receive messages from CLI."""
+@@ -469,7 +456,7 @@
+ 
+         # Wait for response
+         while request_id not in self._pending_control_responses:
+-            await anyio.sleep(0.1)
++            await anyio.sleep(0.01)
+ 
+         response = self._pending_control_responses.pop(request_id)
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 02:48:34
++++ b/src/claude_code_sdk/client.py	2026-09-21 02:50:48
+@@ -109,7 +109,6 @@
+             # Never yields, but indicates that this function is an iterator and
+             # keeps the connection open.
+             # This yield is never reached but makes this an async generator
+-            return
+             yield {}  # type: ignore[unreachable]
+ 
+         self._transport = SubprocessCLITransport(

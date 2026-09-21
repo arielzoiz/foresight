@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:_get_outputs_path</location>
+        <description>The function fails when the hera__outputs_directory environment variable is None or empty, causing a TypeError when trying to perform path operations with None values.</description>
+        <contract>When hera__outputs_directory environment variable is None, empty string, or invalid, the function should default to "/tmp/hera-outputs" and return a valid Path object. The function should handle None or empty environment variables gracefully.</contract>
+        <acceptance>Tests that fail due to "TypeError: unsupported operand type(s) for /: 'PosixPath' and 'NoneType'" should pass when this is fixed.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:_save_annotated_return_outputs</location>
+        <description>The type checking logic is too strict and fails when comparing generic types like typing.Dict[str, str] with their concrete counterparts like dict. This causes ValueError exceptions for valid return types.</description>
+        <contract>The function should allow flexible matching between generic types (typing.Dict, typing.List) and their concrete counterparts (dict, list) when validating output types. The type checking should be more permissive for common generic type mismatches.</contract>
+        <acceptance>Tests that fail with "ValueError: The type of output ... does not match the annotated type ..." for generic types should pass.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/util.py:_map_function_annotations</location>
+        <description>The function doesn't properly handle missing arguments or default values in function parameters, leading to "missing_argument" errors when parameters are not provided but have default values.</description>
+        <contract>When a function parameter has a default value and is not provided in the inputs, the function should use the default value rather than raising a missing argument error. The mapping should gracefully handle missing parameters that have defaults.</contract>
+        <acceptance>Tests that fail with "missing_argument" errors for parameters with default values should pass.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:_get_artifact_path</location>
+        <description>The function doesn't properly handle cases where artifact_annotation.path is None and artifact_annotation.name is provided for input artifacts, leading to incorrect path resolution.</description>
+        <contract>When an artifact annotation has a name but no explicit path, the function should resolve to a proper default path using the artifact name and the default artifact input directory. It should not return None or invalid paths.</contract>
+        <acceptance>Tests that fail due to artifact path resolution issues should pass when this is fixed.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:get_annotated_artifact_value</location>
+        <description>The function doesn't properly handle cases where artifact loaders are not found or artifacts are missing with optional handling, causing errors instead of graceful fallbacks.</description>
+        <contract>When an artifact loader is not found or an artifact is missing, and the artifact is marked as optional, the function should return None gracefully instead of raising exceptions. When loaders are provided but fail, it should provide more descriptive error messages.</contract>
+        <acceptance>Tests that fail due to missing artifacts or loader issues should pass when this is fixed.</acceptance>
+    </item>
+</requirement>

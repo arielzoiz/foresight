@@ -1,0 +1,215 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:19:31
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:22:35
+@@ -187,18 +187,17 @@
+     if not artifact_annotation.path:
+         # This is an input artifact without explicit path - use the default input path resolution
+         from hera.workflows.artifact import _DEFAULT_ARTIFACT_INPUT_DIRECTORY
+-        if _DEFAULT_ARTIFACT_INPUT_DIRECTORY:
++        if _DEFAULT_ARTIFACT_INPUT_DIRECTORY and artifact_annotation.name:
+             path = Path(_DEFAULT_ARTIFACT_INPUT_DIRECTORY) / artifact_annotation.name
+             artifact_annotation.path = str(path)
+-        else:
++        elif artifact_annotation.name:
+             # Fallback to default behavior when name is provided
+-            if artifact_annotation.name:
+-                path = Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
+-                artifact_annotation.path = str(path)
+-            else:
+-                # If no name is provided, use a default path
+-                path = Path("/tmp/hera-outputs/artifacts/default-artifact")
+-                artifact_annotation.path = str(path)
++            path = Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
++            artifact_annotation.path = str(path)
++        else:
++            # If no name is provided, use a default path
++            path = Path("/tmp/hera-outputs/artifacts/default-artifact")
++            artifact_annotation.path = str(path)
+ 
+     # Handle custom loaders for non-base model classes
+     if artifact_annotation.loads is not None:
+@@ -324,7 +323,21 @@
+     for field in get_fields(runner_input_class):
+         input_model_obj[field] = map_field(field, kwargs)
+ 
+-    return cast(T, runner_input_class.parse_obj(input_model_obj))
++        # Handle special case for Pydantic models - when we have an Annotated Pydantic model
++        # In this case, we should parse the value as a JSON string to a Pydantic model
++        # The value should be a JSON string representing the model, so we parse it properly
++        try:
++            # Try to parse as a Pydantic model directly
++            # If we get a string representation, parse it as JSON
++            if isinstance(input_model_obj, dict):
++                # Already a dict, parse normally
++                return cast(T, runner_input_class.parse_obj(input_model_obj))
++            else:
++                # Try to parse from string representation
++                return cast(T, runner_input_class.parse_obj(json.loads(input_model_obj)))
++        except Exception:
++            # If parsing fails, fall back to the original behavior
++            return cast(T, runner_input_class.parse_obj(input_model_obj))
+ 
+ 
+ def _save_annotated_return_outputs(
+@@ -393,62 +406,25 @@
+                 if origin is dict:
+                     # For Dict, check if output_value is a dict
+                     if not isinstance(output_value, dict):
+-                        # Allow more flexible matching - if we have typing.Dict and get dict, accept it
+-                        if isinstance(output_value, dict):
+-                            pass  # Accept dict for typing.Dict
+-                        else:
+-                            raise ValueError(
+-                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                            )
++                        # Strict type matching required - this is the fix for the issue
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
+                 elif origin is list:
+                     # For List, check if output_value is a list
+                     if not isinstance(output_value, list):
+-                        # Allow more flexible matching - if we have typing.List and get list, accept it
+-                        if isinstance(output_value, list):
+-                            pass  # Accept list for typing.List
+-                        else:
+-                            raise ValueError(
+-                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                            )
++                        # Strict type matching required - this is the fix for the issue
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
+                 else:
+-                    # For other generic types, do a more flexible comparison
++                    # For other generic types, do strict comparison
+                     if not isinstance(output_value, actual_type):
+-                        # Allow flexible matching for common cases
+-                        if hasattr(actual_type, '__name__'):
+-                            if actual_type.__name__ == 'Dict' and isinstance(output_value, dict):
+-                                pass  # Accept dict for typing.Dict
+-                            elif actual_type.__name__ == 'List' and isinstance(output_value, list):
+-                                pass  # Accept list for typing.List
+-                            else:
+-                                # Additional flexibility for type checking
+-                                if (actual_type.__name__ == 'Dict' and isinstance(output_value, dict)) or \
+-                                   (actual_type.__name__ == 'List' and isinstance(output_value, list)):
+-                                    pass  # Allow generic type matching
+-                                else:
+-                                    # Final fallback: check if it's a simple type match
+-                                    if type(output_value).__name__ == actual_type.__name__:
+-                                        pass  # Accept same-type names
+-                                    else:
+-                                        # Try to handle cases where we have typing.Dict vs dict
+-                                        try:
+-                                            # Try to compare names directly if they match
+-                                            if (hasattr(actual_type, '__name__') and 
+-                                                actual_type.__name__ == type(output_value).__name__):
+-                                                pass  # Accept same-type names
+-                                            else:
+-                                                raise ValueError(
+-                                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                                )
+-                                        except Exception:
+-                                            raise ValueError(
+-                                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                            )
+-                        else:
+-                            raise ValueError(
+-                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                            )
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
+             else:
+-                # Regular type checking - be more flexible
++                # Regular type checking - be strict
+                 if not isinstance(output_value, actual_type):
+                     # Try to handle cases where we're comparing types that differ in wrapper level
+                     # This happens with Annotated types vs their unwrapped versions
+@@ -458,67 +434,14 @@
+                         if output_type == actual_type:
+                             pass  # Types match
+                         else:
+-                            # If still mismatched, try a more flexible comparison
+-                            # Check if we're comparing types like typing.Dict vs dict
+-                            if hasattr(actual_type, '__name__') and actual_type.__name__ in ('Dict', 'List'):
+-                                # For typing.Dict and typing.List, allow their concrete counterparts
+-                                if actual_type.__name__ == 'Dict' and isinstance(output_value, dict):
+-                                    pass
+-                                elif actual_type.__name__ == 'List' and isinstance(output_value, list):
+-                                    pass
+-                                else:
+-                                    # More flexible type checking for generic types
+-                                    if (actual_type.__name__ == 'Dict' and isinstance(output_value, dict)) or \
+-                                       (actual_type.__name__ == 'List' and isinstance(output_value, list)):
+-                                        pass  # Allow generic type matching
+-                                    else:
+-                                        # Final fallback: check if it's a simple type match
+-                                        if type(output_value).__name__ == actual_type.__name__:
+-                                            pass  # Accept same-type names
+-                                        else:
+-                                            # Try to handle cases where we have typing.Dict vs dict
+-                                            try:
+-                                                # Try to compare names directly if they match
+-                                                if (hasattr(actual_type, '__name__') and 
+-                                                    actual_type.__name__ == type(output_value).__name__):
+-                                                    pass  # Accept same-type names
+-                                                else:
+-                                                    raise ValueError(
+-                                                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                                    )
+-                                            except Exception:
+-                                                raise ValueError(
+-                                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                                )
+-                            else:
+-                                raise ValueError(
+-                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                )
++                            # For exact matching, we should be strict - this is the fix
++                            raise ValueError(
++                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                            )
+                     except Exception:
+-                        # Final fallback: check if it's a simple type match
+-                        if type(output_value).__name__ == actual_type.__name__:
+-                            pass  # Accept same-type names
+-                        else:
+-                            # Try to handle cases where we have typing.Dict vs dict
+-                            try:
+-                                # Check if the actual_type is a generic type and output_value is the concrete type
+-                                if hasattr(actual_type, '__name__'):
+-                                    if actual_type.__name__ == 'Dict' and isinstance(output_value, dict):
+-                                        pass  # Accept dict for typing.Dict
+-                                    elif actual_type.__name__ == 'List' and isinstance(output_value, list):
+-                                        pass  # Accept list for typing.List
+-                                    else:
+-                                        raise ValueError(
+-                                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                        )
+-                                else:
+-                                    raise ValueError(
+-                                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                    )
+-                            except Exception:
+-                                raise ValueError(
+-                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                )
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
+ 
+             if not dest[1].name:
+                 raise ValueError("The name was not provided for one of the outputs.")
+@@ -583,6 +506,10 @@
+     if path is None:
+         return
+         
++    # Safeguard against None output_value
++    if output_value is None:
++        output_value = ""
++    
+     # Special handling for bytes data
+     if isinstance(output_value, bytes):
+         # For bytes, write directly as bytes

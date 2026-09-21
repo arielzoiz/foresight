@@ -1,0 +1,44 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:17:06
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:21:24
+@@ -200,6 +200,7 @@
+                     # Start streaming messages to stdin in background
+                     self._task_group = anyio.create_task_group()
+                     await self._task_group.__aenter__()
++                    # The _stream_to_stdin method should be called as a task, not awaited
+                     self._task_group.start_soon(self._stream_to_stdin)
+             else:
+                 # String mode: close stdin immediately (backward compatible)
+@@ -283,6 +284,7 @@
+             return
+ 
+         try:
++            # Make sure we can properly iterate over the AsyncIterable
+             async for message in self._prompt:
+                 if not self._stdin_stream:
+                     break
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 05:19:01
++++ b/src/claude_code_sdk/client.py	2026-09-21 05:21:27
+@@ -151,17 +151,10 @@
+             }
+             await self._transport.send_request([message], {"session_id": session_id})
+         else:
+-            # Handle AsyncIterable prompts
+-            # We need to properly send all messages from the async iterable
+-            messages = []
+-            async for msg in prompt:
+-                # Ensure session_id is set on each message
+-                if "session_id" not in msg:
+-                    msg["session_id"] = session_id
+-                messages.append(msg)
+-
+-            if messages:
+-                await self._transport.send_request(messages, {"session_id": session_id})
++            # Handle AsyncIterable prompts by directly setting the prompt
++            # This ensures the transport handles streaming properly
++            # The transport's _stream_to_stdin will iterate over this AsyncIterable
++            self._transport._prompt = prompt
+ 
+     async def interrupt(self) -> None:
+         """Send interrupt signal (only works with streaming mode)."""

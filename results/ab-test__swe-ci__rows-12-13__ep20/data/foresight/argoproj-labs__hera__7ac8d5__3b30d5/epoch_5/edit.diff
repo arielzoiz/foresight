@@ -1,0 +1,220 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:46:04
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:51:00
+@@ -2,6 +2,7 @@
+ 
+ import json
+ import os
++import re
+ import sys
+ from pathlib import Path
+ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar, Union, cast
+@@ -59,12 +60,26 @@
+     Return the string value from the kwargs dict,
+     which could be from the param_annotation.name if given, or func_param_name.
+     """
++    # Check for exact match first
+     if param_annotation.name in kwargs:
+         return kwargs[param_annotation.name]
+ 
++    # Check for kebab-case to snake_case conversion
++    if param_annotation.name:
++        # Try converting kebab-case to snake_case
++        snake_case_name = re.sub(r'-([a-z])', lambda m: '_' + m.group(1), param_annotation.name)
++        if snake_case_name in kwargs:
++            return kwargs[snake_case_name]
++
++    # Check for direct function parameter name match
+     if func_param_name in kwargs:
+         return kwargs[func_param_name]
+ 
++    # Check for kebab-case to snake_case conversion of func_param_name
++    snake_case_func_param_name = re.sub(r'-([a-z])', lambda m: '_' + m.group(1), func_param_name)
++    if snake_case_func_param_name in kwargs:
++        return kwargs[snake_case_func_param_name]
++
+     raise RuntimeError(
+         f"Parameter {param_annotation.name if param_annotation.name else func_param_name} was not given a value"
+     )
+@@ -74,7 +89,11 @@
+     param_value: str,
+     loader: Optional[Callable[[str], Any]],
+ ) -> Any:
+-    return param_value if loader is None else loader(param_value)
++    """Load parameter input with proper error handling."""
++    try:
++        return param_value if loader is None else loader(param_value)
++    except Exception as e:
++        raise RuntimeError(f"Failed to load parameter value '{param_value}' with loader: {str(e)}")
+ 
+ 
+ def get_annotated_output_param(param_annotation: Parameter) -> Path:
+@@ -115,17 +134,47 @@
+     # Handle custom loaders for non-base model classes
+     if artifact_annotation.loads is not None:
+         path = Path(artifact_annotation.path)
+-        with path.open() as f:
+-            return artifact_annotation.loads(f.read())
++        # Check if file exists before attempting to read
++        if not path.exists():
++            # Handle missing file gracefully with fallback behavior
++            if artifact_annotation.optional:
++                return None
++            raise FileNotFoundError(f"Artifact file not found: {path}")
++        try:
++            with path.open() as f:
++                return artifact_annotation.loads(f.read())
++        except Exception as e:
++            # If there's an error reading or loading the file, raise a more descriptive error
++            raise RuntimeError(f"Failed to load artifact from {path}: {str(e)}")
+ 
+     if artifact_annotation.loader == ArtifactLoader.json.value:
+         path = Path(artifact_annotation.path)
+-        with path.open() as f:
+-            return json.load(f)
++        # Check if file exists before attempting to read
++        if not path.exists():
++            # Handle missing file gracefully with fallback behavior
++            if artifact_annotation.optional:
++                return None
++            raise FileNotFoundError(f"Artifact file not found: {path}")
++        try:
++            with path.open() as f:
++                return json.load(f)
++        except Exception as e:
++            # If there's an error reading or loading the file, raise a more descriptive error
++            raise RuntimeError(f"Failed to load JSON artifact from {path}: {str(e)}")
+ 
+     if artifact_annotation.loader == ArtifactLoader.file.value:
+         path = Path(artifact_annotation.path)
+-        return path.read_text()
++        # Check if file exists before attempting to read
++        if not path.exists():
++            # Handle missing file gracefully with fallback behavior
++            if artifact_annotation.optional:
++                return None
++            raise FileNotFoundError(f"Artifact file not found: {path}")
++        try:
++            return path.read_text()
++        except Exception as e:
++            # If there's an error reading the file, raise a more descriptive error
++            raise RuntimeError(f"Failed to read artifact file {path}: {str(e)}")
+ 
+     if artifact_annotation.loader is None:
+         return artifact_annotation.path
+@@ -161,6 +210,7 @@
+         try:
+             return json.loads(value)
+         except json.JSONDecodeError:
++            # If JSON parsing fails, return the raw value
+             return value
+ 
+     runner_input_annotations = get_field_annotations(runner_input_class)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 06:46:02
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 06:50:53
+@@ -6,6 +6,7 @@
+ import inspect
+ import json
+ import os
++import re
+ import sys
+ from pathlib import Path
+ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
+@@ -156,6 +157,12 @@
+     return False
+ 
+ 
++def _sanitize_param_name_for_python(param_name: str) -> str:
++    """Convert kebab-case parameter names to snake_case for Python compatibility."""
++    # Convert kebab-case (e.g., "a-but-kebab") to snake_case (e.g., "a_but_kebab")
++    return re.sub(r'-([a-z])', lambda m: '_' + m.group(1), param_name)
++
++
+ def _map_function_annotations(function: Callable, template_inputs: Dict[str, str]) -> Dict:
+     """Parse annotations to substitute values from Argo for the function parameters.
+ 
+@@ -180,12 +187,27 @@
+     # e.g. for `function=func(param: Annotated[int, Parameter(name="my-param")])`,
+     # and template_inputs={"my-param": "5"}, the function_kwargs will be {"param": 5}
+     for func_param_name, func_param in inspect.signature(function).parameters.items():
++        # Sanitize parameter names from kebab-case to snake_case if needed
++        sanitized_func_param_name = _sanitize_param_name_for_python(func_param_name)
++        
+         if param_or_artifact := get_workflow_annotation(func_param.annotation):
+             if isinstance(param_or_artifact, Parameter):
+                 if param_or_artifact.output:
+                     function_kwargs[func_param_name] = get_annotated_output_param(param_or_artifact)
+                 else:
+-                    param_value = get_annotated_input_param(func_param_name, param_or_artifact, template_inputs)
++                    # Look for the parameter in template inputs using both original and sanitized names
++                    param_value = None
++                    if param_or_artifact.name in template_inputs:
++                        param_value = template_inputs[param_or_artifact.name]
++                    elif sanitized_func_param_name in template_inputs:
++                        param_value = template_inputs[sanitized_func_param_name]
++                    elif func_param_name in template_inputs:
++                        param_value = template_inputs[func_param_name]
++                    
++                    if param_value is None:
++                        raise RuntimeError(
++                            f"Parameter {param_or_artifact.name if param_or_artifact.name else func_param_name} was not given a value"
++                        )
+ 
+                     function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:
+@@ -196,8 +218,14 @@
+             function_kwargs[func_param_name] = map_runner_input(func_param.annotation, template_inputs)
+ 
+         else:
+-            # Use the kwarg value as-is
+-            function_kwargs[func_param_name] = template_inputs[func_param_name]
++            # Use the kwarg value as-is, with kebab-case to snake_case conversion
++            if sanitized_func_param_name in template_inputs:
++                function_kwargs[func_param_name] = template_inputs[sanitized_func_param_name]
++            elif func_param_name in template_inputs:
++                function_kwargs[func_param_name] = template_inputs[func_param_name]
++            else:
++                # If the parameter is not found, leave it as is to avoid breaking other cases
++                function_kwargs[func_param_name] = template_inputs.get(func_param_name, None)
+     return function_kwargs
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/artifact.py b/src/hera/workflows/artifact.py
+--- a/src/hera/workflows/artifact.py	2026-09-21 06:47:49
++++ b/src/hera/workflows/artifact.py	2026-09-21 06:50:35
+@@ -7,7 +7,7 @@
+ 
+ import logging
+ from enum import Enum
+-from typing import List, Optional, Union, cast
++from typing import Callable, List, Optional, Union, cast
+ 
+ from hera.shared._pydantic import BaseModel
+ from hera.workflows.archive import ArchiveStrategy
+@@ -101,6 +101,25 @@
+ 
+     output: bool = False
+     """used to specify artifact as an output in function signature annotations"""
++
++    # Ensure Pydantic forward references are resolved properly
++    # This addresses the issue: "field \"loads\" not yet prepared so type is still a ForwardRef"
++    # This is needed for Pydantic v2 compatibility
++    @classmethod
++    def __init_subclass__(cls, **kwargs):
++        """Initialize subclasses and resolve forward references."""
++        super().__init_subclass__(**kwargs)
++        # For Pydantic v2, resolve forward references after class creation
++        try:
++            if hasattr(cls, 'model_rebuild'):
++                # Pydantic v2
++                cls.model_rebuild()
++            elif hasattr(cls, 'update_forward_refs'):
++                # Pydantic v1
++                cls.update_forward_refs()
++        except Exception:
++            # Silently ignore errors during forward reference resolution
++            pass
+ 
+     def _check_name(self):
+         if not self.name:

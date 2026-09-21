@@ -1,0 +1,34 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 02:39:36
++++ b/src/claude_code_sdk/client.py	2026-09-21 02:40:48
+@@ -125,7 +125,9 @@
+ 
+         from ._internal.message_parser import parse_message
+ 
+-        async for data in self._transport.receive_messages():
++        # Make sure we're properly awaiting the async iterator
++        async_iterator = self._transport.receive_messages()
++        async for data in async_iterator:
+             yield parse_message(data)
+ 
+     async def query(
+@@ -214,6 +216,9 @@
+         if self._transport:
+             await self._transport.disconnect()
+             self._transport = None
++        else:
++            # Handle case where transport is already None
++            self._transport = None
+ 
+     async def __aenter__(self) -> "ClaudeSDKClient":
+         """Enter async context - automatically connects with empty stream for interactive use."""
+@@ -225,8 +230,7 @@
+         # Always attempt to disconnect, but suppress any exceptions to avoid masking
+         # the original exception that might have caused the context exit
+         try:
+-            if self._transport:
+-                await self._transport.disconnect()
++            await self.disconnect()
+         except Exception:
+             # Suppress disconnect exceptions to preserve the original exception
+             pass

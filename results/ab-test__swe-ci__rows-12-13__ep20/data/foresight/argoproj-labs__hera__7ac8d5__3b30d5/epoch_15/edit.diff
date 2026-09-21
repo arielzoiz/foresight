@@ -1,0 +1,98 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:14:20
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:16:13
+@@ -56,7 +56,7 @@
+     if not artifact_annotation.output:
+         # This is an input artifact, use the default input path
+         from hera.workflows.artifact import _DEFAULT_ARTIFACT_INPUT_DIRECTORY
+-        if _DEFAULT_ARTIFACT_INPUT_DIRECTORY:
++        if _DEFAULT_ARTIFACT_INPUT_DIRECTORY and artifact_annotation.name:
+             path = Path(_DEFAULT_ARTIFACT_INPUT_DIRECTORY) / artifact_annotation.name
+             return path
+         # Fallback to default behavior when name is provided
+@@ -422,9 +422,20 @@
+                                     if type(output_value).__name__ == actual_type.__name__:
+                                         pass  # Accept same-type names
+                                     else:
+-                                        raise ValueError(
+-                                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                        )
++                                        # Try to handle cases where we have typing.Dict vs dict
++                                        try:
++                                            # Try to compare names directly if they match
++                                            if (hasattr(actual_type, '__name__') and 
++                                                actual_type.__name__ == type(output_value).__name__):
++                                                pass  # Accept same-type names
++                                            else:
++                                                raise ValueError(
++                                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                                )
++                                        except Exception:
++                                            raise ValueError(
++                                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                            )
+                         else:
+                             raise ValueError(
+                                 f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+@@ -458,9 +469,20 @@
+                                         if type(output_value).__name__ == actual_type.__name__:
+                                             pass  # Accept same-type names
+                                         else:
+-                                            raise ValueError(
+-                                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                            )
++                                            # Try to handle cases where we have typing.Dict vs dict
++                                            try:
++                                                # Try to compare names directly if they match
++                                                if (hasattr(actual_type, '__name__') and 
++                                                    actual_type.__name__ == type(output_value).__name__):
++                                                    pass  # Accept same-type names
++                                                else:
++                                                    raise ValueError(
++                                                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                                    )
++                                            except Exception:
++                                                raise ValueError(
++                                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                                )
+                             else:
+                                 raise ValueError(
+                                     f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+@@ -470,7 +492,7 @@
+                         if type(output_value).__name__ == actual_type.__name__:
+                             pass  # Accept same-type names
+                         else:
+-                            # Additional check for generic types with simpler approach
++                            # Try to handle cases where we have typing.Dict vs dict
+                             try:
+                                 # Check if the actual_type is a generic type and output_value is the concrete type
+                                 if hasattr(actual_type, '__name__'):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 07:13:55
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 07:16:23
+@@ -227,10 +227,9 @@
+                             # Use the default value
+                             function_kwargs[func_param_name] = func_param.default
+                         else:
+-                            # If we still don't have a value and it's not optional, we should not add it
+-                            # Let the function handle missing parameters naturally
+-                            # But we should not include parameters that are missing and have no default
+-                            # to avoid "missing_argument" errors
++                            # If no default is provided and no value is found, skip this parameter
++                            # to avoid "missing_argument" errors. Let the function handle it naturally.
++                            # This prevents missing argument errors while still allowing proper function calls.
+                             pass
+                     else:
+                         function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+@@ -260,9 +259,8 @@
+                 if func_param.default is not inspect.Parameter.empty:
+                     function_kwargs[func_param_name] = func_param.default
+                 # Otherwise, just leave it out - let the function handle it appropriately
+-                # But if the function expects this parameter, it will raise a TypeError anyway
+-                # So we don't need to explicitly handle missing parameters here
+-                # However, if there's no default, we should not add the parameter at all
++                # If the function expects this parameter, it will raise a TypeError anyway
++                # But we don't need to explicitly add missing parameters without defaults
+                 pass
+     return function_kwargs
+ 

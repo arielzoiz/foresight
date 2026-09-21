@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The ClaudeSDKClient.query() method incorrectly handles AsyncIterable prompts by assigning the coroutine function directly to transport._prompt instead of properly managing the AsyncIterable.</description>
+    <contract>When an AsyncIterable is passed to ClaudeSDKClient.query(), it should properly configure the transport to handle streaming without breaking the async iteration protocol. The transport's _prompt attribute should be an AsyncIterable instance that supports __aiter__ method, not a coroutine function.</contract>
+    <acceptance>Tests that previously failed with "TypeError: 'async for' requires an object with __aiter__ method, got coroutine" should pass, specifically:
+- tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive
+- tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages
+- tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension
+- tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response
+- tests/test_integration.py::TestIntegration::test_simple_query_response
+- tests/test_integration.py::TestIntegration::test_continuation_option
+- tests/test_integration.py::TestIntegration::test_query_with_tool_use
+- tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </item>
+  <item>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The SubprocessCLITransport._stream_to_stdin method requires proper handling of AsyncIterable objects to support async iteration protocol correctly.</description>
+    <contract>The _stream_to_stdin method must properly validate and iterate over AsyncIterable prompts using the async for protocol. It should ensure that when _prompt is an AsyncIterable, it correctly implements the async iteration contract.</contract>
+    <acceptance>Tests that previously failed with "TypeError: 'async for' requires an object with __aiter__ method, got coroutine" should pass, specifically:
+- tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive
+- tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages
+- tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension
+- tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response
+- tests/test_integration.py::TestIntegration::test_simple_query_response
+- tests/test_integration.py::TestIntegration::test_continuation_option
+- tests/test_integration.py::TestIntegration::test_query_with_tool_use
+- tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </item>
+</requirement>

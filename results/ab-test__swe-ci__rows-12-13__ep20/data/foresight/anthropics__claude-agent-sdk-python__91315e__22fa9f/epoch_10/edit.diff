@@ -1,0 +1,230 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/client.py b/src/claude_code_sdk/_internal/client.py
+--- a/src/claude_code_sdk/_internal/client.py	2026-09-21 06:40:31
++++ b/src/claude_code_sdk/_internal/client.py	2026-09-21 05:14:17
+@@ -31,4 +31,3 @@
+ 
+         finally:
+             await transport.close()
+-        return  # Explicitly return to indicate completion
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 06:40:26
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:25:43
+@@ -257,7 +257,7 @@
+         """Close the transport connection."""
+         await self.disconnect()
+ 
+-    async def send_request(self, messages: list[Any] | AsyncIterable[Any], options: dict[str, Any]) -> None:
++    async def send_request(self, messages: list[Any], options: dict[str, Any]) -> None:
+         """Send additional messages in streaming mode."""
+         if not self._is_streaming:
+             raise CLIConnectionError("send_request only works in streaming mode")
+@@ -265,49 +265,19 @@
+         if not self._stdin_stream:
+             raise CLIConnectionError("stdin not available - stream may have ended")
+ 
+-        # If messages is an AsyncIterable, we need to stream it properly
+-        if isinstance(messages, AsyncIterable):
+-            # For AsyncIterable, we should stream it to stdin
+-            try:
+-                async for message in messages:
+-                    # Ensure message has required structure
+-                    if not isinstance(message, dict):
+-                        message = {
+-                            "type": "user",
+-                            "message": {"role": "user", "content": str(message)},
+-                            "parent_tool_use_id": None,
+-                            "session_id": options.get("session_id", "default"),
+-                        }
+-                    else:
+-                        # Ensure session_id is present in the message
+-                        if "session_id" not in message:
+-                            message["session_id"] = options.get("session_id", "default")
++        # Send each message as a user message
++        for message in messages:
++            # Ensure message has required structure
++            if not isinstance(message, dict):
++                message = {
++                    "type": "user",
++                    "message": {"role": "user", "content": str(message)},
++                    "parent_tool_use_id": None,
++                    "session_id": options.get("session_id", "default"),
++                }
+ 
+-                    await self._stdin_stream.send(json.dumps(message) + "\n")
+-            except Exception as e:
+-                logger.debug(f"Error streaming messages to stdin: {e}")
+-                if self._stdin_stream:
+-                    await self._stdin_stream.aclose()
+-                    self._stdin_stream = None
+-        else:
+-            # For regular list, send each message
+-            for message in messages:
+-                # Ensure message has required structure
+-                if not isinstance(message, dict):
+-                    message = {
+-                        "type": "user",
+-                        "message": {"role": "user", "content": str(message)},
+-                        "parent_tool_use_id": None,
+-                        "session_id": options.get("session_id", "default"),
+-                    }
+-                else:
+-                    # Ensure session_id is present in the message
+-                    if "session_id" not in message:
+-                        message["session_id"] = options.get("session_id", "default")
++            await self._stdin_stream.send(json.dumps(message) + "\n")
+ 
+-                await self._stdin_stream.send(json.dumps(message) + "\n")
+-        return  # Explicitly return to indicate completion
+-
+     async def _stream_to_stdin(self) -> None:
+         """Stream messages to stdin for streaming mode."""
+         if not self._stdin_stream:
+@@ -320,14 +290,6 @@
+                 async for message in self._prompt:
+                     if not self._stdin_stream:
+                         break
+-                    # Ensure message has required structure
+-                    if not isinstance(message, dict):
+-                        message = {
+-                            "type": "user",
+-                            "message": {"role": "user", "content": str(message)},
+-                            "parent_tool_use_id": None,
+-                            "session_id": "default",
+-                        }
+                     await self._stdin_stream.send(json.dumps(message) + "\n")
+             except Exception as e:
+                 logger.debug(f"Error streaming to stdin: {e}")
+@@ -339,7 +301,6 @@
+             await self._stdin_stream.aclose()
+             self._stdin_stream = None
+         # Otherwise keep stdin open for send_request (ClaudeSDKClient interactive mode)
+-        return  # Explicitly return to indicate completion
+ 
+     async def receive_messages(self) -> AsyncIterator[dict[str, Any]]:
+         """Receive messages from CLI."""
+@@ -348,7 +309,6 @@
+ 
+         json_buffer = ""
+ 
+-        # Process stdout messages first
+         try:
+             async for line in self._stdout_stream:
+                 line_str = line.strip()
+@@ -399,9 +359,30 @@
+         except GeneratorExit:
+             # Client disconnected - still need to clean up
+             pass
+-        # Note: Error handling for process completion moved to the calling code
+-        # to maintain async generator protocol compliance
+-        return  # Explicitly return to indicate end of generator
++        finally:
++            # Ensure proper cleanup of resources
++            if self._stdout_stream:
++                try:
++                    await self._stdout_stream.aclose()
++                except Exception:
++                    pass
++        except GeneratorExit:
++            # Client disconnected - still need to clean up
++            pass
++        finally:
++            # Ensure proper cleanup
++            if self._stdout_stream:
++                try:
++                    await self._stdout_stream.aclose()
++                except Exception:
++                    pass
++        finally:
++            # Ensure proper cleanup
++            if self._stdout_stream:
++                try:
++                    await self._stdout_stream.aclose()
++                except Exception:
++                    pass
+ 
+     def is_connected(self) -> bool:
+         """Check if subprocess is running."""
+@@ -435,8 +416,6 @@
+         if not self._stdin_stream:
+             raise CLIConnectionError("Not connected or stdin not available")
+ 
+-        # Send interrupt control request directly to stdin
+-        # This follows the same pattern as other control requests
+         await self._send_control_request({"subtype": "interrupt"})
+ 
+     async def _send_control_request(self, request: dict[str, Any]) -> dict[str, Any]:
+@@ -458,16 +437,13 @@
+         # Send request
+         await self._stdin_stream.send(json.dumps(control_request) + "\n")
+ 
+-        # Wait for response with timeout
+-        with anyio.move_on_after(10.0):  # 10 second timeout
+-            while request_id not in self._pending_control_responses:
+-                await anyio.sleep(0.1)
++        # Wait for response
++        while request_id not in self._pending_control_responses:
++            await anyio.sleep(0.1)
+ 
+-            response = self._pending_control_responses.pop(request_id)
++        response = self._pending_control_responses.pop(request_id)
+ 
+-            if response.get("subtype") == "error":
+-                raise CLIConnectionError(f"Control request failed: {response.get('error')}")
++        if response.get("subtype") == "error":
++            raise CLIConnectionError(f"Control request failed: {response.get('error')}")
+ 
+-            return response
+-        
+-        raise CLIConnectionError("Control request timed out")
++        return response
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 06:40:29
++++ b/src/claude_code_sdk/client.py	2026-09-21 05:24:14
+@@ -127,7 +127,6 @@
+ 
+         async for data in self._transport.receive_messages():
+             yield parse_message(data)
+-        return  # Explicitly return to indicate completion
+ 
+     async def query(
+         self, prompt: str | AsyncIterable[dict[str, Any]], session_id: str = "default"
+@@ -152,32 +151,13 @@
+             }
+             await self._transport.send_request([message], {"session_id": session_id})
+         else:
+-            # For AsyncIterable prompts, we should reuse the existing transport
+-            # to maintain the async iteration contract. We should not create a new transport
+-            # that would break the connection.
+-            # Check if we're already using a SubprocessCLITransport
+-            if isinstance(self._transport, SubprocessCLITransport):
+-                # Reuse the existing transport connection - send the AsyncIterable as a series of messages
+-                # This preserves the async iteration contract and avoids replacing the transport
+-                await self._transport.send_request(prompt, {"session_id": session_id})
+-            else:
+-                # For non-SubprocessCLITransport, create a new one
+-                # This maintains backward compatibility
+-                new_transport = SubprocessCLITransport(
+-                    prompt=prompt,
+-                    options=self.options,
+-                    close_stdin_after_prompt=True
+-                )
+-                
+-                # Connect the new transport
+-                await new_transport.connect()
+-                
+-                # Close the old transport if it exists
+-                if self._transport:
+-                    await self._transport.close()
+-                    
+-                # Replace with the new transport
+-                self._transport = new_transport
++            # Handle AsyncIterable prompts by directly setting the prompt
++            # This ensures the transport handles streaming properly
++            # The transport's _stream_to_stdin will iterate over this AsyncIterable
++            # Set the close flag for one-shot queries
++            self._transport._prompt = prompt
++            # Ensure we close stdin after prompt for one-shot queries
++            self._transport._close_stdin_after_prompt = True
+ 
+     async def interrupt(self) -> None:
+         """Send interrupt signal (only works with streaming mode)."""

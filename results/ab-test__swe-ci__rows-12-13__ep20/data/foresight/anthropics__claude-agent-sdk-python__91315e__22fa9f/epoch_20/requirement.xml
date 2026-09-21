@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:SubprocessCLITransport.receive_messages</location>
+    <description>The receive_messages method in SubprocessCLITransport is not properly implementing the async iteration protocol. Tests fail with "TypeError: 'async for' requires an object with __aiter__ method, got coroutine" because the method doesn't properly return an async iterator.</description>
+    <contract>The receive_messages method must return an AsyncIterator[dict[str, Any]] that can be properly consumed in async for loops. The method should be a proper async generator that yields messages one at a time and can be consumed in a streaming fashion.</contract>
+    <acceptance>Tests in tests/test_streaming_client.py that use async for loops with receive_messages() should pass, specifically: test_receive_messages, test_receive_response, test_concurrent_send_receive, test_interrupt, and test_receive_response_list_comprehension</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:SubprocessCLITransport._stream_to_stdin</location>
+    <description>The _stream_to_stdin method doesn't properly handle AsyncIterable prompts, which breaks the async iteration contract when streaming messages to stdin in streaming mode.</description>
+    <contract>The _stream_to_stdin method should properly consume AsyncIterable prompts and stream them to stdin while maintaining the async iteration contract. It should not prematurely close the stdin stream or break the iteration flow.</contract>
+    <acceptance>Tests that use AsyncIterable prompts with streaming mode should pass, specifically: test_query_with_async_iterable in TestQueryWithAsyncIterable class</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:SubprocessCLITransport.send_request</location>
+    <description>The send_request method doesn't properly handle AsyncIterable inputs when streaming messages to stdin, causing issues with the async iteration contract when sending additional messages.</description>
+    <contract>The send_request method should properly accept and stream AsyncIterable inputs to stdin while maintaining the async iteration contract. It should work seamlessly with both regular lists and AsyncIterable inputs.</contract>
+    <acceptance>Tests that send AsyncIterable messages via send_request should pass, specifically: test_send_message_with_session_id and test_concurrent_send_receive</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:ClaudeSDKClient.receive_messages</location>
+    <description>The ClaudeSDKClient.receive_messages method wraps the transport's receive_messages but doesn't properly maintain the async iteration contract when used in async for loops.</description>
+    <contract>The receive_messages method in ClaudeSDKClient should properly yield messages from the transport's receive_messages method without breaking the async iteration contract. It should be a simple wrapper that preserves the async iterator behavior.</contract>
+    <acceptance>Tests that use async for loops with ClaudeSDKClient.receive_messages() should pass, specifically: test_receive_messages, test_receive_response, test_concurrent_send_receive, test_interrupt, and test_receive_response_list_comprehension</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/client.py:InternalClient.process_query</location>
+    <description>The InternalClient.process_query method doesn't properly maintain async iteration contract when using transport.receive_messages() for one-shot queries with AsyncIterable prompts.</description>
+    <contract>The process_query method should properly yield messages from transport.receive_messages() to ensure the async iteration contract is maintained for both string and AsyncIterable prompts.</contract>
+    <acceptance>Tests that use AsyncIterable prompts with the query() function should pass, specifically: test_query_with_async_iterable in TestQueryWithAsyncIterable class</acceptance>
+  </requirement>
+</requirement_document>

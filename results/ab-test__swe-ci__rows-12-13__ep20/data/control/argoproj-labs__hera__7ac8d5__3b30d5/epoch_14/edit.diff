@@ -1,0 +1,78 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:53:01
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:56:49
+@@ -132,15 +132,23 @@
+         if not path.exists():
+             # Return a default value instead of raising FileNotFoundError
+             return None
+-        with path.open() as f:
+-            return json.load(f)
++        try:
++            with path.open() as f:
++                return json.load(f)
++        except (json.JSONDecodeError, IOError):
++            # If JSON decoding fails or there's an IO error, return None as default
++            return None
+ 
+     if artifact_annotation.loader == ArtifactLoader.file.value:
+         # Check if file exists first to prevent FileNotFoundError
+         if not path.exists():
+             # Return a default value instead of raising FileNotFoundError
+             return ""
+-        return path.read_text()
++        try:
++            return path.read_text()
++        except IOError:
++            # If there's an IO error, return empty string as default
++            return ""
+ 
+     if artifact_annotation.loader is None:
+         return artifact_annotation.path
+@@ -269,6 +277,7 @@
+                         )
+                     output_value = converted_value
+                 except (ValueError, TypeError):
++                    # If conversion fails, raise a clear error message
+                     raise ValueError(
+                         f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{dest[0]}`"
+                     )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:54:48
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:56:47
+@@ -222,14 +222,25 @@
+                     elif func_param_name in template_inputs:
+                         param_value = template_inputs[func_param_name]
+                     else:
+-                        # Try kebab-case to snake_case conversion
++                        # Try kebab-case to snake_case conversion for kebab-case parameter names
+                         kebab_key = func_param_name.replace("_", "-")
+                         if kebab_key in template_inputs:
+                             param_value = template_inputs[kebab_key]
+-                        # Try snake_case to kebab-case conversion  
++                        # Try snake_case to kebab-case conversion for snake_case parameter names  
+                         snake_key = func_param_name.replace("-", "_")
+                         if snake_key in template_inputs:
+                             param_value = template_inputs[snake_key]
++                        # Additional fallbacks for common conversions
++                        if "-" in func_param_name:
++                            # Convert kebab-case to snake_case and check
++                            snake_case_key = func_param_name.replace("-", "_")
++                            if snake_case_key in template_inputs:
++                                param_value = template_inputs[snake_case_key]
++                        elif "_" in func_param_name:
++                            # Convert snake_case to kebab-case and check
++                            kebab_case_key = func_param_name.replace("_", "-")
++                            if kebab_case_key in template_inputs:
++                                param_value = template_inputs[kebab_case_key]
+ 
+                     # Handle case where parameter is not provided with value
+                     if param_value is None:
+@@ -237,7 +248,7 @@
+                         if func_param.default is not inspect.Parameter.empty:
+                             function_kwargs[func_param_name] = func_param.default
+                         else:
+-                            # If no default and no value provided, skip this parameter
++                            # For parameters without defaults, we should skip them completely
+                             continue
+                     else:
+                         function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)

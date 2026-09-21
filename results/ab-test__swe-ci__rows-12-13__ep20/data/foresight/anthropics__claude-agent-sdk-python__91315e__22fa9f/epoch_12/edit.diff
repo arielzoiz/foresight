@@ -1,0 +1,43 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 05:27:16
++++ b/src/claude_code_sdk/client.py	2026-09-21 05:28:54
+@@ -151,18 +151,27 @@
+             }
+             await self._transport.send_request([message], {"session_id": session_id})
+         else:
+-            # Handle AsyncIterable prompts by directly setting the prompt
+-            # This ensures the transport handles streaming properly
+-            # The transport's _stream_to_stdin will iterate over this AsyncIterable
+-            # Set the close flag for one-shot queries
+-            self._transport._prompt = prompt
+-            # Ensure we close stdin after prompt for one-shot queries
+-            self._transport._close_stdin_after_prompt = True
+-            # If transport is already connected and we have an active task group,
+-            # we need to restart streaming if not already running
+-            if self._transport._task_group and not self._transport._is_streaming:
+-                # Re-initialize for streaming mode
+-                self._transport._is_streaming = True
++            # Handle AsyncIterable prompts by reconnecting with new prompt
++            # This ensures proper streaming behavior for async iterables
++            from ._internal.transport.subprocess_cli import SubprocessCLITransport
++            
++            # Create a new transport with the AsyncIterable prompt
++            # This ensures proper initialization for streaming mode
++            new_transport = SubprocessCLITransport(
++                prompt=prompt,
++                options=self.options,
++                close_stdin_after_prompt=True
++            )
++            
++            # Connect the new transport
++            await new_transport.connect()
++            
++            # Close the old transport if it exists
++            if self._transport:
++                await self._transport.close()
++                
++            # Replace with the new transport
++            self._transport = new_transport
+ 
+     async def interrupt(self) -> None:
+         """Send interrupt signal (only works with streaming mode)."""

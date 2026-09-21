@@ -1,0 +1,134 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:51:00
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:53:09
+@@ -60,22 +60,27 @@
+     Return the string value from the kwargs dict,
+     which could be from the param_annotation.name if given, or func_param_name.
+     """
+-    # Check for exact match first
+-    if param_annotation.name in kwargs:
++    # Try multiple approaches for parameter lookup in order of preference:
++    # 1. Exact match with annotation name
++    # 2. Exact match with function parameter name  
++    # 3. Kebab-case to snake_case conversion of annotation name
++    # 4. Kebab-case to snake_case conversion of function parameter name
++    
++    # Check for exact match with annotation name
++    if param_annotation.name and param_annotation.name in kwargs:
+         return kwargs[param_annotation.name]
+-
+-    # Check for kebab-case to snake_case conversion
++    
++    # Check for exact match with function parameter name
++    if func_param_name in kwargs:
++        return kwargs[func_param_name]
++    
++    # Check for kebab-case to snake_case conversion of annotation name
+     if param_annotation.name:
+-        # Try converting kebab-case to snake_case
+         snake_case_name = re.sub(r'-([a-z])', lambda m: '_' + m.group(1), param_annotation.name)
+         if snake_case_name in kwargs:
+             return kwargs[snake_case_name]
+-
+-    # Check for direct function parameter name match
+-    if func_param_name in kwargs:
+-        return kwargs[func_param_name]
+-
+-    # Check for kebab-case to snake_case conversion of func_param_name
++    
++    # Check for kebab-case to snake_case conversion of function parameter name
+     snake_case_func_param_name = re.sub(r'-([a-z])', lambda m: '_' + m.group(1), func_param_name)
+     if snake_case_func_param_name in kwargs:
+         return kwargs[snake_case_func_param_name]
+@@ -279,11 +284,44 @@
+         else:
+             assert isinstance(dest, tuple)
+ 
+-            type_ = get_unsubscripted_type(dest[0])
+-            if not isinstance(output_value, type_):
+-                raise ValueError(
+-                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{dest[0]}`"
+-                )
++            # Extract the actual type from the annotation for comparison
++            annotated_type = dest[0]
++            
++            # Handle both regular types and Annotated types for proper type checking
++            from typing import get_origin, get_args
++            actual_type = annotated_type
++            
++            # If it's an Annotated type, extract the underlying type
++            if hasattr(actual_type, '__origin__') or (hasattr(actual_type, '__args__') and len(get_args(actual_type)) > 0):
++                try:
++                    # Try to get the underlying type from Annotated wrapper
++                    args = get_args(actual_type)
++                    if args:
++                        actual_type = args[0]
++                except Exception:
++                    pass
++            
++            # Get the actual type for comparison
++            from hera.shared._type_util import get_unsubscripted_type
++            actual_type = get_unsubscripted_type(actual_type)
++            
++            if not isinstance(output_value, actual_type):
++                # Try to handle cases where we're comparing types that differ in wrapper level
++                # This happens with Annotated types vs their unwrapped versions
++                try:
++                    # Try to unwrap the actual output value's type as well
++                    output_type = type(output_value)
++                    if output_type == actual_type:
++                        pass  # Types match
++                    else:
++                        # If still mismatched, try a more flexible comparison
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
++                except Exception:
++                    raise ValueError(
++                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                    )
+ 
+             if not dest[1].name:
+                 raise ValueError("The name was not provided for one of the outputs.")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 06:50:53
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 06:52:45
+@@ -195,18 +195,32 @@
+                 if param_or_artifact.output:
+                     function_kwargs[func_param_name] = get_annotated_output_param(param_or_artifact)
+                 else:
+-                    # Look for the parameter in template inputs using both original and sanitized names
++                    # Look for the parameter in template inputs using multiple approaches:
++                    # 1. Exact match with parameter name (from annotation)
++                    # 2. Exact match with function parameter name  
++                    # 3. Kebab-case to snake_case conversion of annotation name
++                    # 4. Kebab-case to snake_case conversion of function parameter name
+                     param_value = None
+-                    if param_or_artifact.name in template_inputs:
+-                        param_value = template_inputs[param_or_artifact.name]
+-                    elif sanitized_func_param_name in template_inputs:
+-                        param_value = template_inputs[sanitized_func_param_name]
++                    param_name_from_annotation = param_or_artifact.name
++                    
++                    # Try exact match with annotation name
++                    if param_name_from_annotation and param_name_from_annotation in template_inputs:
++                        param_value = template_inputs[param_name_from_annotation]
++                    # Try exact match with function parameter name
+                     elif func_param_name in template_inputs:
+                         param_value = template_inputs[func_param_name]
++                    # Try kebab-case to snake_case conversion of annotation name
++                    elif param_name_from_annotation:
++                        converted_annotation_name = _sanitize_param_name_for_python(param_name_from_annotation)
++                        if converted_annotation_name in template_inputs:
++                            param_value = template_inputs[converted_annotation_name]
++                    # Try kebab-case to snake_case conversion of function parameter name
++                    elif sanitized_func_param_name in template_inputs:
++                        param_value = template_inputs[sanitized_func_param_name]
+                     
+                     if param_value is None:
+                         raise RuntimeError(
+-                            f"Parameter {param_or_artifact.name if param_or_artifact.name else func_param_name} was not given a value"
++                            f"Parameter {param_name_from_annotation if param_name_from_annotation else func_param_name} was not given a value"
+                         )
+ 
+                     function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)

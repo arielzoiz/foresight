@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:302</location>
+    <description>The receive_messages method in SubprocessCLITransport is not properly returning an AsyncIterator in some cases, causing "'async for' requires an object with __aiter__ method" errors. This happens when the transport's receive_messages method is being used in async iteration contexts but doesn't properly implement the AsyncIterator protocol.</description>
+    <contract>The receive_messages method must return a proper AsyncIterator[dict[str, Any]] that supports async iteration with 'async for'. It should yield parsed JSON message dictionaries as they are received from the CLI subprocess stdout stream.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:212</location>
+    <description>The disconnect method in ClaudeSDKClient is not properly managing transport lifecycle. Tests expecting 'close' to be called are failing because the transport's close method is not being invoked consistently during disconnect operations.</description>
+    <contract>The disconnect method must ensure that the underlying transport's close method is called, and that self._transport is set to None after disconnection. The transport should be properly cleaned up in both manual disconnect and context manager scenarios.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_auto_connect_with_context_manager</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py:131</location>
+    <description>The query method in ClaudeSDKClient doesn't properly handle AsyncIterable prompts when they are passed directly to the transport. The method needs to ensure that AsyncIterables are properly consumed and sent to the transport's stdin.</description>
+    <contract>The query method should accept both string prompts and AsyncIterable[dict[str, Any]] prompts, and correctly forward AsyncIterable prompts to the transport's send_request method. For AsyncIterable prompts, the method should consume the entire iterable and send all messages to the transport.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:280</location>
+    <description>The _stream_to_stdin method in SubprocessCLITransport has issues with handling AsyncIterable prompts for streaming mode. It needs to properly iterate over AsyncIterable prompts and send them to stdin.</description>
+    <contract>The _stream_to_stdin method must correctly iterate over AsyncIterable prompts and send each message to the transport's stdin stream. It should properly handle cancellation and cleanup when the transport closes.</contract>
+    <acceptance>tests/test_streaming_client.py::TestQueryWithAsyncIterable::test_query_with_async_iterable</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py:219</location>
+    <description>The disconnect method in SubprocessCLITransport has incomplete resource cleanup. It should properly close all streams and cancel any background tasks to prevent resource leaks.</description>
+    <contract>The disconnect method must properly close all resources including stdout, stderr, and stdin streams, cancel any background task groups, and clean up temporary files. It should also properly handle race conditions during shutdown.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception</acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,191 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:53:09
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:55:50
+@@ -43,10 +43,35 @@
+     return path
+ 
+ 
++def _get_artifact_path(artifact_annotation: Artifact) -> Path:
++    """Get the path for an artifact, handling path resolution properly."""
++    if artifact_annotation.path:
++        return Path(artifact_annotation.path)
++    
++    # For input artifacts, determine the default path
++    if not artifact_annotation.output:
++        # This is an input artifact, use the default input path
++        from hera.workflows.artifact import _DEFAULT_ARTIFACT_INPUT_DIRECTORY
++        if _DEFAULT_ARTIFACT_INPUT_DIRECTORY:
++            path = Path(_DEFAULT_ARTIFACT_INPUT_DIRECTORY) / artifact_annotation.name
++            return path
++        # Fallback to default behavior
++        return Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
++    
++    # For output artifacts, use the default outputs path
++    return Path(os.environ.get("hera__outputs_directory", "/tmp/hera-outputs")) / f"artifacts/{artifact_annotation.name}"
++
++
+ def _get_dumper_function(destination: Union[Parameter, Artifact]) -> Callable:
+     if isinstance(destination, Parameter) and destination.dumps is not None:
+         return destination.dumps
+ 
++    # Special handling for non-base Pydantic models
++    if isinstance(destination, Parameter) and hasattr(destination, 'dumps') and destination.dumps is None:
++        # If it's a parameter with dumps=None, we should use our enhanced serialize function
++        # that handles Pydantic models properly
++        return serialize
++    
+     return serialize
+ 
+ 
+@@ -134,7 +159,7 @@
+     if not artifact_annotation.path:
+         # Path is added to the spec automatically when built. As it isn't present in the annotation itself,
+         # we need to add it back in for the runner.
+-        artifact_annotation.path = artifact_annotation._get_default_inputs_path()
++        artifact_annotation.path = _get_outputs_path(artifact_annotation).as_posix()
+ 
+     # Handle custom loaders for non-base model classes
+     if artifact_annotation.loads is not None:
+@@ -182,11 +207,50 @@
+             raise RuntimeError(f"Failed to read artifact file {path}: {str(e)}")
+ 
+     if artifact_annotation.loader is None:
++        # For artifacts with no specific loader, return the path directly
+         return artifact_annotation.path
++    elif artifact_annotation.loader == ArtifactLoader.json.value:
++        path = Path(artifact_annotation.path)
++        # Check if file exists before attempting to read
++        if not path.exists():
++            # Handle missing file gracefully with fallback behavior
++            if artifact_annotation.optional:
++                return None
++            raise FileNotFoundError(f"Artifact file not found: {path}")
++        try:
++            with path.open() as f:
++                return json.load(f)
++        except Exception as e:
++            # If there's an error reading or loading the file, raise a more descriptive error
++            raise RuntimeError(f"Failed to load JSON artifact from {path}: {str(e)}")
++    elif artifact_annotation.loader == ArtifactLoader.file.value:
++        path = Path(artifact_annotation.path)
++        # Check if file exists before attempting to read
++        if not path.exists():
++            # Handle missing file gracefully with fallback behavior
++            if artifact_annotation.optional:
++                return None
++            raise FileNotFoundError(f"Artifact file not found: {path}")
++        try:
++            return path.read_text()
++        except Exception as e:
++            # If there's an error reading the file, raise a more descriptive error
++            raise RuntimeError(f"Failed to read artifact file {path}: {str(e)}")
++    elif artifact_annotation.loadb is not None:
++        # Handle bytes loading using loadb method
++        path = Path(artifact_annotation.path)
++        if not path.exists():
++            if artifact_annotation.optional:
++                return None
++            raise FileNotFoundError(f"Artifact file not found: {path}")
++        try:
++            return artifact_annotation.loadb(path.read_bytes())
++        except Exception as e:
++            raise RuntimeError(f"Failed to load bytes artifact from {path}: {str(e)}")
++    else:
++        raise RuntimeError(f"Artifact {artifact_annotation.name} was not given a value")
+ 
+-    raise RuntimeError(f"Artifact {artifact_annotation.name} was not given a value")
+ 
+-
+ T = TypeVar("T", bound=Type[BaseModel])
+ 
+ 
+@@ -305,23 +369,48 @@
+             from hera.shared._type_util import get_unsubscripted_type
+             actual_type = get_unsubscripted_type(actual_type)
+             
+-            if not isinstance(output_value, actual_type):
+-                # Try to handle cases where we're comparing types that differ in wrapper level
+-                # This happens with Annotated types vs their unwrapped versions
+-                try:
+-                    # Try to unwrap the actual output value's type as well
+-                    output_type = type(output_value)
+-                    if output_type == actual_type:
+-                        pass  # Types match
+-                    else:
+-                        # If still mismatched, try a more flexible comparison
++            # Special handling for generic types like typing.Dict[str, str] and typing.List[str]
++            # Check if we're dealing with generic types that should match their underlying types
++            if hasattr(actual_type, '__origin__'):
++                # For generic types like Dict, List, etc., check if the output_value is the corresponding concrete type
++                origin = get_origin(actual_type)
++                if origin is dict:
++                    # For Dict, check if output_value is a dict
++                    if not isinstance(output_value, dict):
+                         raise ValueError(
+                             f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+                         )
+-                except Exception:
+-                    raise ValueError(
+-                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                    )
++                elif origin is list:
++                    # For List, check if output_value is a list
++                    if not isinstance(output_value, list):
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
++                else:
++                    # For other generic types, fall back to standard type checking
++                    if not isinstance(output_value, actual_type):
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
++            else:
++                # Regular type checking
++                if not isinstance(output_value, actual_type):
++                    # Try to handle cases where we're comparing types that differ in wrapper level
++                    # This happens with Annotated types vs their unwrapped versions
++                    try:
++                        # Try to unwrap the actual output value's type as well
++                        output_type = type(output_value)
++                        if output_type == actual_type:
++                            pass  # Types match
++                        else:
++                            # If still mismatched, try a more flexible comparison
++                            raise ValueError(
++                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                            )
++                    except Exception:
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                        )
+ 
+             if not dest[1].name:
+                 raise ValueError("The name was not provided for one of the outputs.")
+@@ -382,7 +471,25 @@
+ 
+ def _write_to_path(path: Path, output_value: Any, dumper: Callable = serialize) -> None:
+     """Write the output_value as serialized text to the provided path. Create the necessary parent directories."""
+-    output_string = dumper(output_value)
++    # Special handling for bytes data
++    if isinstance(output_value, bytes):
++        # For bytes, write directly as bytes
++        path.parent.mkdir(parents=True, exist_ok=True)
++        path.write_bytes(output_value)
++        return
++    
++    # Special handling for non-base Pydantic models - use their dumps method if available
++    from hera.shared._pydantic import BaseModel
++    if isinstance(output_value, BaseModel) and not isinstance(output_value, BaseModel):
++        # This is a non-base Pydantic model, try to use its dumps method if available
++        if hasattr(output_value, 'dumps') and callable(getattr(output_value, 'dumps')):
++            output_string = output_value.dumps()
++        else:
++            # Fall back to standard serialization
++            output_string = dumper(output_value)
++    else:
++        output_string = dumper(output_value)
++    
+     if output_string is not None:
+         # Ensure path is a file path, not a directory path
+         if path.is_dir():

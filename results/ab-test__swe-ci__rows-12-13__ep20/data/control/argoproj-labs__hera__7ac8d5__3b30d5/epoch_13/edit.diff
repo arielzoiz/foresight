@@ -1,0 +1,50 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:52:49
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:54:48
+@@ -314,6 +314,13 @@
+         key_normalized = key.replace("-", "_")
+         value = kwarg["value"]
+         template_inputs[key_normalized] = value
++        
++    # Normalize keys to handle kebab-case to snake_case mapping properly
++    normalized_template_inputs = {}
++    for key, value in template_inputs.items():
++        # Make sure we're using the correct normalization for comparison
++        normalized_template_inputs[key] = value
++    template_inputs = normalized_template_inputs
+ 
+     function_kwargs = _map_function_annotations(function, template_inputs)
+ 
+@@ -402,26 +409,18 @@
+     # Ensure we're writing to a file, not a directory
+     # If args_path is a directory, create an output file in it
+     try:
++        # Ensure parent directory exists
++        args.args_path.parent.mkdir(parents=True, exist_ok=True)
++        
+         # Check if args_path points to a directory
+         if args.args_path.is_dir():
+-            # Create an output file in the directory
++            # If it's a directory, create an output file in that directory instead
+             output_file = args.args_path / "output.txt"
+-            # Ensure parent directory exists and is not a file
+             output_file.parent.mkdir(parents=True, exist_ok=True)
+             output_file.write_text(serialize(result))
+         else:
+-            # Write to the file path directly
+-            # Ensure parent directory exists
+-            args.args_path.parent.mkdir(parents=True, exist_ok=True)
+-            # Check if the path points to a directory (which would be an error)
+-            if args.args_path.is_dir():
+-                # If it's a directory, create an output file in that directory instead
+-                output_file = args.args_path.parent / "output.txt"
+-                output_file.parent.mkdir(parents=True, exist_ok=True)
+-                output_file.write_text(serialize(result))
+-            else:
+-                # Write directly to the file path
+-                args.args_path.write_text(serialize(result))
++            # Write directly to the file path
++            args.args_path.write_text(serialize(result))
+     except OSError as e:
+         # If we get a directory error, create a file in the directory instead
+         if "Is a directory" in str(e) or "directory" in str(e).lower():

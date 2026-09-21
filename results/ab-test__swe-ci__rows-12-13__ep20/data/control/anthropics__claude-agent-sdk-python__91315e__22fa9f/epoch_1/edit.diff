@@ -1,0 +1,370 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-21 02:33:18
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-21 02:33:18
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-21 02:33:18
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-21 02:46:20
+@@ -0,0 +1,4 @@
++{
++  "tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages": true,
++  "tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 02:46:20
+@@ -0,0 +1,22 @@
++[
++  "tests/test_message_parser.py::TestMessageParser::test_message_parse_error_contains_data",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_assistant_message_missing_fields",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_assistant_message_with_thinking",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_invalid_data_type",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_missing_type_field",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_result_message_missing_fields",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_system_message_missing_fields",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_unknown_message_type",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_user_message_missing_fields",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_user_message_with_mixed_content",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_user_message_with_tool_result",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_user_message_with_tool_result_error",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_user_message_with_tool_use",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_valid_assistant_message",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_valid_result_message",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_valid_system_message",
++  "tests/test_message_parser.py::TestMessageParser::test_parse_valid_user_message",
++  "tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_context_manager_with_exception",
++  "tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_messages_not_connected",
++  "tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/client.py b/src/claude_code_sdk/_internal/client.py
+--- a/src/claude_code_sdk/_internal/client.py	2026-09-21 02:27:58
++++ b/src/claude_code_sdk/_internal/client.py	2026-09-21 02:50:46
+@@ -18,16 +18,21 @@
+         self, prompt: str | AsyncIterable[dict[str, Any]], options: ClaudeCodeOptions
+     ) -> AsyncIterator[Message]:
+         """Process a query through transport."""
+-
+         transport = SubprocessCLITransport(
+-            prompt=prompt, options=options, close_stdin_after_prompt=True
++            prompt=prompt, options=options, close_stdin_after_prompt=False
+         )
+ 
+         try:
+             await transport.connect()
+ 
++            # This should properly yield from the transport's async iterator
+             async for data in transport.receive_messages():
+                 yield parse_message(data)
+ 
+         finally:
+-            await transport.disconnect()
++            # Ensure transport is properly disconnected even if there's an exception
++            try:
++                await transport.disconnect()
++            except Exception:
++                # Ignore disconnect errors to avoid masking original exceptions
++                pass
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/message_parser.py b/src/claude_code_sdk/_internal/message_parser.py
+--- a/src/claude_code_sdk/_internal/message_parser.py	2026-09-21 02:27:58
++++ b/src/claude_code_sdk/_internal/message_parser.py	2026-09-21 02:33:02
+@@ -91,6 +91,13 @@
+                     match block["type"]:
+                         case "text":
+                             content_blocks.append(TextBlock(text=block["text"]))
++                        case "thinking":
++                            content_blocks.append(
++                                ThinkingBlock(
++                                    thinking=block["thinking"],
++                                    signature=block["signature"],
++                                )
++                            )
+                         case "tool_use":
+                             content_blocks.append(
+                                 ToolUseBlock(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:27:58
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:51:28
+@@ -181,7 +181,7 @@
+                 stdout=PIPE,
+                 stderr=self._stderr_file,
+                 cwd=self._cwd,
+-                env={**os.environ, "CLAUDE_CODE_ENTRYPOINT": "sdk-py"},
++                env={**os.environ, "CLAUDE_CODE_ENTRYPOINT": "sdk-py", **(self._options.env or {})},
+             )
+ 
+             if self._process.stdout:
+@@ -195,7 +195,7 @@
+                     # Start streaming messages to stdin in background
+                     self._task_group = anyio.create_task_group()
+                     await self._task_group.__aenter__()
+-                    self._task_group.start_soon(self._stream_to_stdin)
++                    await self._task_group.start_soon(self._stream_to_stdin)
+             else:
+                 # String mode: close stdin immediately (backward compatible)
+                 if self._process.stdin:
+@@ -211,6 +211,10 @@
+         except Exception as e:
+             raise CLIConnectionError(f"Failed to start Claude Code: {e}") from e
+ 
++    async def close(self) -> None:
++        """Close the transport and terminate subprocess."""
++        await self.disconnect()
++
+     async def disconnect(self) -> None:
+         """Terminate subprocess."""
+         if not self._process:
+@@ -222,6 +226,21 @@
+             await self._task_group.__aexit__(None, None, None)
+             self._task_group = None
+ 
++        # Close stdin stream if it's still open
++        if self._stdin_stream:
++            try:
++                await self._stdin_stream.aclose()
++            except Exception:
++                pass
++            self._stdin_stream = None
++
++        # Additional cleanup for stdin in all cases
++        if self._process and self._process.stdin:
++            try:
++                await self._process.stdin.aclose()
++            except Exception:
++                pass
++
+         if self._process.returncode is None:
+             try:
+                 self._process.terminate()
+@@ -279,16 +298,23 @@
+                     break
+                 await self._stdin_stream.send(json.dumps(message) + "\n")
+ 
+-            # Close stdin after prompt if requested (e.g., for query() one-shot mode)
+-            if self._close_stdin_after_prompt and self._stdin_stream:
+-                await self._stdin_stream.aclose()
+-                self._stdin_stream = None
+-            # Otherwise keep stdin open for send_request (ClaudeSDKClient interactive mode)
++            # Do NOT close stdin here - keep it open for continued interaction
++            # The stdin will be closed by disconnect() or end_input() methods
+         except Exception as e:
+             logger.debug(f"Error streaming to stdin: {e}")
++            # Even if we encounter an error, we should still try to close stdin properly
++            # to prevent hanging processes
+             if self._stdin_stream:
+-                await self._stdin_stream.aclose()
++                try:
++                    await self._stdin_stream.aclose()
++                except Exception:
++                    pass
+                 self._stdin_stream = None
++            raise  # Re-raise to propagate the error
++        finally:
++            # Don't close stdin here - let the transport lifecycle manage it
++            # Just ensure cleanup happens in disconnect()
++            pass
+ 
+     async def receive_messages(self) -> AsyncIterator[dict[str, Any]]:
+         """Receive messages from CLI."""
+@@ -336,10 +362,7 @@
+                                 self._pending_control_responses[request_id] = response
+                             continue
+ 
+-                        try:
+-                            yield data
+-                        except GeneratorExit:
+-                            return
++                        yield data
+                     except json.JSONDecodeError:
+                         # We are speculatively decoding the buffer until we get
+                         # a full JSON object. If there is an actual issue, we
+@@ -351,51 +374,60 @@
+         except GeneratorExit:
+             # Client disconnected - still need to clean up
+             pass
++        finally:
++            # Read stderr from temp file (keep only last N lines for memory efficiency)
++            stderr_lines: deque[str] = deque(maxlen=100)  # Keep last 100 lines
++            if self._stderr_file:
++                try:
++                    # Flush any pending writes
++                    self._stderr_file.flush()
++                    # Read from the beginning
++                    self._stderr_file.seek(0)
++                    for line in self._stderr_file:
++                        line_text = line.strip()
++                        if line_text:
++                            stderr_lines.append(line_text)
++                except Exception:
++                    pass
+ 
+-        # Read stderr from temp file (keep only last N lines for memory efficiency)
+-        stderr_lines: deque[str] = deque(maxlen=100)  # Keep last 100 lines
+-        if self._stderr_file:
++            # Check process completion and handle errors
+             try:
+-                # Flush any pending writes
+-                self._stderr_file.flush()
+-                # Read from the beginning
+-                self._stderr_file.seek(0)
+-                for line in self._stderr_file:
+-                    line_text = line.strip()
+-                    if line_text:
+-                        stderr_lines.append(line_text)
++                returncode = await self._process.wait()
+             except Exception:
+-                pass
++                returncode = -1
+ 
+-        # Check process completion and handle errors
+-        try:
+-            returncode = await self._process.wait()
+-        except Exception:
+-            returncode = -1
++            # Convert deque to string for error reporting
++            stderr_output = "\n".join(list(stderr_lines)) if stderr_lines else ""
++            if len(stderr_lines) == stderr_lines.maxlen:
++                stderr_output = (
++                    f"[stderr truncated, showing last {stderr_lines.maxlen} lines]\n"
++                    + stderr_output
++                )
+ 
+-        # Convert deque to string for error reporting
+-        stderr_output = "\n".join(list(stderr_lines)) if stderr_lines else ""
+-        if len(stderr_lines) == stderr_lines.maxlen:
+-            stderr_output = (
+-                f"[stderr truncated, showing last {stderr_lines.maxlen} lines]\n"
+-                + stderr_output
+-            )
++            # Use exit code for error detection, not string matching
++            if returncode is not None and returncode != 0:
++                raise ProcessError(
++                    f"Command failed with exit code {returncode}",
++                    exit_code=returncode,
++                    stderr=stderr_output,
++                )
++            elif stderr_output:
++                # Log stderr for debugging but don't fail on non-zero exit
++                logger.debug(f"Process stderr: {stderr_output}")
+ 
+-        # Use exit code for error detection, not string matching
+-        if returncode is not None and returncode != 0:
+-            raise ProcessError(
+-                f"Command failed with exit code {returncode}",
+-                exit_code=returncode,
+-                stderr=stderr_output,
+-            )
+-        elif stderr_output:
+-            # Log stderr for debugging but don't fail on non-zero exit
+-            logger.debug(f"Process stderr: {stderr_output}")
++    async def read_messages(self) -> AsyncIterator[dict[str, Any]]:
++        """Read messages from CLI (alias for receive_messages)."""
++        async for message in self.receive_messages():
++            yield message
+ 
+     def is_connected(self) -> bool:
+         """Check if subprocess is running."""
+         return self._process is not None and self._process.returncode is None
+ 
++    def is_ready(self) -> bool:
++        """Check if transport is ready to communicate."""
++        return self.is_connected()
++
+     async def interrupt(self) -> None:
+         """Send interrupt control request (only works in streaming mode)."""
+         if not self._is_streaming:
+@@ -429,7 +461,7 @@
+ 
+         # Wait for response
+         while request_id not in self._pending_control_responses:
+-            await anyio.sleep(0.1)
++            await anyio.sleep(0.01)
+ 
+         response = self._pending_control_responses.pop(request_id)
+ 
+@@ -437,3 +469,12 @@
+             raise CLIConnectionError(f"Control request failed: {response.get('error')}")
+ 
+         return response
++
++    async def end_input(self) -> None:
++        """Signal end of input to subprocess."""
++        if not self._stdin_stream:
++            raise CLIConnectionError("stdin not available")
++        
++        # Close stdin to signal end of input
++        await self._stdin_stream.aclose()
++        self._stdin_stream = None
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 02:27:58
++++ b/src/claude_code_sdk/client.py	2026-09-21 02:51:32
+@@ -109,7 +109,6 @@
+             # Never yields, but indicates that this function is an iterator and
+             # keeps the connection open.
+             # This yield is never reached but makes this an async generator
+-            return
+             yield {}  # type: ignore[unreachable]
+ 
+         self._transport = SubprocessCLITransport(
+@@ -125,6 +124,7 @@
+ 
+         from ._internal.message_parser import parse_message
+ 
++        # Directly yield from the transport's async iterator
+         async for data in self._transport.receive_messages():
+             yield parse_message(data)
+ 
+@@ -199,7 +199,6 @@
+                         print(f"Cost: ${msg.total_cost_usd:.4f}")
+                         # Iterator will terminate after this message
+             ```
+-
+         Note:
+             To collect all messages: `messages = [msg async for msg in client.receive_response()]`
+             The final message in the list will always be a ResultMessage.
+@@ -222,5 +221,13 @@
+ 
+     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+         """Exit async context - always disconnects."""
+-        await self.disconnect()
++        # Always attempt to disconnect, but suppress any exceptions to avoid masking
++        # the original exception that might have caused the context exit
++        if self._transport:
++            try:
++                await self._transport.close()
++            except Exception:
++                # Suppress disconnect exceptions to preserve the original exception
++                pass
++        self._transport = None
+         return False
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/types.py b/src/claude_code_sdk/types.py
+--- a/src/claude_code_sdk/types.py	2026-09-21 02:27:58
++++ b/src/claude_code_sdk/types.py	2026-09-21 02:30:48
+@@ -140,3 +140,4 @@
+     extra_args: dict[str, str | None] = field(
+         default_factory=dict
+     )  # Pass arbitrary CLI flags
++    env: dict[str, str] | None = None  # Custom environment variables for subprocess

@@ -1,0 +1,50 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:47:14
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:49:13
+@@ -113,7 +113,12 @@
+         if _pydantic_mode == 1:
+             return parse_obj_as(type_, loaded_json_value)
+         else:
+-            return TypeAdapter(type_).validate_python(loaded_json_value)
++            # For pydantic v2, ensure we use the right import and handle complex types properly
++            try:
++                return TypeAdapter(type_).validate_python(loaded_json_value)
++            except Exception:
++                # If TypeAdapter fails, fallback to parse_obj_as for compatibility with complex types
++                return parse_obj_as(type_, loaded_json_value)
+     except (json.JSONDecodeError, TypeError) as e:
+         # If JSON parsing fails, return the original value
+         # This can happen with null bytes or other malformed data
+@@ -131,7 +136,11 @@
+                 if _pydantic_mode == 1:
+                     return parse_obj_as(type_, loaded_json_value)
+                 else:
+-                    return TypeAdapter(type_).validate_python(loaded_json_value)
++                    try:
++                        return TypeAdapter(type_).validate_python(loaded_json_value)
++                    except Exception:
++                        # Fallback for complex types that might not work with TypeAdapter directly
++                        return parse_obj_as(type_, loaded_json_value)
+             except Exception:
+                 # If cleaning still fails, fall back to original value
+                 return value
+@@ -217,8 +226,17 @@
+             function_kwargs[func_param_name] = map_runner_input(func_param.annotation, template_inputs)
+ 
+         else:
+-            # Use the kwarg value as-is
+-            function_kwargs[func_param_name] = template_inputs[func_param_name]
++            # For parameters without annotations, check if the parameter name exists in template inputs
++            # This handles cases where parameters are passed with their original names
++            if func_param_name in template_inputs:
++                function_kwargs[func_param_name] = template_inputs[func_param_name]
++            # If the function parameter name doesn't match exactly (e.g., kebab-case vs snake_case),
++            # try to find a matching key by converting to snake_case
++            elif func_param_name.replace("-", "_") in template_inputs:
++                function_kwargs[func_param_name] = template_inputs[func_param_name.replace("-", "_")]
++            # Also try reverse conversion (snake_case to kebab-case)
++            elif func_param_name.replace("_", "-") in template_inputs:
++                function_kwargs[func_param_name] = template_inputs[func_param_name.replace("_", "-")]
+     return function_kwargs
+ 
+ 

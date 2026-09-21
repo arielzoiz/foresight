@@ -1,0 +1,49 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:59:51
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 05:01:38
+@@ -71,12 +71,10 @@
+         return param_annotation.default
+     
+     # For backwards compatibility, we still raise an error if no default
+-    # Improve error message to be more descriptive
++    # Match the exact error message expected by the test
+     param_name = param_annotation.name if param_annotation.name else func_param_name
+     raise RuntimeError(
+-        f"Required parameter '{param_name}' was not provided with a value. "
+-        f"Ensure the parameter is passed in template_inputs. "
+-        f"Expected parameter name: '{param_name}'"
++        f"{param_name} was not given a value"
+     )
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:59:54
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 05:01:41
+@@ -265,9 +265,14 @@
+                             # Use the default value if provided in the annotation
+                             function_kwargs[func_param_name] = param_or_artifact.default
+                         else:
+-                            # For parameters without defaults, we should skip them completely
+-                            # This allows for graceful handling of missing required parameters
+-                            continue
++                            # For required parameters without defaults, we should raise a RuntimeError
++                            # with the correct parameter name that was expected to be provided
++                            param_name = param_or_artifact.name if param_or_artifact.name else func_param_name
++                            raise RuntimeError(
++                                f"Required parameter '{param_name}' was not provided with a value. "
++                                f"Ensure the parameter is passed in template_inputs. "
++                                f"Expected parameter name: '{param_name}'"
++                            )
+                     else:
+                         function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:
+@@ -393,7 +398,8 @@
+         if "pydantic" in str(type(e)).lower() or "validation" in str(e).lower():
+             # For validation errors, we should still save dummy outputs to avoid confusing Argo errors
+             _save_dummy_outputs(output_annotations)
+-            raise e
++            # Re-raise the original exception to ensure proper test failure reporting
++            raise
+         else:
+             # For other exceptions, re-raise as is
+             raise e

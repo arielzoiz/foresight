@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+    <description>The type checking logic in `_save_annotated_return_outputs` is too lenient and allows type mismatches between annotated output types and actual return values. Tests show errors like "ValueError: The type of output `dict-of-str`, `<class 'dict'>` does not match the annotated type `typing.Dict[str, str]`"</description>
+    <contract>When a function returns a value that doesn't match the exact type annotation of its output parameter, the system should raise a clear ValueError with descriptive messaging. The type checking should be strict and consistent with the annotated types.</contract>
+    <acceptance>Tests such as test_script_annotations_outputs[return_dict-kwargs_list12-expected_files12] and test_script_annotations_outputs[return_list_str-kwargs_list11-expected_files11] should pass</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+    <description>The artifact file handling in `get_annotated_artifact_value` has FileNotFoundError issues when accessing artifact files like '/tmp/hera-outputs/artifacts/default-artifact'. Tests show "FileNotFoundError: Artifact file not found: /tmp/hera-outputs/artifacts/default-artifact"</description>
+    <contract>When an artifact is configured as an input and the file does not exist, the system should either gracefully handle the missing file (when optional=True) or raise a clear FileNotFoundError with the specific path. When the artifact has no explicit path or name, it should use a safe fallback path.</contract>
+    <acceptance>Tests such as test_runner_pydantic_input_artifacts[pydantic io artifact input variations-1] and test_script_annotations_artifacts_no_name_or_path should pass</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/util.py</location>
+    <description>The `_map_function_annotations` function has issues with missing arguments and incomplete parameter handling, particularly with pydantic validation errors like "missing_argument". Tests show failures like "For further information visit https://errors.pydantic.dev/2.12/v/missing_argument"</description>
+    <contract>When function parameters are missing from the input template but have default values, the system should use those defaults. When parameters are truly missing and have no defaults, the function should be called with only the provided parameters, and any validation should be handled by pydantic appropriately.</contract>
+    <acceptance>Tests such as test_runner_parameter_inputs[examples.workflows.hera_runner.typed_script_input_output:function_kebab-kwargs_list3-{\"output\": [{\"a\": 3, \"b\": \"bar\", \"c\": 42.0}]}] and test_runner_annotated_parameter_inputs[annotated-param-no-name] should pass</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py</location>
+    <description>The parameter dumping logic in `_write_to_path` has issues with serialization, causing failures like "a='hello ' b='world'" which suggests improper handling of parameter serialization.</description>
+    <contract>When serializing parameters to files, the system should properly serialize various data types including strings, dictionaries, lists, and Pydantic models, ensuring the output format matches what's expected by the test suite.</contract>
+    <acceptance>Tests such as test_artifact_dumping[save-base-models-automatically-2] and test_parameter_dumping[save-base-models-automatically-2] should pass</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/util.py</location>
+    <description>The function call mechanism in `_runner` has issues with attribute access errors like "'function' object has no attribute 'to_dict'", suggesting problems in how function objects are handled.</description>
+    <contract>When calling functions via the runner, the system should properly handle function objects without attempting to access non-existent attributes like 'to_dict'. The function execution flow should be robust and not break on attribute access attempts.</contract>
+    <acceptance>Test test_hera_output[typed_script_input_output] should pass</acceptance>
+  </requirement>
+</requirement_document>

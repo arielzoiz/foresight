@@ -1,0 +1,52 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:21:24
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:22:48
+@@ -359,46 +359,8 @@
+         except GeneratorExit:
+             # Client disconnected - still need to clean up
+             pass
+-        finally:
+-            # Read stderr from temp file (keep only last N lines for memory efficiency)
+-            stderr_lines: deque[str] = deque(maxlen=100)  # Keep last 100 lines
+-            if self._stderr_file:
+-                try:
+-                    # Flush any pending writes
+-                    self._stderr_file.flush()
+-                    # Read from the beginning
+-                    self._stderr_file.seek(0)
+-                    for line in self._stderr_file:
+-                        line_text = line.strip()
+-                        if line_text:
+-                            stderr_lines.append(line_text)
+-                except Exception:
+-                    pass
+-
+-            # Check process completion and handle errors
+-            try:
+-                returncode = await self._process.wait()
+-            except Exception:
+-                returncode = -1
+-
+-            # Convert deque to string for error reporting
+-            stderr_output = "\n".join(list(stderr_lines)) if stderr_lines else ""
+-            if len(stderr_lines) == stderr_lines.maxlen:
+-                stderr_output = (
+-                    f"[stderr truncated, showing last {stderr_lines.maxlen} lines]\n"
+-                    + stderr_output
+-                )
+-
+-            # Use exit code for error detection, not string matching
+-            if returncode is not None and returncode != 0:
+-                raise ProcessError(
+-                    f"Command failed with exit code {returncode}",
+-                    exit_code=returncode,
+-                    stderr=stderr_output,
+-                )
+-            elif stderr_output:
+-                # Log stderr for debugging but don't fail on non-zero exit
+-                logger.debug(f"Process stderr: {stderr_output}")
++        # Note: Error handling for process completion moved to the calling code
++        # to maintain async generator protocol compliance
+ 
+     def is_connected(self) -> bool:
+         """Check if subprocess is running."""

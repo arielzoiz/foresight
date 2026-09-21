@@ -1,0 +1,71 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 05:31:33
++++ b/src/claude_code_sdk/client.py	2026-09-21 05:33:00
+@@ -151,29 +151,47 @@
+             }
+             await self._transport.send_request([message], {"session_id": session_id})
+         else:
+-            # For AsyncIterable prompts, we need to make sure we're in streaming mode
+-            # and properly handle the streaming
+-            # If we're not already in streaming mode, we need to reconnect
+-            # with the new prompt in streaming mode
++            # For AsyncIterable prompts, we should reuse the existing transport
++            # to maintain the async iteration contract. We should not create a new transport
++            # that would break the connection.
+             from ._internal.transport.subprocess_cli import SubprocessCLITransport
+             
+-            # Create a new transport with the AsyncIterable prompt
+-            # This ensures proper initialization for streaming mode
+-            new_transport = SubprocessCLITransport(
+-                prompt=prompt,
+-                options=self.options,
+-                close_stdin_after_prompt=True
+-            )
+-            
+-            # Connect the new transport
+-            await new_transport.connect()
+-            
+-            # Close the old transport if it exists
+-            if self._transport:
+-                await self._transport.close()
++            # Check if we're already using a SubprocessCLITransport
++            if isinstance(self._transport, SubprocessCLITransport):
++                # Reuse the existing transport connection - send the AsyncIterable as a series of messages
++                # This preserves the async iteration contract and avoids replacing the transport
++                messages = []
++                async for message_data in prompt:
++                    # Ensure message has required structure
++                    if not isinstance(message_data, dict):
++                        message_data = {
++                            "type": "user",
++                            "message": {"role": "user", "content": str(message_data)},
++                            "parent_tool_use_id": None,
++                            "session_id": session_id,
++                        }
++                    messages.append(message_data)
+                 
+-            # Replace with the new transport
+-            self._transport = new_transport
++                if messages:
++                    await self._transport.send_request(messages, {"session_id": session_id})
++            else:
++                # For non-SubprocessCLITransport, create a new one
++                # This maintains backward compatibility
++                new_transport = SubprocessCLITransport(
++                    prompt=prompt,
++                    options=self.options,
++                    close_stdin_after_prompt=True
++                )
++                
++                # Connect the new transport
++                await new_transport.connect()
++                
++                # Close the old transport if it exists
++                if self._transport:
++                    await self._transport.close()
++                    
++                # Replace with the new transport
++                self._transport = new_transport
+ 
+     async def interrupt(self) -> None:
+         """Send interrupt signal (only works with streaming mode)."""

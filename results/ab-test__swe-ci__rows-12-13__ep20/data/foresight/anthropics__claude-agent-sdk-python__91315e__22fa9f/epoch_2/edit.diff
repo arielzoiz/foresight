@@ -1,0 +1,35 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/client.py b/src/claude_code_sdk/_internal/client.py
+--- a/src/claude_code_sdk/_internal/client.py	2026-09-21 05:09:24
++++ b/src/claude_code_sdk/_internal/client.py	2026-09-21 05:14:17
+@@ -30,4 +30,4 @@
+                 yield parse_message(data)
+ 
+         finally:
+-            await transport.disconnect()
++            await transport.close()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:12:58
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:14:16
+@@ -252,6 +252,10 @@
+         self._stderr_stream = None
+         self._stdin_stream = None
+ 
++    async def close(self) -> None:
++        """Close the transport connection."""
++        await self.disconnect()
++
+     async def send_request(self, messages: list[Any], options: dict[str, Any]) -> None:
+         """Send additional messages in streaming mode."""
+         if not self._is_streaming:
+@@ -341,10 +345,7 @@
+                                 self._pending_control_responses[request_id] = response
+                             continue
+ 
+-                        try:
+-                            yield data
+-                        except GeneratorExit:
+-                            return
++                        yield data
+                     except json.JSONDecodeError:
+                         # We are speculatively decoding the buffer until we get
+                         # a full JSON object. If there is an actual issue, we

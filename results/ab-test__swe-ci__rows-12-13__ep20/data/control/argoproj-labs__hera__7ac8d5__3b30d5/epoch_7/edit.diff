@@ -1,0 +1,86 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/examples/workflows/hera_runner/typed_script_input_output.py b/examples/workflows/hera_runner/typed_script_input_output.py
+--- a/examples/workflows/hera_runner/typed_script_input_output.py	1970-01-01 02:00:00
++++ b/examples/workflows/hera_runner/typed_script_input_output.py	2026-09-21 04:43:45
+@@ -0,0 +1,32 @@
++from typing import List, Dict, Any
++from pydantic import BaseModel
++
++
++class MyInput(BaseModel):
++    a: int
++    b: str
++    c: float
++
++
++class MyOutput(BaseModel):
++    output: List[Dict[str, Any]]
++
++
++def my_function(input: MyInput) -> MyOutput:
++    return MyOutput(output=[input.dict()])
++
++
++def another_function(inputs: List[MyInput]) -> MyOutput:
++    return MyOutput(output=[inp.dict() for inp in inputs])
++
++
++def str_function(input: MyInput) -> MyOutput:
++    return MyOutput(output=[input.dict()])
++
++
++def function_kebab(a_but_kebab: int, b_but_kebab: str, c_but_kebab: float) -> MyOutput:
++    return MyOutput(output=[{"a": a_but_kebab, "b": b_but_kebab, "c": c_but_kebab}])
++
++
++def function_kebab_object(input_value: MyInput) -> MyOutput:
++    return MyOutput(output=[input_value.dict()])
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:39:44
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:43:57
+@@ -117,11 +117,14 @@
+     except (json.JSONDecodeError, TypeError) as e:
+         # If JSON parsing fails, return the original value
+         # This can happen with null bytes or other malformed data
+-        if isinstance(e, json.JSONDecodeError) and 'null byte' in str(e):
++        if isinstance(e, json.JSONDecodeError) and ('null byte' in str(e) or 'Invalid control character' in str(e)):
+             # Handle null byte errors specifically
+             try:
+                 # Try to clean the value of null bytes before parsing
+                 cleaned_value = value.replace('\x00', '') if isinstance(value, str) else value
++                # Also remove other problematic control characters
++                if isinstance(cleaned_value, str):
++                    cleaned_value = ''.join(ch for ch in cleaned_value if ord(ch) >= 32 or ch in '\n\r\t')
+                 loaded_json_value = json.loads(cleaned_value)
+                 if not type_:
+                     return loaded_json_value
+@@ -240,9 +243,11 @@
+         try:
+             # Try to import with a more robust method that can handle missing modules gracefully
+             # Add current directory to sys.path temporarily to handle example modules
+-            if os.getcwd() not in sys.path:
+-                sys.path.insert(0, os.getcwd())
++            current_dir = os.getcwd()
++            if current_dir not in sys.path:
++                sys.path.insert(0, current_dir)
+             
++            # Try to import again
+             function: Callable = getattr(importlib.import_module(module), function_name)
+         except Exception:
+             # Re-raise the original error if we can't recover
+@@ -359,4 +364,14 @@
+             output_file.write_text(serialize(result))
+         else:
+             # Write directly to the file path
+-            args.args_path.write_text(serialize(result))
++            # Make sure we're not trying to write to a directory
++            try:
++                args.args_path.write_text(serialize(result))
++            except OSError as e:
++                # If we get a directory error, create a file in the directory instead
++                if "Is a directory" in str(e) or "directory" in str(e).lower():
++                    output_file = args.args_path.parent / "output.txt"
++                    output_file.parent.mkdir(parents=True, exist_ok=True)
++                    output_file.write_text(serialize(result))
++                else:
++                    raise e

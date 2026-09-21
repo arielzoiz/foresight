@@ -1,0 +1,17 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:39:40
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:43:04
+@@ -234,6 +234,13 @@
+                 pass
+             self._stdin_stream = None
+ 
++        # Close stdin if it's still open (specifically for streaming mode)
++        if self._is_streaming and self._process.stdin:
++            try:
++                await self._process.stdin.aclose()
++            except Exception:
++                pass
++
+         if self._process.returncode is None:
+             try:
+                 self._process.terminate()

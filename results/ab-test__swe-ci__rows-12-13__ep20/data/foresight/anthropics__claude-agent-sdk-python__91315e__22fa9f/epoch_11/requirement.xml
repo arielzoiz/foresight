@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _stream_to_stdin method in SubprocessCLITransport is not properly implemented as an async iterator. The method is declared to be async but it doesn't yield control back to the event loop properly, causing async for loops to fail with "TypeError: 'async for' requires an object with __aiter__ method, got coroutine" when trying to iterate over the prompt AsyncIterable.</description>
+    <contract>The _stream_to_stdin method must be a proper async generator that yields control back to the event loop while iterating over the AsyncIterable prompt. It should properly implement the async iteration protocol by using 'yield' statements to return control to the event loop, rather than blocking execution.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _stream_to_stdin method is not properly started as a background task in the connect method. The method is called as a regular async function rather than being scheduled as a task in the task group, preventing proper concurrent execution of streaming.</description>
+    <contract>The _stream_to_stdin method must be started as a background task using the task group's start_soon method to allow concurrent execution with other operations during streaming mode.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>The query method in ClaudeSDKClient doesn't properly handle the case when a user passes an AsyncIterable prompt. It sets the transport's _prompt attribute directly but doesn't ensure the streaming mode is properly initialized.</description>
+    <contract>The query method must properly handle AsyncIterable prompts by ensuring the transport's streaming mode is correctly set and the prompt is properly passed to the underlying transport.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query, tests/test_streaming_client.py::TestQueryWithAsyncIterable::test_query_with_async_iterable</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/client.py</location>
+    <description>The process_query method in InternalClient doesn't properly handle the close_stdin_after_prompt flag when dealing with AsyncIterable prompts, potentially causing issues with stdin closure timing.</description>
+    <contract>The process_query method must properly initialize the transport with the close_stdin_after_prompt flag set to True for AsyncIterable prompts to ensure proper one-shot behavior.</contract>
+    <acceptance>tests/test_streaming_client.py::TestQueryWithAsyncIterable::test_query_with_async_iterable, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_continuation_option</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _stream_to_stdin method is not properly integrated with the task group management, causing potential race conditions and improper cleanup of the streaming process.</description>
+    <contract>The _stream_to_stdin method must be properly managed within the task group lifecycle to ensure proper execution and cleanup, including cancellation when the transport is closed.</contract>
+    <acceptance>All streaming-related tests in test_streaming_client.py and test_integration.py</acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:122</location>
+    <description>The artifact loading mechanism fails when an Artifact annotation has no name specified but uses ArtifactLoader.file. In the test case `test_script_annotations_artifacts_no_name_or_path`, the function `file_loader_default_path` expects to load a file from the default path but receives an empty string instead of the expected content "Hello there!". This indicates the artifact path resolution logic doesn't properly handle unnamed artifacts with file loaders.</description>
+    <contract>When an Artifact annotation has no name specified but specifies ArtifactLoader.file, the system should resolve the artifact path to the default input directory and load the file content correctly. The resolved path should be `/tmp/hera-inputs/artifacts/{artifact_name}` where artifact_name is derived from the function parameter name or a default value, and the file content should be returned as a string.</contract>
+    <acceptance>tests/test_runner.py::test_script_annotations_artifacts_no_name_or_path</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:135</location>
+    <description>The artifact loading process fails to properly handle the case where artifact path resolution fails for unnamed artifacts. When an Artifact annotation has no name, the `_get_default_inputs_path()` method in the Artifact class throws an error because `self.name` is None, causing the artifact loading to fail.</description>
+    <contract>When an Artifact annotation has no name specified, the system should generate a default path based on the function parameter name or use a fallback mechanism that prevents crashes and allows proper artifact loading with default values.</contract>
+    <acceptance>tests/test_serialisers.py::test_artifact_loading[pydantic-input-with-loader-on-attribute-1]</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:148</location>
+    <description>Artifact loading fails when a file doesn't exist for an Artifact with ArtifactLoader.file. The current implementation returns an empty string when the file is missing, but some tests expect more specific behavior or error handling.</description>
+    <contract>When an Artifact with ArtifactLoader.file is used and the file doesn't exist, the system should return an appropriate default value (empty string) rather than raising an exception, ensuring consistent behavior across test cases.</contract>
+    <acceptance>tests/test_serialisers.py::test_artifact_byte_loading[load-bytes-with-loader-1]</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/util.py:270</location>
+    <description>Missing parameter handling fails for required parameters without default values. Several tests fail with "Required parameter 'my-parameter' was not provided with a value" because the parameter lookup mechanism doesn't properly handle missing required parameters.</description>
+    <contract>When a required parameter without a default value is not provided, the system should raise a RuntimeError with the exact error message format expected by tests: "Required parameter '{param_name}' was not provided with a value. Ensure the parameter is passed in template_inputs. Expected parameter name: '{param_name}'".</contract>
+    <acceptance>tests/test_serialisers.py::test_loading_wrong_type[1]</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/util.py:445</location>
+    <description>Directory creation fails when the output path is a directory instead of a file. Tests like `test_runner_pydantic_output_artifacts` fail with "IsADirectoryError: [Errno 21] Is a directory" because the output writing logic doesn't handle cases where the expected output path is actually a directory.</description>
+    <contract>When attempting to write output to a path that resolves to a directory, the system should create a file in that directory (e.g., output.txt) instead of raising an IsADirectoryError, ensuring consistent behavior for all output scenarios.</contract>
+    <acceptance>tests/test_runner.py::test_runner_pydantic_output_artifacts</acceptance>
+  </requirement>
+</requirement_document>

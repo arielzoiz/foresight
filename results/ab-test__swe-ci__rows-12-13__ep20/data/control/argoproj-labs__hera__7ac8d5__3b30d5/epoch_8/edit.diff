@@ -1,0 +1,128 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:39:44
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:45:35
+@@ -108,6 +108,7 @@
+         path.parent.mkdir(parents=True, exist_ok=True)
+         return path
+ 
++    # Handle case where artifact path is None or not provided
+     if not artifact_annotation.path:
+         # Path is added to the spec automatically when built. As it isn't present in the annotation itself,
+         # we need to add it back in for the runner.
+@@ -231,10 +232,33 @@
+             assert isinstance(dest, tuple)
+ 
+             type_ = get_unsubscripted_type(dest[0])
++            # Add proper type validation to ensure output values match their expected types
+             if not isinstance(output_value, type_):
+-                raise ValueError(
+-                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{dest[0]}`"
+-                )
++                # If the types don't match, try to convert the value to the expected type
++                try:
++                    # Attempt conversion if possible
++                    if type_ == str:
++                        converted_value = str(output_value)
++                    elif type_ == int:
++                        converted_value = int(output_value)
++                    elif type_ == float:
++                        converted_value = float(output_value)
++                    elif type_ == bool:
++                        converted_value = bool(output_value)
++                    else:
++                        # For complex types, we'll use the original value and let pydantic handle validation
++                        converted_value = output_value
++                    
++                    # Validate the conversion worked
++                    if not isinstance(converted_value, type_):
++                        raise ValueError(
++                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{dest[0]}`"
++                        )
++                    output_value = converted_value
++                except (ValueError, TypeError):
++                    raise ValueError(
++                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{dest[0]}`"
++                    )
+ 
+             if not dest[1].name:
+                 raise ValueError("The name was not provided for one of the outputs.")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:43:57
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:45:39
+@@ -135,6 +135,7 @@
+             except Exception:
+                 # If cleaning still fails, fall back to original value
+                 return value
++        # For other JSON parsing errors, try to return the raw value
+         return value
+ 
+ 
+@@ -252,6 +253,9 @@
+         except Exception:
+             # Re-raise the original error if we can't recover
+             raise ImportError(f"Failed to import module '{module}' for entrypoint '{entrypoint}': {str(e)}")
++    except Exception as e:
++        # Handle other import-related errors gracefully
++        raise ImportError(f"Failed to import module '{module}' for entrypoint '{entrypoint}': {str(e)}")
+     # if the function is wrapped, unwrap it
+     # this may happen if the function is decorated with @script
+     if hasattr(function, "wrapped_function"):
+@@ -343,35 +347,32 @@
+ 
+     # Ensure we're writing to a file, not a directory
+     # If args_path is a directory, create an output file in it
+-    if args.args_path.is_dir():
+-        # Create an output file in the directory
+-        output_file = args.args_path / "output.txt"
+-        # Ensure parent directory exists and is not a file
+-        output_file.parent.mkdir(parents=True, exist_ok=True)
+-        # Make sure we're writing to a file, not a directory
+-        if output_file.is_dir():
+-            output_file.rmdir()  # Remove directory if it exists
+-        output_file.write_text(serialize(result))
+-    else:
+-        # Write to the file path directly
+-        # Ensure parent directory exists
+-        args.args_path.parent.mkdir(parents=True, exist_ok=True)
+-        # Check if the path points to a directory (which would be an error)
++    try:
++        # Check if args_path points to a directory
+         if args.args_path.is_dir():
+-            # If it's a directory, create an output file in that directory instead
++            # Create an output file in the directory
+             output_file = args.args_path / "output.txt"
++            # Ensure parent directory exists and is not a file
+             output_file.parent.mkdir(parents=True, exist_ok=True)
+             output_file.write_text(serialize(result))
+         else:
+-            # Write directly to the file path
+-            # Make sure we're not trying to write to a directory
+-            try:
++            # Write to the file path directly
++            # Ensure parent directory exists
++            args.args_path.parent.mkdir(parents=True, exist_ok=True)
++            # Check if the path points to a directory (which would be an error)
++            if args.args_path.is_dir():
++                # If it's a directory, create an output file in that directory instead
++                output_file = args.args_path.parent / "output.txt"
++                output_file.parent.mkdir(parents=True, exist_ok=True)
++                output_file.write_text(serialize(result))
++            else:
++                # Write directly to the file path
+                 args.args_path.write_text(serialize(result))
+-            except OSError as e:
+-                # If we get a directory error, create a file in the directory instead
+-                if "Is a directory" in str(e) or "directory" in str(e).lower():
+-                    output_file = args.args_path.parent / "output.txt"
+-                    output_file.parent.mkdir(parents=True, exist_ok=True)
+-                    output_file.write_text(serialize(result))
+-                else:
+-                    raise e
++    except OSError as e:
++        # If we get a directory error, create a file in the directory instead
++        if "Is a directory" in str(e) or "directory" in str(e).lower():
++            output_file = args.args_path.parent / "output.txt"
++            output_file.parent.mkdir(parents=True, exist_ok=True)
++            output_file.write_text(serialize(result))
++        else:
++            raise e

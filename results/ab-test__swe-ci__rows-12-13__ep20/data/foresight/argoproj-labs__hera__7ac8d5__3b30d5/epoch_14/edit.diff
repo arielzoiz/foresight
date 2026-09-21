@@ -1,0 +1,86 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:10:49
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 07:14:20
+@@ -418,9 +418,13 @@
+                                    (actual_type.__name__ == 'List' and isinstance(output_value, list)):
+                                     pass  # Allow generic type matching
+                                 else:
+-                                    raise ValueError(
+-                                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                                    )
++                                    # Final fallback: check if it's a simple type match
++                                    if type(output_value).__name__ == actual_type.__name__:
++                                        pass  # Accept same-type names
++                                    else:
++                                        raise ValueError(
++                                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                        )
+                         else:
+                             raise ValueError(
+                                 f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+@@ -466,9 +470,26 @@
+                         if type(output_value).__name__ == actual_type.__name__:
+                             pass  # Accept same-type names
+                         else:
+-                            raise ValueError(
+-                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                            )
++                            # Additional check for generic types with simpler approach
++                            try:
++                                # Check if the actual_type is a generic type and output_value is the concrete type
++                                if hasattr(actual_type, '__name__'):
++                                    if actual_type.__name__ == 'Dict' and isinstance(output_value, dict):
++                                        pass  # Accept dict for typing.Dict
++                                    elif actual_type.__name__ == 'List' and isinstance(output_value, list):
++                                        pass  # Accept list for typing.List
++                                    else:
++                                        raise ValueError(
++                                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                        )
++                                else:
++                                    raise ValueError(
++                                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                    )
++                            except Exception:
++                                raise ValueError(
++                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                )
+ 
+             if not dest[1].name:
+                 raise ValueError("The name was not provided for one of the outputs.")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 07:10:41
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 07:13:55
+@@ -229,11 +229,23 @@
+                         else:
+                             # If we still don't have a value and it's not optional, we should not add it
+                             # Let the function handle missing parameters naturally
++                            # But we should not include parameters that are missing and have no default
++                            # to avoid "missing_argument" errors
+                             pass
+                     else:
+                         function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:
+-                function_kwargs[func_param_name] = get_annotated_artifact_value(func_param_name, param_or_artifact)
++                # For artifact inputs, we need to handle missing artifacts properly
++                try:
++                    function_kwargs[func_param_name] = get_annotated_artifact_value(func_param_name, param_or_artifact)
++                except Exception:
++                    # If there's an error getting artifact value (e.g., missing artifact), 
++                    # check if the parameter has a default value
++                    if func_param.default is not inspect.Parameter.empty:
++                        function_kwargs[func_param_name] = func_param.default
++                    else:
++                        # Re-raise the original error if no default is provided
++                        raise
+         elif not is_subscripted(func_param.annotation) and issubclass(func_param.annotation, (InputV1, InputV2)):
+             # We collect all relevant kwargs for the single `Input` function parameter
+             function_kwargs[func_param_name] = map_runner_input(func_param.annotation, template_inputs)
+@@ -250,6 +262,7 @@
+                 # Otherwise, just leave it out - let the function handle it appropriately
+                 # But if the function expects this parameter, it will raise a TypeError anyway
+                 # So we don't need to explicitly handle missing parameters here
++                # However, if there's no default, we should not add the parameter at all
+                 pass
+     return function_kwargs
+ 

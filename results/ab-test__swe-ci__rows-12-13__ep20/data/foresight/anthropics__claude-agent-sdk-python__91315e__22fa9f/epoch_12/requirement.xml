@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The receive_messages() method is returning a coroutine instead of an async iterator. The test shows that when client.receive_messages() is called, it tries to iterate over the result with 'async for', but gets a coroutine instead of an async iterator.</description>
+        <contract>The receive_messages() method in SubprocessCLITransport must return an AsyncIterator[dict[str, Any]] that can be properly consumed with 'async for' syntax.</contract>
+        <acceptance>Tests in tests/test_streaming_client.py that use async for msg in client.receive_messages() should pass, particularly test_receive_messages, test_concurrent_send_receive, test_receive_response, and test_receive_response_list_comprehension.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/client.py</location>
+        <description>The client's receive_messages() method calls self._transport.receive_messages() but the transport's method is incorrectly implemented, causing a coroutine to be returned instead of an async iterator.</description>
+        <contract>The ClaudeSDKClient.receive_messages() method must properly yield parsed messages from the transport's receive_messages() method.</contract>
+        <acceptance>Tests in tests/test_streaming_client.py that use async for msg in client.receive_messages() should pass.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/_internal/client.py</location>
+        <description>The internal client's process_query() method calls transport.receive_messages() but the transport's implementation is incorrect, causing the same coroutine vs iterator issue.</description>
+        <contract>The InternalClient.process_query() method must properly iterate over the transport's receive_messages() and yield parsed messages.</contract>
+        <acceptance>Tests in tests/test_integration.py that use the query() function should pass, particularly test_simple_query_response and test_query_with_tool_use.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+        <description>The _stream_to_stdin() method is not properly handling async iteration when the prompt is an AsyncIterable. It's likely not being called correctly in the async context.</description>
+        <contract>The _stream_to_stdin() method must properly iterate over AsyncIterable prompts and stream them to stdin in the background.</contract>
+        <acceptance>Tests involving streaming prompts should pass, including test_query and test_concurrent_send_receive.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/src/claude_code_sdk/client.py</location>
+        <description>The query() method doesn't properly handle AsyncIterable prompts for one-shot queries. It sets the prompt directly but doesn't ensure the transport properly streams it.</description>
+        <contract>The ClaudeSDKClient.query() method must properly handle AsyncIterable prompts by ensuring they are streamed through the transport correctly.</contract>
+        <acceptance>Tests in tests/test_streaming_client.py::TestQueryWithAsyncIterable that use async iterables with query() should pass.</acceptance>
+    </item>
+</requirement>

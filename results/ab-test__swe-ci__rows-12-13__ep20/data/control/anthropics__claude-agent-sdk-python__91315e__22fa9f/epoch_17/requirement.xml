@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The SubprocessCLITransport's receive_messages method is returning a coroutine instead of an async iterator, causing 'async for' to fail with 'TypeError: 'async for' requires an object with __aiter__ method, got coroutine' errors.</description>
+    <contract>The receive_messages method must return a proper AsyncIterator[dict[str, Any]] that can be used with 'async for' loops. The method should properly yield messages asynchronously from the underlying transport.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_response, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_send_message_with_session_id, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_receive_messages, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt, tests/test_streaming_client.py::TestClaudeSDKClientEdgeCases::test_receive_response_list_comprehension, tests/test_integration.py::TestIntegration::test_continuation_option, tests/test_integration.py::TestIntegration::test_query_with_tool_use, tests/test_integration.py::TestIntegration::test_simple_query_response, tests/test_client.py::TestQueryFunction::test_query_with_cwd</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _stream_to_stdin method in SubprocessCLITransport has incorrect handling of AsyncIterable prompts that leads to early closure of stdin, breaking the streaming functionality for interactive clients.</description>
+    <contract>The _stream_to_stdin method must properly handle AsyncIterable prompts without prematurely closing stdin, allowing for continued communication with the CLI subprocess.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_concurrent_send_receive, tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_query</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/client.py</location>
+    <description>The InternalClient.process_query method doesn't properly manage the lifecycle of the transport when using AsyncIterable prompts, causing connection issues and improper cleanup.</description>
+    <contract>The process_query method should correctly handle AsyncIterable prompts by managing transport connection and disconnection properly, ensuring all messages are processed and transport is cleaned up correctly.</contract>
+    <acceptance>tests/test_streaming_client.py::TestQueryWithAsyncIterable::test_query_with_async_iterable</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/client.py</location>
+    <description>ClaudeSDKClient's connect method creates an empty stream incorrectly, which prevents proper initialization of the transport for interactive use.</description>
+    <contract>The connect method should properly initialize the transport with either a provided prompt or an empty async iterable that allows for continued communication.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_manual_connect_disconnect</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/claude_code_sdk/_internal/transport/subprocess_cli.py</location>
+    <description>The _send_control_request method in SubprocessCLITransport has an issue with handling control responses that causes the interrupt functionality to fail.</description>
+    <contract>The _send_control_request method should properly send control requests and wait for responses, ensuring that interrupt functionality works correctly.</contract>
+    <acceptance>tests/test_streaming_client.py::TestClaudeSDKClientStreaming::test_interrupt</acceptance>
+  </requirement>
+</requirement_document>

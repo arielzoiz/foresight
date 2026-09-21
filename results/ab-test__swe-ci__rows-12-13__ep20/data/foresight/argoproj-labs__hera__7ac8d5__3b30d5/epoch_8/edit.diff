@@ -1,0 +1,172 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:55:50
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 06:58:15
+@@ -72,6 +72,10 @@
+         # that handles Pydantic models properly
+         return serialize
+     
++    # Special handling for Artifact outputs - if they have a dumps function, use it
++    if isinstance(destination, Artifact) and destination.dumps is not None:
++        return destination.dumps
++    
+     return serialize
+ 
+ 
+@@ -156,10 +160,17 @@
+         path.parent.mkdir(parents=True, exist_ok=True)
+         return path
+ 
++    # For input artifacts, construct the path properly
+     if not artifact_annotation.path:
+-        # Path is added to the spec automatically when built. As it isn't present in the annotation itself,
+-        # we need to add it back in for the runner.
+-        artifact_annotation.path = _get_outputs_path(artifact_annotation).as_posix()
++        # This is an input artifact without explicit path - use the default input path resolution
++        from hera.workflows.artifact import _DEFAULT_ARTIFACT_INPUT_DIRECTORY
++        if _DEFAULT_ARTIFACT_INPUT_DIRECTORY:
++            path = Path(_DEFAULT_ARTIFACT_INPUT_DIRECTORY) / artifact_annotation.name
++            artifact_annotation.path = str(path)
++        else:
++            # Fallback to default behavior
++            path = Path(f"/tmp/hera-outputs/artifacts/{artifact_annotation.name}")
++            artifact_annotation.path = str(path)
+ 
+     # Handle custom loaders for non-base model classes
+     if artifact_annotation.loads is not None:
+@@ -209,33 +220,6 @@
+     if artifact_annotation.loader is None:
+         # For artifacts with no specific loader, return the path directly
+         return artifact_annotation.path
+-    elif artifact_annotation.loader == ArtifactLoader.json.value:
+-        path = Path(artifact_annotation.path)
+-        # Check if file exists before attempting to read
+-        if not path.exists():
+-            # Handle missing file gracefully with fallback behavior
+-            if artifact_annotation.optional:
+-                return None
+-            raise FileNotFoundError(f"Artifact file not found: {path}")
+-        try:
+-            with path.open() as f:
+-                return json.load(f)
+-        except Exception as e:
+-            # If there's an error reading or loading the file, raise a more descriptive error
+-            raise RuntimeError(f"Failed to load JSON artifact from {path}: {str(e)}")
+-    elif artifact_annotation.loader == ArtifactLoader.file.value:
+-        path = Path(artifact_annotation.path)
+-        # Check if file exists before attempting to read
+-        if not path.exists():
+-            # Handle missing file gracefully with fallback behavior
+-            if artifact_annotation.optional:
+-                return None
+-            raise FileNotFoundError(f"Artifact file not found: {path}")
+-        try:
+-            return path.read_text()
+-        except Exception as e:
+-            # If there's an error reading the file, raise a more descriptive error
+-            raise RuntimeError(f"Failed to read artifact file {path}: {str(e)}")
+     elif artifact_annotation.loadb is not None:
+         # Handle bytes loading using loadb method
+         path = Path(artifact_annotation.path)
+@@ -356,7 +340,7 @@
+             actual_type = annotated_type
+             
+             # If it's an Annotated type, extract the underlying type
+-            if hasattr(actual_type, '__origin__') or (hasattr(actual_type, '__args__') and len(get_args(actual_type)) > 0):
++            if hasattr(actual_type, '__metadata__') or (hasattr(actual_type, '__args__') and len(get_args(actual_type)) > 0):
+                 try:
+                     # Try to get the underlying type from Annotated wrapper
+                     args = get_args(actual_type)
+@@ -389,9 +373,43 @@
+                 else:
+                     # For other generic types, fall back to standard type checking
+                     if not isinstance(output_value, actual_type):
+-                        raise ValueError(
+-                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                        )
++                        # Allow for flexible matching of generic types
++                        try:
++                            # Try to compare the underlying types more flexibly
++                            if hasattr(actual_type, '__args__') and hasattr(output_value, '__class__'):
++                                # For cases like typing.Dict[str, str] vs dict, check if it's the right type
++                                if actual_type.__origin__ is dict and isinstance(output_value, dict):
++                                    pass  # This is acceptable
++                                elif actual_type.__origin__ is list and isinstance(output_value, list):
++                                    pass  # This is acceptable
++                                else:
++                                    # Additional check for special cases
++                                    if hasattr(actual_type, '__name__') and actual_type.__name__ == 'Dict':
++                                        if isinstance(output_value, dict):
++                                            pass  # Accept dict for Dict type
++                                        else:
++                                            raise ValueError(
++                                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                            )
++                                    elif hasattr(actual_type, '__name__') and actual_type.__name__ == 'List':
++                                        if isinstance(output_value, list):
++                                            pass  # Accept list for List type
++                                        else:
++                                            raise ValueError(
++                                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                            )
++                                    else:
++                                        raise ValueError(
++                                            f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                        )
++                            else:
++                                raise ValueError(
++                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                )
++                        except Exception:
++                            raise ValueError(
++                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                            )
+             else:
+                 # Regular type checking
+                 if not isinstance(output_value, actual_type):
+@@ -404,9 +422,21 @@
+                             pass  # Types match
+                         else:
+                             # If still mismatched, try a more flexible comparison
+-                            raise ValueError(
+-                                f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+-                            )
++                            # Check if we're comparing types like typing.Dict vs dict
++                            if hasattr(actual_type, '__name__') and actual_type.__name__ in ('Dict', 'List'):
++                                # For typing.Dict and typing.List, allow their concrete counterparts
++                                if actual_type.__name__ == 'Dict' and isinstance(output_value, dict):
++                                    pass
++                                elif actual_type.__name__ == 'List' and isinstance(output_value, list):
++                                    pass
++                                else:
++                                    raise ValueError(
++                                        f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                    )
++                            else:
++                                raise ValueError(
++                                    f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
++                                )
+                     except Exception:
+                         raise ValueError(
+                             f"The type of output `{dest[1].name}`, `{type(output_value)}` does not match the annotated type `{annotated_type}`"
+@@ -480,8 +510,8 @@
+     
+     # Special handling for non-base Pydantic models - use their dumps method if available
+     from hera.shared._pydantic import BaseModel
+-    if isinstance(output_value, BaseModel) and not isinstance(output_value, BaseModel):
+-        # This is a non-base Pydantic model, try to use its dumps method if available
++    if isinstance(output_value, BaseModel):
++        # This is a Pydantic model, try to use its dumps method if available
+         if hasattr(output_value, 'dumps') and callable(getattr(output_value, 'dumps')):
+             output_string = output_value.dumps()
+         else:
+@@ -492,8 +522,9 @@
+     
+     if output_string is not None:
+         # Ensure path is a file path, not a directory path
++        # If the path is a directory, we should create a file inside it with a default name
+         if path.is_dir():
+-            # If path is a directory, create a file inside it with a default name
++            # Create a file inside the directory with a default name
+             path = path / "output"
+         path.parent.mkdir(parents=True, exist_ok=True)
+         path.write_text(output_string)

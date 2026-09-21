@@ -1,0 +1,99 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/script_annotations_util.py b/src/hera/workflows/_runner/script_annotations_util.py
+--- a/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:56:49
++++ b/src/hera/workflows/_runner/script_annotations_util.py	2026-09-21 04:58:22
+@@ -71,8 +71,11 @@
+         return param_annotation.default
+     
+     # For backwards compatibility, we still raise an error if no default
++    # Improve error message to be more descriptive
++    param_name = param_annotation.name if param_annotation.name else func_param_name
+     raise RuntimeError(
+-        f"Parameter {param_annotation.name if param_annotation.name else func_param_name} was not given a value"
++        f"Required parameter '{param_name}' was not provided with a value. "
++        f"Ensure the parameter is passed in template_inputs."
+     )
+ 
+ 
+@@ -80,7 +83,11 @@
+     param_value: str,
+     loader: Optional[Callable[[str], Any]],
+ ) -> Any:
+-    return param_value if loader is None else loader(param_value)
++    try:
++        return param_value if loader is None else loader(param_value)
++    except Exception as e:
++        # Provide more informative error messages for parameter loading failures
++        raise RuntimeError(f"Failed to load parameter value: {str(e)}")
+ 
+ 
+ def get_annotated_output_param(param_annotation: Parameter) -> Path:
+@@ -153,7 +160,10 @@
+     if artifact_annotation.loader is None:
+         return artifact_annotation.path
+ 
+-    raise RuntimeError(f"Artifact {artifact_annotation.name} was not given a value")
++    # Provide a more descriptive error message for artifact loading failures
++    artifact_name = artifact_annotation.name if artifact_annotation.name else "unnamed artifact"
++    raise RuntimeError(f"Artifact '{artifact_name}' failed to load. "
++                       f"Either the artifact path is invalid or the loader configuration is incorrect.")
+ 
+ 
+ T = TypeVar("T", bound=Type[BaseModel])
+@@ -212,7 +222,16 @@
+     for field in get_fields(runner_input_class):
+         input_model_obj[field] = map_field(field, kwargs)
+ 
+-    return cast(T, runner_input_class.parse_obj(input_model_obj))
++    try:
++        return cast(T, runner_input_class.parse_obj(input_model_obj))
++    except Exception as e:
++        # Provide more descriptive error messages for Pydantic validation errors
++        field_names = list(input_model_obj.keys())
++        field_list = ", ".join(field_names) if field_names else "unknown fields"
++        raise RuntimeError(
++            f"Failed to parse input parameters for {runner_input_class.__name__}. "
++            f"Fields: {field_list}. Error: {str(e)}"
++        )
+ 
+ 
+ def _save_annotated_return_outputs(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/hera/workflows/_runner/util.py b/src/hera/workflows/_runner/util.py
+--- a/src/hera/workflows/_runner/util.py	2026-09-21 04:56:47
++++ b/src/hera/workflows/_runner/util.py	2026-09-21 04:58:24
+@@ -241,6 +241,20 @@
+                             kebab_case_key = func_param_name.replace("_", "-")
+                             if kebab_case_key in template_inputs:
+                                 param_value = template_inputs[kebab_case_key]
++                        
++                        # If still no value found, check for common variations
++                        # Try with underscores swapped
++                        if param_value is None:
++                            # Check for kebab-case versions of the parameter name (e.g., my-param -> my_param)
++                            if "-" in func_param_name:
++                                snake_case_key = func_param_name.replace("-", "_")
++                                if snake_case_key in template_inputs:
++                                    param_value = template_inputs[snake_case_key]
++                            # Check for snake_case versions of the parameter name (e.g., my_param -> my-param)
++                            elif "_" in func_param_name:
++                                kebab_case_key = func_param_name.replace("_", "-")
++                                if kebab_case_key in template_inputs:
++                                    param_value = template_inputs[kebab_case_key]
+ 
+                     # Handle case where parameter is not provided with value
+                     if param_value is None:
+@@ -249,7 +263,14 @@
+                             function_kwargs[func_param_name] = func_param.default
+                         else:
+                             # For parameters without defaults, we should skip them completely
+-                            continue
++                            # But first check if we should provide a more descriptive error
++                            # Check if the parameter is required (has no default) and wasn't provided
++                            if param_or_artifact.default is None:
++                                # This case is handled elsewhere - we should skip parameters without defaults
++                                continue
++                            else:
++                                # Use the default value if provided
++                                function_kwargs[func_param_name] = param_or_artifact.default
+                     else:
+                         function_kwargs[func_param_name] = load_param_input(param_value, param_or_artifact.loads)
+             else:

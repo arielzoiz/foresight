@@ -1,0 +1,51 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/client.py b/src/claude_code_sdk/_internal/client.py
+--- a/src/claude_code_sdk/_internal/client.py	2026-09-21 02:34:52
++++ b/src/claude_code_sdk/_internal/client.py	2026-09-21 02:35:44
+@@ -29,4 +29,9 @@
+                 yield parse_message(data)
+ 
+         finally:
+-            await transport.disconnect()
++            # Ensure transport is properly disconnected even if there's an exception
++            try:
++                await transport.disconnect()
++            except Exception:
++                # Ignore disconnect errors to avoid masking original exceptions
++                pass
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:34:50
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 02:35:40
+@@ -293,6 +293,14 @@
+             if self._stdin_stream:
+                 await self._stdin_stream.aclose()
+                 self._stdin_stream = None
++        finally:
++            # Ensure stdin is closed in all cases
++            if self._stdin_stream:
++                try:
++                    await self._stdin_stream.aclose()
++                    self._stdin_stream = None
++                except Exception:
++                    pass
+ 
+     async def receive_messages(self) -> AsyncIterator[dict[str, Any]]:
+         """Receive messages from CLI."""
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 02:34:50
++++ b/src/claude_code_sdk/client.py	2026-09-21 02:35:46
+@@ -222,10 +222,12 @@
+ 
+     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
+         """Exit async context - always disconnects."""
++        # Always attempt to disconnect, but suppress any exceptions to avoid masking
++        # the original exception that might have caused the context exit
+         try:
+-            await self.disconnect()
++            if self._transport:
++                await self.disconnect()
+         except Exception:
+-            # Even if disconnect fails, we want to suppress the exception
+-            # to allow the original exception to propagate if present
++            # Suppress disconnect exceptions to preserve the original exception
+             pass
+         return False

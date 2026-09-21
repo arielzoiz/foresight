@@ -1,0 +1,73 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/message_parser.py b/src/claude_code_sdk/_internal/message_parser.py
+--- a/src/claude_code_sdk/_internal/message_parser.py	2026-09-21 05:09:24
++++ b/src/claude_code_sdk/_internal/message_parser.py	2026-09-21 05:12:52
+@@ -91,6 +91,13 @@
+                     match block["type"]:
+                         case "text":
+                             content_blocks.append(TextBlock(text=block["text"]))
++                        case "thinking":
++                            content_blocks.append(
++                                ThinkingBlock(
++                                    thinking=block["thinking"],
++                                    signature=block["signature"],
++                                )
++                            )
+                         case "tool_use":
+                             content_blocks.append(
+                                 ToolUseBlock(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:09:24
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:12:58
+@@ -175,13 +175,18 @@
+             )
+ 
+             # Enable stdin pipe for both modes (but we'll close it for string mode)
++            # Merge custom env vars with system env, with custom vars taking precedence
++            env_vars = {**os.environ, "CLAUDE_CODE_ENTRYPOINT": "sdk-py"}
++            if hasattr(self._options, 'env') and self._options.env:
++                env_vars.update(self._options.env)
++            
+             self._process = await anyio.open_process(
+                 cmd,
+                 stdin=PIPE,
+                 stdout=PIPE,
+                 stderr=self._stderr_file,
+                 cwd=self._cwd,
+-                env={**os.environ, "CLAUDE_CODE_ENTRYPOINT": "sdk-py"},
++                env=env_vars,
+             )
+ 
+             if self._process.stdout:
+@@ -395,6 +400,24 @@
+     def is_connected(self) -> bool:
+         """Check if subprocess is running."""
+         return self._process is not None and self._process.returncode is None
++
++    def is_ready(self) -> bool:
++        """Check if transport is ready for communication."""
++        return self.is_connected()
++
++    async def read_messages(self) -> AsyncIterator[dict[str, Any]]:
++        """Read messages from CLI (alias for receive_messages for backward compatibility)."""
++        async for message in self.receive_messages():
++            yield message
++
++    async def __aenter__(self):
++        """Enter async context manager."""
++        await self.connect()
++        return self
++
++    async def __aexit__(self, exc_type, exc_val, exc_tb):
++        """Exit async context manager."""
++        await self.disconnect()
+ 
+     async def interrupt(self) -> None:
+         """Send interrupt control request (only works in streaming mode)."""
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/types.py b/src/claude_code_sdk/types.py
+--- a/src/claude_code_sdk/types.py	2026-09-21 05:09:24
++++ b/src/claude_code_sdk/types.py	2026-09-21 05:12:50
+@@ -140,3 +140,4 @@
+     extra_args: dict[str, str | None] = field(
+         default_factory=dict
+     )  # Pass arbitrary CLI flags
++    env: dict[str, str] | None = None  # Custom environment variables

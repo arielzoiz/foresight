@@ -1,0 +1,55 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/client.py b/src/claude_code_sdk/_internal/client.py
+--- a/src/claude_code_sdk/_internal/client.py	2026-09-21 06:40:31
++++ b/src/claude_code_sdk/_internal/client.py	2026-09-21 05:38:31
+@@ -20,7 +20,7 @@
+         """Process a query through transport."""
+ 
+         transport = SubprocessCLITransport(
+-            prompt=prompt, options=options, close_stdin_after_prompt=True
++            prompt=prompt, options=options, close_stdin_after_prompt=False
+         )
+ 
+         try:
+@@ -31,4 +31,3 @@
+ 
+         finally:
+             await transport.close()
+-        return  # Explicitly return to indicate completion
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/_internal/transport/subprocess_cli.py b/src/claude_code_sdk/_internal/transport/subprocess_cli.py
+--- a/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 06:40:26
++++ b/src/claude_code_sdk/_internal/transport/subprocess_cli.py	2026-09-21 05:37:17
+@@ -306,7 +306,6 @@
+                         message["session_id"] = options.get("session_id", "default")
+ 
+                 await self._stdin_stream.send(json.dumps(message) + "\n")
+-        return  # Explicitly return to indicate completion
+ 
+     async def _stream_to_stdin(self) -> None:
+         """Stream messages to stdin for streaming mode."""
+@@ -339,7 +338,6 @@
+             await self._stdin_stream.aclose()
+             self._stdin_stream = None
+         # Otherwise keep stdin open for send_request (ClaudeSDKClient interactive mode)
+-        return  # Explicitly return to indicate completion
+ 
+     async def receive_messages(self) -> AsyncIterator[dict[str, Any]]:
+         """Receive messages from CLI."""
+@@ -401,7 +399,6 @@
+             pass
+         # Note: Error handling for process completion moved to the calling code
+         # to maintain async generator protocol compliance
+-        return  # Explicitly return to indicate end of generator
+ 
+     def is_connected(self) -> bool:
+         """Check if subprocess is running."""
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/claude_code_sdk/client.py b/src/claude_code_sdk/client.py
+--- a/src/claude_code_sdk/client.py	2026-09-21 06:40:29
++++ b/src/claude_code_sdk/client.py	2026-09-21 05:36:36
+@@ -127,7 +127,6 @@
+ 
+         async for data in self._transport.receive_messages():
+             yield parse_message(data)
+-        return  # Explicitly return to indicate completion
+ 
+     async def query(
+         self, prompt: str | AsyncIterable[dict[str, Any]], session_id: str = "default"

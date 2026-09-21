@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:_get_outputs_path</location>
+    <description>The path construction logic in `_get_outputs_path` function is not properly handling cases where environment variables are None or empty strings, causing TypeError when trying to join paths with None values.</description>
+    <contract>When `hera__outputs_directory` environment variable is None or empty string, the function should default to `/tmp/hera-outputs` and construct valid paths without TypeError.</contract>
+    <acceptance>tests/test_serialisers.py::test_artifact_dumping, tests/test_serialisers.py::test_parameter_dumping, tests/test_runner.py::test_runner_pydantic_output_params, tests/test_runner.py::test_runner_pydantic_output_artifacts</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:get_annotated_artifact_value</location>
+    <description>The artifact loading logic in `get_annotated_artifact_value` is failing with TypeError when trying to perform path operations with None values, particularly when artifact paths are not properly initialized.</description>
+    <contract>When an artifact has no explicit path and no name, the function should provide a safe fallback path instead of raising TypeError from path operations.</contract>
+    <acceptance>tests/test_runner.py::test_runner_pydantic_input_artifacts, tests/test_runner.py::test_script_annotations_artifacts_no_name_or_path</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:_save_annotated_return_outputs</location>
+    <description>Type checking logic in `_save_annotated_return_outputs` is too strict and fails on legitimate type mismatches between generic types like typing.Dict[str, str] and dict, or typing.List[str] and list, due to improper type unwrapping and comparison.</description>
+    <contract>When saving annotated outputs, the function should accept compatible concrete types (dict/list) for generic type annotations (typing.Dict/typing.List) without raising ValueError.</contract>
+    <acceptance>tests/test_runner.py::test_script_annotations_outputs</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/util.py:_map_function_annotations</location>
+    <description>The parameter mapping logic in `_map_function_annotations` does not properly handle missing parameters or parameters with defaults, leading to missing argument errors when calling functions with annotated parameters.</description>
+    <contract>When a function parameter has a default value and is not provided in template inputs, the function should use the default value instead of raising missing argument errors.</contract>
+    <acceptance>tests/test_runner.py::test_runner_parameter_inputs, tests/test_runner.py::test_runner_annotated_parameter_inputs</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/src/hera/workflows/_runner/script_annotations_util.py:_write_to_path</location>
+    <description>The `_write_to_path` function does not properly handle None paths or directory paths when writing output values, which can cause errors when trying to write to invalid paths.</description>
+    <contract>When path is None or a directory, the function should either skip writing or create a file within the directory with a default name instead of raising errors.</contract>
+    <acceptance>tests/test_serialisers.py::test_artifact_byte_dumping, tests/test_serialisers.py::test_artifact_byte_loading</acceptance>
+  </requirement>
+</requirements>
