@@ -1,0 +1,950 @@
+{
+  "info": {
+    "id": "ses_f3f13bca6ffepnNHAosBpE0thC",
+    "slug": "eager-wizard",
+    "projectID": "global",
+    "directory": "/app",
+    "path": "app",
+    "title": "Python project analysis and future development planning",
+    "agent": "build",
+    "model": {
+      "id": "aux-model",
+      "providerID": "custom",
+      "variant": "default"
+    },
+    "version": "1.18.31",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 123433,
+      "output": 685,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1789943104345,
+      "updated": 1789943112519
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1789943104432
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "custom",
+          "modelID": "aux-model"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"You are inspecting a Python project inside a container at /app.\n\nREAD ONLY. Do not create, modify or delete any file under /app.\nAny write there invalidates this run.\n\nA developer is about to work on the task described below.\n\n\\\"\n<prompt>\n    <role_setting>\n        <identity>You are a senior software architect proficient in Python software engineering and Test-Driven Development (TDD).</identity>\n        <expertise>You excel at accurately identifying functional gaps from test feedback and writing high-quality software development requirement documents.</expertise>\n        <scene>You are collaborating closely with a senior programmer and plan to complete the development of a Python software incrementally through multiple rounds of \\\\\"planning-coding\\\\\" in small, rapid steps.</scene>\n        <responsibilities>Your responsibility is to analyze functional gaps in the code based on the currently non-passed test cases and write a clear, specific incremental development requirement document for the programmer.</responsibilities>\n    </role_setting>\n\n    <input>\n        <permission>You are allowed to browse all content in the current working directory.</permission>\n        <item name=\\\\\"/app/code/\\\\\">The folder containing all source code for this Python project.</item>\n        <item name=\\\\\"/app/code/tests/\\\\\">The folder containing all unit tests for this Python project.</item>\n        <item name=\\\\\"/app/non-passed/\\\\\">The folder containing full information for all test cases that are expected to pass but currently non-passed in the current implementation.</item>\n        <item name=\\\\\"/app/non-passed/summary.jsonl\\\\\">A file that records the meta-information of all test cases that are expected to pass but currently non-passed.</item>\n    </input>\n\n    <workflow>\n        <rule>You MUST strictly follow the workflow below:</rule>\n        <step index=\\\\\"1\\\\\" action=\\\\\"summary\\\\\">\n            Consult the file /app/non-passed/summary.jsonl to grasp the meta-information of all non-passed test cases, and locate and summarize the core reasons leading to the test failures. If necessary, you may consult other JSON files in /app/non-passed/ to obtain detailed report information for the failed tests.\n        </step>\n        <step index=\\\\\"2\\\\\" action=\\\\\"trace\\\\\">\n            Consult the corresponding test files in /app/code/tests/ to analyze environmental dependencies, assertion intentions, inputs and outputs, exception handling, and boundary conditions of the non-passed tests, and determine the involved source code modules and interface contracts.\n        </step>\n        <step index=\\\\\"3\\\\\" action=\\\\\"attribute\\\\\">\n            Consult the relevant source code in /app/code/ and, combined with the test results and detailed report information, locate the root causes of the failures within the source code.\n        </step>\n        <step index=\\\\\"4\\\\\" action=\\\\\"filter\\\\\">\n            From all identified reasons, filter out the most critical code change requirements, limited to **1 to 5 items**. Follow the principle of small-step iterations and consider the programmer's workload; do not attempt to fix too many failed tests or propose too many requirements at once.\n            You MUST use the following priority rules for filtering and sorting:\n            <priority_rules>\n                <rule>Prioritize changes that enable the highest number of non-passed tests to pass.</rule>\n                <rule>When benefits are similar, prioritize fixing error/collection/import issues, followed by failed, and then missing.</rule>\n                <rule>When benefits are similar, prioritize fixes for low-level common modules/interfaces over fixes for specific test case exceptions.</rule>\n                <rule>If a clear dependency chain exists, fix downstream base capabilities before fixing upper-level behaviors.</rule>\n            </priority_rules>\n        </step>\n        <step index=\\\\\"5\\\\\" action=\\\\\"document\\\\\">\n            Based on the filtered change requirements, create a clear, specific, and verifiable requirement document in XML format and save it to /app/requirement.xml. As an architect, you MUST focus on \\\\\"what needs to be achieved\\\\\" and avoid excessive involvement in implementation details.\n        </step>\n    </workflow>\n\n    <output>\n        <product>A single, independent XML requirement document saved at /app/requirement.xml</product>\n        <content>\n            The document should contain 1 to 5 code change requirements. Each item MUST include the following:\n            <item name=\\\\\"location\\\\\">Specify the source file path and its corresponding class or function scope (if it does not exist yet, specify the expected location).</item>\n            <item name=\\\\\"description\\\\\">Detail the current state and the type of problem (e.g., collection/import blockages, missing logic, undefined interfaces, return values/exception handling inconsistent with expectations, etc.).</item>\n            <item name=\\\\\"contract\\\\\">Define the expected behavioral goals in detail (interface inputs/outputs, exception types, data structure fields, boundary conditions, and business constraints, etc.). Describe \\\\\"what to achieve\\\\\" in detail and avoid over-describing \\\\\"how specifically to do it.\\\\\" You are allowed to describe function/method signature-level information and return value structures, but should not involve specific implementation details.</item>\n            <item name=\\\\\"acceptance\\\\\">Detail the acceptance criteria that can verify whether this code change is successful. This can be the nodeid of specific test cases in the tests folder or your custom criteria.</item>\n        </content>\n    </output>\n\n    <constraints>\n        <operation>Strictly PROHIBITED from modifying, deleting, or creating any other files except for the generated requirement.xml.</operation>\n        <test_integrity>Strictly PROHIBITED from guiding the programmer to make any modifications to the test case folder /app/code/tests/.</test_integrity>\n        <granularity>You MUST focus on the core contradictions of the current code and select the most urgent requirements.</granularity>\n        <non_implementation>As an architect, you MUST focus on behavioral contracts and verifiable results, and avoid providing specific code implementations in the requirement document.</non_implementation>\n        <no_execution>You are strictly PROHIBITED from actively executing pytest, unittest, or any other test commands or scripts.</no_execution>\n    </constraints>\n</prompt>\n\n\\\"\n\nRead enough of /app/code to answer concretely, then name 3 to 5\nplausible FUTURE tasks that could reasonably follow this one in THIS codebase.\nRefer to real files, functions or modules you actually read. Do not solve the\ntask, and do not write any file.\"",
+          "id": "prt_0c0ec43c3001mMdwBR0QH4mDsy",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec43b0001jUjo5xjb1EOipv"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8803,
+          "input": 8724,
+          "output": 79,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943105085,
+          "completed": 1789943107511
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c0ec463d001YxAzX44sbn1a5y",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec4aa80013Gh8MdD147X4bF",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec463d001YxAzX44sbn1a5y"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a0df1110d47972a4",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/non-passed/summary.jsonl"
+            },
+            "output": "<path>/app/non-passed/summary.jsonl</path>\n<type>file</type>\n<content>\n1: {\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_bytes\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_bytes\"}\n2: {\"test\": \"tests/test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup\", \"description\": \"Test failed at call stage. Reason: E   AssertionError: <amaranth.hdl._cd.ClockDomain object at 0x7f5617df94e0> is not <amaranth.hdl._cd.ClockDomain object at 0x7f5617dfa560>. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_hdl_ir.py__DomainLookupTestCase__test_domain_lookup\"}\n3: {\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_large_expr_parser_overflow\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_large_expr_parser_overflow\"}\n4: {\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_words\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_words\"}\n5: {\"test\": \"tests/test_lib_coding.py::DecoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__DecoderTestCase__test_basic\"}\n6: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_tick_repeat_until\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_tick_repeat_until\"}\n7: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_broken_other_trigger\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_broken_other_trigger\"}\n8: {\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_reset_value\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_reset_value\"}\n9: {\"test\": \"tests/test_lib_coding.py::EncoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__EncoderTestCase__test_basic\"}\n10: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_sample\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'tick'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_sample\"}\n11: {\"test\": \"tests/test_lib_data.py::RFCExamplesTestCase::test_rfc_example_2\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_data.py__RFCExamplesTestCase__test_rfc_example_2\"}\n12: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_comb_assign\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_comb_assign\"}\n13: {\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_init_value\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_init_value\"}\n14: {\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_basic\"}\n15: {\"test\": \"tests/test_lib_data.py::RFCExamplesTestCase::test_rfc_example_1\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_data.py__RFCExamplesTestCase__test_rfc_example_1\"}\n16: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_edge\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'set'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_edge\"}\n17: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_sync_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_sync_reset\"}\n18: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_trigger_wrong\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'changed'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_trigger_wrong\"}\n19: {\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_reset\"}\n20: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_broken_multiedge\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'delay'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_broken_multiedge\"}\n21: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_latch\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'set'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_latch\"}\n22: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_critical\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_critical\"}\n23: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_struct\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_struct\"}\n24: {\"test\": \"tests/test_back_rtlil.py::MemoryTestCase::test_async_read\", \"description\": \"Test failed at call stage. Reason: E     end. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_back_rtlil.py__MemoryTestCase__test_async_read\"}\n25: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_delay\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'delay'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_delay\"}\n26: {\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_vcd_wrong_nonzero_time\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_vcd_wrong_nonzero_time\"}\n27: {\"test\": \"tests/test_lib_coding.py::PriorityEncoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__PriorityEncoderTestCase__test_basic\"}\n28: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_delay\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_abandon_delay\"}\n29: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_timeout\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'delay'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_timeout\"}\n30: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_changed\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_abandon_changed\"}\n31: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_valuecastable\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'get'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_valuecastable\"}\n32: {\"test\": \"tests/test_back_rtlil.py::MemoryTestCase::test_sync_read\", \"description\": \"Test failed at call stage. Reason: E     end. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_back_rtlil.py__MemoryTestCase__test_sync_read\"}\n33: {\"test\": \"tests/test_lib_fifo.py::AsyncFIFOSimCase::test_async_fifo_r_level_latency\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_fifo.py__AsyncFIFOSimCase__test_async_fifo_r_level_latency\"}\n34: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_bug_588\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_bug_588\"}\n35: {\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_no_negated_boolean_warning\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_no_negated_boolean_warning\"}\n36: {\"test\": \"tests/test_lib_cdc.py::PulseSynchronizerTestCase::test_smoke\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__PulseSynchronizerTestCase__test_smoke\"}\n37: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_bug_325\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_bug_325\"}\n38: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_async_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_async_reset\"}\n39: {\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_bug_566\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_bug_566\"}\n40: {\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_match\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_match\"}\n\n(End of file - total 40 lines)\n</content>",
+            "metadata": {
+              "preview": "{\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_bytes\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_bytes\"}\n{\"test\": \"tests/test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup\", \"description\": \"Test failed at call stage. Reason: E   AssertionError: <amaranth.hdl._cd.ClockDomain object at 0x7f5617df94e0> is not <amaranth.hdl._cd.ClockDomain object at 0x7f5617dfa560>. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_hdl_ir.py__DomainLookupTestCase__test_domain_lookup\"}\n{\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_large_expr_parser_overflow\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_large_expr_parser_overflow\"}\n{\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_words\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_words\"}\n{\"test\": \"tests/test_lib_coding.py::DecoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__DecoderTestCase__test_basic\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_tick_repeat_until\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_tick_repeat_until\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_broken_other_trigger\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_broken_other_trigger\"}\n{\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_reset_value\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_reset_value\"}\n{\"test\": \"tests/test_lib_coding.py::EncoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__EncoderTestCase__test_basic\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_sample\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'tick'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_sample\"}\n{\"test\": \"tests/test_lib_data.py::RFCExamplesTestCase::test_rfc_example_2\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_data.py__RFCExamplesTestCase__test_rfc_example_2\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_comb_assign\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_comb_assign\"}\n{\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_init_value\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_init_value\"}\n{\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_basic\"}\n{\"test\": \"tests/test_lib_data.py::RFCExamplesTestCase::test_rfc_example_1\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_data.py__RFCExamplesTestCase__test_rfc_example_1\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_edge\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'set'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_edge\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_sync_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_sync_reset\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_trigger_wrong\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'changed'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_trigger_wrong\"}\n{\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_reset\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_broken_multiedge\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'delay'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_broken_multiedge\"}",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/non-passed/summary.jsonl",
+                "text": "{\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_bytes\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_bytes\"}\n{\"test\": \"tests/test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup\", \"description\": \"Test failed at call stage. Reason: E   AssertionError: <amaranth.hdl._cd.ClockDomain object at 0x7f5617df94e0> is not <amaranth.hdl._cd.ClockDomain object at 0x7f5617dfa560>. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_hdl_ir.py__DomainLookupTestCase__test_domain_lookup\"}\n{\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_large_expr_parser_overflow\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_large_expr_parser_overflow\"}\n{\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_words\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_words\"}\n{\"test\": \"tests/test_lib_coding.py::DecoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__DecoderTestCase__test_basic\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_tick_repeat_until\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_tick_repeat_until\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_broken_other_trigger\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_broken_other_trigger\"}\n{\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_reset_value\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_reset_value\"}\n{\"test\": \"tests/test_lib_coding.py::EncoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__EncoderTestCase__test_basic\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_sample\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'tick'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_sample\"}\n{\"test\": \"tests/test_lib_data.py::RFCExamplesTestCase::test_rfc_example_2\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_data.py__RFCExamplesTestCase__test_rfc_example_2\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_comb_assign\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_comb_assign\"}\n{\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_init_value\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_init_value\"}\n{\"test\": \"tests/test_lib_cdc.py::FFSynchronizerTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__FFSynchronizerTestCase__test_basic\"}\n{\"test\": \"tests/test_lib_data.py::RFCExamplesTestCase::test_rfc_example_1\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_data.py__RFCExamplesTestCase__test_rfc_example_1\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_edge\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'set'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_edge\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_sync_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_sync_reset\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_trigger_wrong\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'changed'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_trigger_wrong\"}\n{\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_reset\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_broken_multiedge\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'delay'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_broken_multiedge\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_latch\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'set'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_latch\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_critical\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_critical\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_struct\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_struct\"}\n{\"test\": \"tests/test_back_rtlil.py::MemoryTestCase::test_async_read\", \"description\": \"Test failed at call stage. Reason: E     end. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_back_rtlil.py__MemoryTestCase__test_async_read\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_delay\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'delay'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_delay\"}\n{\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_vcd_wrong_nonzero_time\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_vcd_wrong_nonzero_time\"}\n{\"test\": \"tests/test_lib_coding.py::PriorityEncoderTestCase::test_basic\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_coding.py__PriorityEncoderTestCase__test_basic\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_delay\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_abandon_delay\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_timeout\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'delay'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_timeout\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_changed\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_abandon_changed\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_valuecastable\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: 'NoneType' object has no attribute 'get'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_valuecastable\"}\n{\"test\": \"tests/test_back_rtlil.py::MemoryTestCase::test_sync_read\", \"description\": \"Test failed at call stage. Reason: E     end. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_back_rtlil.py__MemoryTestCase__test_sync_read\"}\n{\"test\": \"tests/test_lib_fifo.py::AsyncFIFOSimCase::test_async_fifo_r_level_latency\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_fifo.py__AsyncFIFOSimCase__test_async_fifo_r_level_latency\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_bug_588\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_bug_588\"}\n{\"test\": \"tests/test_sim.py::SimulatorIntegrationTestCase::test_no_negated_boolean_warning\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorIntegrationTestCase__test_no_negated_boolean_warning\"}\n{\"test\": \"tests/test_lib_cdc.py::PulseSynchronizerTestCase::test_smoke\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_cdc.py__PulseSynchronizerTestCase__test_smoke\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_bug_325\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_bug_325\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_async_reset\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_async_reset\"}\n{\"test\": \"tests/test_sim.py::SimulatorRegressionTestCase::test_bug_566\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_sim.py__SimulatorRegressionTestCase__test_bug_566\"}\n{\"test\": \"tests/test_lib_crc.py::CRCTestCase::test_crc_match\", \"description\": \"Test failed at call stage. Reason: E   AttributeError: '_PySignalState' object has no attribute '_prev_value'. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-10-11__ep20/amaranth-lang__amaranth__eef248__1d2b9c/tmp/non-passed/tests_test_lib_crc.py__CRCTestCase__test_crc_match\"}",
+                "lineStart": 1,
+                "lineEnd": 40,
+                "totalLines": 40,
+                "truncated": false
+              }
+            },
+            "title": "app/non-passed/summary.jsonl",
+            "time": {
+              "start": 1789943106247,
+              "end": 1789943106387
+            }
+          },
+          "id": "prt_0c0ec4aad001iYDb2shxbN40MC",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec463d001YxAzX44sbn1a5y"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-babb7f93ea1f0e58",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789943106313,
+              "end": 1789943107490
+            }
+          },
+          "id": "prt_0c0ec4ace001Oa5VGDQsSLjbl6",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec463d001YxAzX44sbn1a5y"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-b723c41e8bd305d3",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/tests/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789943106403,
+              "end": 1789943107496
+            }
+          },
+          "id": "prt_0c0ec4b0f001u0v9TOEUFdUcj1",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec463d001YxAzX44sbn1a5y"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 8803,
+            "input": 8724,
+            "output": 79,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec4fad0011Z1xGz27AnpVNM",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec463d001YxAzX44sbn1a5y"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 13735,
+          "input": 13626,
+          "output": 109,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943107516,
+          "completed": 1789943108181
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c0ec4fbc001IDnXPxUVwUUeOy",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec50b0001Khf7JR9ScOQyx5",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec4fbc001IDnXPxUVwUUeOy"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-99d755d2d75584af",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/__init__.py"
+            },
+            "error": "File not found: /app/code/__init__.py",
+            "time": {
+              "start": 1789943107837,
+              "end": 1789943107844
+            }
+          },
+          "id": "prt_0c0ec50c2001pXrtpWB62Lu8mw",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec4fbc001IDnXPxUVwUUeOy"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-8d9d2fe584fd2daf",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/hdl/__init__.py"
+            },
+            "error": "File not found: /app/code/hdl/__init__.py",
+            "time": {
+              "start": 1789943107951,
+              "end": 1789943107971
+            }
+          },
+          "id": "prt_0c0ec5121001OT1Fb0hLOHrbLX",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec4fbc001IDnXPxUVwUUeOy"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-b7b19dd7f9ac2af6",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/sim/__init__.py"
+            },
+            "error": "File not found: /app/code/sim/__init__.py",
+            "time": {
+              "start": 1789943108058,
+              "end": 1789943108064
+            }
+          },
+          "id": "prt_0c0ec5188001EUjg0LxK8B9Z3E",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec4fbc001IDnXPxUVwUUeOy"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-b3f2cb34b9101d81",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/lib/__init__.py"
+            },
+            "error": "File not found: /app/code/lib/__init__.py",
+            "time": {
+              "start": 1789943108159,
+              "end": 1789943108170
+            }
+          },
+          "id": "prt_0c0ec51f2001T7W0QkvUdMHUKV",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec4fbc001IDnXPxUVwUUeOy"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 13735,
+            "input": 13626,
+            "output": 109,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec524d001oJPXYAtXRkHrPx",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec4fbc001IDnXPxUVwUUeOy"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 13839,
+          "input": 13813,
+          "output": 26,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943108187,
+          "completed": 1789943108638
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c0ec525b0015lS2E0aw4V5BiN",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec539f001EWGLbwCakMg5ba",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec525b0015lS2E0aw4V5BiN"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-88e8c7f183778253",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/*/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789943108569,
+              "end": 1789943108624
+            }
+          },
+          "id": "prt_0c0ec53a6001VvxAkqMqTQnWkz",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec525b0015lS2E0aw4V5BiN"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 13839,
+            "input": 13813,
+            "output": 26,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec5413001jH344sf4NUnEBy",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec525b0015lS2E0aw4V5BiN"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 13894,
+          "input": 13856,
+          "output": 38,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943108644,
+          "completed": 1789943109215
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c0ec5424001okK19pv2ltN2x1",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec553d00191ComDB12MoJFq",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5424001okK19pv2ltN2x1"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-aebde894085e88ad",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app/code -type f -name \"*.py\" | head -20"
+            },
+            "output": "/app/code/amaranth/.___init__.py\n/app/code/amaranth/lib/.___init__.py\n/app/code/amaranth/lib/._enum.py\n/app/code/amaranth/lib/coding.py\n/app/code/amaranth/lib/._io.py\n/app/code/amaranth/lib/memory.py\n/app/code/amaranth/lib/cdc.py\n/app/code/amaranth/lib/__init__.py\n/app/code/amaranth/lib/io.py\n/app/code/amaranth/lib/fifo.py\n/app/code/amaranth/lib/._memory.py\n/app/code/amaranth/lib/._data.py\n/app/code/amaranth/lib/._cdc.py\n/app/code/amaranth/lib/enum.py\n/app/code/amaranth/lib/crc/.___init__.py\n/app/code/amaranth/lib/crc/__init__.py\n/app/code/amaranth/lib/crc/._catalog.py\n/app/code/amaranth/lib/crc/catalog.py\n/app/code/amaranth/lib/._wiring.py\n/app/code/amaranth/lib/._coding.py\n",
+            "metadata": {
+              "output": "/app/code/amaranth/.___init__.py\n/app/code/amaranth/lib/.___init__.py\n/app/code/amaranth/lib/._enum.py\n/app/code/amaranth/lib/coding.py\n/app/code/amaranth/lib/._io.py\n/app/code/amaranth/lib/memory.py\n/app/code/amaranth/lib/cdc.py\n/app/code/amaranth/lib/__init__.py\n/app/code/amaranth/lib/io.py\n/app/code/amaranth/lib/fifo.py\n/app/code/amaranth/lib/._memory.py\n/app/code/amaranth/lib/._data.py\n/app/code/amaranth/lib/._cdc.py\n/app/code/amaranth/lib/enum.py\n/app/code/amaranth/lib/crc/.___init__.py\n/app/code/amaranth/lib/crc/__init__.py\n/app/code/amaranth/lib/crc/._catalog.py\n/app/code/amaranth/lib/crc/catalog.py\n/app/code/amaranth/lib/._wiring.py\n/app/code/amaranth/lib/._coding.py\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app/code -type f -name \"*.py\" | head -20",
+            "time": {
+              "start": 1789943109051,
+              "end": 1789943109203
+            }
+          },
+          "id": "prt_0c0ec5541001vFdWpl0avQE447",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5424001okK19pv2ltN2x1"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 13894,
+            "input": 13856,
+            "output": 38,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec5657001Ksd4K0EOBT28Gj",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5424001okK19pv2ltN2x1"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 14178,
+          "input": 14131,
+          "output": 47,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943109223,
+          "completed": 1789943109698
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c0ec5667001X0D9gY4hleE23D",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec57cb001CIVVbhZupWU45m",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5667001X0D9gY4hleE23D"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-a65cf6e021cbab96",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app/code -type f -name \"*.py\" | grep -E \"(sim|hdl)\" | head -10"
+            },
+            "output": "/app/code/amaranth/hdl/_cd.py\n/app/code/amaranth/hdl/.__ast.py\n/app/code/amaranth/hdl/.___init__.py\n/app/code/amaranth/hdl/._ast.py\n/app/code/amaranth/hdl/.__nir.py\n/app/code/amaranth/hdl/._cd.py\n/app/code/amaranth/hdl/._mem.py\n/app/code/amaranth/hdl/.__mem.py\n/app/code/amaranth/hdl/mem.py\n/app/code/amaranth/hdl/ast.py\n",
+            "metadata": {
+              "output": "/app/code/amaranth/hdl/_cd.py\n/app/code/amaranth/hdl/.__ast.py\n/app/code/amaranth/hdl/.___init__.py\n/app/code/amaranth/hdl/._ast.py\n/app/code/amaranth/hdl/.__nir.py\n/app/code/amaranth/hdl/._cd.py\n/app/code/amaranth/hdl/._mem.py\n/app/code/amaranth/hdl/.__mem.py\n/app/code/amaranth/hdl/mem.py\n/app/code/amaranth/hdl/ast.py\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app/code -type f -name \"*.py\" | grep -E \"(sim|hdl)\" | head -10",
+            "time": {
+              "start": 1789943109627,
+              "end": 1789943109655
+            }
+          },
+          "id": "prt_0c0ec57d10016quDGOQ0vZ0GFW",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5667001X0D9gY4hleE23D"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 14178,
+            "input": 14131,
+            "output": 47,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec581d001yN4vYaT1Csu1vk",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5667001X0D9gY4hleE23D"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 14356,
+          "input": 14311,
+          "output": 45,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943109713,
+          "completed": 1789943110120
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c0ec58510014rPQYw9mSeDo6a",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec5926001AfjxbnIk4sisqW",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec58510014rPQYw9mSeDo6a"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-9f317ae630e1497a",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app/code -type f -name \"*.py\" | grep -E \"sim\" | head -10"
+            },
+            "output": "/app/code/amaranth/sim/.__pyeval.py\n/app/code/amaranth/sim/.___init__.py\n/app/code/amaranth/sim/.__pyclock.py\n/app/code/amaranth/sim/pysim.py\n/app/code/amaranth/sim/.__pycoro.py\n/app/code/amaranth/sim/core.py\n/app/code/amaranth/sim/_pyclock.py\n/app/code/amaranth/sim/__init__.py\n/app/code/amaranth/sim/_base.py\n/app/code/amaranth/sim/_pycoro.py\n",
+            "metadata": {
+              "output": "/app/code/amaranth/sim/.__pyeval.py\n/app/code/amaranth/sim/.___init__.py\n/app/code/amaranth/sim/.__pyclock.py\n/app/code/amaranth/sim/pysim.py\n/app/code/amaranth/sim/.__pycoro.py\n/app/code/amaranth/sim/core.py\n/app/code/amaranth/sim/_pyclock.py\n/app/code/amaranth/sim/__init__.py\n/app/code/amaranth/sim/_base.py\n/app/code/amaranth/sim/_pycoro.py\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app/code -type f -name \"*.py\" | grep -E \"sim\" | head -10",
+            "time": {
+              "start": 1789943110076,
+              "end": 1789943110111
+            }
+          },
+          "id": "prt_0c0ec592d001I38TWcI8NycKax",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec58510014rPQYw9mSeDo6a"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 14356,
+            "input": 14311,
+            "output": 45,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec59e2001hQzjhm6NP7LjkN",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec58510014rPQYw9mSeDo6a"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 14612,
+          "input": 14493,
+          "output": 119,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943110125,
+          "completed": 1789943111023
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c0ec59ed001wRErgakHctUxca",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec5ac20013ffH3kV3PX2ktq",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec59ed001wRErgakHctUxca"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9b05476dd9ec1082",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/amaranth/sim/_base.py"
+            },
+            "output": "<path>/app/code/amaranth/sim/_base.py</path>\n<type>file</type>\n<content>\n1: __all__ = [\"BaseProcess\", \"BaseSignalState\", \"BaseMemoryState\", \"BaseSimulation\", \"BaseEngine\", \"BrokenTrigger\"]\n2: \n3: \n4: class BaseProcess:\n5:     __slots__ = ()\n6: \n7:     def __init__(self):\n8:         self.reset()\n9: \n10:     def reset(self):\n11:         self.runnable = False\n12:         self.passive  = True\n13: \n14:     def run(self):\n15:         raise NotImplementedError # :nocov:\n16: \n17: \n18: class BaseSignalState:\n19:     __slots__ = ()\n20: \n21:     signal = NotImplemented\n22:     is_comb = NotImplemented\n23: \n24:     curr = NotImplemented\n25:     next = NotImplemented\n26: \n27:     def set(self, value):\n28:         raise NotImplementedError # :nocov:\n29: \n30: \n31: class BaseMemoryState:\n32:     __slots__ = ()\n33: \n34:     memory = NotImplemented\n35: \n36:     def read(self, addr):\n37:         raise NotImplementedError # :nocov:\n38: \n39:     def write(self, addr, value, mask=None):\n40:         raise NotImplementedError # :nocov:\n41: \n42: \n43: class BaseSimulation:\n44:     def reset(self):\n45:         raise NotImplementedError # :nocov:\n46: \n47:     def get_signal(self, signal):\n48:         raise NotImplementedError # :nocov:\n49: \n50:     def get_memory(self, memory):\n51:         raise NotImplementedError # :nocov:\n52: \n53:     slots = NotImplemented\n54: \n55:     def add_trigger(self, process, signal, *, trigger=None):\n56:         raise NotImplementedError # :nocov:\n57: \n58:     def remove_trigger(self, process, signal):\n59:         raise NotImplementedError # :nocov:\n60: \n61:     def add_memory_trigger(self, process, memory):\n62:         raise NotImplementedError # :nocov:\n63: \n64:     def remove_memory_trigger(self, process, memory):\n65:         raise NotImplementedError # :nocov:\n66: \n67:     def wait_interval(self, process, interval):\n68:         raise NotImplementedError # :nocov:\n69: \n70: \n71: class BaseEngine:\n72:     def add_clock_process(self, clock, *, phase, period):\n73:         raise NotImplementedError # :nocov:\n74: \n75:     def add_coroutine_process(self, process, *, default_cmd):\n76:         raise NotImplementedError # :nocov:\n77: \n78:     def add_testbench_process(self, process):\n79:         raise NotImplementedError # :nocov:\n80: \n81:     def reset(self):\n82:         raise NotImplementedError # :nocov:\n83: \n84:     @property\n85:     def now(self):\n86:         raise NotImplementedError # :nocov:\n87: \n88:     def advance(self):\n89:         raise NotImplementedError # :nocov:\n90: \n91:     def write_vcd(self, *, vcd_file, gtkw_file, traces, fs_per_delta):\n92:         raise NotImplementedError # :nocov:\n93: \n94: \n95: class BrokenTrigger(Exception):\n96:     \"\"\"Exception raised when a trigger becomes broken due to a delayed event being abandoned.\"\"\"\n97:     pass\n\n(End of file - total 97 lines)\n</content>",
+            "metadata": {
+              "preview": "__all__ = [\"BaseProcess\", \"BaseSignalState\", \"BaseMemoryState\", \"BaseSimulation\", \"BaseEngine\", \"BrokenTrigger\"]\n\n\nclass BaseProcess:\n    __slots__ = ()\n\n    def __init__(self):\n        self.reset()\n\n    def reset(self):\n        self.runnable = False\n        self.passive  = True\n\n    def run(self):\n        raise NotImplementedError # :nocov:\n\n\nclass BaseSignalState:\n    __slots__ = ()\n",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/amaranth/sim/_base.py",
+                "text": "__all__ = [\"BaseProcess\", \"BaseSignalState\", \"BaseMemoryState\", \"BaseSimulation\", \"BaseEngine\", \"BrokenTrigger\"]\n\n\nclass BaseProcess:\n    __slots__ = ()\n\n    def __init__(self):\n        self.reset()\n\n    def reset(self):\n        self.runnable = False\n        self.passive  = True\n\n    def run(self):\n        raise NotImplementedError # :nocov:\n\n\nclass BaseSignalState:\n    __slots__ = ()\n\n    signal = NotImplemented\n    is_comb = NotImplemented\n\n    curr = NotImplemented\n    next = NotImplemented\n\n    def set(self, value):\n        raise NotImplementedError # :nocov:\n\n\nclass BaseMemoryState:\n    __slots__ = ()\n\n    memory = NotImplemented\n\n    def read(self, addr):\n        raise NotImplementedError # :nocov:\n\n    def write(self, addr, value, mask=None):\n        raise NotImplementedError # :nocov:\n\n\nclass BaseSimulation:\n    def reset(self):\n        raise NotImplementedError # :nocov:\n\n    def get_signal(self, signal):\n        raise NotImplementedError # :nocov:\n\n    def get_memory(self, memory):\n        raise NotImplementedError # :nocov:\n\n    slots = NotImplemented\n\n    def add_trigger(self, process, signal, *, trigger=None):\n        raise NotImplementedError # :nocov:\n\n    def remove_trigger(self, process, signal):\n        raise NotImplementedError # :nocov:\n\n    def add_memory_trigger(self, process, memory):\n        raise NotImplementedError # :nocov:\n\n    def remove_memory_trigger(self, process, memory):\n        raise NotImplementedError # :nocov:\n\n    def wait_interval(self, process, interval):\n        raise NotImplementedError # :nocov:\n\n\nclass BaseEngine:\n    def add_clock_process(self, clock, *, phase, period):\n        raise NotImplementedError # :nocov:\n\n    def add_coroutine_process(self, process, *, default_cmd):\n        raise NotImplementedError # :nocov:\n\n    def add_testbench_process(self, process):\n        raise NotImplementedError # :nocov:\n\n    def reset(self):\n        raise NotImplementedError # :nocov:\n\n    @property\n    def now(self):\n        raise NotImplementedError # :nocov:\n\n    def advance(self):\n        raise NotImplementedError # :nocov:\n\n    def write_vcd(self, *, vcd_file, gtkw_file, traces, fs_per_delta):\n        raise NotImplementedError # :nocov:\n\n\nclass BrokenTrigger(Exception):\n    \"\"\"Exception raised when a trigger becomes broken due to a delayed event being abandoned.\"\"\"\n    pass",
+                "lineStart": 1,
+                "lineEnd": 97,
+                "totalLines": 97,
+                "truncated": false
+              }
+            },
+            "title": "app/code/amaranth/sim/_base.py",
+            "time": {
+              "start": 1789943110444,
+              "end": 1789943110570
+            }
+          },
+          "id": "prt_0c0ec5af2001Ic8I8qQ5LiwAU5",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec59ed001wRErgakHctUxca"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a1d2461954814e16",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/amaranth/sim/core.py"
+            },
+            "output": "<path>/app/code/amaranth/sim/core.py</path>\n<type>file</type>\n<content>\n1: import inspect\n2: import warnings\n3: \n4: from .._utils import deprecated\n5: from ..hdl._cd import *\n6: from ..hdl._ir import *\n7: from ..hdl._ast import Value, ValueLike\n8: from ..hdl._mem import MemoryData\n9: from ._base import BaseEngine\n10: \n11: \n12: __all__ = [\"Settle\", \"Delay\", \"Tick\", \"Passive\", \"Active\", \"Simulator\"]\n13: \n14: \n15: class Command:\n16:     pass\n17: \n18: \n19: class Settle(Command):\n20:     @deprecated(\"The `Settle` command is deprecated per RFC 27. Use `add_testbench` to write \"\n21:                 \"testbenches; in them, an equivalent of `yield Settle()` is performed \"\n22:                 \"automatically.\")\n23:     def __init__(self):\n24:         pass\n25: \n26:     def __repr__(self):\n27:         return \"(settle)\"\n28: \n29: \n30: class Delay(Command):\n31:     def __init__(self, interval=None):\n32:         self.interval = None if interval is None else float(interval)\n33: \n34:     def __repr__(self):\n35:         if self.interval is None:\n36:             return \"(delay ε)\"\n37:         else:\n38:             return f\"(delay {self.interval * 1e6:.3}us)\"\n39: \n40: \n41: class Tick(Command):\n42:     def __init__(self, domain=\"sync\"):\n43:         if not isinstance(domain, (str, ClockDomain)):\n44:             raise TypeError(\"Domain must be a string or a ClockDomain instance, not {!r}\"\n45:                             .format(domain))\n46:         assert domain != \"comb\"\n47:         self.domain = domain\n48: \n49:     def __repr__(self):\n50:         return f\"(tick {self.domain})\"\n51: \n52: \n53: class Passive(Command):\n54:     def __repr__(self):\n55:         return \"(passive)\"\n56: \n57: \n58: class Active(Command):\n59:     def __repr__(self):\n60:         return \"(active)\"\n61: \n62: \n63: class Simulator:\n64:     def __init__(self, fragment, *, engine=\"pysim\"):\n65:         if isinstance(engine, type) and issubclass(engine, BaseEngine):\n66:             pass\n67:         elif engine == \"pysim\":\n68:             from .pysim import PySimEngine\n69:             engine = PySimEngine\n70:         else:\n71:             raise TypeError(\"Value '{!r}' is not a simulation engine class or \"\n72:                             \"a simulation engine name\"\n73:                             .format(engine))\n74: \n75:         self._design   = Fragment.get(fragment, platform=None).prepare()\n76:         self._engine   = engine(self._design)\n77:         self._clocked  = set()\n78: \n79:     def _check_process(self, process):\n80:         if not (inspect.isgeneratorfunction(process) or inspect.iscoroutinefunction(process)):\n81:             raise TypeError(\"Cannot add a process {!r} because it is not a generator function\"\n82:                             .format(process))\n83:         return process\n84: \n85:     def add_process(self, process):\n86:         process = self._check_process(process)\n87:         def wrapper():\n88:             # Only start a bench process after comb settling, so that the initial values are correct.\n89:             yield object.__new__(Settle)\n90:             yield from process()\n91:         self._engine.add_coroutine_process(wrapper, default_cmd=None)\n92: \n93:     @deprecated(\"The `add_sync_process` method is deprecated per RFC 27. Use `add_process` or `add_testbench` instead.\")\n94:     def add_sync_process(self, process, *, domain=\"sync\"):\n95:         process = self._check_process(process)\n96:         def wrapper():\n97:             # Only start a sync process after the first clock edge (or reset edge, if the domain\n98:             # uses an asynchronous reset). This matches the behavior of synchronous FFs.\n99:             generator = process()\n100:             result = None\n101:             exception = None\n102:             yield Tick(domain)\n103:             while True:\n104:                 try:\n105:                     if exception is None:\n106:                         command = generator.send(result)\n107:                     else:\n108:                         command = generator.throw(exception)\n109:                 except StopIteration:\n110:                     break\n111:                 try:\n112:                     result = yield command\n113:                     exception = None\n114:                 except Exception as e:\n115:                     result = None\n116:                     exception = e\n117:         self._engine.add_coroutine_process(wrapper, default_cmd=Tick(domain))\n118: \n119:     def add_testbench(self, process, *, background=False):\n120:         process = self._check_process(process)\n121:         if background:\n122:             # Handle background keyword argument properly\n123:             self._engine.add_background_testbench_process(process)\n124:         else:\n125:             self._engine.add_testbench_process(process)\n126: \n127:     def add_clock(self, period, *, phase=None, domain=\"sync\", if_exists=False):\n128:         \"\"\"Add a clock process.\n129: \n130:         Adds a process that drives the clock signal of ``domain`` at a 50% duty cycle.\n131: \n132:         Arguments\n133:         ---------\n134:         period : float\n135:             Clock period. The process will toggle the ``domain`` clock signal every ``period / 2``\n136:             seconds.\n137:         phase : None or float\n138:             Clock phase. The process will wait ``phase`` seconds before the first clock transition.\n139:             If not specified, defaults to ``period / 2``.\n140:         domain : str or ClockDomain\n141:             Driven clock domain. If specified as a string, the domain with that name is looked up\n142:             in the root fragment of the simulation.\n143:         if_exists : bool\n144:             If ``False`` (the default), raise an error if the driven domain is specified as\n145:             a string and the root fragment does not have such a domain. If ``True``, do nothing\n146:             in this case.\n147:         \"\"\"\n148:         if isinstance(domain, ClockDomain):\n149:             if (domain.name in self._design.fragment.domains and\n150:                     domain is not self._design.fragment.domains[domain.name]):\n151:                 warnings.warn(\"Adding a clock process that drives a clock domain object \"\n152:                               \"named {!r}, which is distinct from an identically named domain \"\n153:                               \"in the simulated design\"\n154:                               .format(domain.name),\n155:                               UserWarning, stacklevel=2)\n156:         elif domain in self._design.fragment.domains:\n157:             domain = self._design.fragment.domains[domain]\n158:         elif if_exists:\n159:             return\n160:         else:\n161:             raise ValueError(\"Domain {!r} is not present in simulation\"\n162:                              .format(domain))\n163:         if domain in self._clocked:\n164:             raise ValueError(\"Domain {!r} already has a clock driving it\"\n165:                              .format(domain.name))\n166: \n167:         # We represent times internally in 1 fs units, but users supply float quantities of seconds\n168:         period = int(period * 1e15)\n169: \n170:         if phase is None:\n171:             # By default, delay the first edge by half period. This causes any synchronous activity\n172:             # to happen at a non-zero time, distinguishing it from the initial values in the waveform\n173:             # viewer.\n174:             phase = period // 2\n175:         else:\n176:             phase = int(phase * 1e15) + period // 2\n177:         self._engine.add_clock_process(domain.clk, phase=phase, period=period)\n178:         self._clocked.add(domain)\n179: \n180:     def reset(self):\n181:         \"\"\"Reset the simulation.\n182: \n183:         Assign the initial value to every signal and memory in the simulation, and restart every user process.\n184:         \"\"\"\n185:         self._engine.reset()\n186: \n187:     def advance(self):\n188:         \"\"\"Advance the simulation.\n189: \n190:         Run every process and commit changes until a fixed point is reached, then advance time\n191:         to the closest deadline (if any). If there is an unstable combinational loop,\n192:         this function will never return.\n193: \n194:         Returns ``True`` if there are any active processes, ``False`` otherwise.\n195:         \"\"\"\n196:         return self._engine.advance()\n197: \n198:     def run(self):\n199:         \"\"\"Run the simulation while any processes are active.\n200: \n201:         Processes added with :meth:`add_process` and :meth:`add_sync_process` are initially active,\n202:         and may change their status using the ``yield Passive()`` and ``yield Active()`` commands.\n203:         Processes compiled from HDL and added with :meth:`add_clock` are always passive.\n204:         \"\"\"\n205:         while self.advance():\n206:             pass\n207: \n208:     def run_until(self, deadline, *, run_passive=False):\n209:         \"\"\"Run the simulation until it advances to ``deadline``.\n210: \n211:         If ``run_passive`` is ``False``, the simulation also stops when there are no active\n212:         processes, similar to :meth:`run`. Otherwise, the simulation will stop only after it\n213:         advances to or past ``deadline``.\n214: \n215:         If the simulation stops advancing, this function will never return.\n216:         \"\"\"\n217:         # Convert deadline in seconds into internal 1 fs units\n218:         deadline = deadline * 1e15\n219:         assert self._engine.now <= deadline\n220:         while (self.advance() or run_passive) and self._engine.now < deadline:\n221:             pass\n222: \n223:     def write_vcd(self, vcd_file, gtkw_file=None, *, traces=(), fs_per_delta=0):\n224:         \"\"\"Write waveforms to a Value Change Dump file, optionally populating a GTKWave save file.\n225: \n226:         This method returns a context manager. It can be used as: ::\n227: \n228:             sim = Simulator(frag)\n229:             sim.add_clock(1e-6)\n230:             with sim.write_vcd(\"dump.vcd\", \"dump.gtkw\"):\n231:                 sim.run_until(1e-3)\n232: \n233:         Arguments\n234:         ---------\n235:         vcd_file : str or file-like object\n236:             Verilog Value Change Dump file or filename.\n237:         gtkw_file : str or file-like object\n238:             GTKWave save file or filename.\n239:         traces : iterable of Signal\n240:             Signals to display traces for.\n241:         \"\"\"\n242:         if self._engine.now != 0:\n243:             for file in (vcd_file, gtkw_file):\n244:                 if hasattr(file, \"close\"):\n245:                     file.close()\n246:             raise ValueError(\"Cannot start writing waveforms after advancing simulation time\")\n247: \n248:         for trace in traces:\n249:             if isinstance(trace, ValueLike):\n250:                 trace_cast = Value.cast(trace)\n251:                 if isinstance(trace_cast, MemoryData._Row):\n252:                     continue\n253:                 for trace_signal in trace_cast._rhs_signals():\n254:                     if trace_signal.name == \"\":\n255:                         if trace_signal is trace:\n256:                             raise TypeError(\"Cannot trace signal with private name\")\n257:                         else:\n258:                             raise TypeError(f\"Cannot trace signal with private name (within {trace!r})\")\n259: \n260:         return self._engine.write_vcd(vcd_file=vcd_file, gtkw_file=gtkw_file,\n261:                                       traces=traces, fs_per_delta=fs_per_delta)\n\n(End of file - total 261 lines)\n</content>",
+            "metadata": {
+              "preview": "import inspect\nimport warnings\n\nfrom .._utils import deprecated\nfrom ..hdl._cd import *\nfrom ..hdl._ir import *\nfrom ..hdl._ast import Value, ValueLike\nfrom ..hdl._mem import MemoryData\nfrom ._base import BaseEngine\n\n\n__all__ = [\"Settle\", \"Delay\", \"Tick\", \"Passive\", \"Active\", \"Simulator\"]\n\n\nclass Command:\n    pass\n\n\nclass Settle(Command):\n    @deprecated(\"The `Settle` command is deprecated per RFC 27. Use `add_testbench` to write \"",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/amaranth/sim/core.py",
+                "text": "import inspect\nimport warnings\n\nfrom .._utils import deprecated\nfrom ..hdl._cd import *\nfrom ..hdl._ir import *\nfrom ..hdl._ast import Value, ValueLike\nfrom ..hdl._mem import MemoryData\nfrom ._base import BaseEngine\n\n\n__all__ = [\"Settle\", \"Delay\", \"Tick\", \"Passive\", \"Active\", \"Simulator\"]\n\n\nclass Command:\n    pass\n\n\nclass Settle(Command):\n    @deprecated(\"The `Settle` command is deprecated per RFC 27. Use `add_testbench` to write \"\n                \"testbenches; in them, an equivalent of `yield Settle()` is performed \"\n                \"automatically.\")\n    def __init__(self):\n        pass\n\n    def __repr__(self):\n        return \"(settle)\"\n\n\nclass Delay(Command):\n    def __init__(self, interval=None):\n        self.interval = None if interval is None else float(interval)\n\n    def __repr__(self):\n        if self.interval is None:\n            return \"(delay ε)\"\n        else:\n            return f\"(delay {self.interval * 1e6:.3}us)\"\n\n\nclass Tick(Command):\n    def __init__(self, domain=\"sync\"):\n        if not isinstance(domain, (str, ClockDomain)):\n            raise TypeError(\"Domain must be a string or a ClockDomain instance, not {!r}\"\n                            .format(domain))\n        assert domain != \"comb\"\n        self.domain = domain\n\n    def __repr__(self):\n        return f\"(tick {self.domain})\"\n\n\nclass Passive(Command):\n    def __repr__(self):\n        return \"(passive)\"\n\n\nclass Active(Command):\n    def __repr__(self):\n        return \"(active)\"\n\n\nclass Simulator:\n    def __init__(self, fragment, *, engine=\"pysim\"):\n        if isinstance(engine, type) and issubclass(engine, BaseEngine):\n            pass\n        elif engine == \"pysim\":\n            from .pysim import PySimEngine\n            engine = PySimEngine\n        else:\n            raise TypeError(\"Value '{!r}' is not a simulation engine class or \"\n                            \"a simulation engine name\"\n                            .format(engine))\n\n        self._design   = Fragment.get(fragment, platform=None).prepare()\n        self._engine   = engine(self._design)\n        self._clocked  = set()\n\n    def _check_process(self, process):\n        if not (inspect.isgeneratorfunction(process) or inspect.iscoroutinefunction(process)):\n            raise TypeError(\"Cannot add a process {!r} because it is not a generator function\"\n                            .format(process))\n        return process\n\n    def add_process(self, process):\n        process = self._check_process(process)\n        def wrapper():\n            # Only start a bench process after comb settling, so that the initial values are correct.\n            yield object.__new__(Settle)\n            yield from process()\n        self._engine.add_coroutine_process(wrapper, default_cmd=None)\n\n    @deprecated(\"The `add_sync_process` method is deprecated per RFC 27. Use `add_process` or `add_testbench` instead.\")\n    def add_sync_process(self, process, *, domain=\"sync\"):\n        process = self._check_process(process)\n        def wrapper():\n            # Only start a sync process after the first clock edge (or reset edge, if the domain\n            # uses an asynchronous reset). This matches the behavior of synchronous FFs.\n            generator = process()\n            result = None\n            exception = None\n            yield Tick(domain)\n            while True:\n                try:\n                    if exception is None:\n                        command = generator.send(result)\n                    else:\n                        command = generator.throw(exception)\n                except StopIteration:\n                    break\n                try:\n                    result = yield command\n                    exception = None\n                except Exception as e:\n                    result = None\n                    exception = e\n        self._engine.add_coroutine_process(wrapper, default_cmd=Tick(domain))\n\n    def add_testbench(self, process, *, background=False):\n        process = self._check_process(process)\n        if background:\n            # Handle background keyword argument properly\n            self._engine.add_background_testbench_process(process)\n        else:\n            self._engine.add_testbench_process(process)\n\n    def add_clock(self, period, *, phase=None, domain=\"sync\", if_exists=False):\n        \"\"\"Add a clock process.\n\n        Adds a process that drives the clock signal of ``domain`` at a 50% duty cycle.\n\n        Arguments\n        ---------\n        period : float\n            Clock period. The process will toggle the ``domain`` clock signal every ``period / 2``\n            seconds.\n        phase : None or float\n            Clock phase. The process will wait ``phase`` seconds before the first clock transition.\n            If not specified, defaults to ``period / 2``.\n        domain : str or ClockDomain\n            Driven clock domain. If specified as a string, the domain with that name is looked up\n            in the root fragment of the simulation.\n        if_exists : bool\n            If ``False`` (the default), raise an error if the driven domain is specified as\n            a string and the root fragment does not have such a domain. If ``True``, do nothing\n            in this case.\n        \"\"\"\n        if isinstance(domain, ClockDomain):\n            if (domain.name in self._design.fragment.domains and\n                    domain is not self._design.fragment.domains[domain.name]):\n                warnings.warn(\"Adding a clock process that drives a clock domain object \"\n                              \"named {!r}, which is distinct from an identically named domain \"\n                              \"in the simulated design\"\n                              .format(domain.name),\n                              UserWarning, stacklevel=2)\n        elif domain in self._design.fragment.domains:\n            domain = self._design.fragment.domains[domain]\n        elif if_exists:\n            return\n        else:\n            raise ValueError(\"Domain {!r} is not present in simulation\"\n                             .format(domain))\n        if domain in self._clocked:\n            raise ValueError(\"Domain {!r} already has a clock driving it\"\n                             .format(domain.name))\n\n        # We represent times internally in 1 fs units, but users supply float quantities of seconds\n        period = int(period * 1e15)\n\n        if phase is None:\n            # By default, delay the first edge by half period. This causes any synchronous activity\n            # to happen at a non-zero time, distinguishing it from the initial values in the waveform\n            # viewer.\n            phase = period // 2\n        else:\n            phase = int(phase * 1e15) + period // 2\n        self._engine.add_clock_process(domain.clk, phase=phase, period=period)\n        self._clocked.add(domain)\n\n    def reset(self):\n        \"\"\"Reset the simulation.\n\n        Assign the initial value to every signal and memory in the simulation, and restart every user process.\n        \"\"\"\n        self._engine.reset()\n\n    def advance(self):\n        \"\"\"Advance the simulation.\n\n        Run every process and commit changes until a fixed point is reached, then advance time\n        to the closest deadline (if any). If there is an unstable combinational loop,\n        this function will never return.\n\n        Returns ``True`` if there are any active processes, ``False`` otherwise.\n        \"\"\"\n        return self._engine.advance()\n\n    def run(self):\n        \"\"\"Run the simulation while any processes are active.\n\n        Processes added with :meth:`add_process` and :meth:`add_sync_process` are initially active,\n        and may change their status using the ``yield Passive()`` and ``yield Active()`` commands.\n        Processes compiled from HDL and added with :meth:`add_clock` are always passive.\n        \"\"\"\n        while self.advance():\n            pass\n\n    def run_until(self, deadline, *, run_passive=False):\n        \"\"\"Run the simulation until it advances to ``deadline``.\n\n        If ``run_passive`` is ``False``, the simulation also stops when there are no active\n        processes, similar to :meth:`run`. Otherwise, the simulation will stop only after it\n        advances to or past ``deadline``.\n\n        If the simulation stops advancing, this function will never return.\n        \"\"\"\n        # Convert deadline in seconds into internal 1 fs units\n        deadline = deadline * 1e15\n        assert self._engine.now <= deadline\n        while (self.advance() or run_passive) and self._engine.now < deadline:\n            pass\n\n    def write_vcd(self, vcd_file, gtkw_file=None, *, traces=(), fs_per_delta=0):\n        \"\"\"Write waveforms to a Value Change Dump file, optionally populating a GTKWave save file.\n\n        This method returns a context manager. It can be used as: ::\n\n            sim = Simulator(frag)\n            sim.add_clock(1e-6)\n            with sim.write_vcd(\"dump.vcd\", \"dump.gtkw\"):\n                sim.run_until(1e-3)\n\n        Arguments\n        ---------\n        vcd_file : str or file-like object\n            Verilog Value Change Dump file or filename.\n        gtkw_file : str or file-like object\n            GTKWave save file or filename.\n        traces : iterable of Signal\n            Signals to display traces for.\n        \"\"\"\n        if self._engine.now != 0:\n            for file in (vcd_file, gtkw_file):\n                if hasattr(file, \"close\"):\n                    file.close()\n            raise ValueError(\"Cannot start writing waveforms after advancing simulation time\")\n\n        for trace in traces:\n            if isinstance(trace, ValueLike):\n                trace_cast = Value.cast(trace)\n                if isinstance(trace_cast, MemoryData._Row):\n                    continue\n                for trace_signal in trace_cast._rhs_signals():\n                    if trace_signal.name == \"\":\n                        if trace_signal is trace:\n                            raise TypeError(\"Cannot trace signal with private name\")\n                        else:\n                            raise TypeError(f\"Cannot trace signal with private name (within {trace!r})\")\n\n        return self._engine.write_vcd(vcd_file=vcd_file, gtkw_file=gtkw_file,\n                                      traces=traces, fs_per_delta=fs_per_delta)",
+                "lineStart": 1,
+                "lineEnd": 261,
+                "totalLines": 261,
+                "truncated": false
+              }
+            },
+            "title": "app/code/amaranth/sim/core.py",
+            "time": {
+              "start": 1789943110544,
+              "end": 1789943110765
+            }
+          },
+          "id": "prt_0c0ec5b4f001Nt4g6atlO0uc53",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec59ed001wRErgakHctUxca"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a684ab462e971d58",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/amaranth/hdl/_cd.py"
+            },
+            "output": "<path>/app/code/amaranth/hdl/_cd.py</path>\n<type>file</type>\n<content>\n1: from .. import tracer\n2: from ._ast import Signal\n3: \n4: \n5: __all__ = [\"ClockDomain\", \"DomainError\"]\n6: \n7: \n8: class DomainError(Exception):\n9:     pass\n10: \n11: \n12: class ClockDomain:\n13:     \"\"\"Synchronous domain.\n14: \n15:     Parameters\n16:     ----------\n17:     name : str or None\n18:         Domain name. If ``None`` (the default) the name is inferred from the variable name this\n19:         ``ClockDomain`` is assigned to (stripping any `\"cd_\"` prefix).\n20:     reset_less : bool\n21:         If ``True``, the domain does not use a reset signal. Registers within this domain are\n22:         still all initialized to their reset state once, e.g. through Verilog `\"initial\"`\n23:         statements.\n24:     clk_edge : str\n25:         The edge of the clock signal on which signals are sampled. Must be one of \"pos\" or \"neg\".\n26:     async_reset : bool\n27:         If ``True``, the domain uses an asynchronous reset, and registers within this domain\n28:         are initialized to their reset state when reset level changes. Otherwise, registers\n29:         are initialized to reset state at the next clock cycle when reset is asserted.\n30:     local : bool\n31:         If ``True``, the domain will propagate only downwards in the design hierarchy. Otherwise,\n32:         the domain will propagate everywhere.\n33: \n34:     Attributes\n35:     ----------\n36:     clk : Signal, inout\n37:         The clock for this domain. Can be driven or used to drive other signals (preferably\n38:         in combinational context).\n39:     rst : Signal or None, inout\n40:         Reset signal for this domain. Can be driven or used to drive.\n41:     \"\"\"\n42: \n43:     @staticmethod\n44:     def _name_for(domain_name, signal_name):\n45:         if domain_name == \"sync\":\n46:             return signal_name\n47:         else:\n48:             return f\"{domain_name}_{signal_name}\"\n49: \n50:     def __init__(self, name=None, *, clk_edge=\"pos\", reset_less=False, async_reset=False,\n51:                  local=False):\n52:         if name is None:\n53:             try:\n54:                 name = tracer.get_var_name()\n55:             except tracer.NameNotFound:\n56:                 raise ValueError(\"Clock domain name must be specified explicitly\")\n57:         if name.startswith(\"cd_\"):\n58:             name = name[3:]\n59:         if name == \"comb\":\n60:             raise ValueError(f\"Domain '{name}' may not be clocked\")\n61: \n62:         if clk_edge not in (\"pos\", \"neg\"):\n63:             raise ValueError(\"Domain clock edge must be one of 'pos' or 'neg', not {!r}\"\n64:                              .format(clk_edge))\n65: \n66:         self.name = name\n67:         self.reset_less = reset_less\n68: \n69:         self.clk = Signal(name=self._name_for(name, \"clk\"), src_loc_at=1)\n70:         self.clk_edge = clk_edge\n71: \n72:         if reset_less:\n73:             self.rst = None\n74:         else:\n75:             self.rst = Signal(name=self._name_for(name, \"rst\"), src_loc_at=1)\n76: \n77:         self.async_reset = async_reset\n78: \n79:         self.local = local\n80: \n81:     def __eq__(self, other):\n82:         if not isinstance(other, ClockDomain):\n83:             return False\n84:         return (self.name == other.name and\n85:                 self.clk_edge == other.clk_edge and\n86:                 self.async_reset == other.async_reset and\n87:                 self.reset_less == other.reset_less and\n88:                 self.local == other.local)\n89: \n90:     def __hash__(self):\n91:         return hash((self.name, self.clk_edge, self.async_reset, self.reset_less, self.local))\n92: \n93:     def rename(self, new_name):\n94:         self.name = new_name\n95:         self.clk.name = self._name_for(new_name, \"clk\")\n96:         if self.rst is not None:\n97:             self.rst.name = self._name_for(new_name, \"rst\")\n\n(End of file - total 97 lines)\n</content>",
+            "metadata": {
+              "preview": "from .. import tracer\nfrom ._ast import Signal\n\n\n__all__ = [\"ClockDomain\", \"DomainError\"]\n\n\nclass DomainError(Exception):\n    pass\n\n\nclass ClockDomain:\n    \"\"\"Synchronous domain.\n\n    Parameters\n    ----------\n    name : str or None\n        Domain name. If ``None`` (the default) the name is inferred from the variable name this\n        ``ClockDomain`` is assigned to (stripping any `\"cd_\"` prefix).\n    reset_less : bool",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/amaranth/hdl/_cd.py",
+                "text": "from .. import tracer\nfrom ._ast import Signal\n\n\n__all__ = [\"ClockDomain\", \"DomainError\"]\n\n\nclass DomainError(Exception):\n    pass\n\n\nclass ClockDomain:\n    \"\"\"Synchronous domain.\n\n    Parameters\n    ----------\n    name : str or None\n        Domain name. If ``None`` (the default) the name is inferred from the variable name this\n        ``ClockDomain`` is assigned to (stripping any `\"cd_\"` prefix).\n    reset_less : bool\n        If ``True``, the domain does not use a reset signal. Registers within this domain are\n        still all initialized to their reset state once, e.g. through Verilog `\"initial\"`\n        statements.\n    clk_edge : str\n        The edge of the clock signal on which signals are sampled. Must be one of \"pos\" or \"neg\".\n    async_reset : bool\n        If ``True``, the domain uses an asynchronous reset, and registers within this domain\n        are initialized to their reset state when reset level changes. Otherwise, registers\n        are initialized to reset state at the next clock cycle when reset is asserted.\n    local : bool\n        If ``True``, the domain will propagate only downwards in the design hierarchy. Otherwise,\n        the domain will propagate everywhere.\n\n    Attributes\n    ----------\n    clk : Signal, inout\n        The clock for this domain. Can be driven or used to drive other signals (preferably\n        in combinational context).\n    rst : Signal or None, inout\n        Reset signal for this domain. Can be driven or used to drive.\n    \"\"\"\n\n    @staticmethod\n    def _name_for(domain_name, signal_name):\n        if domain_name == \"sync\":\n            return signal_name\n        else:\n            return f\"{domain_name}_{signal_name}\"\n\n    def __init__(self, name=None, *, clk_edge=\"pos\", reset_less=False, async_reset=False,\n                 local=False):\n        if name is None:\n            try:\n                name = tracer.get_var_name()\n            except tracer.NameNotFound:\n                raise ValueError(\"Clock domain name must be specified explicitly\")\n        if name.startswith(\"cd_\"):\n            name = name[3:]\n        if name == \"comb\":\n            raise ValueError(f\"Domain '{name}' may not be clocked\")\n\n        if clk_edge not in (\"pos\", \"neg\"):\n            raise ValueError(\"Domain clock edge must be one of 'pos' or 'neg', not {!r}\"\n                             .format(clk_edge))\n\n        self.name = name\n        self.reset_less = reset_less\n\n        self.clk = Signal(name=self._name_for(name, \"clk\"), src_loc_at=1)\n        self.clk_edge = clk_edge\n\n        if reset_less:\n            self.rst = None\n        else:\n            self.rst = Signal(name=self._name_for(name, \"rst\"), src_loc_at=1)\n\n        self.async_reset = async_reset\n\n        self.local = local\n\n    def __eq__(self, other):\n        if not isinstance(other, ClockDomain):\n            return False\n        return (self.name == other.name and\n                self.clk_edge == other.clk_edge and\n                self.async_reset == other.async_reset and\n                self.reset_less == other.reset_less and\n                self.local == other.local)\n\n    def __hash__(self):\n        return hash((self.name, self.clk_edge, self.async_reset, self.reset_less, self.local))\n\n    def rename(self, new_name):\n        self.name = new_name\n        self.clk.name = self._name_for(new_name, \"clk\")\n        if self.rst is not None:\n            self.rst.name = self._name_for(new_name, \"rst\")",
+                "lineStart": 1,
+                "lineEnd": 97,
+                "totalLines": 97,
+                "truncated": false
+              }
+            },
+            "title": "app/code/amaranth/hdl/_cd.py",
+            "time": {
+              "start": 1789943110662,
+              "end": 1789943110912
+            }
+          },
+          "id": "prt_0c0ec5bbe0016L8UHrHxp0Y5zU",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec59ed001wRErgakHctUxca"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-93e94f461610d0af",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/amaranth/lib/crc/catalog.py"
+            },
+            "output": "<path>/app/code/amaranth/lib/crc/catalog.py</path>\n<type>file</type>\n<content>\n1: \"\"\"\n2: This module contains a catalog of predefined CRC algorithms, retrieved from the `reveng catalogue`_\n3: on 2023-05-25.\n4: \n5: .. _reveng catalogue: https://reveng.sourceforge.io/crc-catalogue/all.htm\n6: \n7: See the documentation for the :mod:`~amaranth.lib.crc` module for examples.\n8: \"\"\"\n9: \n10: from . import Algorithm\n11: \n12: # Note: The trailing `#:` gives Sphinx an empty documentation string for each\n13: # constant, allowing it to be documented with `automodule` (which otherwise\n14: # ignores undocumented module constants) and also preventing it from using\n15: # the Algorithm docstring if otherwise forced to document the constants.\n16: \n17: CRC3_GSM = Algorithm(\n18:     crc_width=3,\n19:     polynomial=0x3,\n20:     initial_crc=0x0,\n21:     reflect_input=False,\n22:     reflect_output=False,\n23:     xor_output=0x7)  #:\n24: \n25: CRC3_ROHC = Algorithm(\n26:     crc_width=3,\n27:     polynomial=0x3,\n28:     initial_crc=0x7,\n29:     reflect_input=True,\n30:     reflect_output=True,\n31:     xor_output=0x0)  #:\n32: \n33: CRC4_G_704 = CRC4_ITU = Algorithm(\n34:     crc_width=4,\n35:     polynomial=0x3,\n36:     initial_crc=0x0,\n37:     reflect_input=True,\n38:     reflect_output=True,\n39:     xor_output=0x0)  #:\n40: \n41: CRC4_INTERLAKEN = Algorithm(\n42:     crc_width=4,\n43:     polynomial=0x3,\n44:     initial_crc=0xf,\n45:     reflect_input=False,\n46:     reflect_output=False,\n47:     xor_output=0xf)  #:\n48: \n49: CRC5_EPC_C1G2 = CRC5_EPC = Algorithm(\n50:     crc_width=5,\n51:     polynomial=0x09,\n52:     initial_crc=0x09,\n53:     reflect_input=False,\n54:     reflect_output=False,\n55:     xor_output=0x00)  #:\n56: \n57: CRC5_G_704 = CRC5_ITU = Algorithm(\n58:     crc_width=5,\n59:     polynomial=0x15,\n60:     initial_crc=0x00,\n61:     reflect_input=True,\n62:     reflect_output=True,\n63:     xor_output=0x00)  #:\n64: \n65: CRC5_USB = Algorithm(\n66:     crc_width=5,\n67:     polynomial=0x05,\n68:     initial_crc=0x1f,\n69:     reflect_input=True,\n70:     reflect_output=True,\n71:     xor_output=0x1f)  #:\n72: \n73: CRC6_CDMA2000_A = Algorithm(\n74:     crc_width=6,\n75:     polynomial=0x27,\n76:     initial_crc=0x3f,\n77:     reflect_input=False,\n78:     reflect_output=False,\n79:     xor_output=0x00)  #:\n80: \n81: CRC6_CDMA2000_B = Algorithm(\n82:     crc_width=6,\n83:     polynomial=0x07,\n84:     initial_crc=0x3f,\n85:     reflect_input=False,\n86:     reflect_output=False,\n87:     xor_output=0x00)  #:\n88: \n89: CRC6_DARC = Algorithm(\n90:     crc_width=6,\n91:     polynomial=0x19,\n92:     initial_crc=0x00,\n93:     reflect_input=True,\n94:     reflect_output=True,\n95:     xor_output=0x00)  #:\n96: \n97: CRC6_G_704 = CRC6_ITU = Algorithm(\n98:     crc_width=6,\n99:     polynomial=0x03,\n100:     initial_crc=0x00,\n101:     reflect_input=True,\n102:     reflect_output=True,\n103:     xor_output=0x00)  #:\n104: \n105: CRC6_GSM = Algorithm(\n106:     crc_width=6,\n107:     polynomial=0x2f,\n108:     initial_crc=0x00,\n109:     reflect_input=False,\n110:     reflect_output=False,\n111:     xor_output=0x3f)  #:\n112: \n113: CRC7_MMC = Algorithm(\n114:     crc_width=7,\n115:     polynomial=0x09,\n116:     initial_crc=0x00,\n117:     reflect_input=False,\n118:     reflect_output=False,\n119:     xor_output=0x00)  #:\n120: \n121: CRC7_ROHC = Algorithm(\n122:     crc_width=7,\n123:     polynomial=0x4f,\n124:     initial_crc=0x7f,\n125:     reflect_input=True,\n126:     reflect_output=True,\n127:     xor_output=0x00)  #:\n128: \n129: CRC7_UMTS = Algorithm(\n130:     crc_width=7,\n131:     polynomial=0x45,\n132:     initial_crc=0x00,\n133:     reflect_input=False,\n134:     reflect_output=False,\n135:     xor_output=0x00)  #:\n136: \n137: CRC8_AUTOSAR = Algorithm(\n138:     crc_width=8,\n139:     polynomial=0x2f,\n140:     initial_crc=0xff,\n141:     reflect_input=False,\n142:     reflect_output=False,\n143:     xor_output=0xff)  #:\n144: \n145: CRC8_BLUETOOTH = Algorithm(\n146:     crc_width=8,\n147:     polynomial=0xa7,\n148:     initial_crc=0x00,\n149:     reflect_input=True,\n150:     reflect_output=True,\n151:     xor_output=0x00)  #:\n152: \n153: CRC8_CDMA2000 = Algorithm(\n154:     crc_width=8,\n155:     polynomial=0x9b,\n156:     initial_crc=0xff,\n157:     reflect_input=False,\n158:     reflect_output=False,\n159:     xor_output=0x00)  #:\n160: \n161: CRC8_DARC = Algorithm(\n162:     crc_width=8,\n163:     polynomial=0x39,\n164:     initial_crc=0x00,\n165:     reflect_input=True,\n166:     reflect_output=True,\n167:     xor_output=0x00)  #:\n168: \n169: CRC8_DVB_S2 = Algorithm(\n170:     crc_width=8,\n171:     polynomial=0xd5,\n172:     initial_crc=0x00,\n173:     reflect_input=False,\n174:     reflect_output=False,\n175:     xor_output=0x00)  #:\n176: \n177: CRC8_GSM_A = Algorithm(\n178:     crc_width=8,\n179:     polynomial=0x1d,\n180:     initial_crc=0x00,\n181:     reflect_input=False,\n182:     reflect_output=False,\n183:     xor_output=0x00)  #:\n184: \n185: CRC8_GSM_B = Algorithm(\n186:     crc_width=8,\n187:     polynomial=0x49,\n188:     initial_crc=0x00,\n189:     reflect_input=False,\n190:     reflect_output=False,\n191:     xor_output=0xff)  #:\n192: \n193: CRC8_HITAG = Algorithm(\n194:     crc_width=8,\n195:     polynomial=0x1d,\n196:     initial_crc=0xff,\n197:     reflect_input=False,\n198:     reflect_output=False,\n199:     xor_output=0x00)  #:\n200: \n201: CRC8_I_432_1 = CRC8_ITU = Algorithm(\n202:     crc_width=8,\n203:     polynomial=0x07,\n204:     initial_crc=0x00,\n205:     reflect_input=False,\n206:     reflect_output=False,\n207:     xor_output=0x55)  #:\n208: \n209: CRC8_I_CODE = Algorithm(\n210:     crc_width=8,\n211:     polynomial=0x1d,\n212:     initial_crc=0xfd,\n213:     reflect_input=False,\n214:     reflect_output=False,\n215:     xor_output=0x00)  #:\n216: \n217: CRC8_LTE = Algorithm(\n218:     crc_width=8,\n219:     polynomial=0x9b,\n220:     initial_crc=0x00,\n221:     reflect_input=False,\n222:     reflect_output=False,\n223:     xor_output=0x00)  #:\n224: \n225: CRC8_MAXIM_DOW = CRC8_MAXIM = Algorithm(\n226:     crc_width=8,\n227:     polynomial=0x31,\n228:     initial_crc=0x00,\n229:     reflect_input=True,\n230:     reflect_output=True,\n231:     xor_output=0x00)  #:\n232: \n233: CRC8_MIFARE_MAD = Algorithm(\n234:     crc_width=8,\n235:     polynomial=0x1d,\n236:     initial_crc=0xc7,\n237:     reflect_input=False,\n238:     reflect_output=False,\n239:     xor_output=0x00)  #:\n240: \n241: CRC8_NRSC_5 = Algorithm(\n242:     crc_width=8,\n243:     polynomial=0x31,\n244:     initial_crc=0xff,\n245:     reflect_input=False,\n246:     reflect_output=False,\n247:     xor_output=0x00)  #:\n248: \n249: CRC8_OPENSAFETY = Algorithm(\n250:     crc_width=8,\n251:     polynomial=0x2f,\n252:     initial_crc=0x00,\n253:     reflect_input=False,\n254:     reflect_output=False,\n255:     xor_output=0x00)  #:\n256: \n257: CRC8_ROHC = Algorithm(\n258:     crc_width=8,\n259:     polynomial=0x07,\n260:     initial_crc=0xff,\n261:     reflect_input=True,\n262:     reflect_output=True,\n263:     xor_output=0x00)  #:\n264: \n265: CRC8_SAE_J1850 = Algorithm(\n266:     crc_width=8,\n267:     polynomial=0x1d,\n268:     initial_crc=0xff,\n269:     reflect_input=False,\n270:     reflect_output=False,\n271:     xor_output=0xff)  #:\n272: \n273: CRC8_SMBUS = Algorithm(\n274:     crc_width=8,\n275:     polynomial=0x07,\n276:     initial_crc=0x00,\n277:     reflect_input=False,\n278:     reflect_output=False,\n279:     xor_output=0x00)  #:\n280: \n281: CRC8_TECH_3250 = CRC8_AES = CRC8_ETU = Algorithm(\n282:     crc_width=8,\n283:     polynomial=0x1d,\n284:     initial_crc=0xff,\n285:     reflect_input=True,\n286:     reflect_output=True,\n287:     xor_output=0x00)  #:\n288: \n289: CRC8_WCDMA = Algorithm(\n290:     crc_width=8,\n291:     polynomial=0x9b,\n292:     initial_crc=0x00,\n293:     reflect_input=True,\n294:     reflect_output=True,\n295:     xor_output=0x00)  #:\n296: \n297: CRC10_ATM = CRC10_I_610 = Algorithm(\n298:     crc_width=10,\n299:     polynomial=0x233,\n300:     initial_crc=0x000,\n301:     reflect_input=False,\n302:     reflect_output=False,\n303:     xor_output=0x000)  #:\n304: \n305: CRC10_CDMA2000 = Algorithm(\n306:     crc_width=10,\n307:     polynomial=0x3d9,\n308:     initial_crc=0x3ff,\n309:     reflect_input=False,\n310:     reflect_output=False,\n311:     xor_output=0x000)  #:\n312: \n313: CRC10_GSM = Algorithm(\n314:     crc_width=10,\n315:     polynomial=0x175,\n316:     initial_crc=0x000,\n317:     reflect_input=False,\n318:     reflect_output=False,\n319:     xor_output=0x3ff)  #:\n320: \n321: CRC11_FLEXRAY = Algorithm(\n322:     crc_width=11,\n323:     polynomial=0x385,\n324:     initial_crc=0x01a,\n325:     reflect_input=False,\n326:     reflect_output=False,\n327:     xor_output=0x000)  #:\n328: \n329: CRC11_UMTS = Algorithm(\n330:     crc_width=11,\n331:     polynomial=0x307,\n332:     initial_crc=0x000,\n333:     reflect_input=False,\n334:     reflect_output=False,\n335:     xor_output=0x000)  #:\n336: \n337: CRC12_CDMA2000 = Algorithm(\n338:     crc_width=12,\n339:     polynomial=0xf13,\n340:     initial_crc=0xfff,\n341:     reflect_input=False,\n342:     reflect_output=False,\n343:     xor_output=0x000)  #:\n344: \n345: CRC12_DECT = Algorithm(\n346:     crc_width=12,\n347:     polynomial=0x80f,\n348:     initial_crc=0x000,\n349:     reflect_input=False,\n350:     reflect_output=False,\n351:     xor_output=0x000)  #:\n352: \n353: CRC12_GSM = Algorithm(\n354:     crc_width=12,\n355:     polynomial=0xd31,\n356:     initial_crc=0x000,\n357:     reflect_input=False,\n358:     reflect_output=False,\n359:     xor_output=0xfff)  #:\n360: \n361: CRC12_UMTS = CRC12_3GPP = Algorithm(\n362:     crc_width=12,\n363:     polynomial=0x80f,\n364:     initial_crc=0x000,\n365:     reflect_input=False,\n366:     reflect_output=True,\n367:     xor_output=0x000)  #:\n368: \n369: CRC13_BBC = Algorithm(\n370:     crc_width=13,\n371:     polynomial=0x1cf5,\n372:     initial_crc=0x0000,\n373:     reflect_input=False,\n374:     reflect_output=False,\n375:     xor_output=0x0000)  #:\n376: \n377: CRC14_DARC = Algorithm(\n378:     crc_width=14,\n379:     polynomial=0x0805,\n380:     initial_crc=0x0000,\n381:     reflect_input=True,\n382:     reflect_output=True,\n383:     xor_output=0x0000)  #:\n384: \n385: CRC14_GSM = Algorithm(\n386:     crc_width=14,\n387:     polynomial=0x202d,\n388:     initial_crc=0x0000,\n389:     reflect_input=False,\n390:     reflect_output=False,\n391:     xor_output=0x3fff)  #:\n392: \n393: CRC15_CAN = Algorithm(\n394:     crc_width=15,\n395:     polynomial=0x4599,\n396:     initial_crc=0x0000,\n397:     reflect_input=False,\n398:     reflect_output=False,\n399:     xor_output=0x0000)  #:\n400: \n401: CRC15_MPT1327 = Algorithm(\n402:     crc_width=15,\n403:     polynomial=0x6815,\n404:     initial_crc=0x0000,\n405:     reflect_input=False,\n406:     reflect_output=False,\n407:     xor_output=0x0001)  #:\n408: \n409: CRC16_ARC = CRC16_IBM = Algorithm(\n410:     crc_width=16,\n411:     polynomial=0x8005,\n412:     initial_crc=0x0000,\n413:     reflect_input=True,\n414:     reflect_output=True,\n415:     xor_output=0x0000)  #:\n416: \n417: CRC16_CDMA2000 = Algorithm(\n418:     crc_width=16,\n419:     polynomial=0xc867,\n420:     initial_crc=0xffff,\n421:     reflect_input=False,\n422:     reflect_output=False,\n423:     xor_output=0x0000)  #:\n424: \n425: CRC16_CMS = Algorithm(\n426:     crc_width=16,\n427:     polynomial=0x8005,\n428:     initial_crc=0xffff,\n429:     reflect_input=False,\n430:     reflect_output=False,\n431:     xor_output=0x0000)  #:\n432: \n433: CRC16_DDS_110 = Algorithm(\n434:     crc_width=16,\n435:     polynomial=0x8005,\n436:     initial_crc=0x800d,\n437:     reflect_input=False,\n438:     reflect_output=False,\n439:     xor_output=0x0000)  #:\n440: \n441: CRC16_DECT_R = Algorithm(\n442:     crc_width=16,\n443:     polynomial=0x0589,\n444:     initial_crc=0x0000,\n445:     reflect_input=False,\n446:     reflect_output=False,\n447:     xor_output=0x0001)  #:\n448: \n449: CRC16_DECT_X = Algorithm(\n450:     crc_width=16,\n451:     polynomial=0x0589,\n452:     initial_crc=0x0000,\n453:     reflect_input=False,\n454:     reflect_output=False,\n455:     xor_output=0x0000)  #:\n456: \n457: CRC16_DNP = Algorithm(\n458:     crc_width=16,\n459:     polynomial=0x3d65,\n460:     initial_crc=0x0000,\n461:     reflect_input=True,\n462:     reflect_output=True,\n463:     xor_output=0xffff)  #:\n464: \n465: CRC16_EN_13757 = Algorithm(\n466:     crc_width=16,\n467:     polynomial=0x3d65,\n468:     initial_crc=0x0000,\n469:     reflect_input=False,\n470:     reflect_output=False,\n471:     xor_output=0xffff)  #:\n472: \n473: CRC16_GENIBUS = CRC16_DARC = CRC16_EPC = CRC16_EPC_C1G2 = CRC16_I_CODE = Algorithm(\n474:     crc_width=16,\n475:     polynomial=0x1021,\n476:     initial_crc=0xffff,\n477:     reflect_input=False,\n478:     reflect_output=False,\n479:     xor_output=0xffff)  #:\n480: \n481: CRC16_GSM = Algorithm(\n482:     crc_width=16,\n483:     polynomial=0x1021,\n484:     initial_crc=0x0000,\n485:     reflect_input=False,\n486:     reflect_output=False,\n487:     xor_output=0xffff)  #:\n488: \n489: CRC16_IBM_3740 = CRC16_AUTOSAR = CRC16_CCITT_FALSE = Algorithm(\n490:     crc_width=16,\n491:     polynomial=0x1021,\n492:     initial_crc=0xffff,\n493:     reflect_input=False,\n494:     reflect_output=False,\n495:     xor_output=0x0000)  #:\n496: \n497: CRC16_IBM_SDLC = CRC16_ISO_HDLC = CRC16_ISO_IEC_14443_3_B = CRC16_X25 = Algorithm(\n498:     crc_width=16,\n499:     polynomial=0x1021,\n500:     initial_crc=0xffff,\n501:     reflect_input=True,\n502:     reflect_output=True,\n503:     xor_output=0xffff)  #:\n504: \n505: CRC16_ISO_IEC_14443_3_A = Algorithm(\n506:     crc_width=16,\n507:     polynomial=0x1021,\n508:     initial_crc=0xc6c6,\n509:     reflect_input=True,\n510:     reflect_output=True,\n511:     xor_output=0x0000)  #:\n512: \n513: CRC16_KERMIT = CRC16_BLUETOOTH = CRC16_CCITT = CRC16_CCITT_TRUE = CRC16_V_41_LSB = Algorithm(\n514:     crc_width=16,\n515:     polynomial=0x1021,\n516:     initial_crc=0x0000,\n517:     reflect_input=True,\n518:     reflect_output=True,\n519:     xor_output=0x0000)  #:\n520: \n521: CRC16_LJ1200 = Algorithm(\n522:     crc_width=16,\n523:     polynomial=0x6f63,\n524:     initial_crc=0x0000,\n525:     reflect_input=False,\n526:     reflect_output=False,\n527:     xor_output=0x0000)  #:\n528: \n529: CRC16_M17 = Algorithm(\n530:     crc_width=16,\n531:     polynomial=0x5935,\n532:     initial_crc=0xffff,\n533:     reflect_input=False,\n534:     reflect_output=False,\n535:     xor_output=0x0000)  #:\n536: \n537: CRC16_MAXIM_DOW = CRC16_MAXIM = Algorithm(\n538:     crc_width=16,\n539:     polynomial=0x8005,\n540:     initial_crc=0x0000,\n541:     reflect_input=True,\n542:     reflect_output=True,\n543:     xor_output=0xffff)  #:\n544: \n545: CRC16_MCRF4XX = Algorithm(\n546:     crc_width=16,\n547:     polynomial=0x1021,\n548:     initial_crc=0xffff,\n549:     reflect_input=True,\n550:     reflect_output=True,\n551:     xor_output=0x0000)  #:\n552: \n553: CRC16_MODBUS = Algorithm(\n554:     crc_width=16,\n555:     polynomial=0x8005,\n556:     initial_crc=0xffff,\n557:     reflect_input=True,\n558:     reflect_output=True,\n559:     xor_output=0x0000)  #:\n560: \n561: CRC16_NRSC_5 = Algorithm(\n562:     crc_width=16,\n563:     polynomial=0x080b,\n564:     initial_crc=0xffff,\n565:     reflect_input=True,\n566:     reflect_output=True,\n567:     xor_output=0x0000)  #:\n568: \n569: CRC16_OPENSAFETY_A = Algorithm(\n570:     crc_width=16,\n571:     polynomial=0x5935,\n572:     initial_crc=0x0000,\n573:     reflect_input=False,\n574:     reflect_output=False,\n575:     xor_output=0x0000)  #:\n576: \n577: CRC16_OPENSAFETY_B = Algorithm(\n578:     crc_width=16,\n579:     polynomial=0x755b,\n580:     initial_crc=0x0000,\n581:     reflect_input=False,\n582:     reflect_output=False,\n583:     xor_output=0x0000)  #:\n584: \n585: CRC16_PROFIBUS = CRC16_IEC_61158_2 = Algorithm(\n586:     crc_width=16,\n587:     polynomial=0x1dcf,\n588:     initial_crc=0xffff,\n589:     reflect_input=False,\n590:     reflect_output=False,\n591:     xor_output=0xffff)  #:\n592: \n593: CRC16_RIELLO = Algorithm(\n594:     crc_width=16,\n595:     polynomial=0x1021,\n596:     initial_crc=0xb2aa,\n597:     reflect_input=True,\n598:     reflect_output=True,\n599:     xor_output=0x0000)  #:\n600: \n601: CRC16_SPI_FUJITSU = CRC16_AUG_CCITT = Algorithm(\n602:     crc_width=16,\n603:     polynomial=0x1021,\n604:     initial_crc=0x1d0f,\n605:     reflect_input=False,\n606:     reflect_output=False,\n607:     xor_output=0x0000)  #:\n608: \n609: CRC16_T10_DIF = Algorithm(\n610:     crc_width=16,\n611:     polynomial=0x8bb7,\n612:     initial_crc=0x0000,\n613:     reflect_input=False,\n614:     reflect_output=False,\n615:     xor_output=0x0000)  #:\n616: \n617: CRC16_TELEDISK = Algorithm(\n618:     crc_width=16,\n619:     polynomial=0xa097,\n620:     initial_crc=0x0000,\n621:     reflect_input=False,\n622:     reflect_output=False,\n623:     xor_output=0x0000)  #:\n624: \n625: CRC16_TMS37157 = Algorithm(\n626:     crc_width=16,\n627:     polynomial=0x1021,\n628:     initial_crc=0x89ec,\n629:     reflect_input=True,\n630:     reflect_output=True,\n631:     xor_output=0x0000)  #:\n632: \n633: CRC16_UMTS = CRC16_BUYPASS = CRC16_VERIFONE = Algorithm(\n634:     crc_width=16,\n635:     polynomial=0x8005,\n636:     initial_crc=0x0000,\n637:     reflect_input=False,\n638:     reflect_output=False,\n639:     xor_output=0x0000)  #:\n640: \n641: CRC16_USB = Algorithm(\n642:     crc_width=16,\n643:     polynomial=0x8005,\n644:     initial_crc=0xffff,\n645:     reflect_input=True,\n646:     reflect_output=True,\n647:     xor_output=0xffff)  #:\n648: \n649: CRC16_XMODEM = CRC16_ACORN = CRC16_LTE = CRC16_V_41_MSB = CRC16_ZMODEM = Algorithm(\n650:     crc_width=16,\n651:     polynomial=0x1021,\n652:     initial_crc=0x0000,\n653:     reflect_input=False,\n654:     reflect_output=False,\n655:     xor_output=0x0000)  #:\n656: \n657: CRC17_CAN_FD = Algorithm(\n658:     crc_width=17,\n659:     polynomial=0x1685b,\n660:     initial_crc=0x00000,\n661:     reflect_input=False,\n662:     reflect_output=False,\n663:     xor_output=0x00000)  #:\n664: \n665: CRC21_CAN_FD = Algorithm(\n666:     crc_width=21,\n667:     polynomial=0x102899,\n668:     initial_crc=0x000000,\n669:     reflect_input=False,\n670:     reflect_output=False,\n671:     xor_output=0x000000)  #:\n672: \n673: CRC24_BLE = Algorithm(\n674:     crc_width=24,\n675:     polynomial=0x00065b,\n676:     initial_crc=0x555555,\n677:     reflect_input=True,\n678:     reflect_output=True,\n679:     xor_output=0x000000)  #:\n680: \n681: CRC24_FLEXRAY_A = Algorithm(\n682:     crc_width=24,\n683:     polynomial=0x5d6dcb,\n684:     initial_crc=0xfedcba,\n685:     reflect_input=False,\n686:     reflect_output=False,\n687:     xor_output=0x000000)  #:\n688: \n689: CRC24_FLEXRAY_B = Algorithm(\n690:     crc_width=24,\n691:     polynomial=0x5d6dcb,\n692:     initial_crc=0xabcdef,\n693:     reflect_input=False,\n694:     reflect_output=False,\n695:     xor_output=0x000000)  #:\n696: \n697: CRC24_INTERLAKEN = Algorithm(\n698:     crc_width=24,\n699:     polynomial=0x328b63,\n700:     initial_crc=0xffffff,\n701:     reflect_input=False,\n702:     reflect_output=False,\n703:     xor_output=0xffffff)  #:\n704: \n705: CRC24_LTE_A = Algorithm(\n706:     crc_width=24,\n707:     polynomial=0x864cfb,\n708:     initial_crc=0x000000,\n709:     reflect_input=False,\n710:     reflect_output=False,\n711:     xor_output=0x000000)  #:\n712: \n713: CRC24_LTE_B = Algorithm(\n714:     crc_width=24,\n715:     polynomial=0x800063,\n716:     initial_crc=0x000000,\n717:     reflect_input=False,\n718:     reflect_output=False,\n719:     xor_output=0x000000)  #:\n720: \n721: CRC24_OPENPGP = Algorithm(\n722:     crc_width=24,\n723:     polynomial=0x864cfb,\n724:     initial_crc=0xb704ce,\n725:     reflect_input=False,\n726:     reflect_output=False,\n727:     xor_output=0x000000)  #:\n728: \n729: CRC24_OS_9 = Algorithm(\n730:     crc_width=24,\n731:     polynomial=0x800063,\n732:     initial_crc=0xffffff,\n733:     reflect_input=False,\n734:     reflect_output=False,\n735:     xor_output=0xffffff)  #:\n736: \n737: CRC30_CDMA = Algorithm(\n738:     crc_width=30,\n739:     polynomial=0x2030b9c7,\n740:     initial_crc=0x3fffffff,\n741:     reflect_input=False,\n742:     reflect_output=False,\n743:     xor_output=0x3fffffff)  #:\n744: \n745: CRC31_PHILIPS = Algorithm(\n746:     crc_width=31,\n747:     polynomial=0x04c11db7,\n748:     initial_crc=0x7fffffff,\n749:     reflect_input=False,\n750:     reflect_output=False,\n751:     xor_output=0x7fffffff)  #:\n752: \n753: CRC32_AIXM = Algorithm(\n754:     crc_width=32,\n755:     polynomial=0x814141ab,\n756:     initial_crc=0x00000000,\n757:     reflect_input=False,\n758:     reflect_output=False,\n759:     xor_output=0x00000000)  #:\n760: \n761: CRC32_AUTOSAR = Algorithm(\n762:     crc_width=32,\n763:     polynomial=0xf4acfb13,\n764:     initial_crc=0xffffffff,\n765:     reflect_input=True,\n766:     reflect_output=True,\n767:     xor_output=0xffffffff)  #:\n768: \n769: CRC32_BASE91_D = Algorithm(\n770:     crc_width=32,\n771:     polynomial=0xa833982b,\n772:     initial_crc=0xffffffff,\n773:     reflect_input=True,\n774:     reflect_output=True,\n775:     xor_output=0xffffffff)  #:\n776: \n777: CRC32_BZIP2 = CRC32_AAL5 = CRC32_DECT_B = Algorithm(\n778:     crc_width=32,\n779:     polynomial=0x04c11db7,\n780:     initial_crc=0xffffffff,\n781:     reflect_input=False,\n782:     reflect_output=False,\n783:     xor_output=0xffffffff)  #:\n784: \n785: CRC32_CD_ROM_EDC = Algorithm(\n786:     crc_width=32,\n787:     polynomial=0x8001801b,\n788:     initial_crc=0x00000000,\n789:     reflect_input=True,\n790:     reflect_output=True,\n791:     xor_output=0x00000000)  #:\n792: \n793: CRC32_CKSUM = CRC32_POSIX = Algorithm(\n794:     crc_width=32,\n795:     polynomial=0x04c11db7,\n796:     initial_crc=0x00000000,\n797:     reflect_input=False,\n798:     reflect_output=False,\n799:     xor_output=0xffffffff)  #:\n800: \n801: CRC32_ISCSI = CRC32_BASE91_C = CRC32_CASTAGNOLI = CRC32_INTERLAKEN = Algorithm(\n802:     crc_width=32,\n803:     polynomial=0x1edc6f41,\n804:     initial_crc=0xffffffff,\n805:     reflect_input=True,\n806:     reflect_output=True,\n807:     xor_output=0xffffffff)  #:\n808: \n809: CRC32_ISO_HDLC = CRC32_ADCCP = CRC32_V_42 = CRC32_XZ = CRC32_PKZIP = CRC32_ETHERNET = Algorithm(\n810:     crc_width=32,\n811:     polynomial=0x04c11db7,\n812:     initial_crc=0xffffffff,\n813:     reflect_input=True,\n814:     reflect_output=True,\n815:     xor_output=0xffffffff)  #:\n816: \n817: CRC32_JAMCRC = Algorithm(\n818:     crc_width=32,\n819:     polynomial=0x04c11db7,\n820:     initial_crc=0xffffffff,\n821:     reflect_input=True,\n822:     reflect_output=True,\n823:     xor_output=0x00000000)  #:\n824: \n825: CRC32_MEF = Algorithm(\n826:     crc_width=32,\n827:     polynomial=0x741b8cd7,\n828:     initial_crc=0xffffffff,\n829:     reflect_input=True,\n830:     reflect_output=True,\n831:     xor_output=0x00000000)  #:\n832: \n833: CRC32_MPEG_2 = Algorithm(\n834:     crc_width=32,\n835:     polynomial=0x04c11db7,\n836:     initial_crc=0xffffffff,\n837:     reflect_input=False,\n838:     reflect_output=False,\n839:     xor_output=0x00000000)  #:\n840: \n841: CRC32_XFER = Algorithm(\n842:     crc_width=32,\n843:     polynomial=0x000000af,\n844:     initial_crc=0x00000000,\n845:     reflect_input=False,\n846:     reflect_output=False,\n847:     xor_output=0x00000000)  #:\n848: \n849: CRC40_GSM = Algorithm(\n850:     crc_width=40,\n851:     polynomial=0x0004820009,\n852:     initial_crc=0x0000000000,\n853:     reflect_input=False,\n854:     reflect_output=False,\n855:     xor_output=0xffffffffff)  #:\n856: \n857: CRC64_ECMA_182 = Algorithm(\n858:     crc_width=64,\n859:     polynomial=0x42f0e1eba9ea3693,\n860:     initial_crc=0x0000000000000000,\n861:     reflect_input=False,\n862:     reflect_output=False,\n863:     xor_output=0x0000000000000000)  #:\n864: \n865: CRC64_GO_ISO = Algorithm(\n866:     crc_width=64,\n867:     polynomial=0x000000000000001b,\n868:     initial_crc=0xffffffffffffffff,\n869:     reflect_input=True,\n870:     reflect_output=True,\n871:     xor_output=0xffffffffffffffff)  #:\n872: \n873: CRC64_MS = Algorithm(\n874:     crc_width=64,\n875:     polynomial=0x259c84cba6426349,\n876:     initial_crc=0xffffffffffffffff,\n877:     reflect_input=True,\n878:     reflect_output=True,\n879:     xor_output=0x0000000000000000)  #:\n880: \n881: CRC64_REDIS = Algorithm(\n882:     crc_width=64,\n883:     polynomial=0xad93d23594c935a9,\n884:     initial_crc=0x0000000000000000,\n885:     reflect_input=True,\n886:     reflect_output=True,\n887:     xor_output=0x0000000000000000)  #:\n888: \n889: CRC64_WE = Algorithm(\n890:     crc_width=64,\n891:     polynomial=0x42f0e1eba9ea3693,\n892:     initial_crc=0xffffffffffffffff,\n893:     reflect_input=False,\n894:     reflect_output=False,\n895:     xor_output=0xffffffffffffffff)  #:\n896: \n897: CRC64_XZ = CRC64_ECMA = Algorithm(\n898:     crc_width=64,\n899:     polynomial=0x42f0e1eba9ea3693,\n900:     initial_crc=0xffffffffffffffff,\n901:     reflect_input=True,\n902:     reflect_output=True,\n903:     xor_output=0xffffffffffffffff)  #:\n904: \n905: CRC82_DARC = Algorithm(\n906:     crc_width=82,\n907:     polynomial=0x0308c0111011401440411,\n908:     initial_crc=0x000000000000000000000,\n909:     reflect_input=True,\n910:     reflect_output=True,\n911:     xor_output=0x000000000000000000000)  #:\n\n(End of file - total 911 lines)\n</content>",
+            "metadata": {
+              "preview": "\"\"\"\nThis module contains a catalog of predefined CRC algorithms, retrieved from the `reveng catalogue`_\non 2023-05-25.\n\n.. _reveng catalogue: https://reveng.sourceforge.io/crc-catalogue/all.htm\n\nSee the documentation for the :mod:`~amaranth.lib.crc` module for examples.\n\"\"\"\n\nfrom . import Algorithm\n\n# Note: The trailing `#:` gives Sphinx an empty documentation string for each\n# constant, allowing it to be documented with `automodule` (which otherwise\n# ignores undocumented module constants) and also preventing it from using\n# the Algorithm docstring if otherwise forced to document the constants.\n\nCRC3_GSM = Algorithm(\n    crc_width=3,\n    polynomial=0x3,\n    initial_crc=0x0,",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/amaranth/lib/crc/catalog.py",
+                "text": "\"\"\"\nThis module contains a catalog of predefined CRC algorithms, retrieved from the `reveng catalogue`_\non 2023-05-25.\n\n.. _reveng catalogue: https://reveng.sourceforge.io/crc-catalogue/all.htm\n\nSee the documentation for the :mod:`~amaranth.lib.crc` module for examples.\n\"\"\"\n\nfrom . import Algorithm\n\n# Note: The trailing `#:` gives Sphinx an empty documentation string for each\n# constant, allowing it to be documented with `automodule` (which otherwise\n# ignores undocumented module constants) and also preventing it from using\n# the Algorithm docstring if otherwise forced to document the constants.\n\nCRC3_GSM = Algorithm(\n    crc_width=3,\n    polynomial=0x3,\n    initial_crc=0x0,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x7)  #:\n\nCRC3_ROHC = Algorithm(\n    crc_width=3,\n    polynomial=0x3,\n    initial_crc=0x7,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0)  #:\n\nCRC4_G_704 = CRC4_ITU = Algorithm(\n    crc_width=4,\n    polynomial=0x3,\n    initial_crc=0x0,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0)  #:\n\nCRC4_INTERLAKEN = Algorithm(\n    crc_width=4,\n    polynomial=0x3,\n    initial_crc=0xf,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xf)  #:\n\nCRC5_EPC_C1G2 = CRC5_EPC = Algorithm(\n    crc_width=5,\n    polynomial=0x09,\n    initial_crc=0x09,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC5_G_704 = CRC5_ITU = Algorithm(\n    crc_width=5,\n    polynomial=0x15,\n    initial_crc=0x00,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC5_USB = Algorithm(\n    crc_width=5,\n    polynomial=0x05,\n    initial_crc=0x1f,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x1f)  #:\n\nCRC6_CDMA2000_A = Algorithm(\n    crc_width=6,\n    polynomial=0x27,\n    initial_crc=0x3f,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC6_CDMA2000_B = Algorithm(\n    crc_width=6,\n    polynomial=0x07,\n    initial_crc=0x3f,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC6_DARC = Algorithm(\n    crc_width=6,\n    polynomial=0x19,\n    initial_crc=0x00,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC6_G_704 = CRC6_ITU = Algorithm(\n    crc_width=6,\n    polynomial=0x03,\n    initial_crc=0x00,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC6_GSM = Algorithm(\n    crc_width=6,\n    polynomial=0x2f,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x3f)  #:\n\nCRC7_MMC = Algorithm(\n    crc_width=7,\n    polynomial=0x09,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC7_ROHC = Algorithm(\n    crc_width=7,\n    polynomial=0x4f,\n    initial_crc=0x7f,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC7_UMTS = Algorithm(\n    crc_width=7,\n    polynomial=0x45,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_AUTOSAR = Algorithm(\n    crc_width=8,\n    polynomial=0x2f,\n    initial_crc=0xff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xff)  #:\n\nCRC8_BLUETOOTH = Algorithm(\n    crc_width=8,\n    polynomial=0xa7,\n    initial_crc=0x00,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC8_CDMA2000 = Algorithm(\n    crc_width=8,\n    polynomial=0x9b,\n    initial_crc=0xff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_DARC = Algorithm(\n    crc_width=8,\n    polynomial=0x39,\n    initial_crc=0x00,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC8_DVB_S2 = Algorithm(\n    crc_width=8,\n    polynomial=0xd5,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_GSM_A = Algorithm(\n    crc_width=8,\n    polynomial=0x1d,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_GSM_B = Algorithm(\n    crc_width=8,\n    polynomial=0x49,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xff)  #:\n\nCRC8_HITAG = Algorithm(\n    crc_width=8,\n    polynomial=0x1d,\n    initial_crc=0xff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_I_432_1 = CRC8_ITU = Algorithm(\n    crc_width=8,\n    polynomial=0x07,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x55)  #:\n\nCRC8_I_CODE = Algorithm(\n    crc_width=8,\n    polynomial=0x1d,\n    initial_crc=0xfd,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_LTE = Algorithm(\n    crc_width=8,\n    polynomial=0x9b,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_MAXIM_DOW = CRC8_MAXIM = Algorithm(\n    crc_width=8,\n    polynomial=0x31,\n    initial_crc=0x00,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC8_MIFARE_MAD = Algorithm(\n    crc_width=8,\n    polynomial=0x1d,\n    initial_crc=0xc7,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_NRSC_5 = Algorithm(\n    crc_width=8,\n    polynomial=0x31,\n    initial_crc=0xff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_OPENSAFETY = Algorithm(\n    crc_width=8,\n    polynomial=0x2f,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_ROHC = Algorithm(\n    crc_width=8,\n    polynomial=0x07,\n    initial_crc=0xff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC8_SAE_J1850 = Algorithm(\n    crc_width=8,\n    polynomial=0x1d,\n    initial_crc=0xff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xff)  #:\n\nCRC8_SMBUS = Algorithm(\n    crc_width=8,\n    polynomial=0x07,\n    initial_crc=0x00,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00)  #:\n\nCRC8_TECH_3250 = CRC8_AES = CRC8_ETU = Algorithm(\n    crc_width=8,\n    polynomial=0x1d,\n    initial_crc=0xff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC8_WCDMA = Algorithm(\n    crc_width=8,\n    polynomial=0x9b,\n    initial_crc=0x00,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00)  #:\n\nCRC10_ATM = CRC10_I_610 = Algorithm(\n    crc_width=10,\n    polynomial=0x233,\n    initial_crc=0x000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000)  #:\n\nCRC10_CDMA2000 = Algorithm(\n    crc_width=10,\n    polynomial=0x3d9,\n    initial_crc=0x3ff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000)  #:\n\nCRC10_GSM = Algorithm(\n    crc_width=10,\n    polynomial=0x175,\n    initial_crc=0x000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x3ff)  #:\n\nCRC11_FLEXRAY = Algorithm(\n    crc_width=11,\n    polynomial=0x385,\n    initial_crc=0x01a,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000)  #:\n\nCRC11_UMTS = Algorithm(\n    crc_width=11,\n    polynomial=0x307,\n    initial_crc=0x000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000)  #:\n\nCRC12_CDMA2000 = Algorithm(\n    crc_width=12,\n    polynomial=0xf13,\n    initial_crc=0xfff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000)  #:\n\nCRC12_DECT = Algorithm(\n    crc_width=12,\n    polynomial=0x80f,\n    initial_crc=0x000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000)  #:\n\nCRC12_GSM = Algorithm(\n    crc_width=12,\n    polynomial=0xd31,\n    initial_crc=0x000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xfff)  #:\n\nCRC12_UMTS = CRC12_3GPP = Algorithm(\n    crc_width=12,\n    polynomial=0x80f,\n    initial_crc=0x000,\n    reflect_input=False,\n    reflect_output=True,\n    xor_output=0x000)  #:\n\nCRC13_BBC = Algorithm(\n    crc_width=13,\n    polynomial=0x1cf5,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC14_DARC = Algorithm(\n    crc_width=14,\n    polynomial=0x0805,\n    initial_crc=0x0000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC14_GSM = Algorithm(\n    crc_width=14,\n    polynomial=0x202d,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x3fff)  #:\n\nCRC15_CAN = Algorithm(\n    crc_width=15,\n    polynomial=0x4599,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC15_MPT1327 = Algorithm(\n    crc_width=15,\n    polynomial=0x6815,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0001)  #:\n\nCRC16_ARC = CRC16_IBM = Algorithm(\n    crc_width=16,\n    polynomial=0x8005,\n    initial_crc=0x0000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_CDMA2000 = Algorithm(\n    crc_width=16,\n    polynomial=0xc867,\n    initial_crc=0xffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_CMS = Algorithm(\n    crc_width=16,\n    polynomial=0x8005,\n    initial_crc=0xffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_DDS_110 = Algorithm(\n    crc_width=16,\n    polynomial=0x8005,\n    initial_crc=0x800d,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_DECT_R = Algorithm(\n    crc_width=16,\n    polynomial=0x0589,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0001)  #:\n\nCRC16_DECT_X = Algorithm(\n    crc_width=16,\n    polynomial=0x0589,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_DNP = Algorithm(\n    crc_width=16,\n    polynomial=0x3d65,\n    initial_crc=0x0000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffff)  #:\n\nCRC16_EN_13757 = Algorithm(\n    crc_width=16,\n    polynomial=0x3d65,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffff)  #:\n\nCRC16_GENIBUS = CRC16_DARC = CRC16_EPC = CRC16_EPC_C1G2 = CRC16_I_CODE = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0xffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffff)  #:\n\nCRC16_GSM = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffff)  #:\n\nCRC16_IBM_3740 = CRC16_AUTOSAR = CRC16_CCITT_FALSE = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0xffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_IBM_SDLC = CRC16_ISO_HDLC = CRC16_ISO_IEC_14443_3_B = CRC16_X25 = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0xffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffff)  #:\n\nCRC16_ISO_IEC_14443_3_A = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0xc6c6,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_KERMIT = CRC16_BLUETOOTH = CRC16_CCITT = CRC16_CCITT_TRUE = CRC16_V_41_LSB = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0x0000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_LJ1200 = Algorithm(\n    crc_width=16,\n    polynomial=0x6f63,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_M17 = Algorithm(\n    crc_width=16,\n    polynomial=0x5935,\n    initial_crc=0xffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_MAXIM_DOW = CRC16_MAXIM = Algorithm(\n    crc_width=16,\n    polynomial=0x8005,\n    initial_crc=0x0000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffff)  #:\n\nCRC16_MCRF4XX = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0xffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_MODBUS = Algorithm(\n    crc_width=16,\n    polynomial=0x8005,\n    initial_crc=0xffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_NRSC_5 = Algorithm(\n    crc_width=16,\n    polynomial=0x080b,\n    initial_crc=0xffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_OPENSAFETY_A = Algorithm(\n    crc_width=16,\n    polynomial=0x5935,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_OPENSAFETY_B = Algorithm(\n    crc_width=16,\n    polynomial=0x755b,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_PROFIBUS = CRC16_IEC_61158_2 = Algorithm(\n    crc_width=16,\n    polynomial=0x1dcf,\n    initial_crc=0xffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffff)  #:\n\nCRC16_RIELLO = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0xb2aa,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_SPI_FUJITSU = CRC16_AUG_CCITT = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0x1d0f,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_T10_DIF = Algorithm(\n    crc_width=16,\n    polynomial=0x8bb7,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_TELEDISK = Algorithm(\n    crc_width=16,\n    polynomial=0xa097,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_TMS37157 = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0x89ec,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000)  #:\n\nCRC16_UMTS = CRC16_BUYPASS = CRC16_VERIFONE = Algorithm(\n    crc_width=16,\n    polynomial=0x8005,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC16_USB = Algorithm(\n    crc_width=16,\n    polynomial=0x8005,\n    initial_crc=0xffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffff)  #:\n\nCRC16_XMODEM = CRC16_ACORN = CRC16_LTE = CRC16_V_41_MSB = CRC16_ZMODEM = Algorithm(\n    crc_width=16,\n    polynomial=0x1021,\n    initial_crc=0x0000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000)  #:\n\nCRC17_CAN_FD = Algorithm(\n    crc_width=17,\n    polynomial=0x1685b,\n    initial_crc=0x00000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00000)  #:\n\nCRC21_CAN_FD = Algorithm(\n    crc_width=21,\n    polynomial=0x102899,\n    initial_crc=0x000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000000)  #:\n\nCRC24_BLE = Algorithm(\n    crc_width=24,\n    polynomial=0x00065b,\n    initial_crc=0x555555,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x000000)  #:\n\nCRC24_FLEXRAY_A = Algorithm(\n    crc_width=24,\n    polynomial=0x5d6dcb,\n    initial_crc=0xfedcba,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000000)  #:\n\nCRC24_FLEXRAY_B = Algorithm(\n    crc_width=24,\n    polynomial=0x5d6dcb,\n    initial_crc=0xabcdef,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000000)  #:\n\nCRC24_INTERLAKEN = Algorithm(\n    crc_width=24,\n    polynomial=0x328b63,\n    initial_crc=0xffffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffffff)  #:\n\nCRC24_LTE_A = Algorithm(\n    crc_width=24,\n    polynomial=0x864cfb,\n    initial_crc=0x000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000000)  #:\n\nCRC24_LTE_B = Algorithm(\n    crc_width=24,\n    polynomial=0x800063,\n    initial_crc=0x000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000000)  #:\n\nCRC24_OPENPGP = Algorithm(\n    crc_width=24,\n    polynomial=0x864cfb,\n    initial_crc=0xb704ce,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x000000)  #:\n\nCRC24_OS_9 = Algorithm(\n    crc_width=24,\n    polynomial=0x800063,\n    initial_crc=0xffffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffffff)  #:\n\nCRC30_CDMA = Algorithm(\n    crc_width=30,\n    polynomial=0x2030b9c7,\n    initial_crc=0x3fffffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x3fffffff)  #:\n\nCRC31_PHILIPS = Algorithm(\n    crc_width=31,\n    polynomial=0x04c11db7,\n    initial_crc=0x7fffffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x7fffffff)  #:\n\nCRC32_AIXM = Algorithm(\n    crc_width=32,\n    polynomial=0x814141ab,\n    initial_crc=0x00000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00000000)  #:\n\nCRC32_AUTOSAR = Algorithm(\n    crc_width=32,\n    polynomial=0xf4acfb13,\n    initial_crc=0xffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffffffff)  #:\n\nCRC32_BASE91_D = Algorithm(\n    crc_width=32,\n    polynomial=0xa833982b,\n    initial_crc=0xffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffffffff)  #:\n\nCRC32_BZIP2 = CRC32_AAL5 = CRC32_DECT_B = Algorithm(\n    crc_width=32,\n    polynomial=0x04c11db7,\n    initial_crc=0xffffffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffffffff)  #:\n\nCRC32_CD_ROM_EDC = Algorithm(\n    crc_width=32,\n    polynomial=0x8001801b,\n    initial_crc=0x00000000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00000000)  #:\n\nCRC32_CKSUM = CRC32_POSIX = Algorithm(\n    crc_width=32,\n    polynomial=0x04c11db7,\n    initial_crc=0x00000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffffffff)  #:\n\nCRC32_ISCSI = CRC32_BASE91_C = CRC32_CASTAGNOLI = CRC32_INTERLAKEN = Algorithm(\n    crc_width=32,\n    polynomial=0x1edc6f41,\n    initial_crc=0xffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffffffff)  #:\n\nCRC32_ISO_HDLC = CRC32_ADCCP = CRC32_V_42 = CRC32_XZ = CRC32_PKZIP = CRC32_ETHERNET = Algorithm(\n    crc_width=32,\n    polynomial=0x04c11db7,\n    initial_crc=0xffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffffffff)  #:\n\nCRC32_JAMCRC = Algorithm(\n    crc_width=32,\n    polynomial=0x04c11db7,\n    initial_crc=0xffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00000000)  #:\n\nCRC32_MEF = Algorithm(\n    crc_width=32,\n    polynomial=0x741b8cd7,\n    initial_crc=0xffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x00000000)  #:\n\nCRC32_MPEG_2 = Algorithm(\n    crc_width=32,\n    polynomial=0x04c11db7,\n    initial_crc=0xffffffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00000000)  #:\n\nCRC32_XFER = Algorithm(\n    crc_width=32,\n    polynomial=0x000000af,\n    initial_crc=0x00000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x00000000)  #:\n\nCRC40_GSM = Algorithm(\n    crc_width=40,\n    polynomial=0x0004820009,\n    initial_crc=0x0000000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffffffffff)  #:\n\nCRC64_ECMA_182 = Algorithm(\n    crc_width=64,\n    polynomial=0x42f0e1eba9ea3693,\n    initial_crc=0x0000000000000000,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0x0000000000000000)  #:\n\nCRC64_GO_ISO = Algorithm(\n    crc_width=64,\n    polynomial=0x000000000000001b,\n    initial_crc=0xffffffffffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffffffffffffffff)  #:\n\nCRC64_MS = Algorithm(\n    crc_width=64,\n    polynomial=0x259c84cba6426349,\n    initial_crc=0xffffffffffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000000000000000)  #:\n\nCRC64_REDIS = Algorithm(\n    crc_width=64,\n    polynomial=0xad93d23594c935a9,\n    initial_crc=0x0000000000000000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x0000000000000000)  #:\n\nCRC64_WE = Algorithm(\n    crc_width=64,\n    polynomial=0x42f0e1eba9ea3693,\n    initial_crc=0xffffffffffffffff,\n    reflect_input=False,\n    reflect_output=False,\n    xor_output=0xffffffffffffffff)  #:\n\nCRC64_XZ = CRC64_ECMA = Algorithm(\n    crc_width=64,\n    polynomial=0x42f0e1eba9ea3693,\n    initial_crc=0xffffffffffffffff,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0xffffffffffffffff)  #:\n\nCRC82_DARC = Algorithm(\n    crc_width=82,\n    polynomial=0x0308c0111011401440411,\n    initial_crc=0x000000000000000000000,\n    reflect_input=True,\n    reflect_output=True,\n    xor_output=0x000000000000000000000)  #:",
+                "lineStart": 1,
+                "lineEnd": 911,
+                "totalLines": 911,
+                "truncated": false
+              }
+            },
+            "title": "app/code/amaranth/lib/crc/catalog.py",
+            "time": {
+              "start": 1789943110788,
+              "end": 1789943111011
+            }
+          },
+          "id": "prt_0c0ec5c1e001nq3nIiLTmHTAcF",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec59ed001wRErgakHctUxca"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 14612,
+            "input": 14493,
+            "output": 119,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec5d68001HONS9gjAywstpm",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec59ed001wRErgakHctUxca"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c0ec43b0001jUjo5xjb1EOipv",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 30701,
+          "input": 30479,
+          "output": 222,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789943111027,
+          "completed": 1789943112493
+        },
+        "finish": "stop",
+        "id": "msg_0c0ec5d73001Xe0pkMFrQw05XZ",
+        "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c0ec5fa30012xx1bA1r7GrxHy",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5d73001Xe0pkMFrQw05XZ"
+        },
+        {
+          "type": "text",
+          "text": "Based on my analysis of the codebase and non-passed tests, here are 3-5 plausible future tasks:\n\n1. Fix the `_PySignalState` attribute error in simulator components by implementing proper signal state management in `/app/code/amaranth/sim/_base.py` and `/app/code/amaranth/sim/core.py`.\n\n2. Resolve the `ClockDomain` object comparison issue in `/app/code/amaranth/hdl/_cd.py` where different instances with identical properties are not considered equal.\n\n3. Address the missing `_prev_value` attribute in signal state objects that are causing AttributeError exceptions in various simulation test cases.\n\n4. Implement proper handling for `NoneType` object attribute access errors in simulator regression tests, particularly around trigger and signal handling.\n\n5. Fix the domain lookup functionality in `/app/code/amaranth/hdl/_cd.py` to correctly resolve clock domains by name during simulation setup.\n\nThese tasks target the core failing patterns identified in the test failures, focusing on signal state management, domain resolution, and proper object comparisons in the Amaranth hardware description library.",
+          "time": {
+            "start": 1789943112324,
+            "end": 1789943112484
+          },
+          "id": "prt_0c0ec62840014j1zE8uWh7uVZC",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5d73001Xe0pkMFrQw05XZ"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 30701,
+            "input": 30479,
+            "output": 222,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c0ec6327001ZUkhNIyutRiXNM",
+          "sessionID": "ses_f3f13bca6ffepnNHAosBpE0thC",
+          "messageID": "msg_0c0ec5d73001Xe0pkMFrQw05XZ"
+        }
+      ]
+    }
+  ]
+}

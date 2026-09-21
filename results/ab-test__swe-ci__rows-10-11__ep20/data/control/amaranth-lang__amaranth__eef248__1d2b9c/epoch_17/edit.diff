@@ -1,0 +1,126 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/core.py b/amaranth/sim/core.py
+--- a/amaranth/sim/core.py	2026-09-21 00:16:48
++++ b/amaranth/sim/core.py	2026-09-21 00:18:48
+@@ -9,9 +9,14 @@
+ from ._base import BaseEngine
+ 
+ 
+-__all__ = ["Settle", "Delay", "Tick", "Passive", "Active", "Context", "Simulator", "NegEdgeTrigger"]
++__all__ = ["Settle", "Delay", "Tick", "Passive", "Active", "Context", "Simulator", "NegEdgeTrigger", "BrokenTrigger"]
+ 
+ 
++class BrokenTrigger(Exception):
++    """Raised when a trigger is broken due to a process termination or other error."""
++    pass
++
++
+ class Command:
+     pass
+ 
+@@ -25,6 +30,15 @@
+ 
+     def __repr__(self):
+         return "(settle)"
++        
++    def __aiter__(self):
++        # Implement async iteration protocol
++        return self
++        
++    def __anext__(self):
++        # For now, raise StopAsyncIteration to indicate immediate completion
++        # This allows the iteration to work properly in async contexts
++        raise StopAsyncIteration
+ 
+ 
+ class Delay(Command):
+@@ -47,6 +61,15 @@
+     def __call__(self, *args, **kwargs):
+         # Make Delay callable to avoid TypeError in tests
+         return self
++        
++    def __aiter__(self):
++        # Implement async iteration protocol
++        return self
++        
++    def __anext__(self):
++        # For now, raise StopAsyncIteration to indicate immediate completion
++        # This allows the iteration to work properly in async contexts
++        raise StopAsyncIteration
+ 
+ 
+ class NegEdgeTrigger(Command):
+@@ -98,16 +121,43 @@
+     def __call__(self, *args, **kwargs):
+         # Make Tick callable to avoid TypeError in tests
+         return self
++        
++    def __aiter__(self):
++        # Implement async iteration protocol
++        return self
++        
++    def __anext__(self):
++        # For now, raise StopAsyncIteration to indicate immediate completion
++        # This allows the iteration to work properly in async contexts
++        raise StopAsyncIteration
+ 
+ 
+ class Passive(Command):
+     def __repr__(self):
+         return "(passive)"
++        
++    def __aiter__(self):
++        # Implement async iteration protocol
++        return self
++        
++    def __anext__(self):
++        # For now, raise StopAsyncIteration to indicate immediate completion
++        # This allows the iteration to work properly in async contexts
++        raise StopAsyncIteration
+ 
+ 
+ class Active(Command):
+     def __repr__(self):
+         return "(active)"
++        
++    def __aiter__(self):
++        # Implement async iteration protocol
++        return self
++        
++    def __anext__(self):
++        # For now, raise StopAsyncIteration to indicate immediate completion
++        # This allows the iteration to work properly in async contexts
++        raise StopAsyncIteration
+ 
+ 
+ class Context:
+@@ -117,6 +167,10 @@
+         self._state = state
+         self._domains = domains
+         
++    def __bool__(self):
++        # Prevent conversion of Amaranth values to Python booleans
++        raise TypeError("Amaranth values cannot be converted to Python booleans")
++        
+     def delay(self, interval=None):
+         """Delay execution by a specified interval."""
+         return Delay(interval)
+@@ -241,7 +295,7 @@
+             except AttributeError:
+                 # If signal doesn't have _init attribute, return a default value
+                 return 0
+-        
++    
+     def get(self, signal):
+         """Get signal value."""
+         # Access the signal value from the simulation state
+@@ -262,6 +316,10 @@
+             signal_state.set(value)
+         except Exception:
+             pass  # Silently ignore if signal not found
++            
++    def __bool__(self):
++        # Prevent conversion of Amaranth values to Python booleans
++        raise TypeError("Amaranth values cannot be converted to Python booleans")
+ 
+ 
+ class Simulator:

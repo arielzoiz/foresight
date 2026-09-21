@@ -1,0 +1,1872 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-20 23:33:08
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 00:08:08
+@@ -32,6 +32,12 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    Versions,
++    AsyncVersions,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -58,4 +64,8 @@
+     "AsyncBetaWithRawResponse",
+     "BetaWithStreamingResponse",
+     "AsyncBetaWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "Versions",
++    "AsyncVersions",
+ ]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-20 23:33:08
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 00:07:48
+@@ -18,6 +18,12 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    Versions,
++    AsyncVersions,
++)
+ from ..._compat import cached_property
+ from ..._resource import SyncAPIResource, AsyncAPIResource
+ from .messages.messages import (
+@@ -46,6 +52,10 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -79,6 +89,10 @@
+         return AsyncFiles(self._client)
+ 
+     @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -114,7 +128,11 @@
+     def files(self) -> FilesWithRawResponse:
+         return FilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithRawResponse:
++        return SkillsWithRawResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithRawResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -131,7 +149,11 @@
+     def files(self) -> AsyncFilesWithRawResponse:
+         return AsyncFilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> AsyncSkillsWithRawResponse:
++        return AsyncSkillsWithRawResponse(self._beta.skills)
+ 
++
+ class BetaWithStreamingResponse:
+     def __init__(self, beta: Beta) -> None:
+         self._beta = beta
+@@ -148,7 +170,11 @@
+     def files(self) -> FilesWithStreamingResponse:
+         return FilesWithStreamingResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithStreamingResponse:
++        return SkillsWithStreamingResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithStreamingResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -164,3 +190,7 @@
+     @cached_property
+     def files(self) -> AsyncFilesWithStreamingResponse:
+         return AsyncFilesWithStreamingResponse(self._beta.files)
++
++    @cached_property
++    def skills(self) -> AsyncSkillsWithStreamingResponse:
++        return AsyncSkillsWithStreamingResponse(self._beta.skills)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/__init__.py b/src/anthropic/resources/beta/skills/__init__.py
+--- a/src/anthropic/resources/beta/skills/__init__.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/__init__.py	2026-09-21 00:06:10
+@@ -0,0 +1,6 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from .skills import Skills, AsyncSkills
++from .versions import Versions, AsyncVersions
++
++__all__ = ["Skills", "AsyncSkills", "Versions", "AsyncVersions"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/skills.py b/src/anthropic/resources/beta/skills/skills.py
+--- a/src/anthropic/resources/beta/skills/skills.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/skills.py	2026-09-21 00:08:02
+@@ -0,0 +1,851 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, overload, Literal, cast
++from typing_extensions import Self
++
++import httpx
++
++from ...._types import NOT_GIVEN, Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
++from ...._utils import is_given, required_args, maybe_transform, strip_not_given, async_maybe_transform
++from ...._compat import cached_property
++from ...._resource import SyncAPIResource, AsyncAPIResource
++from ...._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
++from ....types.beta.skills import (
++    SkillCreateResponse,
++    SkillRetrieveResponse,
++    SkillListResponse,
++    SkillDeleteResponse,
++)
++from ...._base_client import make_request_options
++from ....pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ...._client import Anthropic, AsyncAnthropic
++
++__all__ = ["Skills", "AsyncSkills"]
++
++
++class Skills(SyncAPIResource):
++    @cached_property
++    def versions(self) -> Versions:
++        return Versions(self._client)
++
++    @cached_property
++    def with_raw_response(self) -> SkillsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return SkillsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> SkillsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return SkillsWithStreamingResponse(self)
++
++    @overload
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        ...
++
++    @overload
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        ...
++
++    @required_args([], [])
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._post(
++            "/v1/assistants/skills",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._get(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        source: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[SkillListResponse]:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._get(
++            "/v1/assistants/skills",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[SkillListResponse],
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._delete(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillDeleteResponse,
++        )
++
++
++class AsyncSkills(AsyncAPIResource):
++    @cached_property
++    def versions(self) -> AsyncVersions:
++        return AsyncVersions(self._client)
++
++    @cached_property
++    def with_raw_response(self) -> AsyncSkillsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return AsyncSkillsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> AsyncSkillsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return AsyncSkillsWithStreamingResponse(self)
++
++    @overload
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        ...
++
++    @overload
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        ...
++
++    @required_args([], [])
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._post(
++            "/v1/assistants/skills",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._get(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        source: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[SkillListResponse]:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._get(
++            "/v1/assistants/skills",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[SkillListResponse],
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._delete(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillDeleteResponse,
++        )
++
++
++class SkillsWithRawResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def versions(self) -> VersionsWithRawResponse:
++        return VersionsWithRawResponse(self._skills.versions)
++
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._post(
++            "/v1/assistants/skills",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._get(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        source: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[SkillListResponse]:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._get(
++            "/v1/assistants/skills",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[SkillListResponse],
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._delete(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillDeleteResponse,
++        )
++
++
++class AsyncSkillsWithRawResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def versions(self) -> AsyncVersionsWithRawResponse:
++        return AsyncVersionsWithRawResponse(self._skills.versions)
++
++    async def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._skills._post(
++            "/v1/assistants/skills",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._skills._get(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        source: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[SkillListResponse]:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._get(
++            "/v1/assistants/skills",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[SkillListResponse],
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._skills._delete(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillDeleteResponse,
++        )
++
++
++class SkillsWithStreamingResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def versions(self) -> VersionsWithStreamingResponse:
++        return VersionsWithStreamingResponse(self._skills.versions)
++
++    def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._post(
++            "/v1/assistants/skills",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._get(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        source: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[SkillListResponse]:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._get(
++            "/v1/assistants/skills",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[SkillListResponse],
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._delete(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillDeleteResponse,
++        )
++
++
++class AsyncSkillsWithStreamingResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def versions(self) -> AsyncVersionsWithStreamingResponse:
++        return AsyncVersionsWithStreamingResponse(self._skills.versions)
++
++    async def create(
++        self,
++        *,
++        display_title: str | Omit = omit,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillCreateResponse:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._skills._post(
++            "/v1/assistants/skills",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._skills._get(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        source: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[SkillListResponse]:
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._skills._get(
++            "/v1/assistants/skills",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[SkillListResponse],
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SkillDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._skills._delete(
++            f"/v1/assistants/skills/{skill_id}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SkillDeleteResponse,
++        )
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions.py b/src/anthropic/resources/beta/skills/versions.py
+--- a/src/anthropic/resources/beta/skills/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions.py	2026-09-21 00:07:34
+@@ -0,0 +1,893 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, overload, Literal, cast
++from typing_extensions import Self
++
++import httpx
++
++from ...._types import NOT_GIVEN, Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
++from ...._utils import is_given, required_args, maybe_transform, strip_not_given, async_maybe_transform
++from ...._compat import cached_property
++from ...._resource import SyncAPIResource, AsyncAPIResource
++from ...._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
++from ....types.beta.skills import (
++    VersionCreateResponse,
++    VersionRetrieveResponse,
++    VersionListResponse,
++    VersionDeleteResponse,
++)
++from ...._base_client import make_request_options
++from ....pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ...._client import Anthropic, AsyncAnthropic
++
++__all__ = ["Versions", "AsyncVersions"]
++
++
++class Versions(SyncAPIResource):
++    @cached_property
++    def with_raw_response(self) -> VersionsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return VersionsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> VersionsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return VersionsWithStreamingResponse(self)
++
++    @overload
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        ...
++
++    @overload
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        ...
++
++    @required_args(["skill_id"], ["skill_id"])
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._post(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            body=maybe_transform(
++                {
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._get(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[VersionListResponse]:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._get(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[VersionListResponse],
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._delete(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionDeleteResponse,
++        )
++
++
++class AsyncVersions(AsyncAPIResource):
++    @cached_property
++    def with_raw_response(self) -> AsyncVersionsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return AsyncVersionsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> AsyncVersionsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return AsyncVersionsWithStreamingResponse(self)
++
++    @overload
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        ...
++
++    @overload
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        ...
++
++    @required_args(["skill_id"], ["skill_id"])
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._post(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            body=maybe_transform(
++                {
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._get(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[VersionListResponse]:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._get(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[VersionListResponse],
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._delete(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionDeleteResponse,
++        )
++
++
++class VersionsWithRawResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._post(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            body=maybe_transform(
++                {
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[VersionListResponse]:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[VersionListResponse],
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._delete(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionDeleteResponse,
++        )
++
++
++class AsyncVersionsWithRawResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._versions._post(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            body=maybe_transform(
++                {
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[VersionListResponse]:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[VersionListResponse],
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._versions._delete(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionDeleteResponse,
++        )
++
++
++class VersionsWithStreamingResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._post(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            body=maybe_transform(
++                {
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[VersionListResponse]:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[VersionListResponse],
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._delete(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionDeleteResponse,
++        )
++
++
++class AsyncVersionsWithStreamingResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: SequenceNotStr[bytes] | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionCreateResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._versions._post(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            body=maybe_transform(
++                {
++                    "files": files,
++                },
++                dict,
++            ),
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionRetrieveResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | Omit = omit,
++        page: str | Omit = omit,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> SyncPageCursor[VersionListResponse]:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return self._versions._get(
++            f"/v1/assistants/skills/{skill_id}/versions",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=SyncPageCursor[VersionListResponse],
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | Omit = omit,
++        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
++        # The extra values given here take precedence over values defined on the client or passed to this method.
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | httpx.Timeout | None | NotGiven = not_given,
++    ) -> VersionDeleteResponse:
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        extra_headers = {
++            **strip_not_given({"anthropic-beta": ",".join(str(e) for e in betas) if is_given(betas) else not_given}),
++            **(extra_headers or {}),
++        }
++        return await self._versions._delete(
++            f"/v1/assistants/skills/{skill_id}/versions/{version}",
++            options=make_request_options(
++                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
++            ),
++            cast_to=VersionDeleteResponse,
++        )
+\ No newline at end of file

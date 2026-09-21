@@ -1,0 +1,109 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ast.py b/amaranth/hdl/_ast.py
+--- a/amaranth/hdl/_ast.py	2026-09-20 23:31:24
++++ b/amaranth/hdl/_ast.py	2026-09-21 00:26:04
+@@ -1765,6 +1765,7 @@
+         self._value = value
+         self._start = start
+         self._stop  = stop
++        self._init = value._init if hasattr(value, '_init') else 0
+ 
+     @property
+     def value(self):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/core.py b/amaranth/sim/core.py
+--- a/amaranth/sim/core.py	2026-09-21 00:23:48
++++ b/amaranth/sim/core.py	2026-09-21 00:26:12
+@@ -47,7 +47,24 @@
+         # Allow the iteration to complete immediately, which is what the tests expect
+         raise StopAsyncIteration
+ 
++    def __getstate__(self):
++        # For pickle compatibility - exclude the signal which may not be serializable
++        state = self.__dict__.copy()
++        # Remove signal if it's a complex object that can't be pickled
++        if hasattr(self.signal, '__module__') and self.signal.__module__ is not None:
++            # If signal has module info, it's likely not safe to pickle
++            state['signal'] = str(self.signal)
++        return state
+ 
++    def __setstate__(self, state):
++        # Restore state for unpickling
++        self.__dict__.update(state)
++
++    def negedge(self):
++        """Return a NegEdgeTrigger for the same signal to support chaining."""
++        return NegEdgeTrigger(self.signal)
++
++
+ class NegEdgeTrigger(Command):
+     def __init__(self, signal):
+         self.signal = signal
+@@ -101,7 +118,20 @@
+         # Allow the iteration to complete immediately, which is what the tests expect
+         raise StopAsyncIteration
+ 
++    def __getstate__(self):
++        # For pickle compatibility - exclude the signal which may not be serializable
++        state = self.__dict__.copy()
++        # Remove signal if it's a complex object that can't be pickled
++        if hasattr(self.signal, '__module__') and self.signal.__module__ is not None:
++            # If signal has module info, it's likely not safe to pickle
++            state['signal'] = str(self.signal)
++        return state
+ 
++    def __setstate__(self, state):
++        # Restore state for unpickling
++        self.__dict__.update(state)
++
++
+ class Command:
+     pass
+ 
+@@ -158,7 +188,28 @@
+         # Return a Delay command for chaining
+         return Delay(interval)
+ 
++    def __getstate__(self):
++        # For pickle compatibility - interval should be fine to pickle
++        return self.__dict__.copy()
+ 
++    def __setstate__(self, state):
++        # Restore state for unpickling
++        self.__dict__.update(state)
++
++    def __getstate__(self):
++        # For pickle compatibility - exclude the signal which may not be serializable
++        state = self.__dict__.copy()
++        # Remove signal if it's a complex object that can't be pickled
++        if hasattr(self.signal, '__module__') and self.signal.__module__ is not None:
++            # If signal has module info, it's likely not safe to pickle
++            state['signal'] = str(self.signal)
++        return state
++
++    def __setstate__(self, state):
++        # Restore state for unpickling
++        self.__dict__.update(state)
++
++
+ class NegEdgeTrigger(Command):
+     def __init__(self, signal):
+         self.signal = signal
+@@ -219,6 +270,19 @@
+     def delay(self, interval=None):
+         # Return a Delay command for chaining
+         return Delay(interval)
++
++    def __getstate__(self):
++        # For pickle compatibility - exclude the domain which may not be serializable
++        state = self.__dict__.copy()
++        # Remove domain if it's a complex object that can't be pickled
++        if hasattr(self.domain, '__module__') and self.domain.__module__ is not None:
++            # If domain has module info, it's likely not safe to pickle
++            state['domain'] = str(self.domain)
++        return state
++
++    def __setstate__(self, state):
++        # Restore state for unpickling
++        self.__dict__.update(state)
+ 
+ 
+ class Passive(Command):

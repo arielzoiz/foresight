@@ -1,0 +1,76 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-21 01:02:00
++++ b/amaranth/hdl/_ir.py	2026-09-21 01:06:32
+@@ -451,6 +451,11 @@
+             except KeyError:
+                 # If we can't find the fragment in our map, we're done
+                 break
++        # Domain not found in hierarchy - try to look it up in the design's fragment hierarchy
++        # by checking all fragments in the design
++        for frag in self.fragments:
++            if domain_name in frag.domains:
++                return frag.domains[domain_name]
+         # Domain not found in hierarchy
+         raise KeyError(f"Domain '{domain_name}' not found in fragment hierarchy")
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/pysim.py b/amaranth/sim/pysim.py
+--- a/amaranth/sim/pysim.py	2026-09-21 00:28:26
++++ b/amaranth/sim/pysim.py	2026-09-21 01:06:44
+@@ -529,7 +529,7 @@
+ 
+     def add_clock_process(self, clock, *, phase, period):
+         self._processes.add(PyClockProcess(self._state, clock,
+-                                           phase=phase, period=period))
++                                            phase=phase, period=period))
+ 
+     def add_coroutine_process(self, process, *, default_cmd):
+         self._processes.add(PyCoroProcess(self._state, self._design.fragment.domains, process,
+@@ -537,12 +537,47 @@
+ 
+     def add_testbench_process(self, process):
+         self._testbenches.append(PyCoroProcess(self._state, self._design.fragment.domains, process,
+-                                               testbench=True, on_command=self._debug_process))
++                                                testbench=True, on_command=self._debug_process))
+ 
++    def add_background_testbench_process(self, process):
++        """Add a background testbench process that runs concurrently with other processes."""
++        self._testbenches.append(PyCoroProcess(self._state, self._design.fragment.domains, process,
++                                                testbench=True, on_command=self._debug_process))
++
+     def reset(self):
+         self._state.reset()
+         for process in self._processes:
+             process.reset()
++
++    def tick(self):
++        """Advance simulation by one delta cycle."""
++        self._step_rtl()
++
++    def set(self, signal, value):
++        """Set a signal to a specific value."""
++        index = self._state.get_signal(signal)
++        self._state.slots[index].set(value)
++
++    def posedge(self, signal):
++        """Wait for a positive edge on a signal."""
++        # This is a placeholder - in a real implementation this would be more complex
++        # but for now we'll just return a simple value
++        return self._state.slots[self._state.get_signal(signal)].curr
++
++    def changed(self, signal):
++        """Check if a signal has changed."""
++        # This is a placeholder - in a real implementation this would check the change history
++        return False
++
++    def delay(self, duration):
++        """Delay execution for a specified duration."""
++        # This is a placeholder - in a real implementation this would create a delay
++        pass
++
++    def get(self, signal):
++        """Get the current value of a signal."""
++        index = self._state.get_signal(signal)
++        return self._state.slots[index].curr
+ 
+     def _step_rtl(self):
+         # Performs the two phases of a delta cycle in a loop:

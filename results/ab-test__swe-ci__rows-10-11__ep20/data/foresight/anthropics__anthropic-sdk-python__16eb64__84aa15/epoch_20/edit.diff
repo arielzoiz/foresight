@@ -1,0 +1,1250 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 02:25:14
+@@ -32,6 +32,22 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
++from .skills.versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -52,6 +68,18 @@
+     "AsyncFilesWithRawResponse",
+     "FilesWithStreamingResponse",
+     "AsyncFilesWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
++    "Versions",
++    "AsyncVersions",
++    "VersionsWithRawResponse",
++    "AsyncVersionsWithRawResponse",
++    "VersionsWithStreamingResponse",
++    "AsyncVersionsWithStreamingResponse",
+     "Beta",
+     "AsyncBeta",
+     "BetaWithRawResponse",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 02:25:22
+@@ -18,8 +18,14 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
+-from ..._compat import cached_property
+-from ..._resource import SyncAPIResource, AsyncAPIResource
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
+ from .messages.messages import (
+     Messages,
+     AsyncMessages,
+@@ -28,6 +34,14 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills.versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ 
+ __all__ = ["Beta", "AsyncBeta"]
+ 
+@@ -46,6 +60,14 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
++    def versions(self) -> Versions:
++        return Versions(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -77,6 +99,14 @@
+     @cached_property
+     def files(self) -> AsyncFiles:
+         return AsyncFiles(self._client)
++
++    @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
++
++    @cached_property
++    def versions(self) -> AsyncVersions:
++        return AsyncVersions(self._client)
+ 
+     @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions.py b/src/anthropic/resources/beta/skills/versions.py
+--- a/src/anthropic/resources/beta/skills/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions.py	2026-09-21 02:25:10
+@@ -0,0 +1,580 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import List, Optional
++from typing_extensions import Literal
++
++from ..._types import NOT_GIVEN, NotGivenOr, Headers
++from ..._resource import SyncAPIResource, AsyncAPIResource
++from ..._compat import cached_property
++from ..._response import APIResponse
++from ...pagination import SyncPageCursor, AsyncPageCursor
++from ...types.beta.skills import (
++    VersionCreateResponse,
++    VersionRetrieveResponse,
++    VersionListResponse,
++    VersionDeleteResponse,
++)
++
++
++class Versions(SyncAPIResource):
++    def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionCreateResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._post(
++            f"/beta/skills/{skill_id}/versions",
++            body={"files": files},
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        return self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        skill_id: str,
++        limit: int = 20,
++        page: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> SyncPageCursor[VersionListResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._get_page(
++            f"/beta/skills/{skill_id}/versions",
++            headers=extra_headers,
++            query={
++                "limit": limit,
++                "page": page,
++            },
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionListResponse,
++        )
++
++    def delete(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionDeleteResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        return self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionDeleteResponse,
++        )
++
++
++class AsyncVersions(AsyncAPIResource):
++    async def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionCreateResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return await self._post(
++            f"/beta/skills/{skill_id}/versions",
++            body={"files": files},
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        return await self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        skill_id: str,
++        limit: int = 20,
++        page: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._get_page(
++            f"/beta/skills/{skill_id}/versions",
++            headers=extra_headers,
++            query={
++                "limit": limit,
++                "page": page,
++            },
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionListResponse,
++        )
++
++    async def delete(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionDeleteResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        return await self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionDeleteResponse,
++        )
++
++
++class VersionsWithRawResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionCreateResponse]:
++        return self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def retrieve(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        return self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        skill_id: str,
++        limit: int = 20,
++        page: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> SyncPageCursor[VersionListResponse]:
++        return self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def delete(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionDeleteResponse]:
++        return self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithRawResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionCreateResponse]:
++        return await self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def retrieve(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        return await self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        skill_id: str,
++        limit: int = 20,
++        page: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        return self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def delete(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[VersionDeleteResponse]:
++        return await self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithStreamingResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def retrieve(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        skill_id: str,
++        limit: int = 20,
++        page: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def delete(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithStreamingResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return await self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def retrieve(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return await self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        skill_id: str,
++        limit: int = 20,
++        page: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def delete(
++        self,
++        *,
++        version: str,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return await self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills.py b/src/anthropic/resources/beta/skills.py
+--- a/src/anthropic/resources/beta/skills.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills.py	2026-09-21 02:24:54
+@@ -0,0 +1,550 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import List, Optional
++from typing_extensions import Literal
++
++from ..._types import NOT_GIVEN, NotGivenOr, Headers
++from ..._resource import SyncAPIResource, AsyncAPIResource
++from ..._compat import cached_property
++from ..._response import APIResponse
++from ...pagination import SyncPageCursor, AsyncPageCursor
++from ...types.beta import (
++    SkillCreateResponse,
++    SkillRetrieveResponse,
++    SkillListResponse,
++    SkillDeleteResponse,
++)
++
++
++class Skills(SyncAPIResource):
++    def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillCreateResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._post(
++            f"/beta/skills/{skill_id}",
++            body={"files": files},
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._get(
++            f"/beta/skills/{skill_id}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int = 20,
++        page: str = "",
++        source: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> SyncPageCursor[SkillListResponse]:
++        return self._get_page(
++            "/beta/skills",
++            headers=extra_headers,
++            query={
++                "limit": limit,
++                "page": page,
++                "source": source,
++            },
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillListResponse,
++        )
++
++    def delete(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillDeleteResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._delete(
++            f"/beta/skills/{skill_id}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillDeleteResponse,
++        )
++
++
++class AsyncSkills(AsyncAPIResource):
++    async def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillCreateResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return await self._post(
++            f"/beta/skills/{skill_id}",
++            body={"files": files},
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return await self._get(
++            f"/beta/skills/{skill_id}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int = 20,
++        page: str = "",
++        source: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        return self._get_page(
++            "/beta/skills",
++            headers=extra_headers,
++            query={
++                "limit": limit,
++                "page": page,
++                "source": source,
++            },
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillListResponse,
++        )
++
++    async def delete(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillDeleteResponse]:
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return await self._delete(
++            f"/beta/skills/{skill_id}",
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillDeleteResponse,
++        )
++
++
++class SkillsWithRawResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillCreateResponse]:
++        return self._skills.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def retrieve(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        return self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int = 20,
++        page: str = "",
++        source: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> SyncPageCursor[SkillListResponse]:
++        return self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def delete(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillDeleteResponse]:
++        return self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithRawResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillCreateResponse]:
++        return await self._skills.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def retrieve(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        return await self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int = 20,
++        page: str = "",
++        source: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        return self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def delete(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ) -> APIResponse[SkillDeleteResponse]:
++        return await self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithStreamingResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._skills.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def retrieve(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int = 20,
++        page: str = "",
++        source: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def delete(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithStreamingResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def create(
++        self,
++        *,
++        skill_id: str,
++        files: List[bytes],
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return await self._skills.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def retrieve(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return await self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int = 20,
++        page: str = "",
++        source: str = "",
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++    async def delete(
++        self,
++        *,
++        skill_id: str,
++        betas: NotGivenOr[List[str]] = NOT_GIVEN,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Optional[float] = None,
++    ):
++        return await self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
+\ No newline at end of file

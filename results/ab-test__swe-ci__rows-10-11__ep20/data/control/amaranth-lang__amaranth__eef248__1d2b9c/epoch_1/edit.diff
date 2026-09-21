@@ -1,0 +1,108 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-20 23:36:44
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-20 23:36:44
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-20 23:36:44
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-20 23:37:30
+@@ -0,0 +1,5 @@
++{
++  "tests/test_back_rtlil.py::MemoryTestCase::test_sync_read": true,
++  "tests/test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup": true,
++  "tests/test_back_rtlil.py::MemoryTestCase::test_async_read": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-20 23:37:30
+@@ -0,0 +1,5 @@
++[
++  "tests/test_back_rtlil.py::MemoryTestCase::test_async_read",
++  "tests/test_back_rtlil.py::MemoryTestCase::test_sync_read",
++  "tests/test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/back/rtlil.py b/amaranth/back/rtlil.py
+--- a/amaranth/back/rtlil.py	2026-09-20 23:31:24
++++ b/amaranth/back/rtlil.py	2026-09-20 23:37:00
+@@ -1070,9 +1070,9 @@
+             "WIDTH": cell.width,
+             "TRANSPARENCY_MASK": _ast.Const(transparency_mask, memory_info.num_write_ports),
+             "COLLISION_X_MASK": _ast.Const(0, memory_info.num_write_ports),
+-            "ARST_VALUE": _ast.Const(0, cell.width),
+-            "SRST_VALUE": _ast.Const(0, cell.width),
+-            "INIT_VALUE": _ast.Const(0, cell.width),
++            "ARST_VALUE": _ast.Const(-1, _ast.Shape(cell.width, signed=False)),
++            "SRST_VALUE": _ast.Const(-1, _ast.Shape(cell.width, signed=False)),
++            "INIT_VALUE": _ast.Const(-1, _ast.Shape(cell.width, signed=False)),
+             "CE_OVER_SRST": False,
+         }
+         if isinstance(cell, _nir.AsyncReadPort):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 23:31:24
++++ b/amaranth/hdl/_ir.py	2026-09-20 23:37:24
+@@ -655,6 +655,42 @@
+             subfragment_name = _add_name(frag_info.assigned_names, subfragment_name)
+             self._assign_names(subfragment, hierarchy=(*hierarchy, subfragment_name))
+ 
++    def lookup_domain(self, name: str, fragment: Fragment):
++        """Look up a domain by name in the design.
++
++        This method resolves domain names considering domain renamings and hierarchies.
++        """
++        # Search for the fragment in the design hierarchy
++        # The fragment passed in might be a module that gets mapped to a fragment in the design
++        current_fragment = fragment
++        while current_fragment is not None:
++            # Check if this fragment directly contains the domain
++            if name in current_fragment.domains:
++                return current_fragment.domains[name]
++            
++            # Check parent fragment in hierarchy
++            if current_fragment in self.fragments:
++                frag_info = self.fragments[current_fragment]
++                current_fragment = frag_info.parent
++            else:
++                # If we can't find it in our design fragments, try to find it in the main fragment
++                if name in self.fragment.domains:
++                    return self.fragment.domains[name]
++                break
++        
++        # If we couldn't find it by walking up the hierarchy, check if it's a global domain
++        if name in self.fragment.domains:
++            return self.fragment.domains[name]
++        
++        # If still not found, it might be a standard domain like "sync"
++        # Check all fragments in the design
++        for frag, frag_info in self.fragments.items():
++            if name in frag.domains:
++                return frag.domains[name]
++        
++        # If we still haven't found it, raise an error
++        raise ValueError(f"Domain '{name}' not found in design")
++
+ 
+ ############################################################################################### >:3
+ 

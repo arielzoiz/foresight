@@ -1,0 +1,67 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-20 23:55:18
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-21 00:01:32
+@@ -2,5 +2,6 @@
+   "tests/test_back_rtlil.py::MemoryTestCase::test_sync_read": true,
+   "tests/test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup": true,
+   "tests/test_back_rtlil.py::MemoryTestCase::test_async_read": true,
+-  "tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_delay": true
++  "tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_delay": true,
++  "tests/test_sim.py::SimulatorIntegrationTestCase::test_reset": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-20 23:57:12
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 00:02:04
+@@ -2,5 +2,6 @@
+   "tests/test_back_rtlil.py::MemoryTestCase::test_async_read",
+   "tests/test_back_rtlil.py::MemoryTestCase::test_sync_read",
+   "tests/test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup",
++  "tests/test_sim.py::SimulatorIntegrationTestCase::test_reset",
+   "tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_delay"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 23:56:52
++++ b/amaranth/hdl/_ir.py	2026-09-21 00:02:18
+@@ -727,7 +727,7 @@
+                                     return frag.domains[domain_name]
+                         except Exception:
+                             pass
+-        
++
+         raise ValueError(f"Domain '{name}' not found in design")
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/_pycoro.py b/amaranth/sim/_pycoro.py
+--- a/amaranth/sim/_pycoro.py	2026-09-20 23:59:12
++++ b/amaranth/sim/_pycoro.py	2026-09-21 00:01:54
+@@ -2,7 +2,7 @@
+ 
+ from ..hdl import *
+ from ..hdl._ast import Statement, Assign, SignalSet, ValueCastable
+-from .core import Tick, Settle, Delay, Passive, Active
++from .core import Tick, Settle, Delay, Passive, Active, Context
+ from ._base import BaseProcess, BaseMemoryState
+ from ._pyeval import eval_value, eval_assign
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/core.py b/amaranth/sim/core.py
+--- a/amaranth/sim/core.py	2026-09-20 23:59:34
++++ b/amaranth/sim/core.py	2026-09-21 00:01:50
+@@ -154,6 +154,16 @@
+ 
+     def add_process(self, process):
+         process = self._check_process(process)
++        # Check if this is a testbench function (expects ctx parameter)
++        import inspect
++        sig = inspect.signature(process)
++        if len(sig.parameters) > 0:
++            # Check if the first parameter is named 'ctx'
++            first_param = next(iter(sig.parameters.values()))
++            if first_param.name == 'ctx':
++                # This is a testbench function - delegate to add_testbench
++                return self.add_testbench(process)
++        
+         def wrapper():
+             # Only start a bench process after comb settling, so that the initial values are correct.
+             yield object.__new__(Settle)

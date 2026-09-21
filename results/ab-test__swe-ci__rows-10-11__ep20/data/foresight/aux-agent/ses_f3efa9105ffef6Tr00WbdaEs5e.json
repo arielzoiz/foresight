@@ -1,0 +1,2090 @@
+{
+  "info": {
+    "id": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+    "slug": "shiny-sailor",
+    "projectID": "global",
+    "directory": "/app",
+    "path": "app",
+    "title": "Python project task planning and requirement analysis",
+    "agent": "build",
+    "model": {
+      "id": "aux-model",
+      "providerID": "custom",
+      "variant": "default"
+    },
+    "version": "1.18.31",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 372180,
+      "output": 987,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1789944753915,
+      "updated": 1789944767661
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1789944753993
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "custom",
+          "modelID": "aux-model"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"You are inspecting a Python project inside a container at /app.\n\nREAD ONLY. Do not create, modify or delete any file under /app.\nAny write there invalidates this run.\n\nA developer is about to work on the task described below.\n\n\\\"\n<prompt>\n    <role_setting>\n        <identity>You are a senior software architect proficient in Python software engineering and Test-Driven Development (TDD).</identity>\n        <expertise>You excel at accurately identifying functional gaps from test feedback and writing high-quality software development requirement documents.</expertise>\n        <scene>You are collaborating closely with a senior programmer and plan to complete the development of a Python software incrementally through multiple rounds of \\\\\"planning-coding\\\\\" in small, rapid steps.</scene>\n        <responsibilities>Your responsibility is to analyze functional gaps in the code based on the currently non-passed test cases and write a clear, specific incremental development requirement document for the programmer.</responsibilities>\n    </role_setting>\n\n    <input>\n        <permission>You are allowed to browse all content in the current working directory.</permission>\n        <item name=\\\\\"/app/code/\\\\\">The folder containing all source code for this Python project.</item>\n        <item name=\\\\\"/app/code/tests/\\\\\">The folder containing all unit tests for this Python project.</item>\n        <item name=\\\\\"/app/non-passed/\\\\\">The folder containing full information for all test cases that are expected to pass but currently non-passed in the current implementation.</item>\n        <item name=\\\\\"/app/non-passed/summary.jsonl\\\\\">A file that records the meta-information of all test cases that are expected to pass but currently non-passed.</item>\n    </input>\n\n    <workflow>\n        <rule>You MUST strictly follow the workflow below:</rule>\n        <step index=\\\\\"1\\\\\" action=\\\\\"summary\\\\\">\n            Consult the file /app/non-passed/summary.jsonl to grasp the meta-information of all non-passed test cases, and locate and summarize the core reasons leading to the test failures. If necessary, you may consult other JSON files in /app/non-passed/ to obtain detailed report information for the failed tests.\n        </step>\n        <step index=\\\\\"2\\\\\" action=\\\\\"trace\\\\\">\n            Consult the corresponding test files in /app/code/tests/ to analyze environmental dependencies, assertion intentions, inputs and outputs, exception handling, and boundary conditions of the non-passed tests, and determine the involved source code modules and interface contracts.\n        </step>\n        <step index=\\\\\"3\\\\\" action=\\\\\"attribute\\\\\">\n            Consult the relevant source code in /app/code/ and, combined with the test results and detailed report information, locate the root causes of the failures within the source code.\n        </step>\n        <step index=\\\\\"4\\\\\" action=\\\\\"filter\\\\\">\n            From all identified reasons, filter out the most critical code change requirements, limited to **1 to 5 items**. Follow the principle of small-step iterations and consider the programmer's workload; do not attempt to fix too many failed tests or propose too many requirements at once.\n            You MUST use the following priority rules for filtering and sorting:\n            <priority_rules>\n                <rule>Prioritize changes that enable the highest number of non-passed tests to pass.</rule>\n                <rule>When benefits are similar, prioritize fixing error/collection/import issues, followed by failed, and then missing.</rule>\n                <rule>When benefits are similar, prioritize fixes for low-level common modules/interfaces over fixes for specific test case exceptions.</rule>\n                <rule>If a clear dependency chain exists, fix downstream base capabilities before fixing upper-level behaviors.</rule>\n            </priority_rules>\n        </step>\n        <step index=\\\\\"5\\\\\" action=\\\\\"document\\\\\">\n            Based on the filtered change requirements, create a clear, specific, and verifiable requirement document in XML format and save it to /app/requirement.xml. As an architect, you MUST focus on \\\\\"what needs to be achieved\\\\\" and avoid excessive involvement in implementation details.\n        </step>\n    </workflow>\n\n    <output>\n        <product>A single, independent XML requirement document saved at /app/requirement.xml</product>\n        <content>\n            The document should contain 1 to 5 code change requirements. Each item MUST include the following:\n            <item name=\\\\\"location\\\\\">Specify the source file path and its corresponding class or function scope (if it does not exist yet, specify the expected location).</item>\n            <item name=\\\\\"description\\\\\">Detail the current state and the type of problem (e.g., collection/import blockages, missing logic, undefined interfaces, return values/exception handling inconsistent with expectations, etc.).</item>\n            <item name=\\\\\"contract\\\\\">Define the expected behavioral goals in detail (interface inputs/outputs, exception types, data structure fields, boundary conditions, and business constraints, etc.). Describe \\\\\"what to achieve\\\\\" in detail and avoid over-describing \\\\\"how specifically to do it.\\\\\" You are allowed to describe function/method signature-level information and return value structures, but should not involve specific implementation details.</item>\n            <item name=\\\\\"acceptance\\\\\">Detail the acceptance criteria that can verify whether this code change is successful. This can be the nodeid of specific test cases in the tests folder or your custom criteria.</item>\n        </content>\n    </output>\n\n    <constraints>\n        <operation>Strictly PROHIBITED from modifying, deleting, or creating any other files except for the generated requirement.xml.</operation>\n        <test_integrity>Strictly PROHIBITED from guiding the programmer to make any modifications to the test case folder /app/code/tests/.</test_integrity>\n        <granularity>You MUST focus on the core contradictions of the current code and select the most urgent requirements.</granularity>\n        <non_implementation>As an architect, you MUST focus on behavioral contracts and verifiable results, and avoid providing specific code implementations in the requirement document.</non_implementation>\n        <no_execution>You are strictly PROHIBITED from actively executing pytest, unittest, or any other test commands or scripts.</no_execution>\n    </constraints>\n</prompt>\n\n\\\"\n\nRead enough of /app/code to answer concretely, then name 3 to 5\nplausible FUTURE tasks that could reasonably follow this one in THIS codebase.\nRefer to real files, functions or modules you actually read. Do not solve the\ntask, and do not write any file.\"",
+          "id": "prt_0c1056f5b001I3bJWxEhx5RRPw",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1056f49001mZwsmsKs9gbIQY"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8752,
+          "input": 8724,
+          "output": 28,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944754753,
+          "completed": 1789944756035
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c105724100149QcwHW2Y6lXyz",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10576c0001hbQ3UWkz9KfL8Z",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105724100149QcwHW2Y6lXyz"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-b7ee03073a4f072a",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/non-passed/summary.jsonl"
+            },
+            "output": "<path>/app/non-passed/summary.jsonl</path>\n<type>file</type>\n<content>\n1: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n2: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n3: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n4: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n5: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n6: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n7: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n8: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n9: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n10: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n11: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n12: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n13: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n14: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n15: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n16: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n17: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n18: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n19: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n20: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n\n(End of file - total 20 lines)\n</content>",
+            "metadata": {
+              "preview": "{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/non-passed/summary.jsonl",
+                "text": "{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}",
+                "lineStart": 1,
+                "lineEnd": 20,
+                "totalLines": 20,
+                "truncated": false
+              }
+            },
+            "title": "app/non-passed/summary.jsonl",
+            "time": {
+              "start": 1789944755941,
+              "end": 1789944756014
+            }
+          },
+          "id": "prt_0c10576c50013xWHAwm6AVI1YZ",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105724100149QcwHW2Y6lXyz"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 8752,
+            "input": 8724,
+            "output": 28,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1057736001hcRRrgwb7ESFNp",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105724100149QcwHW2Y6lXyz"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10178,
+          "input": 10145,
+          "output": 33,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944756042,
+          "completed": 1789944757719
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c105774a001LUCkusf7o6Fsbq",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c105780a0015EIGOJmKAggkVq",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105774a001LUCkusf7o6Fsbq"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-977bc5cf6b5d2204",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "app/code/tests/api_resources/beta/skills/test_versions.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789944756332,
+              "end": 1789944757707
+            }
+          },
+          "id": "prt_0c1057810001V1wKibhuYQBdcI",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105774a001LUCkusf7o6Fsbq"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10178,
+            "input": 10145,
+            "output": 33,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1057dcf001wsbMYMd4VCMca4",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105774a001LUCkusf7o6Fsbq"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10226,
+          "input": 10195,
+          "output": 31,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944757725,
+          "completed": 1789944758041
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1057ddd001Rra762argUyIPH",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1057e94001pc71oWMrnn67gX",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1057ddd001Rra762argUyIPH"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-befa457844fcd5a8",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "app/code/tests/api_resources/beta/test_skills.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789944758006,
+              "end": 1789944758027
+            }
+          },
+          "id": "prt_0c1057e9d001e6kBTT6aeN7zkR",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1057ddd001Rra762argUyIPH"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10226,
+            "input": 10195,
+            "output": 31,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1057f0f001QnEMzkqItmo5Sj",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1057ddd001Rra762argUyIPH"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10273,
+          "input": 10243,
+          "output": 30,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944758046,
+          "completed": 1789944759100
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1057f1e001X7z5hDmlT0S44t",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10581e900130rPLa5GDaGt3q",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1057f1e001X7z5hDmlT0S44t"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-890cd9a09b577dc0",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "app/code/tests/api_resources/beta/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789944758877,
+              "end": 1789944759089
+            }
+          },
+          "id": "prt_0c10581ee001kWJEu7X85jglk2",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1057f1e001X7z5hDmlT0S44t"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10273,
+            "input": 10243,
+            "output": 30,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1058335001dJn74abr0INvsk",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1057f1e001X7z5hDmlT0S44t"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10316,
+          "input": 10290,
+          "output": 26,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944759105,
+          "completed": 1789944759606
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10583410013n6BqQoo0rYeen",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c105843c001iuTAjIqzNCsZK9",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10583410013n6BqQoo0rYeen"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-be7be63bb658bc01",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "app/code/tests/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789944759441,
+              "end": 1789944759589
+            }
+          },
+          "id": "prt_0c1058442001Dj1jYqKzOQKWPD",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10583410013n6BqQoo0rYeen"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10316,
+            "input": 10290,
+            "output": 26,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c105852a0017w0ZND236GL1A5",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10583410013n6BqQoo0rYeen"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10370,
+          "input": 10333,
+          "output": 37,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944759614,
+          "completed": 1789944760124
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c105853d001NJXp1ULtZn08L0",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c105861f001phPAijg06C4zxi",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105853d001NJXp1ULtZn08L0"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-b407c898423706c4",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app -type f -name \"*.py\" | head -20"
+            },
+            "output": "/app/code/tests/test_files.py\n/app/code/tests/lib/tools/test_runners.py\n/app/code/tests/lib/tools/__init__.py\n/app/code/tests/lib/tools/test_functions.py\n/app/code/tests/lib/test_bedrock.py\n/app/code/tests/lib/__init__.py\n/app/code/tests/lib/test_vertex.py\n/app/code/tests/lib/streaming/test_messages.py\n/app/code/tests/lib/streaming/test_beta_messages.py\n/app/code/tests/lib/streaming/test_partial_json.py\n/app/code/tests/lib/streaming/__init__.py\n/app/code/tests/lib/streaming/helpers.py\n/app/code/tests/lib/utils.py\n/app/code/tests/lib/snapshots.py\n/app/code/tests/decoders/test_jsonl.py\n/app/code/tests/test_qs.py\n/app/code/tests/test_extract_files.py\n/app/code/tests/test_transform.py\n/app/code/tests/__init__.py\n/app/code/tests/test_response.py\n",
+            "metadata": {
+              "output": "/app/code/tests/test_files.py\n/app/code/tests/lib/tools/test_runners.py\n/app/code/tests/lib/tools/__init__.py\n/app/code/tests/lib/tools/test_functions.py\n/app/code/tests/lib/test_bedrock.py\n/app/code/tests/lib/__init__.py\n/app/code/tests/lib/test_vertex.py\n/app/code/tests/lib/streaming/test_messages.py\n/app/code/tests/lib/streaming/test_beta_messages.py\n/app/code/tests/lib/streaming/test_partial_json.py\n/app/code/tests/lib/streaming/__init__.py\n/app/code/tests/lib/streaming/helpers.py\n/app/code/tests/lib/utils.py\n/app/code/tests/lib/snapshots.py\n/app/code/tests/decoders/test_jsonl.py\n/app/code/tests/test_qs.py\n/app/code/tests/test_extract_files.py\n/app/code/tests/test_transform.py\n/app/code/tests/__init__.py\n/app/code/tests/test_response.py\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app -type f -name \"*.py\" | head -20",
+            "time": {
+              "start": 1789944759956,
+              "end": 1789944760067
+            }
+          },
+          "id": "prt_0c1058622001jkWLTDMZ9ldG8h",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105853d001NJXp1ULtZn08L0"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10370,
+            "input": 10333,
+            "output": 37,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1058717001ukd2Xbbuz6ISKU",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105853d001NJXp1ULtZn08L0"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10588,
+          "input": 10561,
+          "output": 27,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944760130,
+          "completed": 1789944760454
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1058742001OvsvE04ZQsSvri",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10587ea001RmFZqYkD99I3ty",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058742001OvsvE04ZQsSvri"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-acd849eba2608e84",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app -type d"
+            },
+            "output": "/app\n/app/code\n/app/code/tests\n/app/code/tests/lib\n/app/code/tests/lib/tools\n/app/code/tests/lib/tools/__inline_snapshot__\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/test_streaming_call_sync\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/test_streaming_call_sync_events\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/TestSyncRunTools.test_streaming_call_sync_events\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/TestSyncRunTools.test_max_iterations\n/app/code/tests/lib/streaming\n/app/code/tests/lib/streaming/fixtures\n/app/code/tests/decoders\n/app/code/tests/api_resources\n/app/code/tests/api_resources/messages\n/app/code/tests/api_resources/beta\n/app/code/tests/api_resources/beta/messages\n/app/code/tests/api_resources/beta/skills\n/app/code/tests/test_utils\n/app/code/.vscode\n/app/code/.devcontainer\n/app/code/scripts\n/app/code/scripts/utils\n/app/code/src\n/app/code/src/anthropic\n/app/code/src/anthropic/_utils\n/app/code/src/anthropic/_decoders\n/app/code/src/anthropic/resources\n/app/code/src/anthropic/resources/messages\n/app/code/src/anthropic/resources/beta\n/app/code/src/anthropic/resources/beta/messages\n/app/code/src/anthropic/lib\n/app/code/src/anthropic/lib/tools\n/app/code/src/anthropic/lib/_extras\n/app/code/src/anthropic/lib/streaming\n/app/code/src/anthropic/lib/bedrock\n/app/code/src/anthropic/lib/vertex\n/app/code/src/anthropic/types\n/app/code/src/anthropic/types/messages\n/app/code/src/anthropic/types/beta\n/app/code/src/anthropic/types/beta/messages\n/app/code/src/anthropic/types/shared\n/app/code/bin\n/app/code/examples\n/app/code/examples/memory\n/app/non-passed\n",
+            "metadata": {
+              "output": "/app\n/app/code\n/app/code/tests\n/app/code/tests/lib\n/app/code/tests/lib/tools\n/app/code/tests/lib/tools/__inline_snapshot__\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/test_streaming_call_sync\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/test_streaming_call_sync_events\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/TestSyncRunTools.test_streaming_call_sync_events\n/app/code/tests/lib/tools/__inline_snapshot__/test_runners/TestSyncRunTools.test_max_iterations\n/app/code/tests/lib/streaming\n/app/code/tests/lib/streaming/fixtures\n/app/code/tests/decoders\n/app/code/tests/api_resources\n/app/code/tests/api_resources/messages\n/app/code/tests/api_resources/beta\n/app/code/tests/api_resources/beta/messages\n/app/code/tests/api_resources/beta/skills\n/app/code/tests/test_utils\n/app/code/.vscode\n/app/code/.devcontainer\n/app/code/scripts\n/app/code/scripts/utils\n/app/code/src\n/app/code/src/anthropic\n/app/code/src/anthropic/_utils\n/app/code/src/anthropic/_decoders\n/app/code/src/anthropic/resources\n/app/code/src/anthropic/resources/messages\n/app/code/src/anthropic/resources/beta\n/app/code/src/anthropic/resources/beta/messages\n/app/code/src/anthropic/lib\n/app/code/src/anthropic/lib/tools\n/app/code/src/anthropic/lib/_extras\n/app/code/src/anthropic/lib/streaming\n/app/code/src/anthropic/lib/bedrock\n/app/code/src/anthropic/lib/vertex\n/app/code/src/anthropic/types\n/app/code/src/anthropic/types/messages\n/app/code/src/anthropic/types/beta\n/app/code/src/anthropic/types/beta/messages\n/app/code/src/anthropic/types/shared\n/app/code/bin\n/app/code/examples\n/app/code/examples/memory\n/app/non-passed\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app -type d",
+            "time": {
+              "start": 1789944760388,
+              "end": 1789944760445
+            }
+          },
+          "id": "prt_0c10587f2001a4kLnFFLX0lmuL",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058742001OvsvE04ZQsSvri"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10588,
+            "input": 10561,
+            "output": 27,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1058880001QnJkGEyasYWvX1",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058742001OvsvE04ZQsSvri"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 11032,
+          "input": 11003,
+          "output": 29,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944760459,
+          "completed": 1789944760801
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c105888b001J1zowPBpVN4Rfg",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1058965001IpKWlct6MjZyaS",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105888b001J1zowPBpVN4Rfg"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-95c1e712ce7716b8",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests/api_resources/beta/skills"
+            },
+            "output": "<path>/app/code/tests/api_resources/beta/skills</path>\n<type>directory</type>\n<entries>\n__init__.py\ntest_versions.py\n\n(2 entries)\n</entries>",
+            "metadata": {
+              "preview": "__init__.py\ntest_versions.py",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "directory",
+                "path": "/app/code/tests/api_resources/beta/skills",
+                "entries": [
+                  "__init__.py",
+                  "test_versions.py"
+                ],
+                "offset": 1,
+                "totalEntries": 2,
+                "truncated": false
+              }
+            },
+            "title": "app/code/tests/api_resources/beta/skills",
+            "time": {
+              "start": 1789944760769,
+              "end": 1789944760790
+            }
+          },
+          "id": "prt_0c1058969001knkc5vFcpQWufe",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105888b001J1zowPBpVN4Rfg"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 11032,
+            "input": 11003,
+            "output": 29,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10589d9001w75h4V5RAY7kXw",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105888b001J1zowPBpVN4Rfg"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 11117,
+          "input": 11085,
+          "output": 32,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944760807,
+          "completed": 1789944761128
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10589e7001l93XTdDnLYWqed",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1058a87001ZTSWrm62xjcHpM",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10589e7001l93XTdDnLYWqed"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-8f444a725288ba55",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests/api_resources/beta/skills/test_versions.py"
+            },
+            "output": "<path>/app/code/tests/api_resources/beta/skills/test_versions.py</path>\n<type>file</type>\n<content>\n1: # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n2: \n3: from __future__ import annotations\n4: \n5: import os\n6: from typing import Any, cast\n7: \n8: import pytest\n9: \n10: from anthropic import Anthropic, AsyncAnthropic\n11: from tests.utils import assert_matches_type\n12: from anthropic.pagination import SyncPageCursor, AsyncPageCursor\n13: from anthropic.types.beta.skills import (\n14:     VersionListResponse,\n15:     VersionCreateResponse,\n16:     VersionDeleteResponse,\n17:     VersionRetrieveResponse,\n18: )\n19: \n20: base_url = os.environ.get(\"TEST_API_BASE_URL\", \"http://127.0.0.1:4010\")\n21: \n22: \n23: class TestVersions:\n24:     parametrize = pytest.mark.parametrize(\"client\", [False, True], indirect=True, ids=[\"loose\", \"strict\"])\n25: \n26:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n27:     @parametrize\n28:     def test_method_create(self, client: Anthropic) -> None:\n29:         version = client.beta.skills.versions.create(\n30:             skill_id=\"skill_id\",\n31:         )\n32:         assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n33: \n34:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n35:     @parametrize\n36:     def test_method_create_with_all_params(self, client: Anthropic) -> None:\n37:         version = client.beta.skills.versions.create(\n38:             skill_id=\"skill_id\",\n39:             files=[b\"raw file contents\"],\n40:             betas=[\"string\"],\n41:         )\n42:         assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n43: \n44:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n45:     @parametrize\n46:     def test_raw_response_create(self, client: Anthropic) -> None:\n47:         response = client.beta.skills.versions.with_raw_response.create(\n48:             skill_id=\"skill_id\",\n49:         )\n50: \n51:         assert response.is_closed is True\n52:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n53:         version = response.parse()\n54:         assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n55: \n56:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n57:     @parametrize\n58:     def test_streaming_response_create(self, client: Anthropic) -> None:\n59:         with client.beta.skills.versions.with_streaming_response.create(\n60:             skill_id=\"skill_id\",\n61:         ) as response:\n62:             assert not response.is_closed\n63:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n64: \n65:             version = response.parse()\n66:             assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n67: \n68:         assert cast(Any, response.is_closed) is True\n69: \n70:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n71:     @parametrize\n72:     def test_path_params_create(self, client: Anthropic) -> None:\n73:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n74:             client.beta.skills.versions.with_raw_response.create(\n75:                 skill_id=\"\",\n76:             )\n77: \n78:     @parametrize\n79:     def test_method_retrieve(self, client: Anthropic) -> None:\n80:         version = client.beta.skills.versions.retrieve(\n81:             version=\"version\",\n82:             skill_id=\"skill_id\",\n83:         )\n84:         assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n85: \n86:     @parametrize\n87:     def test_method_retrieve_with_all_params(self, client: Anthropic) -> None:\n88:         version = client.beta.skills.versions.retrieve(\n89:             version=\"version\",\n90:             skill_id=\"skill_id\",\n91:             betas=[\"string\"],\n92:         )\n93:         assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n94: \n95:     @parametrize\n96:     def test_raw_response_retrieve(self, client: Anthropic) -> None:\n97:         response = client.beta.skills.versions.with_raw_response.retrieve(\n98:             version=\"version\",\n99:             skill_id=\"skill_id\",\n100:         )\n101: \n102:         assert response.is_closed is True\n103:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n104:         version = response.parse()\n105:         assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n106: \n107:     @parametrize\n108:     def test_streaming_response_retrieve(self, client: Anthropic) -> None:\n109:         with client.beta.skills.versions.with_streaming_response.retrieve(\n110:             version=\"version\",\n111:             skill_id=\"skill_id\",\n112:         ) as response:\n113:             assert not response.is_closed\n114:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n115: \n116:             version = response.parse()\n117:             assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n118: \n119:         assert cast(Any, response.is_closed) is True\n120: \n121:     @parametrize\n122:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n123:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n124:             client.beta.skills.versions.with_raw_response.retrieve(\n125:                 version=\"version\",\n126:                 skill_id=\"\",\n127:             )\n128: \n129:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n130:             client.beta.skills.versions.with_raw_response.retrieve(\n131:                 version=\"\",\n132:                 skill_id=\"skill_id\",\n133:             )\n134: \n135:     @parametrize\n136:     def test_method_list(self, client: Anthropic) -> None:\n137:         version = client.beta.skills.versions.list(\n138:             skill_id=\"skill_id\",\n139:         )\n140:         assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n141: \n142:     @parametrize\n143:     def test_method_list_with_all_params(self, client: Anthropic) -> None:\n144:         version = client.beta.skills.versions.list(\n145:             skill_id=\"skill_id\",\n146:             limit=0,\n147:             page=\"page\",\n148:             betas=[\"string\"],\n149:         )\n150:         assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n151: \n152:     @parametrize\n153:     def test_raw_response_list(self, client: Anthropic) -> None:\n154:         response = client.beta.skills.versions.with_raw_response.list(\n155:             skill_id=\"skill_id\",\n156:         )\n157: \n158:         assert response.is_closed is True\n159:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n160:         version = response.parse()\n161:         assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n162: \n163:     @parametrize\n164:     def test_streaming_response_list(self, client: Anthropic) -> None:\n165:         with client.beta.skills.versions.with_streaming_response.list(\n166:             skill_id=\"skill_id\",\n167:         ) as response:\n168:             assert not response.is_closed\n169:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n170: \n171:             version = response.parse()\n172:             assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n173: \n174:         assert cast(Any, response.is_closed) is True\n175: \n176:     @parametrize\n177:     def test_path_params_list(self, client: Anthropic) -> None:\n178:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n179:             client.beta.skills.versions.with_raw_response.list(\n180:                 skill_id=\"\",\n181:             )\n182: \n183:     @parametrize\n184:     def test_method_delete(self, client: Anthropic) -> None:\n185:         version = client.beta.skills.versions.delete(\n186:             version=\"version\",\n187:             skill_id=\"skill_id\",\n188:         )\n189:         assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n190: \n191:     @parametrize\n192:     def test_method_delete_with_all_params(self, client: Anthropic) -> None:\n193:         version = client.beta.skills.versions.delete(\n194:             version=\"version\",\n195:             skill_id=\"skill_id\",\n196:             betas=[\"string\"],\n197:         )\n198:         assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n199: \n200:     @parametrize\n201:     def test_raw_response_delete(self, client: Anthropic) -> None:\n202:         response = client.beta.skills.versions.with_raw_response.delete(\n203:             version=\"version\",\n204:             skill_id=\"skill_id\",\n205:         )\n206: \n207:         assert response.is_closed is True\n208:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n209:         version = response.parse()\n210:         assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n211: \n212:     @parametrize\n213:     def test_streaming_response_delete(self, client: Anthropic) -> None:\n214:         with client.beta.skills.versions.with_streaming_response.delete(\n215:             version=\"version\",\n216:             skill_id=\"skill_id\",\n217:         ) as response:\n218:             assert not response.is_closed\n219:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n220: \n221:             version = response.parse()\n222:             assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n223: \n224:         assert cast(Any, response.is_closed) is True\n225: \n226:     @parametrize\n227:     def test_path_params_delete(self, client: Anthropic) -> None:\n228:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n229:             client.beta.skills.versions.with_raw_response.delete(\n230:                 version=\"version\",\n231:                 skill_id=\"\",\n232:             )\n233: \n234:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n235:             client.beta.skills.versions.with_raw_response.delete(\n236:                 version=\"\",\n237:                 skill_id=\"skill_id\",\n238:             )\n239: \n240: \n241: class TestAsyncVersions:\n242:     parametrize = pytest.mark.parametrize(\n243:         \"async_client\", [False, True, {\"http_client\": \"aiohttp\"}], indirect=True, ids=[\"loose\", \"strict\", \"aiohttp\"]\n244:     )\n245: \n246:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n247:     @parametrize\n248:     async def test_method_create(self, async_client: AsyncAnthropic) -> None:\n249:         version = await async_client.beta.skills.versions.create(\n250:             skill_id=\"skill_id\",\n251:         )\n252:         assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n253: \n254:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n255:     @parametrize\n256:     async def test_method_create_with_all_params(self, async_client: AsyncAnthropic) -> None:\n257:         version = await async_client.beta.skills.versions.create(\n258:             skill_id=\"skill_id\",\n259:             files=[b\"raw file contents\"],\n260:             betas=[\"string\"],\n261:         )\n262:         assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n263: \n264:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n265:     @parametrize\n266:     async def test_raw_response_create(self, async_client: AsyncAnthropic) -> None:\n267:         response = await async_client.beta.skills.versions.with_raw_response.create(\n268:             skill_id=\"skill_id\",\n269:         )\n270: \n271:         assert response.is_closed is True\n272:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n273:         version = response.parse()\n274:         assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n275: \n276:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n277:     @parametrize\n278:     async def test_streaming_response_create(self, async_client: AsyncAnthropic) -> None:\n279:         async with async_client.beta.skills.versions.with_streaming_response.create(\n280:             skill_id=\"skill_id\",\n281:         ) as response:\n282:             assert not response.is_closed\n283:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n284: \n285:             version = await response.parse()\n286:             assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n287: \n288:         assert cast(Any, response.is_closed) is True\n289: \n290:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n291:     @parametrize\n292:     async def test_path_params_create(self, async_client: AsyncAnthropic) -> None:\n293:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n294:             await async_client.beta.skills.versions.with_raw_response.create(\n295:                 skill_id=\"\",\n296:             )\n297: \n298:     @parametrize\n299:     async def test_method_retrieve(self, async_client: AsyncAnthropic) -> None:\n300:         version = await async_client.beta.skills.versions.retrieve(\n301:             version=\"version\",\n302:             skill_id=\"skill_id\",\n303:         )\n304:         assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n305: \n306:     @parametrize\n307:     async def test_method_retrieve_with_all_params(self, async_client: AsyncAnthropic) -> None:\n308:         version = await async_client.beta.skills.versions.retrieve(\n309:             version=\"version\",\n310:             skill_id=\"skill_id\",\n311:             betas=[\"string\"],\n312:         )\n313:         assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n314: \n315:     @parametrize\n316:     async def test_raw_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n317:         response = await async_client.beta.skills.versions.with_raw_response.retrieve(\n318:             version=\"version\",\n319:             skill_id=\"skill_id\",\n320:         )\n321: \n322:         assert response.is_closed is True\n323:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n324:         version = response.parse()\n325:         assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n326: \n327:     @parametrize\n328:     async def test_streaming_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n329:         async with async_client.beta.skills.versions.with_streaming_response.retrieve(\n330:             version=\"version\",\n331:             skill_id=\"skill_id\",\n332:         ) as response:\n333:             assert not response.is_closed\n334:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n335: \n336:             version = await response.parse()\n337:             assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n338: \n339:         assert cast(Any, response.is_closed) is True\n340: \n341:     @parametrize\n342:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n343:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n344:             await async_client.beta.skills.versions.with_raw_response.retrieve(\n345:                 version=\"version\",\n346:                 skill_id=\"\",\n347:             )\n348: \n349:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n350:             await async_client.beta.skills.versions.with_raw_response.retrieve(\n351:                 version=\"\",\n352:                 skill_id=\"skill_id\",\n353:             )\n354: \n355:     @parametrize\n356:     async def test_method_list(self, async_client: AsyncAnthropic) -> None:\n357:         version = await async_client.beta.skills.versions.list(\n358:             skill_id=\"skill_id\",\n359:         )\n360:         assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n361: \n362:     @parametrize\n363:     async def test_method_list_with_all_params(self, async_client: AsyncAnthropic) -> None:\n364:         version = await async_client.beta.skills.versions.list(\n365:             skill_id=\"skill_id\",\n366:             limit=0,\n367:             page=\"page\",\n368:             betas=[\"string\"],\n369:         )\n370:         assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n371: \n372:     @parametrize\n373:     async def test_raw_response_list(self, async_client: AsyncAnthropic) -> None:\n374:         response = await async_client.beta.skills.versions.with_raw_response.list(\n375:             skill_id=\"skill_id\",\n376:         )\n377: \n378:         assert response.is_closed is True\n379:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n380:         version = response.parse()\n381:         assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n382: \n383:     @parametrize\n384:     async def test_streaming_response_list(self, async_client: AsyncAnthropic) -> None:\n385:         async with async_client.beta.skills.versions.with_streaming_response.list(\n386:             skill_id=\"skill_id\",\n387:         ) as response:\n388:             assert not response.is_closed\n389:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n390: \n391:             version = await response.parse()\n392:             assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n393: \n394:         assert cast(Any, response.is_closed) is True\n395: \n396:     @parametrize\n397:     async def test_path_params_list(self, async_client: AsyncAnthropic) -> None:\n398:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n399:             await async_client.beta.skills.versions.with_raw_response.list(\n400:                 skill_id=\"\",\n401:             )\n402: \n403:     @parametrize\n404:     async def test_method_delete(self, async_client: AsyncAnthropic) -> None:\n405:         version = await async_client.beta.skills.versions.delete(\n406:             version=\"version\",\n407:             skill_id=\"skill_id\",\n408:         )\n409:         assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n410: \n411:     @parametrize\n412:     async def test_method_delete_with_all_params(self, async_client: AsyncAnthropic) -> None:\n413:         version = await async_client.beta.skills.versions.delete(\n414:             version=\"version\",\n415:             skill_id=\"skill_id\",\n416:             betas=[\"string\"],\n417:         )\n418:         assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n419: \n420:     @parametrize\n421:     async def test_raw_response_delete(self, async_client: AsyncAnthropic) -> None:\n422:         response = await async_client.beta.skills.versions.with_raw_response.delete(\n423:             version=\"version\",\n424:             skill_id=\"skill_id\",\n425:         )\n426: \n427:         assert response.is_closed is True\n428:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n429:         version = response.parse()\n430:         assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n431: \n432:     @parametrize\n433:     async def test_streaming_response_delete(self, async_client: AsyncAnthropic) -> None:\n434:         async with async_client.beta.skills.versions.with_streaming_response.delete(\n435:             version=\"version\",\n436:             skill_id=\"skill_id\",\n437:         ) as response:\n438:             assert not response.is_closed\n439:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n440: \n441:             version = await response.parse()\n442:             assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n443: \n444:         assert cast(Any, response.is_closed) is True\n445: \n446:     @parametrize\n447:     async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n448:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n449:             await async_client.beta.skills.versions.with_raw_response.delete(\n450:                 version=\"version\",\n451:                 skill_id=\"\",\n452:             )\n453: \n454:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n455:             await async_client.beta.skills.versions.with_raw_response.delete(\n456:                 version=\"\",\n457:                 skill_id=\"skill_id\",\n458:             )\n\n(End of file - total 458 lines)\n</content>",
+            "metadata": {
+              "preview": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any, cast\n\nimport pytest\n\nfrom anthropic import Anthropic, AsyncAnthropic\nfrom tests.utils import assert_matches_type\nfrom anthropic.pagination import SyncPageCursor, AsyncPageCursor\nfrom anthropic.types.beta.skills import (\n    VersionListResponse,\n    VersionCreateResponse,\n    VersionDeleteResponse,\n    VersionRetrieveResponse,\n)\n\nbase_url = os.environ.get(\"TEST_API_BASE_URL\", \"http://127.0.0.1:4010\")",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/tests/api_resources/beta/skills/test_versions.py",
+                "text": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any, cast\n\nimport pytest\n\nfrom anthropic import Anthropic, AsyncAnthropic\nfrom tests.utils import assert_matches_type\nfrom anthropic.pagination import SyncPageCursor, AsyncPageCursor\nfrom anthropic.types.beta.skills import (\n    VersionListResponse,\n    VersionCreateResponse,\n    VersionDeleteResponse,\n    VersionRetrieveResponse,\n)\n\nbase_url = os.environ.get(\"TEST_API_BASE_URL\", \"http://127.0.0.1:4010\")\n\n\nclass TestVersions:\n    parametrize = pytest.mark.parametrize(\"client\", [False, True], indirect=True, ids=[\"loose\", \"strict\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_method_create(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.create(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_method_create_with_all_params(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.create(\n            skill_id=\"skill_id\",\n            files=[b\"raw file contents\"],\n            betas=[\"string\"],\n        )\n        assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_raw_response_create(self, client: Anthropic) -> None:\n        response = client.beta.skills.versions.with_raw_response.create(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_streaming_response_create(self, client: Anthropic) -> None:\n        with client.beta.skills.versions.with_streaming_response.create(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = response.parse()\n            assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_path_params_create(self, client: Anthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            client.beta.skills.versions.with_raw_response.create(\n                skill_id=\"\",\n            )\n\n    @parametrize\n    def test_method_retrieve(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n    @parametrize\n    def test_method_retrieve_with_all_params(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n    @parametrize\n    def test_raw_response_retrieve(self, client: Anthropic) -> None:\n        response = client.beta.skills.versions.with_raw_response.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n    @parametrize\n    def test_streaming_response_retrieve(self, client: Anthropic) -> None:\n        with client.beta.skills.versions.with_streaming_response.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = response.parse()\n            assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    def test_path_params_retrieve(self, client: Anthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            client.beta.skills.versions.with_raw_response.retrieve(\n                version=\"version\",\n                skill_id=\"\",\n            )\n\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n            client.beta.skills.versions.with_raw_response.retrieve(\n                version=\"\",\n                skill_id=\"skill_id\",\n            )\n\n    @parametrize\n    def test_method_list(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.list(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n    @parametrize\n    def test_method_list_with_all_params(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.list(\n            skill_id=\"skill_id\",\n            limit=0,\n            page=\"page\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n    @parametrize\n    def test_raw_response_list(self, client: Anthropic) -> None:\n        response = client.beta.skills.versions.with_raw_response.list(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n    @parametrize\n    def test_streaming_response_list(self, client: Anthropic) -> None:\n        with client.beta.skills.versions.with_streaming_response.list(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = response.parse()\n            assert_matches_type(SyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    def test_path_params_list(self, client: Anthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            client.beta.skills.versions.with_raw_response.list(\n                skill_id=\"\",\n            )\n\n    @parametrize\n    def test_method_delete(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n    @parametrize\n    def test_method_delete_with_all_params(self, client: Anthropic) -> None:\n        version = client.beta.skills.versions.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n    @parametrize\n    def test_raw_response_delete(self, client: Anthropic) -> None:\n        response = client.beta.skills.versions.with_raw_response.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n    @parametrize\n    def test_streaming_response_delete(self, client: Anthropic) -> None:\n        with client.beta.skills.versions.with_streaming_response.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = response.parse()\n            assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    def test_path_params_delete(self, client: Anthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            client.beta.skills.versions.with_raw_response.delete(\n                version=\"version\",\n                skill_id=\"\",\n            )\n\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n            client.beta.skills.versions.with_raw_response.delete(\n                version=\"\",\n                skill_id=\"skill_id\",\n            )\n\n\nclass TestAsyncVersions:\n    parametrize = pytest.mark.parametrize(\n        \"async_client\", [False, True, {\"http_client\": \"aiohttp\"}], indirect=True, ids=[\"loose\", \"strict\", \"aiohttp\"]\n    )\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_method_create(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.create(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_method_create_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.create(\n            skill_id=\"skill_id\",\n            files=[b\"raw file contents\"],\n            betas=[\"string\"],\n        )\n        assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_raw_response_create(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.versions.with_raw_response.create(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_streaming_response_create(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.versions.with_streaming_response.create(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = await response.parse()\n            assert_matches_type(VersionCreateResponse, version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_path_params_create(self, async_client: AsyncAnthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            await async_client.beta.skills.versions.with_raw_response.create(\n                skill_id=\"\",\n            )\n\n    @parametrize\n    async def test_method_retrieve(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n    @parametrize\n    async def test_method_retrieve_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n    @parametrize\n    async def test_raw_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.versions.with_raw_response.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n    @parametrize\n    async def test_streaming_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.versions.with_streaming_response.retrieve(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = await response.parse()\n            assert_matches_type(VersionRetrieveResponse, version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            await async_client.beta.skills.versions.with_raw_response.retrieve(\n                version=\"version\",\n                skill_id=\"\",\n            )\n\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n            await async_client.beta.skills.versions.with_raw_response.retrieve(\n                version=\"\",\n                skill_id=\"skill_id\",\n            )\n\n    @parametrize\n    async def test_method_list(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.list(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n    @parametrize\n    async def test_method_list_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.list(\n            skill_id=\"skill_id\",\n            limit=0,\n            page=\"page\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n    @parametrize\n    async def test_raw_response_list(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.versions.with_raw_response.list(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n    @parametrize\n    async def test_streaming_response_list(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.versions.with_streaming_response.list(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = await response.parse()\n            assert_matches_type(AsyncPageCursor[VersionListResponse], version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    async def test_path_params_list(self, async_client: AsyncAnthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            await async_client.beta.skills.versions.with_raw_response.list(\n                skill_id=\"\",\n            )\n\n    @parametrize\n    async def test_method_delete(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n    @parametrize\n    async def test_method_delete_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        version = await async_client.beta.skills.versions.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n    @parametrize\n    async def test_raw_response_delete(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.versions.with_raw_response.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        version = response.parse()\n        assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n    @parametrize\n    async def test_streaming_response_delete(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.versions.with_streaming_response.delete(\n            version=\"version\",\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            version = await response.parse()\n            assert_matches_type(VersionDeleteResponse, version, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            await async_client.beta.skills.versions.with_raw_response.delete(\n                version=\"version\",\n                skill_id=\"\",\n            )\n\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `version` but received ''\"):\n            await async_client.beta.skills.versions.with_raw_response.delete(\n                version=\"\",\n                skill_id=\"skill_id\",\n            )",
+                "lineStart": 1,
+                "lineEnd": 458,
+                "totalLines": 458,
+                "truncated": false
+              }
+            },
+            "title": "app/code/tests/api_resources/beta/skills/test_versions.py",
+            "time": {
+              "start": 1789944761076,
+              "end": 1789944761116
+            }
+          },
+          "id": "prt_0c1058a99001iPgwXl5Mj3ajl5",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10589e7001l93XTdDnLYWqed"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 11117,
+            "input": 11085,
+            "output": 32,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1058b21001dmwMw2DHiBhX8d",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10589e7001l93XTdDnLYWqed"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 16805,
+          "input": 16775,
+          "output": 30,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944761133,
+          "completed": 1789944761562
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1058b2d001UTop8zxH8j6ANu",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1058c3e001yWCnotfwnidCem",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058b2d001UTop8zxH8j6ANu"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-bbf523b4e8946132",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests/api_resources/beta/test_skills.py"
+            },
+            "output": "<path>/app/code/tests/api_resources/beta/test_skills.py</path>\n<type>file</type>\n<content>\n1: # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n2: \n3: from __future__ import annotations\n4: \n5: import os\n6: from typing import Any, cast\n7: \n8: import pytest\n9: \n10: from anthropic import Anthropic, AsyncAnthropic\n11: from tests.utils import assert_matches_type\n12: from anthropic.pagination import SyncPageCursor, AsyncPageCursor\n13: from anthropic.types.beta import (\n14:     SkillListResponse,\n15:     SkillCreateResponse,\n16:     SkillDeleteResponse,\n17:     SkillRetrieveResponse,\n18: )\n19: \n20: base_url = os.environ.get(\"TEST_API_BASE_URL\", \"http://127.0.0.1:4010\")\n21: \n22: \n23: class TestSkills:\n24:     parametrize = pytest.mark.parametrize(\"client\", [False, True], indirect=True, ids=[\"loose\", \"strict\"])\n25: \n26:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n27:     @parametrize\n28:     def test_method_create(self, client: Anthropic) -> None:\n29:         skill = client.beta.skills.create()\n30:         assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n31: \n32:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n33:     @parametrize\n34:     def test_method_create_with_all_params(self, client: Anthropic) -> None:\n35:         skill = client.beta.skills.create(\n36:             display_title=\"display_title\",\n37:             files=[b\"raw file contents\"],\n38:             betas=[\"string\"],\n39:         )\n40:         assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n41: \n42:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n43:     @parametrize\n44:     def test_raw_response_create(self, client: Anthropic) -> None:\n45:         response = client.beta.skills.with_raw_response.create()\n46: \n47:         assert response.is_closed is True\n48:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n49:         skill = response.parse()\n50:         assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n51: \n52:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n53:     @parametrize\n54:     def test_streaming_response_create(self, client: Anthropic) -> None:\n55:         with client.beta.skills.with_streaming_response.create() as response:\n56:             assert not response.is_closed\n57:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n58: \n59:             skill = response.parse()\n60:             assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n61: \n62:         assert cast(Any, response.is_closed) is True\n63: \n64:     @parametrize\n65:     def test_method_retrieve(self, client: Anthropic) -> None:\n66:         skill = client.beta.skills.retrieve(\n67:             skill_id=\"skill_id\",\n68:         )\n69:         assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n70: \n71:     @parametrize\n72:     def test_method_retrieve_with_all_params(self, client: Anthropic) -> None:\n73:         skill = client.beta.skills.retrieve(\n74:             skill_id=\"skill_id\",\n75:             betas=[\"string\"],\n76:         )\n77:         assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n78: \n79:     @parametrize\n80:     def test_raw_response_retrieve(self, client: Anthropic) -> None:\n81:         response = client.beta.skills.with_raw_response.retrieve(\n82:             skill_id=\"skill_id\",\n83:         )\n84: \n85:         assert response.is_closed is True\n86:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n87:         skill = response.parse()\n88:         assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n89: \n90:     @parametrize\n91:     def test_streaming_response_retrieve(self, client: Anthropic) -> None:\n92:         with client.beta.skills.with_streaming_response.retrieve(\n93:             skill_id=\"skill_id\",\n94:         ) as response:\n95:             assert not response.is_closed\n96:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n97: \n98:             skill = response.parse()\n99:             assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n100: \n101:         assert cast(Any, response.is_closed) is True\n102: \n103:     @parametrize\n104:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n105:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n106:             client.beta.skills.with_raw_response.retrieve(\n107:                 skill_id=\"\",\n108:             )\n109: \n110:     @parametrize\n111:     def test_method_list(self, client: Anthropic) -> None:\n112:         skill = client.beta.skills.list()\n113:         assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n114: \n115:     @parametrize\n116:     def test_method_list_with_all_params(self, client: Anthropic) -> None:\n117:         skill = client.beta.skills.list(\n118:             limit=0,\n119:             page=\"page\",\n120:             source=\"source\",\n121:             betas=[\"string\"],\n122:         )\n123:         assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n124: \n125:     @parametrize\n126:     def test_raw_response_list(self, client: Anthropic) -> None:\n127:         response = client.beta.skills.with_raw_response.list()\n128: \n129:         assert response.is_closed is True\n130:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n131:         skill = response.parse()\n132:         assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n133: \n134:     @parametrize\n135:     def test_streaming_response_list(self, client: Anthropic) -> None:\n136:         with client.beta.skills.with_streaming_response.list() as response:\n137:             assert not response.is_closed\n138:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n139: \n140:             skill = response.parse()\n141:             assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n142: \n143:         assert cast(Any, response.is_closed) is True\n144: \n145:     @parametrize\n146:     def test_method_delete(self, client: Anthropic) -> None:\n147:         skill = client.beta.skills.delete(\n148:             skill_id=\"skill_id\",\n149:         )\n150:         assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n151: \n152:     @parametrize\n153:     def test_method_delete_with_all_params(self, client: Anthropic) -> None:\n154:         skill = client.beta.skills.delete(\n155:             skill_id=\"skill_id\",\n156:             betas=[\"string\"],\n157:         )\n158:         assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n159: \n160:     @parametrize\n161:     def test_raw_response_delete(self, client: Anthropic) -> None:\n162:         response = client.beta.skills.with_raw_response.delete(\n163:             skill_id=\"skill_id\",\n164:         )\n165: \n166:         assert response.is_closed is True\n167:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n168:         skill = response.parse()\n169:         assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n170: \n171:     @parametrize\n172:     def test_streaming_response_delete(self, client: Anthropic) -> None:\n173:         with client.beta.skills.with_streaming_response.delete(\n174:             skill_id=\"skill_id\",\n175:         ) as response:\n176:             assert not response.is_closed\n177:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n178: \n179:             skill = response.parse()\n180:             assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n181: \n182:         assert cast(Any, response.is_closed) is True\n183: \n184:     @parametrize\n185:     def test_path_params_delete(self, client: Anthropic) -> None:\n186:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n187:             client.beta.skills.with_raw_response.delete(\n188:                 skill_id=\"\",\n189:             )\n190: \n191: \n192: class TestAsyncSkills:\n193:     parametrize = pytest.mark.parametrize(\n194:         \"async_client\", [False, True, {\"http_client\": \"aiohttp\"}], indirect=True, ids=[\"loose\", \"strict\", \"aiohttp\"]\n195:     )\n196: \n197:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n198:     @parametrize\n199:     async def test_method_create(self, async_client: AsyncAnthropic) -> None:\n200:         skill = await async_client.beta.skills.create()\n201:         assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n202: \n203:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n204:     @parametrize\n205:     async def test_method_create_with_all_params(self, async_client: AsyncAnthropic) -> None:\n206:         skill = await async_client.beta.skills.create(\n207:             display_title=\"display_title\",\n208:             files=[b\"raw file contents\"],\n209:             betas=[\"string\"],\n210:         )\n211:         assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n212: \n213:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n214:     @parametrize\n215:     async def test_raw_response_create(self, async_client: AsyncAnthropic) -> None:\n216:         response = await async_client.beta.skills.with_raw_response.create()\n217: \n218:         assert response.is_closed is True\n219:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n220:         skill = response.parse()\n221:         assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n222: \n223:     @pytest.mark.skip(reason=\"prism binary unsupported\")\n224:     @parametrize\n225:     async def test_streaming_response_create(self, async_client: AsyncAnthropic) -> None:\n226:         async with async_client.beta.skills.with_streaming_response.create() as response:\n227:             assert not response.is_closed\n228:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n229: \n230:             skill = await response.parse()\n231:             assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n232: \n233:         assert cast(Any, response.is_closed) is True\n234: \n235:     @parametrize\n236:     async def test_method_retrieve(self, async_client: AsyncAnthropic) -> None:\n237:         skill = await async_client.beta.skills.retrieve(\n238:             skill_id=\"skill_id\",\n239:         )\n240:         assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n241: \n242:     @parametrize\n243:     async def test_method_retrieve_with_all_params(self, async_client: AsyncAnthropic) -> None:\n244:         skill = await async_client.beta.skills.retrieve(\n245:             skill_id=\"skill_id\",\n246:             betas=[\"string\"],\n247:         )\n248:         assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n249: \n250:     @parametrize\n251:     async def test_raw_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n252:         response = await async_client.beta.skills.with_raw_response.retrieve(\n253:             skill_id=\"skill_id\",\n254:         )\n255: \n256:         assert response.is_closed is True\n257:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n258:         skill = response.parse()\n259:         assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n260: \n261:     @parametrize\n262:     async def test_streaming_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n263:         async with async_client.beta.skills.with_streaming_response.retrieve(\n264:             skill_id=\"skill_id\",\n265:         ) as response:\n266:             assert not response.is_closed\n267:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n268: \n269:             skill = await response.parse()\n270:             assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n271: \n272:         assert cast(Any, response.is_closed) is True\n273: \n274:     @parametrize\n275:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n276:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n277:             await async_client.beta.skills.with_raw_response.retrieve(\n278:                 skill_id=\"\",\n279:             )\n280: \n281:     @parametrize\n282:     async def test_method_list(self, async_client: AsyncAnthropic) -> None:\n283:         skill = await async_client.beta.skills.list()\n284:         assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n285: \n286:     @parametrize\n287:     async def test_method_list_with_all_params(self, async_client: AsyncAnthropic) -> None:\n288:         skill = await async_client.beta.skills.list(\n289:             limit=0,\n290:             page=\"page\",\n291:             source=\"source\",\n292:             betas=[\"string\"],\n293:         )\n294:         assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n295: \n296:     @parametrize\n297:     async def test_raw_response_list(self, async_client: AsyncAnthropic) -> None:\n298:         response = await async_client.beta.skills.with_raw_response.list()\n299: \n300:         assert response.is_closed is True\n301:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n302:         skill = response.parse()\n303:         assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n304: \n305:     @parametrize\n306:     async def test_streaming_response_list(self, async_client: AsyncAnthropic) -> None:\n307:         async with async_client.beta.skills.with_streaming_response.list() as response:\n308:             assert not response.is_closed\n309:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n310: \n311:             skill = await response.parse()\n312:             assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n313: \n314:         assert cast(Any, response.is_closed) is True\n315: \n316:     @parametrize\n317:     async def test_method_delete(self, async_client: AsyncAnthropic) -> None:\n318:         skill = await async_client.beta.skills.delete(\n319:             skill_id=\"skill_id\",\n320:         )\n321:         assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n322: \n323:     @parametrize\n324:     async def test_method_delete_with_all_params(self, async_client: AsyncAnthropic) -> None:\n325:         skill = await async_client.beta.skills.delete(\n326:             skill_id=\"skill_id\",\n327:             betas=[\"string\"],\n328:         )\n329:         assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n330: \n331:     @parametrize\n332:     async def test_raw_response_delete(self, async_client: AsyncAnthropic) -> None:\n333:         response = await async_client.beta.skills.with_raw_response.delete(\n334:             skill_id=\"skill_id\",\n335:         )\n336: \n337:         assert response.is_closed is True\n338:         assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n339:         skill = response.parse()\n340:         assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n341: \n342:     @parametrize\n343:     async def test_streaming_response_delete(self, async_client: AsyncAnthropic) -> None:\n344:         async with async_client.beta.skills.with_streaming_response.delete(\n345:             skill_id=\"skill_id\",\n346:         ) as response:\n347:             assert not response.is_closed\n348:             assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n349: \n350:             skill = await response.parse()\n351:             assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n352: \n353:         assert cast(Any, response.is_closed) is True\n354: \n355:     @parametrize\n356:     async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n357:         with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n358:             await async_client.beta.skills.with_raw_response.delete(\n359:                 skill_id=\"\",\n360:             )\n\n(End of file - total 360 lines)\n</content>",
+            "metadata": {
+              "preview": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any, cast\n\nimport pytest\n\nfrom anthropic import Anthropic, AsyncAnthropic\nfrom tests.utils import assert_matches_type\nfrom anthropic.pagination import SyncPageCursor, AsyncPageCursor\nfrom anthropic.types.beta import (\n    SkillListResponse,\n    SkillCreateResponse,\n    SkillDeleteResponse,\n    SkillRetrieveResponse,\n)\n\nbase_url = os.environ.get(\"TEST_API_BASE_URL\", \"http://127.0.0.1:4010\")",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/tests/api_resources/beta/test_skills.py",
+                "text": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom __future__ import annotations\n\nimport os\nfrom typing import Any, cast\n\nimport pytest\n\nfrom anthropic import Anthropic, AsyncAnthropic\nfrom tests.utils import assert_matches_type\nfrom anthropic.pagination import SyncPageCursor, AsyncPageCursor\nfrom anthropic.types.beta import (\n    SkillListResponse,\n    SkillCreateResponse,\n    SkillDeleteResponse,\n    SkillRetrieveResponse,\n)\n\nbase_url = os.environ.get(\"TEST_API_BASE_URL\", \"http://127.0.0.1:4010\")\n\n\nclass TestSkills:\n    parametrize = pytest.mark.parametrize(\"client\", [False, True], indirect=True, ids=[\"loose\", \"strict\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_method_create(self, client: Anthropic) -> None:\n        skill = client.beta.skills.create()\n        assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_method_create_with_all_params(self, client: Anthropic) -> None:\n        skill = client.beta.skills.create(\n            display_title=\"display_title\",\n            files=[b\"raw file contents\"],\n            betas=[\"string\"],\n        )\n        assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_raw_response_create(self, client: Anthropic) -> None:\n        response = client.beta.skills.with_raw_response.create()\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    def test_streaming_response_create(self, client: Anthropic) -> None:\n        with client.beta.skills.with_streaming_response.create() as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = response.parse()\n            assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    def test_method_retrieve(self, client: Anthropic) -> None:\n        skill = client.beta.skills.retrieve(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n    @parametrize\n    def test_method_retrieve_with_all_params(self, client: Anthropic) -> None:\n        skill = client.beta.skills.retrieve(\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n    @parametrize\n    def test_raw_response_retrieve(self, client: Anthropic) -> None:\n        response = client.beta.skills.with_raw_response.retrieve(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n    @parametrize\n    def test_streaming_response_retrieve(self, client: Anthropic) -> None:\n        with client.beta.skills.with_streaming_response.retrieve(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = response.parse()\n            assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    def test_path_params_retrieve(self, client: Anthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            client.beta.skills.with_raw_response.retrieve(\n                skill_id=\"\",\n            )\n\n    @parametrize\n    def test_method_list(self, client: Anthropic) -> None:\n        skill = client.beta.skills.list()\n        assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n    @parametrize\n    def test_method_list_with_all_params(self, client: Anthropic) -> None:\n        skill = client.beta.skills.list(\n            limit=0,\n            page=\"page\",\n            source=\"source\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n    @parametrize\n    def test_raw_response_list(self, client: Anthropic) -> None:\n        response = client.beta.skills.with_raw_response.list()\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n    @parametrize\n    def test_streaming_response_list(self, client: Anthropic) -> None:\n        with client.beta.skills.with_streaming_response.list() as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = response.parse()\n            assert_matches_type(SyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    def test_method_delete(self, client: Anthropic) -> None:\n        skill = client.beta.skills.delete(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n    @parametrize\n    def test_method_delete_with_all_params(self, client: Anthropic) -> None:\n        skill = client.beta.skills.delete(\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n    @parametrize\n    def test_raw_response_delete(self, client: Anthropic) -> None:\n        response = client.beta.skills.with_raw_response.delete(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n    @parametrize\n    def test_streaming_response_delete(self, client: Anthropic) -> None:\n        with client.beta.skills.with_streaming_response.delete(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = response.parse()\n            assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    def test_path_params_delete(self, client: Anthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            client.beta.skills.with_raw_response.delete(\n                skill_id=\"\",\n            )\n\n\nclass TestAsyncSkills:\n    parametrize = pytest.mark.parametrize(\n        \"async_client\", [False, True, {\"http_client\": \"aiohttp\"}], indirect=True, ids=[\"loose\", \"strict\", \"aiohttp\"]\n    )\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_method_create(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.create()\n        assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_method_create_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.create(\n            display_title=\"display_title\",\n            files=[b\"raw file contents\"],\n            betas=[\"string\"],\n        )\n        assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_raw_response_create(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.with_raw_response.create()\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n    @pytest.mark.skip(reason=\"prism binary unsupported\")\n    @parametrize\n    async def test_streaming_response_create(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.with_streaming_response.create() as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = await response.parse()\n            assert_matches_type(SkillCreateResponse, skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    async def test_method_retrieve(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.retrieve(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n    @parametrize\n    async def test_method_retrieve_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.retrieve(\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n    @parametrize\n    async def test_raw_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.with_raw_response.retrieve(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n    @parametrize\n    async def test_streaming_response_retrieve(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.with_streaming_response.retrieve(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = await response.parse()\n            assert_matches_type(SkillRetrieveResponse, skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            await async_client.beta.skills.with_raw_response.retrieve(\n                skill_id=\"\",\n            )\n\n    @parametrize\n    async def test_method_list(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.list()\n        assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n    @parametrize\n    async def test_method_list_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.list(\n            limit=0,\n            page=\"page\",\n            source=\"source\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n    @parametrize\n    async def test_raw_response_list(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.with_raw_response.list()\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n    @parametrize\n    async def test_streaming_response_list(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.with_streaming_response.list() as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = await response.parse()\n            assert_matches_type(AsyncPageCursor[SkillListResponse], skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    async def test_method_delete(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.delete(\n            skill_id=\"skill_id\",\n        )\n        assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n    @parametrize\n    async def test_method_delete_with_all_params(self, async_client: AsyncAnthropic) -> None:\n        skill = await async_client.beta.skills.delete(\n            skill_id=\"skill_id\",\n            betas=[\"string\"],\n        )\n        assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n    @parametrize\n    async def test_raw_response_delete(self, async_client: AsyncAnthropic) -> None:\n        response = await async_client.beta.skills.with_raw_response.delete(\n            skill_id=\"skill_id\",\n        )\n\n        assert response.is_closed is True\n        assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n        skill = response.parse()\n        assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n    @parametrize\n    async def test_streaming_response_delete(self, async_client: AsyncAnthropic) -> None:\n        async with async_client.beta.skills.with_streaming_response.delete(\n            skill_id=\"skill_id\",\n        ) as response:\n            assert not response.is_closed\n            assert response.http_request.headers.get(\"X-Stainless-Lang\") == \"python\"\n\n            skill = await response.parse()\n            assert_matches_type(SkillDeleteResponse, skill, path=[\"response\"])\n\n        assert cast(Any, response.is_closed) is True\n\n    @parametrize\n    async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n        with pytest.raises(ValueError, match=r\"Expected a non-empty value for `skill_id` but received ''\"):\n            await async_client.beta.skills.with_raw_response.delete(\n                skill_id=\"\",\n            )",
+                "lineStart": 1,
+                "lineEnd": 360,
+                "totalLines": 360,
+                "truncated": false
+              }
+            },
+            "title": "app/code/tests/api_resources/beta/test_skills.py",
+            "time": {
+              "start": 1789944761499,
+              "end": 1789944761554
+            }
+          },
+          "id": "prt_0c1058c410011wpzFmaJuizN1x",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058b2d001UTop8zxH8j6ANu"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 16805,
+            "input": 16775,
+            "output": 30,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1058cd500130yBOU9ShvB2yG",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058b2d001UTop8zxH8j6ANu"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 21335,
+          "input": 21306,
+          "output": 29,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944761566,
+          "completed": 1789944761993
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1058cde001RY2Neaf2pm6FZo",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1058e0b0012fchVf1BHPFSSX",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058cde001RY2Neaf2pm6FZo"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-8e178fe345da67fa",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/src/anthropic/resources/beta"
+            },
+            "output": "<path>/app/code/src/anthropic/resources/beta</path>\n<type>directory</type>\n<entries>\n__init__.py\nbeta.py\nfiles.py\nmessages/\nmodels.py\n\n(5 entries)\n</entries>",
+            "metadata": {
+              "preview": "__init__.py\nbeta.py\nfiles.py\nmessages/\nmodels.py",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "directory",
+                "path": "/app/code/src/anthropic/resources/beta",
+                "entries": [
+                  "__init__.py",
+                  "beta.py",
+                  "files.py",
+                  "messages/",
+                  "models.py"
+                ],
+                "offset": 1,
+                "totalEntries": 5,
+                "truncated": false
+              }
+            },
+            "title": "app/code/src/anthropic/resources/beta",
+            "time": {
+              "start": 1789944761966,
+              "end": 1789944761984
+            }
+          },
+          "id": "prt_0c1058e10001VyfTQN19ZRBEwb",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058cde001RY2Neaf2pm6FZo"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 21335,
+            "input": 21306,
+            "output": 29,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1058e83001CgXE5DYXsRGr7Z",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058cde001RY2Neaf2pm6FZo"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 21428,
+          "input": 21395,
+          "output": 33,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944761997,
+          "completed": 1789944762355
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1058e8d001TDUFOkdXCNfFtm",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1058f650019C1QcwYaMwa4Ld",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058e8d001TDUFOkdXCNfFtm"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9e2d0249ec14ee30",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/src/anthropic/resources/beta/__init__.py"
+            },
+            "output": "<path>/app/code/src/anthropic/resources/beta/__init__.py</path>\n<type>file</type>\n<content>\n1: # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n2: \n3: from .beta import (\n4:     Beta,\n5:     AsyncBeta,\n6:     BetaWithRawResponse,\n7:     AsyncBetaWithRawResponse,\n8:     BetaWithStreamingResponse,\n9:     AsyncBetaWithStreamingResponse,\n10: )\n11: from .files import (\n12:     Files,\n13:     AsyncFiles,\n14:     FilesWithRawResponse,\n15:     AsyncFilesWithRawResponse,\n16:     FilesWithStreamingResponse,\n17:     AsyncFilesWithStreamingResponse,\n18: )\n19: from .models import (\n20:     Models,\n21:     AsyncModels,\n22:     ModelsWithRawResponse,\n23:     AsyncModelsWithRawResponse,\n24:     ModelsWithStreamingResponse,\n25:     AsyncModelsWithStreamingResponse,\n26: )\n27: from .messages import (\n28:     Messages,\n29:     AsyncMessages,\n30:     MessagesWithRawResponse,\n31:     AsyncMessagesWithRawResponse,\n32:     MessagesWithStreamingResponse,\n33:     AsyncMessagesWithStreamingResponse,\n34: )\n35: \n36: __all__ = [\n37:     \"Models\",\n38:     \"AsyncModels\",\n39:     \"ModelsWithRawResponse\",\n40:     \"AsyncModelsWithRawResponse\",\n41:     \"ModelsWithStreamingResponse\",\n42:     \"AsyncModelsWithStreamingResponse\",\n43:     \"Messages\",\n44:     \"AsyncMessages\",\n45:     \"MessagesWithRawResponse\",\n46:     \"AsyncMessagesWithRawResponse\",\n47:     \"MessagesWithStreamingResponse\",\n48:     \"AsyncMessagesWithStreamingResponse\",\n49:     \"Files\",\n50:     \"AsyncFiles\",\n51:     \"FilesWithRawResponse\",\n52:     \"AsyncFilesWithRawResponse\",\n53:     \"FilesWithStreamingResponse\",\n54:     \"AsyncFilesWithStreamingResponse\",\n55:     \"Beta\",\n56:     \"AsyncBeta\",\n57:     \"BetaWithRawResponse\",\n58:     \"AsyncBetaWithRawResponse\",\n59:     \"BetaWithStreamingResponse\",\n60:     \"AsyncBetaWithStreamingResponse\",\n61: ]\n\n(End of file - total 61 lines)\n</content>",
+            "metadata": {
+              "preview": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom .beta import (\n    Beta,\n    AsyncBeta,\n    BetaWithRawResponse,\n    AsyncBetaWithRawResponse,\n    BetaWithStreamingResponse,\n    AsyncBetaWithStreamingResponse,\n)\nfrom .files import (\n    Files,\n    AsyncFiles,\n    FilesWithRawResponse,\n    AsyncFilesWithRawResponse,\n    FilesWithStreamingResponse,\n    AsyncFilesWithStreamingResponse,\n)\nfrom .models import (\n    Models,",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/src/anthropic/resources/beta/__init__.py",
+                "text": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom .beta import (\n    Beta,\n    AsyncBeta,\n    BetaWithRawResponse,\n    AsyncBetaWithRawResponse,\n    BetaWithStreamingResponse,\n    AsyncBetaWithStreamingResponse,\n)\nfrom .files import (\n    Files,\n    AsyncFiles,\n    FilesWithRawResponse,\n    AsyncFilesWithRawResponse,\n    FilesWithStreamingResponse,\n    AsyncFilesWithStreamingResponse,\n)\nfrom .models import (\n    Models,\n    AsyncModels,\n    ModelsWithRawResponse,\n    AsyncModelsWithRawResponse,\n    ModelsWithStreamingResponse,\n    AsyncModelsWithStreamingResponse,\n)\nfrom .messages import (\n    Messages,\n    AsyncMessages,\n    MessagesWithRawResponse,\n    AsyncMessagesWithRawResponse,\n    MessagesWithStreamingResponse,\n    AsyncMessagesWithStreamingResponse,\n)\n\n__all__ = [\n    \"Models\",\n    \"AsyncModels\",\n    \"ModelsWithRawResponse\",\n    \"AsyncModelsWithRawResponse\",\n    \"ModelsWithStreamingResponse\",\n    \"AsyncModelsWithStreamingResponse\",\n    \"Messages\",\n    \"AsyncMessages\",\n    \"MessagesWithRawResponse\",\n    \"AsyncMessagesWithRawResponse\",\n    \"MessagesWithStreamingResponse\",\n    \"AsyncMessagesWithStreamingResponse\",\n    \"Files\",\n    \"AsyncFiles\",\n    \"FilesWithRawResponse\",\n    \"AsyncFilesWithRawResponse\",\n    \"FilesWithStreamingResponse\",\n    \"AsyncFilesWithStreamingResponse\",\n    \"Beta\",\n    \"AsyncBeta\",\n    \"BetaWithRawResponse\",\n    \"AsyncBetaWithRawResponse\",\n    \"BetaWithStreamingResponse\",\n    \"AsyncBetaWithStreamingResponse\",\n]",
+                "lineStart": 1,
+                "lineEnd": 61,
+                "totalLines": 61,
+                "truncated": false
+              }
+            },
+            "title": "app/code/src/anthropic/resources/beta/__init__.py",
+            "time": {
+              "start": 1789944762308,
+              "end": 1789944762347
+            }
+          },
+          "id": "prt_0c1058f69001fA5VFf2m1laitr",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058e8d001TDUFOkdXCNfFtm"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 21428,
+            "input": 21395,
+            "output": 33,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1058fee001S2SZqkrCo5pmrd",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058e8d001TDUFOkdXCNfFtm"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 22027,
+          "input": 21995,
+          "output": 32,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944762361,
+          "completed": 1789944762725
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1058ff9001dS2tSRlFyCQu49",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10590d70018vsEb5CGHDzp0E",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058ff9001dS2tSRlFyCQu49"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-bcbc034b1c90ce6b",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/src/anthropic/resources/beta/beta.py"
+            },
+            "output": "<path>/app/code/src/anthropic/resources/beta/beta.py</path>\n<type>file</type>\n<content>\n1: # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n2: \n3: from __future__ import annotations\n4: \n5: from .files import (\n6:     Files,\n7:     AsyncFiles,\n8:     FilesWithRawResponse,\n9:     AsyncFilesWithRawResponse,\n10:     FilesWithStreamingResponse,\n11:     AsyncFilesWithStreamingResponse,\n12: )\n13: from .models import (\n14:     Models,\n15:     AsyncModels,\n16:     ModelsWithRawResponse,\n17:     AsyncModelsWithRawResponse,\n18:     ModelsWithStreamingResponse,\n19:     AsyncModelsWithStreamingResponse,\n20: )\n21: from ..._compat import cached_property\n22: from ..._resource import SyncAPIResource, AsyncAPIResource\n23: from .messages.messages import (\n24:     Messages,\n25:     AsyncMessages,\n26:     MessagesWithRawResponse,\n27:     AsyncMessagesWithRawResponse,\n28:     MessagesWithStreamingResponse,\n29:     AsyncMessagesWithStreamingResponse,\n30: )\n31: \n32: __all__ = [\"Beta\", \"AsyncBeta\"]\n33: \n34: \n35: class Beta(SyncAPIResource):\n36:     @cached_property\n37:     def models(self) -> Models:\n38:         return Models(self._client)\n39: \n40:     @cached_property\n41:     def messages(self) -> Messages:\n42:         return Messages(self._client)\n43: \n44:     @cached_property\n45:     def files(self) -> Files:\n46:         return Files(self._client)\n47: \n48:     @cached_property\n49:     def with_raw_response(self) -> BetaWithRawResponse:\n50:         \"\"\"\n51:         This property can be used as a prefix for any HTTP method call to return\n52:         the raw response object instead of the parsed content.\n53: \n54:         For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers\n55:         \"\"\"\n56:         return BetaWithRawResponse(self)\n57: \n58:     @cached_property\n59:     def with_streaming_response(self) -> BetaWithStreamingResponse:\n60:         \"\"\"\n61:         An alternative to `.with_raw_response` that doesn't eagerly read the response body.\n62: \n63:         For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response\n64:         \"\"\"\n65:         return BetaWithStreamingResponse(self)\n66: \n67: \n68: class AsyncBeta(AsyncAPIResource):\n69:     @cached_property\n70:     def models(self) -> AsyncModels:\n71:         return AsyncModels(self._client)\n72: \n73:     @cached_property\n74:     def messages(self) -> AsyncMessages:\n75:         return AsyncMessages(self._client)\n76: \n77:     @cached_property\n78:     def files(self) -> AsyncFiles:\n79:         return AsyncFiles(self._client)\n80: \n81:     @cached_property\n82:     def with_raw_response(self) -> AsyncBetaWithRawResponse:\n83:         \"\"\"\n84:         This property can be used as a prefix for any HTTP method call to return\n85:         the raw response object instead of the parsed content.\n86: \n87:         For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers\n88:         \"\"\"\n89:         return AsyncBetaWithRawResponse(self)\n90: \n91:     @cached_property\n92:     def with_streaming_response(self) -> AsyncBetaWithStreamingResponse:\n93:         \"\"\"\n94:         An alternative to `.with_raw_response` that doesn't eagerly read the response body.\n95: \n96:         For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response\n97:         \"\"\"\n98:         return AsyncBetaWithStreamingResponse(self)\n99: \n100: \n101: class BetaWithRawResponse:\n102:     def __init__(self, beta: Beta) -> None:\n103:         self._beta = beta\n104: \n105:     @cached_property\n106:     def models(self) -> ModelsWithRawResponse:\n107:         return ModelsWithRawResponse(self._beta.models)\n108: \n109:     @cached_property\n110:     def messages(self) -> MessagesWithRawResponse:\n111:         return MessagesWithRawResponse(self._beta.messages)\n112: \n113:     @cached_property\n114:     def files(self) -> FilesWithRawResponse:\n115:         return FilesWithRawResponse(self._beta.files)\n116: \n117: \n118: class AsyncBetaWithRawResponse:\n119:     def __init__(self, beta: AsyncBeta) -> None:\n120:         self._beta = beta\n121: \n122:     @cached_property\n123:     def models(self) -> AsyncModelsWithRawResponse:\n124:         return AsyncModelsWithRawResponse(self._beta.models)\n125: \n126:     @cached_property\n127:     def messages(self) -> AsyncMessagesWithRawResponse:\n128:         return AsyncMessagesWithRawResponse(self._beta.messages)\n129: \n130:     @cached_property\n131:     def files(self) -> AsyncFilesWithRawResponse:\n132:         return AsyncFilesWithRawResponse(self._beta.files)\n133: \n134: \n135: class BetaWithStreamingResponse:\n136:     def __init__(self, beta: Beta) -> None:\n137:         self._beta = beta\n138: \n139:     @cached_property\n140:     def models(self) -> ModelsWithStreamingResponse:\n141:         return ModelsWithStreamingResponse(self._beta.models)\n142: \n143:     @cached_property\n144:     def messages(self) -> MessagesWithStreamingResponse:\n145:         return MessagesWithStreamingResponse(self._beta.messages)\n146: \n147:     @cached_property\n148:     def files(self) -> FilesWithStreamingResponse:\n149:         return FilesWithStreamingResponse(self._beta.files)\n150: \n151: \n152: class AsyncBetaWithStreamingResponse:\n153:     def __init__(self, beta: AsyncBeta) -> None:\n154:         self._beta = beta\n155: \n156:     @cached_property\n157:     def models(self) -> AsyncModelsWithStreamingResponse:\n158:         return AsyncModelsWithStreamingResponse(self._beta.models)\n159: \n160:     @cached_property\n161:     def messages(self) -> AsyncMessagesWithStreamingResponse:\n162:         return AsyncMessagesWithStreamingResponse(self._beta.messages)\n163: \n164:     @cached_property\n165:     def files(self) -> AsyncFilesWithStreamingResponse:\n166:         return AsyncFilesWithStreamingResponse(self._beta.files)\n\n(End of file - total 166 lines)\n</content>",
+            "metadata": {
+              "preview": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom __future__ import annotations\n\nfrom .files import (\n    Files,\n    AsyncFiles,\n    FilesWithRawResponse,\n    AsyncFilesWithRawResponse,\n    FilesWithStreamingResponse,\n    AsyncFilesWithStreamingResponse,\n)\nfrom .models import (\n    Models,\n    AsyncModels,\n    ModelsWithRawResponse,\n    AsyncModelsWithRawResponse,\n    ModelsWithStreamingResponse,\n    AsyncModelsWithStreamingResponse,\n)",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/src/anthropic/resources/beta/beta.py",
+                "text": "# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.\n\nfrom __future__ import annotations\n\nfrom .files import (\n    Files,\n    AsyncFiles,\n    FilesWithRawResponse,\n    AsyncFilesWithRawResponse,\n    FilesWithStreamingResponse,\n    AsyncFilesWithStreamingResponse,\n)\nfrom .models import (\n    Models,\n    AsyncModels,\n    ModelsWithRawResponse,\n    AsyncModelsWithRawResponse,\n    ModelsWithStreamingResponse,\n    AsyncModelsWithStreamingResponse,\n)\nfrom ..._compat import cached_property\nfrom ..._resource import SyncAPIResource, AsyncAPIResource\nfrom .messages.messages import (\n    Messages,\n    AsyncMessages,\n    MessagesWithRawResponse,\n    AsyncMessagesWithRawResponse,\n    MessagesWithStreamingResponse,\n    AsyncMessagesWithStreamingResponse,\n)\n\n__all__ = [\"Beta\", \"AsyncBeta\"]\n\n\nclass Beta(SyncAPIResource):\n    @cached_property\n    def models(self) -> Models:\n        return Models(self._client)\n\n    @cached_property\n    def messages(self) -> Messages:\n        return Messages(self._client)\n\n    @cached_property\n    def files(self) -> Files:\n        return Files(self._client)\n\n    @cached_property\n    def with_raw_response(self) -> BetaWithRawResponse:\n        \"\"\"\n        This property can be used as a prefix for any HTTP method call to return\n        the raw response object instead of the parsed content.\n\n        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers\n        \"\"\"\n        return BetaWithRawResponse(self)\n\n    @cached_property\n    def with_streaming_response(self) -> BetaWithStreamingResponse:\n        \"\"\"\n        An alternative to `.with_raw_response` that doesn't eagerly read the response body.\n\n        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response\n        \"\"\"\n        return BetaWithStreamingResponse(self)\n\n\nclass AsyncBeta(AsyncAPIResource):\n    @cached_property\n    def models(self) -> AsyncModels:\n        return AsyncModels(self._client)\n\n    @cached_property\n    def messages(self) -> AsyncMessages:\n        return AsyncMessages(self._client)\n\n    @cached_property\n    def files(self) -> AsyncFiles:\n        return AsyncFiles(self._client)\n\n    @cached_property\n    def with_raw_response(self) -> AsyncBetaWithRawResponse:\n        \"\"\"\n        This property can be used as a prefix for any HTTP method call to return\n        the raw response object instead of the parsed content.\n\n        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers\n        \"\"\"\n        return AsyncBetaWithRawResponse(self)\n\n    @cached_property\n    def with_streaming_response(self) -> AsyncBetaWithStreamingResponse:\n        \"\"\"\n        An alternative to `.with_raw_response` that doesn't eagerly read the response body.\n\n        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response\n        \"\"\"\n        return AsyncBetaWithStreamingResponse(self)\n\n\nclass BetaWithRawResponse:\n    def __init__(self, beta: Beta) -> None:\n        self._beta = beta\n\n    @cached_property\n    def models(self) -> ModelsWithRawResponse:\n        return ModelsWithRawResponse(self._beta.models)\n\n    @cached_property\n    def messages(self) -> MessagesWithRawResponse:\n        return MessagesWithRawResponse(self._beta.messages)\n\n    @cached_property\n    def files(self) -> FilesWithRawResponse:\n        return FilesWithRawResponse(self._beta.files)\n\n\nclass AsyncBetaWithRawResponse:\n    def __init__(self, beta: AsyncBeta) -> None:\n        self._beta = beta\n\n    @cached_property\n    def models(self) -> AsyncModelsWithRawResponse:\n        return AsyncModelsWithRawResponse(self._beta.models)\n\n    @cached_property\n    def messages(self) -> AsyncMessagesWithRawResponse:\n        return AsyncMessagesWithRawResponse(self._beta.messages)\n\n    @cached_property\n    def files(self) -> AsyncFilesWithRawResponse:\n        return AsyncFilesWithRawResponse(self._beta.files)\n\n\nclass BetaWithStreamingResponse:\n    def __init__(self, beta: Beta) -> None:\n        self._beta = beta\n\n    @cached_property\n    def models(self) -> ModelsWithStreamingResponse:\n        return ModelsWithStreamingResponse(self._beta.models)\n\n    @cached_property\n    def messages(self) -> MessagesWithStreamingResponse:\n        return MessagesWithStreamingResponse(self._beta.messages)\n\n    @cached_property\n    def files(self) -> FilesWithStreamingResponse:\n        return FilesWithStreamingResponse(self._beta.files)\n\n\nclass AsyncBetaWithStreamingResponse:\n    def __init__(self, beta: AsyncBeta) -> None:\n        self._beta = beta\n\n    @cached_property\n    def models(self) -> AsyncModelsWithStreamingResponse:\n        return AsyncModelsWithStreamingResponse(self._beta.models)\n\n    @cached_property\n    def messages(self) -> AsyncMessagesWithStreamingResponse:\n        return AsyncMessagesWithStreamingResponse(self._beta.messages)\n\n    @cached_property\n    def files(self) -> AsyncFilesWithStreamingResponse:\n        return AsyncFilesWithStreamingResponse(self._beta.files)",
+                "lineStart": 1,
+                "lineEnd": 166,
+                "totalLines": 166,
+                "truncated": false
+              }
+            },
+            "title": "app/code/src/anthropic/resources/beta/beta.py",
+            "time": {
+              "start": 1789944762677,
+              "end": 1789944762715
+            }
+          },
+          "id": "prt_0c10590da001mXm4ghOTqLHCqx",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058ff9001dS2tSRlFyCQu49"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 22027,
+            "input": 21995,
+            "output": 32,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c105915f001sBPSojZWO7dEZA",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1058ff9001dS2tSRlFyCQu49"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 23806,
+          "input": 23775,
+          "output": 31,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944762729,
+          "completed": 1789944763106
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1059169001oPiG15XnGHfTNV",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10592610016IdkFlU37xtg8N",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059169001oPiG15XnGHfTNV"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a7f3c751f28ac738",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/src/anthropic/resources/beta/skills"
+            },
+            "error": "File not found: /app/code/src/anthropic/resources/beta/skills",
+            "time": {
+              "start": 1789944763092,
+              "end": 1789944763099
+            }
+          },
+          "id": "prt_0c1059265001lZbAiTlblY1h6E",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059169001oPiG15XnGHfTNV"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 23806,
+            "input": 23775,
+            "output": 31,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10592dd001Gbjfl7FnBvEXoV",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059169001oPiG15XnGHfTNV"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 23870,
+          "input": 23836,
+          "output": 34,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944763111,
+          "completed": 1789944763483
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10592e7001kccTsURCXN3wE2",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10593d2001NAqKwJU65K0nbQ",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10592e7001kccTsURCXN3wE2"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-aa541a4bc9878b9f",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app/code/src -name \"*skill*\" -type f"
+            },
+            "output": "(no output)",
+            "metadata": {
+              "output": "(no output)",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app/code/src -name \"*skill*\" -type f",
+            "time": {
+              "start": 1789944763453,
+              "end": 1789944763476
+            }
+          },
+          "id": "prt_0c10593d5001O55h02WrG0oueO",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10592e7001kccTsURCXN3wE2"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 23870,
+            "input": 23836,
+            "output": 34,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1059457001n9dV3ckY4Yknk4",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10592e7001kccTsURCXN3wE2"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 23920,
+          "input": 23886,
+          "output": 34,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944763488,
+          "completed": 1789944763847
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1059460001mMj2BnygaTm0rc",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1059538001R0UrZxxJxqNWDe",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059460001mMj2BnygaTm0rc"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-b6d2cc0fb5cbf166",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app/code/src -name \"*beta*\" -type d"
+            },
+            "output": "/app/code/src/anthropic/resources/beta\n/app/code/src/anthropic/types/beta\n",
+            "metadata": {
+              "output": "/app/code/src/anthropic/resources/beta\n/app/code/src/anthropic/types/beta\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app/code/src -name \"*beta*\" -type d",
+            "time": {
+              "start": 1789944763810,
+              "end": 1789944763838
+            }
+          },
+          "id": "prt_0c105953c001gtdSXW5KQ69zX9",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059460001mMj2BnygaTm0rc"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 23920,
+            "input": 23886,
+            "output": 34,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10595c10012UrxCv4IDqq6kb",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059460001mMj2BnygaTm0rc"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 23982,
+          "input": 23953,
+          "output": 29,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944763852,
+          "completed": 1789944764183
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10595cc001YcE5wp45EziNIq",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c105969b001xMWFhHAyqLMFtF",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10595cc001YcE5wp45EziNIq"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-962fdf35036b65e8",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/src/anthropic/types/beta"
+            },
+            "output": "<path>/app/code/src/anthropic/types/beta</path>\n<type>directory</type>\n<entries>\n__init__.py\nbeta_base64_image_source_param.py\nbeta_base64_pdf_block_param.py\nbeta_base64_pdf_source_param.py\nbeta_base64_pdf_source.py\nbeta_bash_code_execution_output_block_param.py\nbeta_bash_code_execution_output_block.py\nbeta_bash_code_execution_result_block_param.py\nbeta_bash_code_execution_result_block.py\nbeta_bash_code_execution_tool_result_block_param.py\nbeta_bash_code_execution_tool_result_block.py\nbeta_bash_code_execution_tool_result_error_param.py\nbeta_bash_code_execution_tool_result_error.py\nbeta_cache_control_ephemeral_param.py\nbeta_cache_creation.py\nbeta_citation_char_location_param.py\nbeta_citation_char_location.py\nbeta_citation_config.py\nbeta_citation_content_block_location_param.py\nbeta_citation_content_block_location.py\nbeta_citation_page_location_param.py\nbeta_citation_page_location.py\nbeta_citation_search_result_location_param.py\nbeta_citation_search_result_location.py\nbeta_citation_web_search_result_location_param.py\nbeta_citations_config_param.py\nbeta_citations_delta.py\nbeta_citations_web_search_result_location.py\nbeta_clear_tool_uses_20250919_edit_param.py\nbeta_clear_tool_uses_20250919_edit_response.py\nbeta_code_execution_output_block_param.py\nbeta_code_execution_output_block.py\nbeta_code_execution_result_block_param.py\nbeta_code_execution_result_block.py\nbeta_code_execution_tool_20250522_param.py\nbeta_code_execution_tool_20250825_param.py\nbeta_code_execution_tool_result_block_content.py\nbeta_code_execution_tool_result_block_param_content_param.py\nbeta_code_execution_tool_result_block_param.py\nbeta_code_execution_tool_result_block.py\nbeta_code_execution_tool_result_error_code.py\nbeta_code_execution_tool_result_error_param.py\nbeta_code_execution_tool_result_error.py\nbeta_container_upload_block_param.py\nbeta_container_upload_block.py\nbeta_container.py\nbeta_content_block_param.py\nbeta_content_block_source_content_param.py\nbeta_content_block_source_param.py\nbeta_content_block.py\nbeta_context_management_config_param.py\nbeta_context_management_response.py\nbeta_count_tokens_context_management_response.py\nbeta_document_block.py\nbeta_file_document_source_param.py\nbeta_file_image_source_param.py\nbeta_image_block_param.py\nbeta_input_json_delta.py\nbeta_input_tokens_clear_at_least_param.py\nbeta_input_tokens_trigger_param.py\nbeta_mcp_tool_result_block.py\nbeta_mcp_tool_use_block_param.py\nbeta_mcp_tool_use_block.py\nbeta_memory_tool_20250818_command.py\nbeta_memory_tool_20250818_create_command.py\nbeta_memory_tool_20250818_delete_command.py\nbeta_memory_tool_20250818_insert_command.py\nbeta_memory_tool_20250818_param.py\nbeta_memory_tool_20250818_rename_command.py\nbeta_memory_tool_20250818_str_replace_command.py\nbeta_memory_tool_20250818_view_command.py\nbeta_message_delta_usage.py\nbeta_message_param.py\nbeta_message_tokens_count.py\nbeta_message.py\nbeta_metadata_param.py\nbeta_model_info.py\nbeta_plain_text_source_param.py\nbeta_plain_text_source.py\nbeta_raw_content_block_delta_event.py\nbeta_raw_content_block_delta.py\nbeta_raw_content_block_start_event.py\nbeta_raw_content_block_stop_event.py\nbeta_raw_message_delta_event.py\nbeta_raw_message_start_event.py\nbeta_raw_message_stop_event.py\nbeta_raw_message_stream_event.py\nbeta_redacted_thinking_block_param.py\nbeta_redacted_thinking_block.py\nbeta_request_document_block_param.py\nbeta_request_mcp_server_tool_configuration_param.py\nbeta_request_mcp_server_url_definition_param.py\nbeta_request_mcp_tool_result_block_param.py\nbeta_search_result_block_param.py\nbeta_server_tool_usage.py\nbeta_server_tool_use_block_param.py\nbeta_server_tool_use_block.py\nbeta_signature_delta.py\nbeta_stop_reason.py\nbeta_text_block_param.py\nbeta_text_block.py\nbeta_text_citation_param.py\nbeta_text_citation.py\nbeta_text_delta.py\nbeta_text_editor_code_execution_create_result_block_param.py\nbeta_text_editor_code_execution_create_result_block.py\nbeta_text_editor_code_execution_str_replace_result_block_param.py\nbeta_text_editor_code_execution_str_replace_result_block.py\nbeta_text_editor_code_execution_tool_result_block_param.py\nbeta_text_editor_code_execution_tool_result_block.py\nbeta_text_editor_code_execution_tool_result_error_param.py\nbeta_text_editor_code_execution_tool_result_error.py\nbeta_text_editor_code_execution_view_result_block_param.py\nbeta_text_editor_code_execution_view_result_block.py\nbeta_thinking_block_param.py\nbeta_thinking_block.py\nbeta_thinking_config_disabled_param.py\nbeta_thinking_config_enabled_param.py\nbeta_thinking_config_param.py\nbeta_thinking_delta.py\nbeta_tool_bash_20241022_param.py\nbeta_tool_bash_20250124_param.py\nbeta_tool_choice_any_param.py\nbeta_tool_choice_auto_param.py\nbeta_tool_choice_none_param.py\nbeta_tool_choice_param.py\nbeta_tool_choice_tool_param.py\nbeta_tool_computer_use_20241022_param.py\nbeta_tool_computer_use_20250124_param.py\nbeta_tool_param.py\nbeta_tool_result_block_param.py\nbeta_tool_text_editor_20241022_param.py\nbeta_tool_text_editor_20250124_param.py\nbeta_tool_text_editor_20250429_param.py\nbeta_tool_text_editor_20250728_param.py\nbeta_tool_union_param.py\nbeta_tool_use_block_param.py\nbeta_tool_use_block.py\nbeta_tool_uses_keep_param.py\nbeta_tool_uses_trigger_param.py\nbeta_url_image_source_param.py\nbeta_url_pdf_source_param.py\nbeta_usage.py\nbeta_web_fetch_block_param.py\nbeta_web_fetch_block.py\nbeta_web_fetch_tool_20250910_param.py\nbeta_web_fetch_tool_result_block_param.py\nbeta_web_fetch_tool_result_block.py\nbeta_web_fetch_tool_result_error_block_param.py\nbeta_web_fetch_tool_result_error_block.py\nbeta_web_fetch_tool_result_error_code.py\nbeta_web_search_result_block_param.py\nbeta_web_search_result_block.py\nbeta_web_search_tool_20250305_param.py\nbeta_web_search_tool_request_error_param.py\nbeta_web_search_tool_result_block_content.py\nbeta_web_search_tool_result_block_param_content_param.py\nbeta_web_search_tool_result_block_param.py\nbeta_web_search_tool_result_block.py\nbeta_web_search_tool_result_error_code.py\nbeta_web_search_tool_result_error.py\ndeleted_file.py\nfile_list_params.py\nfile_metadata.py\nfile_upload_params.py\nmessage_count_tokens_params.py\nmessage_create_params.py\nmessages/\nmodel_list_params.py\n\n(169 entries)\n</entries>",
+            "metadata": {
+              "preview": "__init__.py\nbeta_base64_image_source_param.py\nbeta_base64_pdf_block_param.py\nbeta_base64_pdf_source_param.py\nbeta_base64_pdf_source.py\nbeta_bash_code_execution_output_block_param.py\nbeta_bash_code_execution_output_block.py\nbeta_bash_code_execution_result_block_param.py\nbeta_bash_code_execution_result_block.py\nbeta_bash_code_execution_tool_result_block_param.py\nbeta_bash_code_execution_tool_result_block.py\nbeta_bash_code_execution_tool_result_error_param.py\nbeta_bash_code_execution_tool_result_error.py\nbeta_cache_control_ephemeral_param.py\nbeta_cache_creation.py\nbeta_citation_char_location_param.py\nbeta_citation_char_location.py\nbeta_citation_config.py\nbeta_citation_content_block_location_param.py\nbeta_citation_content_block_location.py",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "directory",
+                "path": "/app/code/src/anthropic/types/beta",
+                "entries": [
+                  "__init__.py",
+                  "beta_base64_image_source_param.py",
+                  "beta_base64_pdf_block_param.py",
+                  "beta_base64_pdf_source_param.py",
+                  "beta_base64_pdf_source.py",
+                  "beta_bash_code_execution_output_block_param.py",
+                  "beta_bash_code_execution_output_block.py",
+                  "beta_bash_code_execution_result_block_param.py",
+                  "beta_bash_code_execution_result_block.py",
+                  "beta_bash_code_execution_tool_result_block_param.py",
+                  "beta_bash_code_execution_tool_result_block.py",
+                  "beta_bash_code_execution_tool_result_error_param.py",
+                  "beta_bash_code_execution_tool_result_error.py",
+                  "beta_cache_control_ephemeral_param.py",
+                  "beta_cache_creation.py",
+                  "beta_citation_char_location_param.py",
+                  "beta_citation_char_location.py",
+                  "beta_citation_config.py",
+                  "beta_citation_content_block_location_param.py",
+                  "beta_citation_content_block_location.py",
+                  "beta_citation_page_location_param.py",
+                  "beta_citation_page_location.py",
+                  "beta_citation_search_result_location_param.py",
+                  "beta_citation_search_result_location.py",
+                  "beta_citation_web_search_result_location_param.py",
+                  "beta_citations_config_param.py",
+                  "beta_citations_delta.py",
+                  "beta_citations_web_search_result_location.py",
+                  "beta_clear_tool_uses_20250919_edit_param.py",
+                  "beta_clear_tool_uses_20250919_edit_response.py",
+                  "beta_code_execution_output_block_param.py",
+                  "beta_code_execution_output_block.py",
+                  "beta_code_execution_result_block_param.py",
+                  "beta_code_execution_result_block.py",
+                  "beta_code_execution_tool_20250522_param.py",
+                  "beta_code_execution_tool_20250825_param.py",
+                  "beta_code_execution_tool_result_block_content.py",
+                  "beta_code_execution_tool_result_block_param_content_param.py",
+                  "beta_code_execution_tool_result_block_param.py",
+                  "beta_code_execution_tool_result_block.py",
+                  "beta_code_execution_tool_result_error_code.py",
+                  "beta_code_execution_tool_result_error_param.py",
+                  "beta_code_execution_tool_result_error.py",
+                  "beta_container_upload_block_param.py",
+                  "beta_container_upload_block.py",
+                  "beta_container.py",
+                  "beta_content_block_param.py",
+                  "beta_content_block_source_content_param.py",
+                  "beta_content_block_source_param.py",
+                  "beta_content_block.py",
+                  "beta_context_management_config_param.py",
+                  "beta_context_management_response.py",
+                  "beta_count_tokens_context_management_response.py",
+                  "beta_document_block.py",
+                  "beta_file_document_source_param.py",
+                  "beta_file_image_source_param.py",
+                  "beta_image_block_param.py",
+                  "beta_input_json_delta.py",
+                  "beta_input_tokens_clear_at_least_param.py",
+                  "beta_input_tokens_trigger_param.py",
+                  "beta_mcp_tool_result_block.py",
+                  "beta_mcp_tool_use_block_param.py",
+                  "beta_mcp_tool_use_block.py",
+                  "beta_memory_tool_20250818_command.py",
+                  "beta_memory_tool_20250818_create_command.py",
+                  "beta_memory_tool_20250818_delete_command.py",
+                  "beta_memory_tool_20250818_insert_command.py",
+                  "beta_memory_tool_20250818_param.py",
+                  "beta_memory_tool_20250818_rename_command.py",
+                  "beta_memory_tool_20250818_str_replace_command.py",
+                  "beta_memory_tool_20250818_view_command.py",
+                  "beta_message_delta_usage.py",
+                  "beta_message_param.py",
+                  "beta_message_tokens_count.py",
+                  "beta_message.py",
+                  "beta_metadata_param.py",
+                  "beta_model_info.py",
+                  "beta_plain_text_source_param.py",
+                  "beta_plain_text_source.py",
+                  "beta_raw_content_block_delta_event.py",
+                  "beta_raw_content_block_delta.py",
+                  "beta_raw_content_block_start_event.py",
+                  "beta_raw_content_block_stop_event.py",
+                  "beta_raw_message_delta_event.py",
+                  "beta_raw_message_start_event.py",
+                  "beta_raw_message_stop_event.py",
+                  "beta_raw_message_stream_event.py",
+                  "beta_redacted_thinking_block_param.py",
+                  "beta_redacted_thinking_block.py",
+                  "beta_request_document_block_param.py",
+                  "beta_request_mcp_server_tool_configuration_param.py",
+                  "beta_request_mcp_server_url_definition_param.py",
+                  "beta_request_mcp_tool_result_block_param.py",
+                  "beta_search_result_block_param.py",
+                  "beta_server_tool_usage.py",
+                  "beta_server_tool_use_block_param.py",
+                  "beta_server_tool_use_block.py",
+                  "beta_signature_delta.py",
+                  "beta_stop_reason.py",
+                  "beta_text_block_param.py",
+                  "beta_text_block.py",
+                  "beta_text_citation_param.py",
+                  "beta_text_citation.py",
+                  "beta_text_delta.py",
+                  "beta_text_editor_code_execution_create_result_block_param.py",
+                  "beta_text_editor_code_execution_create_result_block.py",
+                  "beta_text_editor_code_execution_str_replace_result_block_param.py",
+                  "beta_text_editor_code_execution_str_replace_result_block.py",
+                  "beta_text_editor_code_execution_tool_result_block_param.py",
+                  "beta_text_editor_code_execution_tool_result_block.py",
+                  "beta_text_editor_code_execution_tool_result_error_param.py",
+                  "beta_text_editor_code_execution_tool_result_error.py",
+                  "beta_text_editor_code_execution_view_result_block_param.py",
+                  "beta_text_editor_code_execution_view_result_block.py",
+                  "beta_thinking_block_param.py",
+                  "beta_thinking_block.py",
+                  "beta_thinking_config_disabled_param.py",
+                  "beta_thinking_config_enabled_param.py",
+                  "beta_thinking_config_param.py",
+                  "beta_thinking_delta.py",
+                  "beta_tool_bash_20241022_param.py",
+                  "beta_tool_bash_20250124_param.py",
+                  "beta_tool_choice_any_param.py",
+                  "beta_tool_choice_auto_param.py",
+                  "beta_tool_choice_none_param.py",
+                  "beta_tool_choice_param.py",
+                  "beta_tool_choice_tool_param.py",
+                  "beta_tool_computer_use_20241022_param.py",
+                  "beta_tool_computer_use_20250124_param.py",
+                  "beta_tool_param.py",
+                  "beta_tool_result_block_param.py",
+                  "beta_tool_text_editor_20241022_param.py",
+                  "beta_tool_text_editor_20250124_param.py",
+                  "beta_tool_text_editor_20250429_param.py",
+                  "beta_tool_text_editor_20250728_param.py",
+                  "beta_tool_union_param.py",
+                  "beta_tool_use_block_param.py",
+                  "beta_tool_use_block.py",
+                  "beta_tool_uses_keep_param.py",
+                  "beta_tool_uses_trigger_param.py",
+                  "beta_url_image_source_param.py",
+                  "beta_url_pdf_source_param.py",
+                  "beta_usage.py",
+                  "beta_web_fetch_block_param.py",
+                  "beta_web_fetch_block.py",
+                  "beta_web_fetch_tool_20250910_param.py",
+                  "beta_web_fetch_tool_result_block_param.py",
+                  "beta_web_fetch_tool_result_block.py",
+                  "beta_web_fetch_tool_result_error_block_param.py",
+                  "beta_web_fetch_tool_result_error_block.py",
+                  "beta_web_fetch_tool_result_error_code.py",
+                  "beta_web_search_result_block_param.py",
+                  "beta_web_search_result_block.py",
+                  "beta_web_search_tool_20250305_param.py",
+                  "beta_web_search_tool_request_error_param.py",
+                  "beta_web_search_tool_result_block_content.py",
+                  "beta_web_search_tool_result_block_param_content_param.py",
+                  "beta_web_search_tool_result_block_param.py",
+                  "beta_web_search_tool_result_block.py",
+                  "beta_web_search_tool_result_error_code.py",
+                  "beta_web_search_tool_result_error.py",
+                  "deleted_file.py",
+                  "file_list_params.py",
+                  "file_metadata.py",
+                  "file_upload_params.py",
+                  "message_count_tokens_params.py",
+                  "message_create_params.py",
+                  "messages/",
+                  "model_list_params.py"
+                ],
+                "offset": 1,
+                "totalEntries": 169,
+                "truncated": false
+              }
+            },
+            "title": "app/code/src/anthropic/types/beta",
+            "time": {
+              "start": 1789944764155,
+              "end": 1789944764174
+            }
+          },
+          "id": "prt_0c105969e001VE452h9JK86K1a",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10595cc001YcE5wp45EziNIq"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 23982,
+            "input": 23953,
+            "output": 29,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1059712001ZthXodirIpo8Z6",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10595cc001YcE5wp45EziNIq"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25543,
+          "input": 25494,
+          "output": 49,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944764188,
+          "completed": 1789944764663
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c105971c0012jTh2mfHKJ1WsN",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1059838001qEsJkUxer4Qt2v",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105971c0012jTh2mfHKJ1WsN"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-8c71db7bf9ce3fb9",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "grep -r \"skills\" /app/code/src/anthropic/types/beta/ --include=\"*.py\" | head -10"
+            },
+            "output": "(no output)",
+            "metadata": {
+              "output": "(no output)",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "grep -r \"skills\" /app/code/src/anthropic/types/beta/ --include=\"*.py\" | head -10",
+            "time": {
+              "start": 1789944764633,
+              "end": 1789944764656
+            }
+          },
+          "id": "prt_0c105983c001nfRh7bJiZxMsmZ",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105971c0012jTh2mfHKJ1WsN"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 25543,
+            "input": 25494,
+            "output": 49,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10598f2001wm7ua3Ox20eW3t",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105971c0012jTh2mfHKJ1WsN"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25606,
+          "input": 25559,
+          "output": 47,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944764667,
+          "completed": 1789944765680
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10598fb001TbwIE4HRFS5SBq",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10599ce0012ubZS8HjkAFztB",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10598fb001TbwIE4HRFS5SBq"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-bb4889a0be940f68",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app/code/src -name \"*.py\" -exec grep -l \"skills\" {} \\; | head -10"
+            },
+            "output": "(no output)",
+            "metadata": {
+              "output": "(no output)",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app/code/src -name \"*.py\" -exec grep -l \"skills\" {} \\; | head -10",
+            "time": {
+              "start": 1789944765043,
+              "end": 1789944765672
+            }
+          },
+          "id": "prt_0c10599d3001MyIM3tgr7dclFQ",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10598fb001TbwIE4HRFS5SBq"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 25606,
+            "input": 25559,
+            "output": 47,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c1059ceb001OKZGTVfcnJ3SiA",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c10598fb001TbwIE4HRFS5SBq"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 25804,
+          "input": 25622,
+          "output": 182,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944765686,
+          "completed": 1789944766632
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c1059cf60014eyhCIWWrmNdUK",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c1059dd0001sGPeOV0hLS8l5E",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059cf60014eyhCIWWrmNdUK"
+        },
+        {
+          "type": "tool",
+          "tool": "todowrite",
+          "callID": "chatcmpl-tool-9a6d9ede052c1bc6",
+          "state": {
+            "status": "completed",
+            "input": {
+              "todos": [
+                {
+                  "content": "Analyze non-passed tests in /app/non-passed/summary.jsonl to understand the root causes of failures",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Inspect test files in /app/code/tests/api_resources/beta/skills/test_versions.py and /app/code/tests/api_resources/beta/test_skills.py to understand test expectations",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Examine source code in /app/code/src/anthropic/resources/beta/ to identify missing or incorrect implementations",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Identify core issues preventing test execution and create requirement document",
+                  "status": "in_progress",
+                  "priority": "high"
+                }
+              ]
+            },
+            "output": "[\n  {\n    \"content\": \"Analyze non-passed tests in /app/non-passed/summary.jsonl to understand the root causes of failures\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Inspect test files in /app/code/tests/api_resources/beta/skills/test_versions.py and /app/code/tests/api_resources/beta/test_skills.py to understand test expectations\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Examine source code in /app/code/src/anthropic/resources/beta/ to identify missing or incorrect implementations\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Identify core issues preventing test execution and create requirement document\",\n    \"status\": \"in_progress\",\n    \"priority\": \"high\"\n  }\n]",
+            "metadata": {
+              "todos": [
+                {
+                  "content": "Analyze non-passed tests in /app/non-passed/summary.jsonl to understand the root causes of failures",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Inspect test files in /app/code/tests/api_resources/beta/skills/test_versions.py and /app/code/tests/api_resources/beta/test_skills.py to understand test expectations",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Examine source code in /app/code/src/anthropic/resources/beta/ to identify missing or incorrect implementations",
+                  "status": "completed",
+                  "priority": "high"
+                },
+                {
+                  "content": "Identify core issues preventing test execution and create requirement document",
+                  "status": "in_progress",
+                  "priority": "high"
+                }
+              ],
+              "truncated": false
+            },
+            "title": "1 todos",
+            "time": {
+              "start": 1789944766617,
+              "end": 1789944766622
+            }
+          },
+          "id": "prt_0c1059de1001MNODkgsargJ68A",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059cf60014eyhCIWWrmNdUK"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 25804,
+            "input": 25622,
+            "output": 182,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c105a0a2001V6LXMHsYsJjvns",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c1059cf60014eyhCIWWrmNdUK"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c1056f49001mZwsmsKs9gbIQY",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 26189,
+          "input": 26005,
+          "output": 184,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789944766640,
+          "completed": 1789944767635
+        },
+        "finish": "stop",
+        "id": "msg_0c105a0b0001rutEy0kfMKEkGX",
+        "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c105a1bb001ekkLysmXU5NYt6",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105a0b0001rutEy0kfMKEkGX"
+        },
+        {
+          "type": "text",
+          "text": "Based on my analysis of the test failures and codebase, here are 3 to 5 plausible future tasks:\n\n1. Implement the missing `skills` resource module in `/app/code/src/anthropic/resources/beta/skills/` to support the test cases in `test_skills.py`\n2. Create the `versions` submodule under `skills` in `/app/code/src/anthropic/resources/beta/skills/` to support `test_versions.py`\n3. Add missing type definitions for skill-related responses in `/app/code/src/anthropic/types/beta/` \n4. Implement the `beta.skills` and `beta.skills.versions` API endpoints in the client\n5. Fix the path parameter validation logic that's causing test failures for empty string inputs\n\nThese tasks would address the core issue: the beta skills functionality is not implemented in the source code, which prevents the tests from passing.",
+          "time": {
+            "start": 1789944766910,
+            "end": 1789944767627
+          },
+          "id": "prt_0c105a1be001UI3ULTrZfUrrjD",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105a0b0001rutEy0kfMKEkGX"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 26189,
+            "input": 26005,
+            "output": 184,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c105a48e001M1QQG9V6yL5yjd",
+          "sessionID": "ses_f3efa9105ffef6Tr00WbdaEs5e",
+          "messageID": "msg_0c105a0b0001rutEy0kfMKEkGX"
+        }
+      ]
+    }
+  ]
+}

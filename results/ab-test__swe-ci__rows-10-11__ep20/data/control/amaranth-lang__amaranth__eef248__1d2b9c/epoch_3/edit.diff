@@ -1,0 +1,135 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-20 23:40:00
++++ b/amaranth/hdl/_ir.py	2026-09-20 23:42:12
+@@ -660,68 +660,45 @@
+ 
+         This method resolves domain names considering domain renamings and hierarchies.
+         """
+-        # Search for the fragment in the design hierarchy
+-        # The fragment passed in might be a module that gets mapped to a fragment in the design
++        # Start from the given fragment and walk up the hierarchy
+         current_fragment = fragment
+         while current_fragment is not None:
+-            # Check if this fragment directly contains the domain
+-            if isinstance(current_fragment.domains, dict):
++            # Direct lookup in current fragment's domains
++            if hasattr(current_fragment, 'domains') and isinstance(current_fragment.domains, dict):
+                 if name in current_fragment.domains:
+                     return current_fragment.domains[name]
+-            else:
+-                # Handle _ModuleBuilderDomainSet or other non-dict domain containers
+-                # Try to get the domain by iterating through available domains
+-                if hasattr(current_fragment.domains, 'items'):
++            elif hasattr(current_fragment, 'domains'):
++                # Handle non-dict domain containers by iterating
++                try:
+                     for domain_name, domain in current_fragment.domains.items():
+                         if domain_name == name:
+                             return domain
+-                elif hasattr(current_fragment.domains, '__iter__'):
+-                    # Fallback: try to iterate through domains
++                except AttributeError:
++                    # If items() not available, try direct iteration
+                     try:
+                         for domain_name in current_fragment.domains:
+                             if domain_name == name:
+                                 return current_fragment.domains[domain_name]
+                     except Exception:
+-                        # If iteration fails, fall back to checking if it's a dict-like object
+                         pass
+             
+-            # Check parent fragment in hierarchy
++            # Move to parent fragment
+             if current_fragment in self.fragments:
+-                frag_info = self.fragments[current_fragment]
+-                current_fragment = frag_info.parent
++                current_fragment = self.fragments[current_fragment].parent
+             else:
+-                # If we can't find it in our design fragments, try to find it in the main fragment
+-                if isinstance(self.fragment.domains, dict):
+-                    if name in self.fragment.domains:
+-                        return self.fragment.domains[name]
+-                else:
+-                    # Handle _ModuleBuilderDomainSet or other non-dict domain containers
+-                    if hasattr(self.fragment.domains, 'items'):
+-                        for domain_name, domain in self.fragment.domains.items():
+-                            if domain_name == name:
+-                                return domain
+-                    elif hasattr(self.fragment.domains, '__iter__'):
+-                        # Fallback: try to iterate through domains
+-                        try:
+-                            for domain_name in self.fragment.domains:
+-                                if domain_name == name:
+-                                    return self.fragment.domains[domain_name]
+-                        except Exception:
+-                            pass
+                 break
+         
+-        # If we couldn't find it by walking up the hierarchy, check if it's a global domain
+-        if isinstance(self.fragment.domains, dict):
++        # If not found in hierarchy, check main fragment
++        if hasattr(self.fragment, 'domains') and isinstance(self.fragment.domains, dict):
+             if name in self.fragment.domains:
+                 return self.fragment.domains[name]
+-        else:
+-            # Handle _ModuleBuilderDomainSet or other non-dict domain containers
+-            if hasattr(self.fragment.domains, 'items'):
++        elif hasattr(self.fragment, 'domains'):
++            # Handle non-dict domain containers by iterating
++            try:
+                 for domain_name, domain in self.fragment.domains.items():
+                     if domain_name == name:
+                         return domain
+-            elif hasattr(self.fragment.domains, '__iter__'):
+-                # Fallback: try to iterate through domains
++            except AttributeError:
+                 try:
+                     for domain_name in self.fragment.domains:
+                         if domain_name == name:
+@@ -729,20 +706,18 @@
+                 except Exception:
+                     pass
+         
+-        # If still not found, it might be a standard domain like "sync"
+-        # Check all fragments in the design
++        # Final fallback - check all fragments in design
+         for frag, frag_info in self.fragments.items():
+-            if isinstance(frag.domains, dict):
++            if hasattr(frag, 'domains') and isinstance(frag.domains, dict):
+                 if name in frag.domains:
+                     return frag.domains[name]
+-            else:
+-                # Handle _ModuleBuilderDomainSet or other non-dict domain containers
+-                if hasattr(frag.domains, 'items'):
++            elif hasattr(frag, 'domains'):
++                # Handle non-dict domain containers by iterating
++                try:
+                     for domain_name, domain in frag.domains.items():
+                         if domain_name == name:
+                             return domain
+-                elif hasattr(frag.domains, '__iter__'):
+-                    # Fallback: try to iterate through domains
++                except AttributeError:
+                     try:
+                         for domain_name in frag.domains:
+                             if domain_name == name:
+@@ -750,7 +725,6 @@
+                     except Exception:
+                         pass
+         
+-        # If we still haven't found it, raise an error
+         raise ValueError(f"Domain '{name}' not found in design")
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/pysim.py b/amaranth/sim/pysim.py
+--- a/amaranth/sim/pysim.py	2026-09-20 23:31:24
++++ b/amaranth/sim/pysim.py	2026-09-20 23:41:56
+@@ -537,7 +537,7 @@
+ 
+     def add_testbench_process(self, process):
+         self._testbenches.append(PyCoroProcess(self._state, self._design.fragment.domains, process,
+-                                               testbench=True, on_command=self._debug_process))
++                                                testbench=True, on_command=self._debug_process))
+ 
+     def reset(self):
+         self._state.reset()

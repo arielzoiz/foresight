@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/amaranth/sim/pysim.py:_PySignalState</location>
+    <description>The _PySignalState class is missing the _prev_value attribute initialization that is referenced in various simulation methods, causing AttributeError when accessing _prev_value on signal state objects.</description>
+    <contract>The _PySignalState class constructor must initialize the _prev_value attribute to match the signal's initial value. This attribute should be set to the signal's initial value during object construction and maintained throughout the simulation lifecycle.</contract>
+    <acceptance>Tests that previously failed with "AttributeError: '_PySignalState' object has no attribute '_prev_value'" should now pass, including test_sim.py::SimulatorRegressionTestCase::test_sample, test_sim.py::SimulatorRegressionTestCase::test_edge, and others.</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/sim/pysim.py:PySimEngine</location>
+    <description>The PySimEngine class has methods (posedge, changed, delay, get) that rely on _prev_value attribute which is not properly initialized or maintained in the _PySignalState objects.</description>
+    <contract>The PySimEngine class methods that use _prev_value must properly initialize and maintain this attribute in the _PySignalState objects. The _prev_value attribute should be initialized to the signal's initial value and updated appropriately during signal transitions.</contract>
+    <acceptance>Tests that previously failed with "AttributeError: '_PySignalState' object has no attribute '_prev_value'" should now pass, particularly focusing on methods like posedge, changed, delay, and get.</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/sim/pysim.py:_PySignalState</location>
+    <description>The _PySignalState class is missing proper initialization of the _prev_value attribute which is required for edge detection and change tracking functionality.</description>
+    <contract>The _PySignalState.__init__ method must ensure that _prev_value is initialized to the signal's initial value (signal.init) when the object is created. This ensures consistent behavior for edge detection and change tracking.</contract>
+    <acceptance>Tests involving edge detection (posedge, changed) should pass without AttributeError exceptions, specifically tests like test_sim.py::SimulatorRegressionTestCase::test_edge and test_sim.py::SimulatorRegressionTestCase::test_changed.</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/hdl/_ast.py:Signal</location>
+    <description>Some tests are failing due to ClockDomain comparison issues in test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup, which suggests issues with object identity and equality.</description>
+    <contract>The ClockDomain class should properly implement equality comparison to ensure that domains with the same name and properties are correctly identified as equal, resolving the AssertionError in domain lookup tests.</contract>
+    <acceptance>test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup should pass without AssertionError about domain object identity mismatches.</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/amaranth/sim/pysim.py:PySimEngine</location>
+    <description>Multiple tests fail with "AttributeError: 'NoneType' object has no attribute 'tick'" and similar null reference errors, suggesting that triggers or process objects are not properly initialized or are None when accessed.</description>
+    <contract>The PySimEngine must ensure that all trigger objects and process references are properly initialized before being accessed. Methods like set, get, posedge, changed should not access attributes on None objects.</contract>
+    <acceptance>Tests that previously failed with "AttributeError: 'NoneType' object has no attribute 'tick'" should now pass, including test_sim.py::SimulatorRegressionTestCase::test_sample, test_sim.py::SimulatorRegressionTestCase::test_broken_other_trigger, and others.</acceptance>
+  </requirement>
+</requirements>

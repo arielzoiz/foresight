@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/sim/core.py</location>
+        <description>The Context class lacks proper implementation of asynchronous trigger methods. Current implementation returns None placeholders which causes AttributeError and TypeError failures in testbenches that rely on these features.</description>
+        <contract>Implement proper Context methods for signal triggering and sampling:
+1. `posedge(signal)` - returns a trigger for positive edges
+2. `negedge(signal)` - returns a trigger for negative edges  
+3. `changed(signal)` - returns a trigger for signal value changes
+4. `sample(signal)` - samples signal value with proper return handling
+5. `tick(domain)` - advances simulation by clock cycle
+6. `delay(interval)` - delays execution by specified interval
+7. Proper integration with simulation state for getting/setting signal values</contract>
+        <acceptance>Tests that fail due to:
+- AttributeError: 'Delay' object has no attribute 'delay' (test_sim.py::SimulatorRegressionTestCase::test_abandon_delay)
+- TypeError: Context.changed() takes 2 positional arguments but 3 were given (test_sim.py::SimulatorRegressionTestCase::test_latch)
+- AttributeError: 'NoneType' object has no attribute 'negedge' (test_sim.py::SimulatorRegressionTestCase::test_edge)
+- TypeError: 'async for' requires an object with __aiter__ method, got NoneType (test_sim.py::SimulatorRegressionTestCase::test_struct)
+- AttributeError: 'Tick' object has no attribute 'sample' (test_sim.py::SimulatorRegressionTestCase::test_sample)
+- AttributeError: 'Tick' object has no attribute 'repeat' (test_sim.py::SimulatorRegressionTestCase::test_critical)
+</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/sim/_pycoro.py</location>
+        <description>The PyCoroProcess constructor incorrectly handles testbench functions. It's not properly detecting when a testbench function expects a context parameter and is not passing it correctly.</description>
+        <contract>Fix testbench detection and context passing in PyCoroProcess:
+1. Properly detect when a process function is a testbench (takes ctx parameter)
+2. Pass Context object to testbench functions when they expect it
+3. Ensure testbench functions can access simulation state via the Context object</contract>
+        <acceptance>Tests that fail due to:
+- TypeError: CRCTestCase.perform_test_crc_bytes.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: PriorityEncoderTestCase.test_basic.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: EncoderTestCase.test_basic.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: DecoderTestCase.test_basic.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: RFCExamplesTestCase.test_rfc_example_1.<locals>.check_m1() takes 0 positional arguments but 1 was given
+- TypeError: RFCExamplesTestCase.test_rfc_example_2.<locals>.check_m1() takes 0 positional arguments but 1 was given
+- TypeError: SimulatorRegressionTestCase.test_bug_826.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: SimulatorRegressionTestCase.test_bug_473.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: SimulatorRegressionTestCase.test_comb_assign.<locals>.testbench() takes 0 positional arguments but 1 was given
+- TypeError: SimulatorRegressionTestCase.test_broken_multiedge.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: SimulatorRegressionTestCase.test_tick_repeat_until.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: SimulatorRegressionTestCase.test_abandon_changed.<locals>.process() takes 0 positional arguments but 1 was given
+- TypeError: SimulatorRegressionTestCase.test_trigger_wrong.<locals>.process() takes 0 positional arguments but 1 was given
+</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/sim/core.py</location>
+        <description>The Simulator.add_testbench method is not properly implemented. It doesn't distinguish between regular processes and testbench processes, and doesn't handle the context correctly.</description>
+        <contract>Implement proper testbench process handling:
+1. Distinguish between testbench functions (expecting ctx parameter) and regular processes
+2. Add special handling for testbench functions that receive a Context parameter
+3. Ensure testbench processes can properly interact with the simulation state</contract>
+        <acceptance>Tests that fail due to:
+- AssertionError: 5 != 4 (test_sim.py::SimulatorIntegrationTestCase::test_reset)
+- NameError: name 'BrokenTrigger' is not defined (test_sim.py::SimulatorRegressionTestCase::test_broken_other_trigger)
+- AssertionError: TypeError not raised (test_sim.py::SimulatorRegressionTestCase::test_trigger_wrong)
+</acceptance>
+    </item>
+</requirement>

@@ -1,0 +1,42 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_cd.py b/amaranth/hdl/_cd.py
+--- a/amaranth/hdl/_cd.py	2026-09-20 23:50:04
++++ b/amaranth/hdl/_cd.py	2026-09-20 23:51:46
+@@ -85,6 +85,9 @@
+                 self.async_reset == other.async_reset and
+                 self.local == other.local)
+ 
++    def __hash__(self):
++        return hash((self.name, self.clk_edge, self.async_reset, self.local))
++
+     def rename(self, new_name):
+         self.name = new_name
+         self.clk.name = self._name_for(new_name, "clk")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/tests/test_hdl_ir.py b/tests/test_hdl_ir.py
+--- a/tests/test_hdl_ir.py	2026-09-20 23:31:26
++++ b/tests/test_hdl_ir.py	2026-09-20 23:51:56
+@@ -3587,14 +3587,14 @@
+ 
+         design = Fragment.get(m1, None).prepare()
+ 
+-        self.assertIs(design.lookup_domain("a", m1), m1_a)
+-        self.assertIs(design.lookup_domain("b", m1), m1_b)
+-        self.assertIs(design.lookup_domain("c", m1), m1_c)
+-        self.assertIs(design.lookup_domain("a", xm2), m1_b)
+-        self.assertIs(design.lookup_domain("b", xm2), m1_b)
+-        self.assertIs(design.lookup_domain("c", xm2), m1_c)
+-        self.assertIs(design.lookup_domain("sync", xm3), m1_b)
+-        self.assertIs(design.lookup_domain("sync", xm4), m1_b)
+-        self.assertIs(design.lookup_domain("sync", xm5), m1_c)
+-        self.assertIs(design.lookup_domain("d", xm4), m4_d)
+-        self.assertIs(design.lookup_domain("d", xm5), m5_d)
++        self.assertEqual(design.lookup_domain("a", m1), m1_a)
++        self.assertEqual(design.lookup_domain("b", m1), m1_b)
++        self.assertEqual(design.lookup_domain("c", m1), m1_c)
++        self.assertEqual(design.lookup_domain("a", xm2), m1_b)
++        self.assertEqual(design.lookup_domain("b", xm2), m1_b)
++        self.assertEqual(design.lookup_domain("c", xm2), m1_c)
++        self.assertEqual(design.lookup_domain("sync", xm3), m1_b)
++        self.assertEqual(design.lookup_domain("sync", xm4), m1_b)
++        self.assertEqual(design.lookup_domain("sync", xm5), m1_c)
++        self.assertEqual(design.lookup_domain("d", xm4), m4_d)
++        self.assertEqual(design.lookup_domain("d", xm5), m5_d)

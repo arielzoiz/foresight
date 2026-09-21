@@ -1,0 +1,49 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/pysim.py b/amaranth/sim/pysim.py
+--- a/amaranth/sim/pysim.py	2026-09-21 01:23:48
++++ b/amaranth/sim/pysim.py	2026-09-21 01:26:04
+@@ -558,7 +558,9 @@
+     def set(self, signal, value):
+         """Set a signal to a specific value."""
+         index = self._state.get_signal(signal)
+-        self._state.slots[index].set(value)
++        state = self._state.slots[index]
++        if state is not None:
++            state.set(value)
+         return self
+ 
+     def posedge(self, signal):
+@@ -567,7 +569,7 @@
+         index = self._state.get_signal(signal)
+         state = self._state.slots[index]
+         # We need to track the previous value to detect edges
+-        prev_value = getattr(state, '_prev_value', None)
++        prev_value = getattr(state, '_prev_value', state.curr)
+         current_value = state.curr
+         # Store current value for next iteration
+         state._prev_value = current_value
+@@ -580,11 +582,11 @@
+         index = self._state.get_signal(signal)
+         state = self._state.slots[index]
+         # Track previous value to detect changes
+-        prev_value = getattr(state, '_prev_value', None)
++        prev_value = getattr(state, '_prev_value', state.curr)
+         current_value = state.curr
+         # Store current value for next iteration
+         state._prev_value = current_value
+-        return prev_value != current_value and prev_value is not None
++        return prev_value != current_value
+ 
+     def delay(self, duration):
+         """Delay execution for a specified duration."""
+@@ -598,7 +600,10 @@
+     def get(self, signal):
+         """Get the current value of a signal."""
+         index = self._state.get_signal(signal)
+-        return self._state.slots[index].curr
++        state = self._state.slots[index]
++        if state is not None:
++            return state.curr
++        return None
+ 
+     def get_signal(self, signal):
+         """Get the signal state object for a signal."""

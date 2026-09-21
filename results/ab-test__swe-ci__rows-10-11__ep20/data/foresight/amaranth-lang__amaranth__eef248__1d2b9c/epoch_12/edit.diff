@@ -1,0 +1,55 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-21 01:09:14
++++ b/amaranth/hdl/_ir.py	2026-09-21 01:11:58
+@@ -429,7 +429,7 @@
+         Args:
+             domain_name: The name of the domain to look up
+             fragment: The fragment context in which to look up the domain
+-               
++                
+         Returns:
+             The ClockDomain object for the given domain name
+         """
+@@ -450,8 +450,40 @@
+         # Domain not found in hierarchy - this should not happen in a properly constructed design
+         # but let's be defensive and check all fragments in case of unusual circumstances
+         for frag in self.fragments:
+-            if domain_name in frag.domains:
+-                return frag.domains[domain_name]
++            # Safely check if the fragment has domains attribute and if domain_name exists
++            if hasattr(frag, 'domains'):
++                try:
++                    domains = frag.domains
++                    # Handle different types of domain containers
++                    if hasattr(domains, '__iter__') and hasattr(domains, '__contains__'):
++                        # Standard dict-like or set-like object
++                        if domain_name in domains:
++                            return domains[domain_name]
++                    elif isinstance(domains, dict):
++                        # Explicit dict check
++                        if domain_name in domains:
++                            return domains[domain_name]
++                    elif hasattr(domains, 'keys'):
++                        # OrderedDict-like or other dict-like objects
++                        if domain_name in domains:
++                            return domains[domain_name]
++                    else:
++                        # For special domain containers like _ModuleBuilderDomainSet, 
++                        # we try direct access or fallback to getattr
++                        try:
++                            if hasattr(domains, domain_name):
++                                # If it's an attribute-based container, access it directly
++                                return getattr(domains, domain_name)
++                        except (AttributeError, TypeError):
++                            # Fall back to checking if it's a container that supports iteration
++                            try:
++                                if hasattr(domains, '__contains__') and domain_name in domains:
++                                    return domains[domain_name]
++                            except (TypeError, AttributeError):
++                                pass
++                except (TypeError, AttributeError, KeyError):
++                    # If accessing domains fails, skip this fragment
++                    continue
+         
+         # Domain not found in hierarchy - raise an appropriate error
+         raise KeyError(f"Domain '{domain_name}' not found in fragment hierarchy")

@@ -1,0 +1,51 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-21 00:50:30
++++ b/amaranth/hdl/_ir.py	2026-09-21 00:55:24
+@@ -429,7 +429,7 @@
+         Args:
+             domain_name: The name of the domain to look up
+             fragment: The fragment context in which to look up the domain
+-            
++             
+         Returns:
+             The ClockDomain object for the given domain name
+         """
+@@ -440,17 +440,10 @@
+                 # First try direct access (should work for Fragment objects)
+                 if domain_name in fragment.domains:
+                     return fragment.domains[domain_name]
+-            except TypeError:
+-                # Handle _ModuleBuilderDomainSet not being iterable
+-                # Try direct indexing instead
+-                try:
+-                    return fragment.domains[domain_name]
+-                except (KeyError, TypeError):
+-                    pass
+-            except KeyError:
+-                # If the domain is not found, continue to parent
++            except (TypeError, AttributeError):
++                # If direct access fails, try alternative approaches
+                 pass
+-                
++            
+             # If direct access didn't work, check if we can get domains from _domains
+             try:
+                 if hasattr(fragment, '_domains') and domain_name in fragment._domains:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/_base.py b/amaranth/sim/_base.py
+--- a/amaranth/sim/_base.py	2026-09-21 00:28:26
++++ b/amaranth/sim/_base.py	2026-09-21 00:55:16
+@@ -1,4 +1,4 @@
+-__all__ = ["BaseProcess", "BaseSignalState", "BaseMemoryState", "BaseSimulation", "BaseEngine"]
++__all__ = ["BaseProcess", "BaseSignalState", "BaseMemoryState", "BaseSimulation", "BaseEngine", "BrokenTrigger"]
+ 
+ 
+ class BaseProcess:
+@@ -90,3 +90,8 @@
+ 
+     def write_vcd(self, *, vcd_file, gtkw_file, traces, fs_per_delta):
+         raise NotImplementedError # :nocov:
++
++
++class BrokenTrigger(Exception):
++    """Exception raised when a trigger becomes broken due to a delayed event being abandoned."""
++    pass

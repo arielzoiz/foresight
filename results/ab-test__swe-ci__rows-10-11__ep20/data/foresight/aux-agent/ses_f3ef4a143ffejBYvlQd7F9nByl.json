@@ -1,0 +1,694 @@
+{
+  "info": {
+    "id": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+    "slug": "clever-cactus",
+    "projectID": "global",
+    "directory": "/app",
+    "path": "app",
+    "title": "Python project analysis and future development tasks identification",
+    "agent": "build",
+    "model": {
+      "id": "aux-model",
+      "providerID": "custom",
+      "variant": "default"
+    },
+    "version": "1.18.31",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 62046,
+      "output": 649,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1789945142972,
+      "updated": 1789945149378
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1789945143060
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "custom",
+          "modelID": "aux-model"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_0c10b5f14001ltUv4VcnIM1vEH",
+        "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"You are inspecting a Python project inside a container at /app.\n\nREAD ONLY. Do not create, modify or delete any file under /app.\nAny write there invalidates this run.\n\nA developer is about to work on the task described below.\n\n\\\"\n<prompt>\n    <role_setting>\n        <identity>You are a senior software architect proficient in Python software engineering and Test-Driven Development (TDD).</identity>\n        <expertise>You excel at accurately identifying functional gaps from test feedback and writing high-quality software development requirement documents.</expertise>\n        <scene>You are collaborating closely with a senior programmer and plan to complete the development of a Python software incrementally through multiple rounds of \\\\\"planning-coding\\\\\" in small, rapid steps.</scene>\n        <responsibilities>Your responsibility is to analyze functional gaps in the code based on the currently non-passed test cases and write a clear, specific incremental development requirement document for the programmer.</responsibilities>\n    </role_setting>\n\n    <input>\n        <permission>You are allowed to browse all content in the current working directory.</permission>\n        <item name=\\\\\"/app/code/\\\\\">The folder containing all source code for this Python project.</item>\n        <item name=\\\\\"/app/code/tests/\\\\\">The folder containing all unit tests for this Python project.</item>\n        <item name=\\\\\"/app/non-passed/\\\\\">The folder containing full information for all test cases that are expected to pass but currently non-passed in the current implementation.</item>\n        <item name=\\\\\"/app/non-passed/summary.jsonl\\\\\">A file that records the meta-information of all test cases that are expected to pass but currently non-passed.</item>\n    </input>\n\n    <workflow>\n        <rule>You MUST strictly follow the workflow below:</rule>\n        <step index=\\\\\"1\\\\\" action=\\\\\"summary\\\\\">\n            Consult the file /app/non-passed/summary.jsonl to grasp the meta-information of all non-passed test cases, and locate and summarize the core reasons leading to the test failures. If necessary, you may consult other JSON files in /app/non-passed/ to obtain detailed report information for the failed tests.\n        </step>\n        <step index=\\\\\"2\\\\\" action=\\\\\"trace\\\\\">\n            Consult the corresponding test files in /app/code/tests/ to analyze environmental dependencies, assertion intentions, inputs and outputs, exception handling, and boundary conditions of the non-passed tests, and determine the involved source code modules and interface contracts.\n        </step>\n        <step index=\\\\\"3\\\\\" action=\\\\\"attribute\\\\\">\n            Consult the relevant source code in /app/code/ and, combined with the test results and detailed report information, locate the root causes of the failures within the source code.\n        </step>\n        <step index=\\\\\"4\\\\\" action=\\\\\"filter\\\\\">\n            From all identified reasons, filter out the most critical code change requirements, limited to **1 to 5 items**. Follow the principle of small-step iterations and consider the programmer's workload; do not attempt to fix too many failed tests or propose too many requirements at once.\n            You MUST use the following priority rules for filtering and sorting:\n            <priority_rules>\n                <rule>Prioritize changes that enable the highest number of non-passed tests to pass.</rule>\n                <rule>When benefits are similar, prioritize fixing error/collection/import issues, followed by failed, and then missing.</rule>\n                <rule>When benefits are similar, prioritize fixes for low-level common modules/interfaces over fixes for specific test case exceptions.</rule>\n                <rule>If a clear dependency chain exists, fix downstream base capabilities before fixing upper-level behaviors.</rule>\n            </priority_rules>\n        </step>\n        <step index=\\\\\"5\\\\\" action=\\\\\"document\\\\\">\n            Based on the filtered change requirements, create a clear, specific, and verifiable requirement document in XML format and save it to /app/requirement.xml. As an architect, you MUST focus on \\\\\"what needs to be achieved\\\\\" and avoid excessive involvement in implementation details.\n        </step>\n    </workflow>\n\n    <output>\n        <product>A single, independent XML requirement document saved at /app/requirement.xml</product>\n        <content>\n            The document should contain 1 to 5 code change requirements. Each item MUST include the following:\n            <item name=\\\\\"location\\\\\">Specify the source file path and its corresponding class or function scope (if it does not exist yet, specify the expected location).</item>\n            <item name=\\\\\"description\\\\\">Detail the current state and the type of problem (e.g., collection/import blockages, missing logic, undefined interfaces, return values/exception handling inconsistent with expectations, etc.).</item>\n            <item name=\\\\\"contract\\\\\">Define the expected behavioral goals in detail (interface inputs/outputs, exception types, data structure fields, boundary conditions, and business constraints, etc.). Describe \\\\\"what to achieve\\\\\" in detail and avoid over-describing \\\\\"how specifically to do it.\\\\\" You are allowed to describe function/method signature-level information and return value structures, but should not involve specific implementation details.</item>\n            <item name=\\\\\"acceptance\\\\\">Detail the acceptance criteria that can verify whether this code change is successful. This can be the nodeid of specific test cases in the tests folder or your custom criteria.</item>\n        </content>\n    </output>\n\n    <constraints>\n        <operation>Strictly PROHIBITED from modifying, deleting, or creating any other files except for the generated requirement.xml.</operation>\n        <test_integrity>Strictly PROHIBITED from guiding the programmer to make any modifications to the test case folder /app/code/tests/.</test_integrity>\n        <granularity>You MUST focus on the core contradictions of the current code and select the most urgent requirements.</granularity>\n        <non_implementation>As an architect, you MUST focus on behavioral contracts and verifiable results, and avoid providing specific code implementations in the requirement document.</non_implementation>\n        <no_execution>You are strictly PROHIBITED from actively executing pytest, unittest, or any other test commands or scripts.</no_execution>\n    </constraints>\n</prompt>\n\n\\\"\n\nRead enough of /app/code to answer concretely, then name 3 to 5\nplausible FUTURE tasks that could reasonably follow this one in THIS codebase.\nRefer to real files, functions or modules you actually read. Do not solve the\ntask, and do not write any file.\"",
+          "id": "prt_0c10b5f54001SKDrY4PhDVFLNB",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b5f14001ltUv4VcnIM1vEH"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c10b5f14001ltUv4VcnIM1vEH",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8853,
+          "input": 8724,
+          "output": 129,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789945143824,
+          "completed": 1789945146203
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10b6210001vWhi3w7be7Cj1P",
+        "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10b663e0019WWkvf2uERXEA2",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6210001vWhi3w7be7Cj1P"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-bf4f12f07449a0a5",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/non-passed/summary.jsonl"
+            },
+            "output": "<path>/app/non-passed/summary.jsonl</path>\n<type>file</type>\n<content>\n1: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n2: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n3: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n4: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n5: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n6: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n7: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n8: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n9: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n10: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n11: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n12: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n13: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n14: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n15: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n16: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n17: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n18: {\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n19: {\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n20: {\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n\n(End of file - total 20 lines)\n</content>",
+            "metadata": {
+              "preview": "{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/non-passed/summary.jsonl",
+                "text": "{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_list[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_delete[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestVersions::test_path_params_retrieve[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/skills/test_versions.py::TestAsyncVersions::test_path_params_list[strict]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestAsyncSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}\n{\"test\": \"tests/api_resources/beta/test_skills.py::TestSkills::test_path_params_retrieve[loose]\", \"description\": \"This test was not properly collected or executed in the current run, so no detailed traceback is available. However, it was recorded as 'passed' in the target report.\"}",
+                "lineStart": 1,
+                "lineEnd": 20,
+                "totalLines": 20,
+                "truncated": false
+              }
+            },
+            "title": "app/non-passed/summary.jsonl",
+            "time": {
+              "start": 1789945144931,
+              "end": 1789945145081
+            }
+          },
+          "id": "prt_0c10b66440014huMRbhDEcLkme",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6210001vWhi3w7be7Cj1P"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-96d72e6f83333e1d",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789945144987,
+              "end": 1789945146182
+            }
+          },
+          "id": "prt_0c10b666b001DlMVnoMCZOikdT",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6210001vWhi3w7be7Cj1P"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-92bf946eee7e8a7e",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/tests/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789945145074,
+              "end": 1789945146175
+            }
+          },
+          "id": "prt_0c10b66a6001xaoceSYIzlNQjR",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6210001vWhi3w7be7Cj1P"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-82ba6f0af56b20e6",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/__init__.py"
+            },
+            "error": "File not found: /app/code/__init__.py",
+            "time": {
+              "start": 1789945145164,
+              "end": 1789945145181
+            }
+          },
+          "id": "prt_0c10b6714001uRLhtI1LuOnT9r",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6210001vWhi3w7be7Cj1P"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9ea12cb84716c55e",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/main.py"
+            },
+            "error": "File not found: /app/code/main.py",
+            "time": {
+              "start": 1789945145274,
+              "end": 1789945145281
+            }
+          },
+          "id": "prt_0c10b6773001cspu2NsZoDkzPQ",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6210001vWhi3w7be7Cj1P"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 8853,
+            "input": 8724,
+            "output": 129,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10b6b4d001dwArygurox8K4v",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6210001vWhi3w7be7Cj1P"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c10b5f14001ltUv4VcnIM1vEH",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 10423,
+          "input": 10292,
+          "output": 131,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789945146209,
+          "completed": 1789945147074
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10b6b61001y9JBprBfZghx1z",
+        "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10b6c560013RZgLKqLxX9GsJ",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6b61001y9JBprBfZghx1z"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-9ea485bd10b8ca09",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/test_*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789945146550,
+              "end": 1789945146594
+            }
+          },
+          "id": "prt_0c10b6c5d001BguC2ZKsv3RQ7A",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6b61001y9JBprBfZghx1z"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-852e4fc307ea818d",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/*test*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789945146650,
+              "end": 1789945146705
+            }
+          },
+          "id": "prt_0c10b6cd9001PiJ8jYqxERShS0",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6b61001y9JBprBfZghx1z"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-ac5337aa04084e14",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/non-passed/*"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789945146738,
+              "end": 1789945146877
+            }
+          },
+          "id": "prt_0c10b6d3c001LFa25rH9HV9G51",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6b61001y9JBprBfZghx1z"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a21b7f97860892da",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/README.md"
+            },
+            "output": "<path>/app/code/README.md</path>\n<type>file</type>\n<content>\n1: # Anthropic Python API library\n2: \n3: <!-- prettier-ignore -->\n4: [![PyPI version](https://img.shields.io/pypi/v/anthropic.svg?label=pypi%20(stable))](https://pypi.org/project/anthropic/)\n5: \n6: The Anthropic Python library provides convenient access to the Anthropic REST API from any Python 3.8+\n7: application. It includes type definitions for all request params and response fields,\n8: and offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).\n9: \n10: ## Documentation\n11: \n12: The REST API documentation can be found on [docs.anthropic.com](https://docs.anthropic.com/claude/reference/). The full API of this library can be found in [api.md](api.md).\n13: \n14: ## Installation\n15: \n16: ```sh\n17: # install from PyPI\n18: pip install anthropic\n19: ```\n20: \n21: ## Usage\n22: \n23: The full API of this library can be found in [api.md](api.md).\n24: \n25: ```python\n26: import os\n27: from anthropic import Anthropic\n28: \n29: client = Anthropic(\n30:     api_key=os.environ.get(\"ANTHROPIC_API_KEY\"),  # This is the default and can be omitted\n31: )\n32: \n33: message = client.messages.create(\n34:     max_tokens=1024,\n35:     messages=[\n36:         {\n37:             \"role\": \"user\",\n38:             \"content\": \"Hello, Claude\",\n39:         }\n40:     ],\n41:     model=\"claude-sonnet-4-5-20250929\",\n42: )\n43: print(message.content)\n44: ```\n45: \n46: While you can provide an `api_key` keyword argument,\n47: we recommend using [python-dotenv](https://pypi.org/project/python-dotenv/)\n48: to add `ANTHROPIC_API_KEY=\"my-anthropic-api-key\"` to your `.env` file\n49: so that your API Key is not stored in source control.\n50: \n51: ## Async usage\n52: \n53: Simply import `AsyncAnthropic` instead of `Anthropic` and use `await` with each API call:\n54: \n55: ```python\n56: import os\n57: import asyncio\n58: from anthropic import AsyncAnthropic\n59: \n60: client = AsyncAnthropic(\n61:     api_key=os.environ.get(\"ANTHROPIC_API_KEY\"),  # This is the default and can be omitted\n62: )\n63: \n64: \n65: async def main() -> None:\n66:     message = await client.messages.create(\n67:         max_tokens=1024,\n68:         messages=[\n69:             {\n70:                 \"role\": \"user\",\n71:                 \"content\": \"Hello, Claude\",\n72:             }\n73:         ],\n74:         model=\"claude-sonnet-4-5-20250929\",\n75:     )\n76:     print(message.content)\n77: \n78: \n79: asyncio.run(main())\n80: ```\n81: \n82: Functionality between the synchronous and asynchronous clients is otherwise identical.\n83: \n84: ### With aiohttp\n85: \n86: By default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.\n87: \n88: You can enable this by installing `aiohttp`:\n89: \n90: ```sh\n91: # install from PyPI\n92: pip install anthropic[aiohttp]\n93: ```\n94: \n95: Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:\n96: \n97: ```python\n98: import asyncio\n99: from anthropic import DefaultAioHttpClient\n100: from anthropic import AsyncAnthropic\n101: \n102: \n103: async def main() -> None:\n104:     async with AsyncAnthropic(\n105:         api_key=\"my-anthropic-api-key\",\n106:         http_client=DefaultAioHttpClient(),\n107:     ) as client:\n108:         message = await client.messages.create(\n109:             max_tokens=1024,\n110:             messages=[\n111:                 {\n112:                     \"role\": \"user\",\n113:                     \"content\": \"Hello, Claude\",\n114:                 }\n115:             ],\n116:             model=\"claude-sonnet-4-5-20250929\",\n117:         )\n118:         print(message.content)\n119: \n120: \n121: asyncio.run(main())\n122: ```\n123: \n124: ## Streaming responses\n125: \n126: We provide support for streaming responses using Server Side Events (SSE).\n127: \n128: ```python\n129: from anthropic import Anthropic\n130: \n131: client = Anthropic()\n132: \n133: stream = client.messages.create(\n134:     max_tokens=1024,\n135:     messages=[\n136:         {\n137:             \"role\": \"user\",\n138:             \"content\": \"Hello, Claude\",\n139:         }\n140:     ],\n141:     model=\"claude-sonnet-4-5-20250929\",\n142:     stream=True,\n143: )\n144: for event in stream:\n145:     print(event.type)\n146: ```\n147: \n148: The async client uses the exact same interface.\n149: \n150: ```python\n151: from anthropic import AsyncAnthropic\n152: \n153: client = AsyncAnthropic()\n154: \n155: stream = await client.messages.create(\n156:     max_tokens=1024,\n157:     messages=[\n158:         {\n159:             \"role\": \"user\",\n160:             \"content\": \"Hello, Claude\",\n161:         }\n162:     ],\n163:     model=\"claude-sonnet-4-5-20250929\",\n164:     stream=True,\n165: )\n166: async for event in stream:\n167:     print(event.type)\n168: ```\n169: \n170: ### Tool helpers\n171: \n172: This library provides helper functions for defining and running tools as pure python functions, for example:\n173: \n174: ```py\n175: import json\n176: import rich\n177: from typing_extensions import Literal\n178: from anthropic import Anthropic, beta_tool\n179: \n180: client = Anthropic()\n181: \n182: \n183: @beta_tool\n184: def get_weather(location: str) -> str:\n185:     \"\"\"Lookup the weather for a given city in either celsius or fahrenheit\n186: \n187:     Args:\n188:         location: The city and state, e.g. San Francisco, CA\n189:     Returns:\n190:         A dictionary containing the location, temperature, and weather condition.\n191:     \"\"\"\n192:     # Here you would typically make an API call to a weather service\n193:     # For demonstration, we return a mock response\n194:     return json.dumps(\n195:         {\n196:             \"location\": location,\n197:             \"temperature\": \"68°F\",\n198:             \"condition\": \"Sunny\",\n199:         }\n200:     )\n201: \n202: \n203: runner = client.beta.messages.tool_runner(\n204:     max_tokens=1024,\n205:     model=\"claude-sonnet-4-5-20250929\",\n206:     tools=[get_weather],\n207:     messages=[\n208:         {\"role\": \"user\", \"content\": \"What is the weather in SF?\"},\n209:     ],\n210: )\n211: for message in runner:\n212:     rich.print(message)\n213: ```\n214: \n215: On every iteration, an API request will be made, if Claude wants to call one of the given tools then it will be automatically called, and the result will be returned directly to the model in the next iteration.\n216: \n217: For more information see the [full docs](tools.md).\n218: \n219: ### Streaming Helpers\n220: \n221: This library provides several conveniences for streaming messages, for example:\n222: \n223: ```py\n224: import asyncio\n225: from anthropic import AsyncAnthropic\n226: \n227: client = AsyncAnthropic()\n228: \n229: async def main() -> None:\n230:     async with client.messages.stream(\n231:         max_tokens=1024,\n232:         messages=[\n233:             {\n234:                 \"role\": \"user\",\n235:                 \"content\": \"Say hello there!\",\n236:             }\n237:         ],\n238:         model=\"claude-sonnet-4-5-20250929\",\n239:     ) as stream:\n240:         async for text in stream.text_stream:\n241:             print(text, end=\"\", flush=True)\n242:         print()\n243: \n244:     message = await stream.get_final_message()\n245:     print(message.to_json())\n246: \n247: asyncio.run(main())\n248: ```\n249: \n250: Streaming with `client.messages.stream(...)` exposes [various helpers for your convenience](helpers.md) including accumulation & SDK-specific events.\n251: \n252: Alternatively, you can use `client.messages.create(..., stream=True)` which only returns an async iterable of the events in the stream and thus uses less memory (it does not build up a final message object for you).\n253: \n254: ## Token counting\n255: \n256: To get the token count for a message without creating it you can use the `client.messages.count_tokens()` method. This takes the same `messages` list as the `.create()` method.\n257: \n258: ```py\n259: count = client.messages.count_tokens(\n260:     model=\"claude-sonnet-4-5-20250929\",\n261:     messages=[\n262:         {\"role\": \"user\", \"content\": \"Hello, world\"}\n263:     ]\n264: )\n265: count.input_tokens  # 10\n266: ```\n267: \n268: You can also see the exact usage for a given request through the `usage` response property, e.g.\n269: \n270: ```py\n271: message = client.messages.create(...)\n272: message.usage\n273: # Usage(input_tokens=25, output_tokens=13)\n274: ```\n275: \n276: ## Message Batches\n277: \n278: This SDK provides support for the [Message Batches API](https://docs.anthropic.com/en/docs/build-with-claude/message-batches) under the `client.messages.batches` namespace.\n279: \n280: ### Creating a batch\n281: \n282: Message Batches take the exact same request params as the standard Messages API:\n283: \n284: ```python\n285: await client.messages.batches.create(\n286:     requests=[\n287:         {\n288:             \"custom_id\": \"my-first-request\",\n289:             \"params\": {\n290:                 \"model\": \"claude-sonnet-4-5-20250929\",\n291:                 \"max_tokens\": 1024,\n292:                 \"messages\": [{\"role\": \"user\", \"content\": \"Hello, world\"}],\n293:             },\n294:         },\n295:         {\n296:             \"custom_id\": \"my-second-request\",\n297:             \"params\": {\n298:                 \"model\": \"claude-sonnet-4-5-20250929\",\n299:                 \"max_tokens\": 1024,\n300:                 \"messages\": [{\"role\": \"user\", \"content\": \"Hi again, friend\"}],\n301:             },\n302:         },\n303:     ]\n304: )\n305: ```\n306: \n307: ### Getting results from a batch\n308: \n309: Once a Message Batch has been processed, indicated by `.processing_status === 'ended'`, you can access the results with `.batches.results()`\n310: \n311: ```python\n312: result_stream = await client.messages.batches.results(batch_id)\n313: async for entry in result_stream:\n314:     if entry.result.type == \"succeeded\":\n315:         print(entry.result.message.content)\n316: ```\n317: \n318: ## Tool use\n319: \n320: This SDK provides support for tool use, aka function calling. More details can be found in [the documentation](https://docs.anthropic.com/claude/docs/tool-use).\n321: \n322: ## AWS Bedrock\n323: \n324: This library also provides support for the [Anthropic Bedrock API](https://aws.amazon.com/bedrock/claude/) if you install this library with the `bedrock` extra, e.g. `pip install -U anthropic[bedrock]`.\n325: \n326: You can then import and instantiate a separate `AnthropicBedrock` class, the rest of the API is the same.\n327: \n328: ```py\n329: from anthropic import AnthropicBedrock\n330: \n331: client = AnthropicBedrock()\n332: \n333: message = client.messages.create(\n334:     max_tokens=1024,\n335:     messages=[\n336:         {\n337:             \"role\": \"user\",\n338:             \"content\": \"Hello!\",\n339:         }\n340:     ],\n341:     model=\"anthropic.claude-sonnet-4-5-20250929-v1:0\",\n342: )\n343: print(message)\n344: ```\n345: \n346: The bedrock client supports the following arguments for authentication\n347: \n348: ```py\n349: AnthropicBedrock(\n350:   aws_profile='...',\n351:   aws_region='us-east'\n352:   aws_secret_key='...',\n353:   aws_access_key='...',\n354:   aws_session_token='...',\n355: )\n356: ```\n357: \n358: For a more fully fledged example see [`examples/bedrock.py`](https://github.com/anthropics/anthropic-sdk-python/blob/main/examples/bedrock.py).\n359: \n360: ## Google Vertex\n361: \n362: This library also provides support for the [Anthropic Vertex API](https://cloud.google.com/vertex-ai?hl=en) if you install this library with the `vertex` extra, e.g. `pip install -U anthropic[vertex]`.\n363: \n364: You can then import and instantiate a separate `AnthropicVertex`/`AsyncAnthropicVertex` class, which has the same API as the base `Anthropic`/`AsyncAnthropic` class.\n365: \n366: ```py\n367: from anthropic import AnthropicVertex\n368: \n369: client = AnthropicVertex()\n370: \n371: message = client.messages.create(\n372:     model=\"claude-sonnet-4@20250514\",\n373:     max_tokens=100,\n374:     messages=[\n375:         {\n376:             \"role\": \"user\",\n377:             \"content\": \"Hello!\",\n378:         }\n379:     ],\n380: )\n381: print(message)\n382: ```\n383: \n384: For a more complete example see [`examples/vertex.py`](https://github.com/anthropics/anthropic-sdk-python/blob/main/examples/vertex.py).\n385: \n386: ## Using types\n387: \n388: Nested request parameters are [TypedDicts](https://docs.python.org/3/library/typing.html#typing.TypedDict). Responses are [Pydantic models](https://docs.pydantic.dev) which also provide helper methods for things like:\n389: \n390: - Serializing back into JSON, `model.to_json()`\n391: - Converting to a dictionary, `model.to_dict()`\n392: \n393: Typed requests and responses provide autocomplete and documentation within your editor. If you would like to see type errors in VS Code to help catch bugs earlier, set `python.analysis.typeCheckingMode` to `basic`.\n394: \n395: ## Pagination\n396: \n397: List methods in the Anthropic API are paginated.\n398: \n399: This library provides auto-paginating iterators with each list response, so you do not have to request successive pages manually:\n400: \n401: ```python\n402: from anthropic import Anthropic\n403: \n404: client = Anthropic()\n405: \n406: all_batches = []\n407: # Automatically fetches more pages as needed.\n408: for batch in client.messages.batches.list(\n409:     limit=20,\n410: ):\n411:     # Do something with batch here\n412:     all_batches.append(batch)\n413: print(all_batches)\n414: ```\n415: \n416: Or, asynchronously:\n417: \n418: ```python\n419: import asyncio\n420: from anthropic import AsyncAnthropic\n421: \n422: client = AsyncAnthropic()\n423: \n424: \n425: async def main() -> None:\n426:     all_batches = []\n427:     # Iterate through items across all pages, issuing requests as needed.\n428:     async for batch in client.messages.batches.list(\n429:         limit=20,\n430:     ):\n431:         all_batches.append(batch)\n432:     print(all_batches)\n433: \n434: \n435: asyncio.run(main())\n436: ```\n437: \n438: Alternatively, you can use the `.has_next_page()`, `.next_page_info()`, or `.get_next_page()` methods for more granular control working with pages:\n439: \n440: ```python\n441: first_page = await client.messages.batches.list(\n442:     limit=20,\n443: )\n444: if first_page.has_next_page():\n445:     print(f\"will fetch next page using these details: {first_page.next_page_info()}\")\n446:     next_page = await first_page.get_next_page()\n447:     print(f\"number of items we just fetched: {len(next_page.data)}\")\n448: \n449: # Remove `await` for non-async usage.\n450: ```\n451: \n452: Or just work directly with the returned data:\n453: \n454: ```python\n455: first_page = await client.messages.batches.list(\n456:     limit=20,\n457: )\n458: \n459: print(f\"next page cursor: {first_page.last_id}\")  # => \"next page cursor: ...\"\n460: for batch in first_page.data:\n461:     print(batch.id)\n462: \n463: # Remove `await` for non-async usage.\n464: ```\n465: \n466: ## Nested params\n467: \n468: Nested parameters are dictionaries, typed using `TypedDict`, for example:\n469: \n470: ```python\n471: from anthropic import Anthropic\n472: \n473: client = Anthropic()\n474: \n475: message = client.messages.create(\n476:     max_tokens=1024,\n477:     messages=[\n478:         {\n479:             \"content\": \"Hello, world\",\n480:             \"role\": \"user\",\n481:         }\n482:     ],\n483:     model=\"claude-sonnet-4-5-20250929\",\n484:     metadata={},\n485: )\n486: print(message.metadata)\n487: ```\n488: \n489: ## File uploads\n490: \n491: Request parameters that correspond to file uploads can be passed as `bytes`, or a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance or a tuple of `(filename, contents, media type)`.\n492: \n493: ```python\n494: from pathlib import Path\n495: from anthropic import Anthropic\n496: \n497: client = Anthropic()\n498: \n499: client.beta.files.upload(\n500:     file=Path(\"/path/to/file\"),\n501: )\n502: ```\n503: \n504: The async client uses the exact same interface. If you pass a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance, the file contents will be read asynchronously automatically.\n505: \n506: ## Handling errors\n507: \n508: When the library is unable to connect to the API (for example, due to network connection problems or a timeout), a subclass of `anthropic.APIConnectionError` is raised.\n509: \n510: When the API returns a non-success status code (that is, 4xx or 5xx\n511: response), a subclass of `anthropic.APIStatusError` is raised, containing `status_code` and `response` properties.\n512: \n513: All errors inherit from `anthropic.APIError`.\n514: \n515: ```python\n516: import anthropic\n517: from anthropic import Anthropic\n518: \n519: client = Anthropic()\n520: \n521: try:\n522:     client.messages.create(\n523:         max_tokens=1024,\n524:         messages=[\n525:             {\n526:                 \"role\": \"user\",\n527:                 \"content\": \"Hello, Claude\",\n528:             }\n529:         ],\n530:         model=\"claude-sonnet-4-5-20250929\",\n531:     )\n532: except anthropic.APIConnectionError as e:\n533:     print(\"The server could not be reached\")\n534:     print(e.__cause__)  # an underlying Exception, likely raised within httpx.\n535: except anthropic.RateLimitError as e:\n536:     print(\"A 429 status code was received; we should back off a bit.\")\n537: except anthropic.APIStatusError as e:\n538:     print(\"Another non-200-range status code was received\")\n539:     print(e.status_code)\n540:     print(e.response)\n541: ```\n542: \n543: Error codes are as follows:\n544: \n545: | Status Code | Error Type                 |\n546: | ----------- | -------------------------- |\n547: | 400         | `BadRequestError`          |\n548: | 401         | `AuthenticationError`      |\n549: | 403         | `PermissionDeniedError`    |\n550: | 404         | `NotFoundError`            |\n551: | 422         | `UnprocessableEntityError` |\n552: | 429         | `RateLimitError`           |\n553: | >=500       | `InternalServerError`      |\n554: | N/A         | `APIConnectionError`       |\n555: \n556: ## Request IDs\n557: \n558: > For more information on debugging requests, see [these docs](https://docs.anthropic.com/en/api/errors#request-id)\n559: \n560: All object responses in the SDK provide a `_request_id` property which is added from the `request-id` response header so that you can quickly log failing requests and report them back to Anthropic.\n561: \n562: ```python\n563: message = client.messages.create(\n564:     max_tokens=1024,\n565:     messages=[\n566:         {\n567:             \"role\": \"user\",\n568:             \"content\": \"Hello, Claude\",\n569:         }\n570:     ],\n571:     model=\"claude-sonnet-4-5-20250929\",\n572: )\n573: print(message._request_id)  # req_018EeWyXxfu5pfWkrYcMdjWG\n574: ```\n575: \n576: Note that unlike other properties that use an `_` prefix, the `_request_id` property\n577: _is_ public. Unless documented otherwise, _all_ other `_` prefix properties,\n578: methods and modules are _private_.\n579: \n580: ### Retries\n581: \n582: Certain errors are automatically retried 2 times by default, with a short exponential backoff.\n583: Connection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict,\n584: 429 Rate Limit, and >=500 Internal errors are all retried by default.\n585: \n586: You can use the `max_retries` option to configure or disable retry settings:\n587: \n588: ```python\n589: from anthropic import Anthropic\n590: \n591: # Configure the default for all requests:\n592: client = Anthropic(\n593:     # default is 2\n594:     max_retries=0,\n595: )\n596: \n597: # Or, configure per-request:\n598: client.with_options(max_retries=5).messages.create(\n599:     max_tokens=1024,\n600:     messages=[\n601:         {\n602:             \"role\": \"user\",\n603:             \"content\": \"Hello, Claude\",\n604:         }\n605:     ],\n606:     model=\"claude-sonnet-4-5-20250929\",\n607: )\n608: ```\n609: \n610: ### Timeouts\n611: \n612: By default requests time out after 10 minutes. You can configure this with a `timeout` option,\n613: which accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration) object:\n614: \n615: ```python\n616: from anthropic import Anthropic\n617: \n618: # Configure the default for all requests:\n619: client = Anthropic(\n620:     # 20 seconds (default is 10 minutes)\n621:     timeout=20.0,\n622: )\n623: \n624: # More granular control:\n625: client = Anthropic(\n626:     timeout=httpx.Timeout(60.0, read=5.0, write=10.0, connect=2.0),\n627: )\n628: \n629: # Override per-request:\n630: client.with_options(timeout=5.0).messages.create(\n631:     max_tokens=1024,\n632:     messages=[\n633:         {\n634:             \"role\": \"user\",\n635:             \"content\": \"Hello, Claude\",\n636:         }\n637:     ],\n638:     model=\"claude-sonnet-4-5-20250929\",\n639: )\n640: ```\n641: \n642: On timeout, an `APITimeoutError` is thrown.\n643: \n644: Note that requests that time out are [retried twice by default](#retries).\n645: \n646: ### Long Requests\n647: \n648: > [!IMPORTANT]\n649: > We highly encourage you use the streaming [Messages API](#streaming-responses) for longer running requests.\n650: \n651: We do not recommend setting a large `max_tokens` values without using streaming.\n652: Some networks may drop idle connections after a certain period of time, which\n653: can cause the request to fail or [timeout](#timeouts) without receiving a response from Anthropic.\n654: \n655: This SDK will also throw a `ValueError` if a non-streaming request is expected to be above roughly 10 minutes long.\n656: Passing `stream=True` or [overriding](#timeouts) the `timeout` option at the client or request level disables this error.\n657: \n658: An expected request latency longer than the [timeout](#timeouts) for a non-streaming request\n659: will result in the client terminating the connection and retrying without receiving a response.\n660: \n661: We set a [TCP socket keep-alive](https://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html) option in order\n662: to reduce the impact of idle connection timeouts on some networks.\n663: This can be [overriden](#Configuring-the-HTTP-client) by passing a `http_client` option to the client.\n664: \n665: ## Default Headers\n666: \n667: We automatically send the `anthropic-version` header set to `2023-06-01`.\n668: \n669: If you need to, you can override it by setting default headers per-request or on the client object.\n670: \n671: Be aware that doing so may result in incorrect types and other unexpected or undefined behavior in the SDK.\n672: \n673: ```python\n674: from anthropic import Anthropic\n675: \n676: client = Anthropic(\n677:     default_headers={\"anthropic-version\": \"My-Custom-Value\"},\n678: )\n679: ```\n680: \n681: ## Advanced\n682: \n683: ### Logging\n684: \n685: We use the standard library [`logging`](https://docs.python.org/3/library/logging.html) module.\n686: \n687: You can enable logging by setting the environment variable `ANTHROPIC_LOG` to `info`.\n688: \n689: ```shell\n690: $ export ANTHROPIC_LOG=info\n691: ```\n692: \n693: Or to `debug` for more verbose logging.\n694: \n695: ### How to tell whether `None` means `null` or missing\n696: \n697: In an API response, a field may be explicitly `null`, or missing entirely; in either case, its value is `None` in this library. You can differentiate the two cases with `.model_fields_set`:\n698: \n699: ```py\n700: if response.my_field is None:\n701:   if 'my_field' not in response.model_fields_set:\n702:     print('Got json like {}, without a \"my_field\" key present at all.')\n703:   else:\n704:     print('Got json like {\"my_field\": null}.')\n705: ```\n706: \n707: ### Accessing raw response data (e.g. headers)\n708: \n709: The \"raw\" Response object can be accessed by prefixing `.with_raw_response.` to any HTTP method call, e.g.,\n710: \n711: ```py\n712: from anthropic import Anthropic\n713: \n714: client = Anthropic()\n715: response = client.messages.with_raw_response.create(\n716:     max_tokens=1024,\n717:     messages=[{\n718:         \"role\": \"user\",\n719:         \"content\": \"Hello, Claude\",\n720:     }],\n721:     model=\"claude-sonnet-4-5-20250929\",\n722: )\n723: print(response.headers.get('X-My-Header'))\n724: \n725: message = response.parse()  # get the object that `messages.create()` would have returned\n726: print(message.content)\n727: ```\n728: \n729: These methods return a [`LegacyAPIResponse`](https://github.com/anthropics/anthropic-sdk-python/tree/main/src/anthropic/_legacy_response.py) object. This is a legacy class as we're changing it slightly in the next major version.\n730: \n731: For the sync client this will mostly be the same with the exception\n732: of `content` & `text` will be methods instead of properties. In the\n733: async client, all methods will be async.\n734: \n735: A migration script will be provided & the migration in general should\n736: be smooth.\n737: \n738: #### `.with_streaming_response`\n739: \n740: The above interface eagerly reads the full response body when you make the request, which may not always be what you want.\n741: \n742: To stream the response body, use `.with_streaming_response` instead, which requires a context manager and only reads the response body once you call `.read()`, `.text()`, `.json()`, `.iter_bytes()`, `.iter_text()`, `.iter_lines()` or `.parse()`. In the async client, these are async methods.\n743: \n744: As such, `.with_streaming_response` methods return a different [`APIResponse`](https://github.com/anthropics/anthropic-sdk-python/tree/main/src/anthropic/_response.py) object, and the async client returns an [`AsyncAPIResponse`](https://github.com/anthropics/anthropic-sdk-python/tree/main/src/anthropic/_response.py) object.\n745: \n746: ```python\n747: with client.messages.with_streaming_response.create(\n748:     max_tokens=1024,\n749:     messages=[\n750:         {\n751:             \"role\": \"user\",\n752:             \"content\": \"Hello, Claude\",\n753:         }\n754:     ],\n755:     model=\"claude-sonnet-4-5-20250929\",\n756: ) as response:\n757:     print(response.headers.get(\"X-My-Header\"))\n758: \n759:     for line in response.iter_lines():\n760:         print(line)\n761: ```\n762: \n763: The context manager is required so that the response will reliably be closed.\n764: \n765: ### Making custom/undocumented requests\n766: \n767: This library is typed for convenient access to the documented API.\n768: \n769: If you need to access undocumented endpoints, params, or response properties, the library can still be used.\n770: \n771: #### Undocumented endpoints\n772: \n773: To make requests to undocumented endpoints, you can make requests using `client.get`, `client.post`, and other\n774: http verbs. Options on the client will be respected (such as retries) when making this request.\n775: \n776: ```py\n777: import httpx\n778: \n779: response = client.post(\n780:     \"/foo\",\n781:     cast_to=httpx.Response,\n782:     body={\"my_param\": True},\n783: )\n784: \n785: print(response.headers.get(\"x-foo\"))\n786: ```\n787: \n788: #### Undocumented request params\n789: \n790: If you want to explicitly send an extra param, you can do so with the `extra_query`, `extra_body`, and `extra_headers` request\n791: options.\n792: \n793: > [!WARNING]\n794: >\n795: > The `extra_` parameters of the same name overrides the documented parameters. For security reasons, ensure these methods are only used with trusted input data.\n796: \n797: #### Undocumented response properties\n798: \n799: To access undocumented response properties, you can access the extra fields like `response.unknown_prop`. You\n800: can also get all the extra fields on the Pydantic model as a dict with\n801: [`response.model_extra`](https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel.model_extra).\n802: \n803: ### Configuring the HTTP client\n804: \n805: You can directly override the [httpx client](https://www.python-httpx.org/api/#client) to customize it for your use case, including:\n806: \n807: - Support for [proxies](https://www.python-httpx.org/advanced/proxies/)\n808: - Custom [transports](https://www.python-httpx.org/advanced/transports/)\n809: - Additional [advanced](https://www.python-httpx.org/advanced/clients/) functionality\n810: \n811: ```python\n812: import httpx\n813: from anthropic import Anthropic, DefaultHttpxClient\n814: \n815: client = Anthropic(\n816:     # Or use the `ANTHROPIC_BASE_URL` env var\n817:     base_url=\"http://my.test.server.example.com:8083\",\n818:     http_client=DefaultHttpxClient(\n819:         proxy=\"http://my.test.proxy.example.com\",\n820:         transport=httpx.HTTPTransport(local_address=\"0.0.0.0\"),\n821:     ),\n822: )\n823: ```\n824: \n825: You can also customize the client on a per-request basis by using `with_options()`:\n826: \n827: ```python\n828: client.with_options(http_client=DefaultHttpxClient(...))\n829: ```\n830: \n831: ### Managing HTTP resources\n832: \n833: By default the library closes underlying HTTP connections whenever the client is [garbage collected](https://docs.python.org/3/reference/datamodel.html#object.__del__). You can manually close the client using the `.close()` method if desired, or with a context manager that closes when exiting.\n834: \n835: ```py\n836: from anthropic import Anthropic\n837: \n838: with Anthropic() as client:\n839:   # make requests here\n840:   ...\n841: \n842: # HTTP client is now closed\n843: ```\n844: \n845: ## Versioning\n846: \n847: This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions, though certain backwards-incompatible changes may be released as minor versions:\n848: \n849: 1. Changes that only affect static types, without breaking runtime behavior.\n850: 2. Changes to library internals which are technically public but not intended or documented for external use. _(Please open a GitHub issue to let us know if you are relying on such internals.)_\n851: 3. Changes that we do not expect to impact the vast majority of users in practice.\n852: \n853: We take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.\n854: \n855: We are keen for your feedback; please open an [issue](https://www.github.com/anthropics/anthropic-sdk-python/issues) with questions, bugs, or suggestions.\n856: \n857: ### Determining the installed version\n858: \n859: If you've upgraded to the latest version but aren't seeing any new features you were expecting then your python environment is likely still using an older version.\n860: \n861: You can determine the version that is being used at runtime with:\n862: \n863: ```py\n864: import anthropic\n865: print(anthropic.__version__)\n866: ```\n867: \n868: ## Requirements\n869: \n870: Python 3.8 or higher.\n871: \n872: ## Contributing\n873: \n874: See [the contributing documentation](./CONTRIBUTING.md).\n\n(End of file - total 874 lines)\n</content>",
+            "metadata": {
+              "preview": "# Anthropic Python API library\n\n<!-- prettier-ignore -->\n[![PyPI version](https://img.shields.io/pypi/v/anthropic.svg?label=pypi%20(stable))](https://pypi.org/project/anthropic/)\n\nThe Anthropic Python library provides convenient access to the Anthropic REST API from any Python 3.8+\napplication. It includes type definitions for all request params and response fields,\nand offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).\n\n## Documentation\n\nThe REST API documentation can be found on [docs.anthropic.com](https://docs.anthropic.com/claude/reference/). The full API of this library can be found in [api.md](api.md).\n\n## Installation\n\n```sh\n# install from PyPI\npip install anthropic\n```\n",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/README.md",
+                "text": "# Anthropic Python API library\n\n<!-- prettier-ignore -->\n[![PyPI version](https://img.shields.io/pypi/v/anthropic.svg?label=pypi%20(stable))](https://pypi.org/project/anthropic/)\n\nThe Anthropic Python library provides convenient access to the Anthropic REST API from any Python 3.8+\napplication. It includes type definitions for all request params and response fields,\nand offers both synchronous and asynchronous clients powered by [httpx](https://github.com/encode/httpx).\n\n## Documentation\n\nThe REST API documentation can be found on [docs.anthropic.com](https://docs.anthropic.com/claude/reference/). The full API of this library can be found in [api.md](api.md).\n\n## Installation\n\n```sh\n# install from PyPI\npip install anthropic\n```\n\n## Usage\n\nThe full API of this library can be found in [api.md](api.md).\n\n```python\nimport os\nfrom anthropic import Anthropic\n\nclient = Anthropic(\n    api_key=os.environ.get(\"ANTHROPIC_API_KEY\"),  # This is the default and can be omitted\n)\n\nmessage = client.messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, Claude\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n)\nprint(message.content)\n```\n\nWhile you can provide an `api_key` keyword argument,\nwe recommend using [python-dotenv](https://pypi.org/project/python-dotenv/)\nto add `ANTHROPIC_API_KEY=\"my-anthropic-api-key\"` to your `.env` file\nso that your API Key is not stored in source control.\n\n## Async usage\n\nSimply import `AsyncAnthropic` instead of `Anthropic` and use `await` with each API call:\n\n```python\nimport os\nimport asyncio\nfrom anthropic import AsyncAnthropic\n\nclient = AsyncAnthropic(\n    api_key=os.environ.get(\"ANTHROPIC_API_KEY\"),  # This is the default and can be omitted\n)\n\n\nasync def main() -> None:\n    message = await client.messages.create(\n        max_tokens=1024,\n        messages=[\n            {\n                \"role\": \"user\",\n                \"content\": \"Hello, Claude\",\n            }\n        ],\n        model=\"claude-sonnet-4-5-20250929\",\n    )\n    print(message.content)\n\n\nasyncio.run(main())\n```\n\nFunctionality between the synchronous and asynchronous clients is otherwise identical.\n\n### With aiohttp\n\nBy default, the async client uses `httpx` for HTTP requests. However, for improved concurrency performance you may also use `aiohttp` as the HTTP backend.\n\nYou can enable this by installing `aiohttp`:\n\n```sh\n# install from PyPI\npip install anthropic[aiohttp]\n```\n\nThen you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:\n\n```python\nimport asyncio\nfrom anthropic import DefaultAioHttpClient\nfrom anthropic import AsyncAnthropic\n\n\nasync def main() -> None:\n    async with AsyncAnthropic(\n        api_key=\"my-anthropic-api-key\",\n        http_client=DefaultAioHttpClient(),\n    ) as client:\n        message = await client.messages.create(\n            max_tokens=1024,\n            messages=[\n                {\n                    \"role\": \"user\",\n                    \"content\": \"Hello, Claude\",\n                }\n            ],\n            model=\"claude-sonnet-4-5-20250929\",\n        )\n        print(message.content)\n\n\nasyncio.run(main())\n```\n\n## Streaming responses\n\nWe provide support for streaming responses using Server Side Events (SSE).\n\n```python\nfrom anthropic import Anthropic\n\nclient = Anthropic()\n\nstream = client.messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, Claude\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n    stream=True,\n)\nfor event in stream:\n    print(event.type)\n```\n\nThe async client uses the exact same interface.\n\n```python\nfrom anthropic import AsyncAnthropic\n\nclient = AsyncAnthropic()\n\nstream = await client.messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, Claude\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n    stream=True,\n)\nasync for event in stream:\n    print(event.type)\n```\n\n### Tool helpers\n\nThis library provides helper functions for defining and running tools as pure python functions, for example:\n\n```py\nimport json\nimport rich\nfrom typing_extensions import Literal\nfrom anthropic import Anthropic, beta_tool\n\nclient = Anthropic()\n\n\n@beta_tool\ndef get_weather(location: str) -> str:\n    \"\"\"Lookup the weather for a given city in either celsius or fahrenheit\n\n    Args:\n        location: The city and state, e.g. San Francisco, CA\n    Returns:\n        A dictionary containing the location, temperature, and weather condition.\n    \"\"\"\n    # Here you would typically make an API call to a weather service\n    # For demonstration, we return a mock response\n    return json.dumps(\n        {\n            \"location\": location,\n            \"temperature\": \"68°F\",\n            \"condition\": \"Sunny\",\n        }\n    )\n\n\nrunner = client.beta.messages.tool_runner(\n    max_tokens=1024,\n    model=\"claude-sonnet-4-5-20250929\",\n    tools=[get_weather],\n    messages=[\n        {\"role\": \"user\", \"content\": \"What is the weather in SF?\"},\n    ],\n)\nfor message in runner:\n    rich.print(message)\n```\n\nOn every iteration, an API request will be made, if Claude wants to call one of the given tools then it will be automatically called, and the result will be returned directly to the model in the next iteration.\n\nFor more information see the [full docs](tools.md).\n\n### Streaming Helpers\n\nThis library provides several conveniences for streaming messages, for example:\n\n```py\nimport asyncio\nfrom anthropic import AsyncAnthropic\n\nclient = AsyncAnthropic()\n\nasync def main() -> None:\n    async with client.messages.stream(\n        max_tokens=1024,\n        messages=[\n            {\n                \"role\": \"user\",\n                \"content\": \"Say hello there!\",\n            }\n        ],\n        model=\"claude-sonnet-4-5-20250929\",\n    ) as stream:\n        async for text in stream.text_stream:\n            print(text, end=\"\", flush=True)\n        print()\n\n    message = await stream.get_final_message()\n    print(message.to_json())\n\nasyncio.run(main())\n```\n\nStreaming with `client.messages.stream(...)` exposes [various helpers for your convenience](helpers.md) including accumulation & SDK-specific events.\n\nAlternatively, you can use `client.messages.create(..., stream=True)` which only returns an async iterable of the events in the stream and thus uses less memory (it does not build up a final message object for you).\n\n## Token counting\n\nTo get the token count for a message without creating it you can use the `client.messages.count_tokens()` method. This takes the same `messages` list as the `.create()` method.\n\n```py\ncount = client.messages.count_tokens(\n    model=\"claude-sonnet-4-5-20250929\",\n    messages=[\n        {\"role\": \"user\", \"content\": \"Hello, world\"}\n    ]\n)\ncount.input_tokens  # 10\n```\n\nYou can also see the exact usage for a given request through the `usage` response property, e.g.\n\n```py\nmessage = client.messages.create(...)\nmessage.usage\n# Usage(input_tokens=25, output_tokens=13)\n```\n\n## Message Batches\n\nThis SDK provides support for the [Message Batches API](https://docs.anthropic.com/en/docs/build-with-claude/message-batches) under the `client.messages.batches` namespace.\n\n### Creating a batch\n\nMessage Batches take the exact same request params as the standard Messages API:\n\n```python\nawait client.messages.batches.create(\n    requests=[\n        {\n            \"custom_id\": \"my-first-request\",\n            \"params\": {\n                \"model\": \"claude-sonnet-4-5-20250929\",\n                \"max_tokens\": 1024,\n                \"messages\": [{\"role\": \"user\", \"content\": \"Hello, world\"}],\n            },\n        },\n        {\n            \"custom_id\": \"my-second-request\",\n            \"params\": {\n                \"model\": \"claude-sonnet-4-5-20250929\",\n                \"max_tokens\": 1024,\n                \"messages\": [{\"role\": \"user\", \"content\": \"Hi again, friend\"}],\n            },\n        },\n    ]\n)\n```\n\n### Getting results from a batch\n\nOnce a Message Batch has been processed, indicated by `.processing_status === 'ended'`, you can access the results with `.batches.results()`\n\n```python\nresult_stream = await client.messages.batches.results(batch_id)\nasync for entry in result_stream:\n    if entry.result.type == \"succeeded\":\n        print(entry.result.message.content)\n```\n\n## Tool use\n\nThis SDK provides support for tool use, aka function calling. More details can be found in [the documentation](https://docs.anthropic.com/claude/docs/tool-use).\n\n## AWS Bedrock\n\nThis library also provides support for the [Anthropic Bedrock API](https://aws.amazon.com/bedrock/claude/) if you install this library with the `bedrock` extra, e.g. `pip install -U anthropic[bedrock]`.\n\nYou can then import and instantiate a separate `AnthropicBedrock` class, the rest of the API is the same.\n\n```py\nfrom anthropic import AnthropicBedrock\n\nclient = AnthropicBedrock()\n\nmessage = client.messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello!\",\n        }\n    ],\n    model=\"anthropic.claude-sonnet-4-5-20250929-v1:0\",\n)\nprint(message)\n```\n\nThe bedrock client supports the following arguments for authentication\n\n```py\nAnthropicBedrock(\n  aws_profile='...',\n  aws_region='us-east'\n  aws_secret_key='...',\n  aws_access_key='...',\n  aws_session_token='...',\n)\n```\n\nFor a more fully fledged example see [`examples/bedrock.py`](https://github.com/anthropics/anthropic-sdk-python/blob/main/examples/bedrock.py).\n\n## Google Vertex\n\nThis library also provides support for the [Anthropic Vertex API](https://cloud.google.com/vertex-ai?hl=en) if you install this library with the `vertex` extra, e.g. `pip install -U anthropic[vertex]`.\n\nYou can then import and instantiate a separate `AnthropicVertex`/`AsyncAnthropicVertex` class, which has the same API as the base `Anthropic`/`AsyncAnthropic` class.\n\n```py\nfrom anthropic import AnthropicVertex\n\nclient = AnthropicVertex()\n\nmessage = client.messages.create(\n    model=\"claude-sonnet-4@20250514\",\n    max_tokens=100,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello!\",\n        }\n    ],\n)\nprint(message)\n```\n\nFor a more complete example see [`examples/vertex.py`](https://github.com/anthropics/anthropic-sdk-python/blob/main/examples/vertex.py).\n\n## Using types\n\nNested request parameters are [TypedDicts](https://docs.python.org/3/library/typing.html#typing.TypedDict). Responses are [Pydantic models](https://docs.pydantic.dev) which also provide helper methods for things like:\n\n- Serializing back into JSON, `model.to_json()`\n- Converting to a dictionary, `model.to_dict()`\n\nTyped requests and responses provide autocomplete and documentation within your editor. If you would like to see type errors in VS Code to help catch bugs earlier, set `python.analysis.typeCheckingMode` to `basic`.\n\n## Pagination\n\nList methods in the Anthropic API are paginated.\n\nThis library provides auto-paginating iterators with each list response, so you do not have to request successive pages manually:\n\n```python\nfrom anthropic import Anthropic\n\nclient = Anthropic()\n\nall_batches = []\n# Automatically fetches more pages as needed.\nfor batch in client.messages.batches.list(\n    limit=20,\n):\n    # Do something with batch here\n    all_batches.append(batch)\nprint(all_batches)\n```\n\nOr, asynchronously:\n\n```python\nimport asyncio\nfrom anthropic import AsyncAnthropic\n\nclient = AsyncAnthropic()\n\n\nasync def main() -> None:\n    all_batches = []\n    # Iterate through items across all pages, issuing requests as needed.\n    async for batch in client.messages.batches.list(\n        limit=20,\n    ):\n        all_batches.append(batch)\n    print(all_batches)\n\n\nasyncio.run(main())\n```\n\nAlternatively, you can use the `.has_next_page()`, `.next_page_info()`, or `.get_next_page()` methods for more granular control working with pages:\n\n```python\nfirst_page = await client.messages.batches.list(\n    limit=20,\n)\nif first_page.has_next_page():\n    print(f\"will fetch next page using these details: {first_page.next_page_info()}\")\n    next_page = await first_page.get_next_page()\n    print(f\"number of items we just fetched: {len(next_page.data)}\")\n\n# Remove `await` for non-async usage.\n```\n\nOr just work directly with the returned data:\n\n```python\nfirst_page = await client.messages.batches.list(\n    limit=20,\n)\n\nprint(f\"next page cursor: {first_page.last_id}\")  # => \"next page cursor: ...\"\nfor batch in first_page.data:\n    print(batch.id)\n\n# Remove `await` for non-async usage.\n```\n\n## Nested params\n\nNested parameters are dictionaries, typed using `TypedDict`, for example:\n\n```python\nfrom anthropic import Anthropic\n\nclient = Anthropic()\n\nmessage = client.messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"content\": \"Hello, world\",\n            \"role\": \"user\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n    metadata={},\n)\nprint(message.metadata)\n```\n\n## File uploads\n\nRequest parameters that correspond to file uploads can be passed as `bytes`, or a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance or a tuple of `(filename, contents, media type)`.\n\n```python\nfrom pathlib import Path\nfrom anthropic import Anthropic\n\nclient = Anthropic()\n\nclient.beta.files.upload(\n    file=Path(\"/path/to/file\"),\n)\n```\n\nThe async client uses the exact same interface. If you pass a [`PathLike`](https://docs.python.org/3/library/os.html#os.PathLike) instance, the file contents will be read asynchronously automatically.\n\n## Handling errors\n\nWhen the library is unable to connect to the API (for example, due to network connection problems or a timeout), a subclass of `anthropic.APIConnectionError` is raised.\n\nWhen the API returns a non-success status code (that is, 4xx or 5xx\nresponse), a subclass of `anthropic.APIStatusError` is raised, containing `status_code` and `response` properties.\n\nAll errors inherit from `anthropic.APIError`.\n\n```python\nimport anthropic\nfrom anthropic import Anthropic\n\nclient = Anthropic()\n\ntry:\n    client.messages.create(\n        max_tokens=1024,\n        messages=[\n            {\n                \"role\": \"user\",\n                \"content\": \"Hello, Claude\",\n            }\n        ],\n        model=\"claude-sonnet-4-5-20250929\",\n    )\nexcept anthropic.APIConnectionError as e:\n    print(\"The server could not be reached\")\n    print(e.__cause__)  # an underlying Exception, likely raised within httpx.\nexcept anthropic.RateLimitError as e:\n    print(\"A 429 status code was received; we should back off a bit.\")\nexcept anthropic.APIStatusError as e:\n    print(\"Another non-200-range status code was received\")\n    print(e.status_code)\n    print(e.response)\n```\n\nError codes are as follows:\n\n| Status Code | Error Type                 |\n| ----------- | -------------------------- |\n| 400         | `BadRequestError`          |\n| 401         | `AuthenticationError`      |\n| 403         | `PermissionDeniedError`    |\n| 404         | `NotFoundError`            |\n| 422         | `UnprocessableEntityError` |\n| 429         | `RateLimitError`           |\n| >=500       | `InternalServerError`      |\n| N/A         | `APIConnectionError`       |\n\n## Request IDs\n\n> For more information on debugging requests, see [these docs](https://docs.anthropic.com/en/api/errors#request-id)\n\nAll object responses in the SDK provide a `_request_id` property which is added from the `request-id` response header so that you can quickly log failing requests and report them back to Anthropic.\n\n```python\nmessage = client.messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, Claude\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n)\nprint(message._request_id)  # req_018EeWyXxfu5pfWkrYcMdjWG\n```\n\nNote that unlike other properties that use an `_` prefix, the `_request_id` property\n_is_ public. Unless documented otherwise, _all_ other `_` prefix properties,\nmethods and modules are _private_.\n\n### Retries\n\nCertain errors are automatically retried 2 times by default, with a short exponential backoff.\nConnection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict,\n429 Rate Limit, and >=500 Internal errors are all retried by default.\n\nYou can use the `max_retries` option to configure or disable retry settings:\n\n```python\nfrom anthropic import Anthropic\n\n# Configure the default for all requests:\nclient = Anthropic(\n    # default is 2\n    max_retries=0,\n)\n\n# Or, configure per-request:\nclient.with_options(max_retries=5).messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, Claude\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n)\n```\n\n### Timeouts\n\nBy default requests time out after 10 minutes. You can configure this with a `timeout` option,\nwhich accepts a float or an [`httpx.Timeout`](https://www.python-httpx.org/advanced/timeouts/#fine-tuning-the-configuration) object:\n\n```python\nfrom anthropic import Anthropic\n\n# Configure the default for all requests:\nclient = Anthropic(\n    # 20 seconds (default is 10 minutes)\n    timeout=20.0,\n)\n\n# More granular control:\nclient = Anthropic(\n    timeout=httpx.Timeout(60.0, read=5.0, write=10.0, connect=2.0),\n)\n\n# Override per-request:\nclient.with_options(timeout=5.0).messages.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, Claude\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n)\n```\n\nOn timeout, an `APITimeoutError` is thrown.\n\nNote that requests that time out are [retried twice by default](#retries).\n\n### Long Requests\n\n> [!IMPORTANT]\n> We highly encourage you use the streaming [Messages API](#streaming-responses) for longer running requests.\n\nWe do not recommend setting a large `max_tokens` values without using streaming.\nSome networks may drop idle connections after a certain period of time, which\ncan cause the request to fail or [timeout](#timeouts) without receiving a response from Anthropic.\n\nThis SDK will also throw a `ValueError` if a non-streaming request is expected to be above roughly 10 minutes long.\nPassing `stream=True` or [overriding](#timeouts) the `timeout` option at the client or request level disables this error.\n\nAn expected request latency longer than the [timeout](#timeouts) for a non-streaming request\nwill result in the client terminating the connection and retrying without receiving a response.\n\nWe set a [TCP socket keep-alive](https://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html) option in order\nto reduce the impact of idle connection timeouts on some networks.\nThis can be [overriden](#Configuring-the-HTTP-client) by passing a `http_client` option to the client.\n\n## Default Headers\n\nWe automatically send the `anthropic-version` header set to `2023-06-01`.\n\nIf you need to, you can override it by setting default headers per-request or on the client object.\n\nBe aware that doing so may result in incorrect types and other unexpected or undefined behavior in the SDK.\n\n```python\nfrom anthropic import Anthropic\n\nclient = Anthropic(\n    default_headers={\"anthropic-version\": \"My-Custom-Value\"},\n)\n```\n\n## Advanced\n\n### Logging\n\nWe use the standard library [`logging`](https://docs.python.org/3/library/logging.html) module.\n\nYou can enable logging by setting the environment variable `ANTHROPIC_LOG` to `info`.\n\n```shell\n$ export ANTHROPIC_LOG=info\n```\n\nOr to `debug` for more verbose logging.\n\n### How to tell whether `None` means `null` or missing\n\nIn an API response, a field may be explicitly `null`, or missing entirely; in either case, its value is `None` in this library. You can differentiate the two cases with `.model_fields_set`:\n\n```py\nif response.my_field is None:\n  if 'my_field' not in response.model_fields_set:\n    print('Got json like {}, without a \"my_field\" key present at all.')\n  else:\n    print('Got json like {\"my_field\": null}.')\n```\n\n### Accessing raw response data (e.g. headers)\n\nThe \"raw\" Response object can be accessed by prefixing `.with_raw_response.` to any HTTP method call, e.g.,\n\n```py\nfrom anthropic import Anthropic\n\nclient = Anthropic()\nresponse = client.messages.with_raw_response.create(\n    max_tokens=1024,\n    messages=[{\n        \"role\": \"user\",\n        \"content\": \"Hello, Claude\",\n    }],\n    model=\"claude-sonnet-4-5-20250929\",\n)\nprint(response.headers.get('X-My-Header'))\n\nmessage = response.parse()  # get the object that `messages.create()` would have returned\nprint(message.content)\n```\n\nThese methods return a [`LegacyAPIResponse`](https://github.com/anthropics/anthropic-sdk-python/tree/main/src/anthropic/_legacy_response.py) object. This is a legacy class as we're changing it slightly in the next major version.\n\nFor the sync client this will mostly be the same with the exception\nof `content` & `text` will be methods instead of properties. In the\nasync client, all methods will be async.\n\nA migration script will be provided & the migration in general should\nbe smooth.\n\n#### `.with_streaming_response`\n\nThe above interface eagerly reads the full response body when you make the request, which may not always be what you want.\n\nTo stream the response body, use `.with_streaming_response` instead, which requires a context manager and only reads the response body once you call `.read()`, `.text()`, `.json()`, `.iter_bytes()`, `.iter_text()`, `.iter_lines()` or `.parse()`. In the async client, these are async methods.\n\nAs such, `.with_streaming_response` methods return a different [`APIResponse`](https://github.com/anthropics/anthropic-sdk-python/tree/main/src/anthropic/_response.py) object, and the async client returns an [`AsyncAPIResponse`](https://github.com/anthropics/anthropic-sdk-python/tree/main/src/anthropic/_response.py) object.\n\n```python\nwith client.messages.with_streaming_response.create(\n    max_tokens=1024,\n    messages=[\n        {\n            \"role\": \"user\",\n            \"content\": \"Hello, Claude\",\n        }\n    ],\n    model=\"claude-sonnet-4-5-20250929\",\n) as response:\n    print(response.headers.get(\"X-My-Header\"))\n\n    for line in response.iter_lines():\n        print(line)\n```\n\nThe context manager is required so that the response will reliably be closed.\n\n### Making custom/undocumented requests\n\nThis library is typed for convenient access to the documented API.\n\nIf you need to access undocumented endpoints, params, or response properties, the library can still be used.\n\n#### Undocumented endpoints\n\nTo make requests to undocumented endpoints, you can make requests using `client.get`, `client.post`, and other\nhttp verbs. Options on the client will be respected (such as retries) when making this request.\n\n```py\nimport httpx\n\nresponse = client.post(\n    \"/foo\",\n    cast_to=httpx.Response,\n    body={\"my_param\": True},\n)\n\nprint(response.headers.get(\"x-foo\"))\n```\n\n#### Undocumented request params\n\nIf you want to explicitly send an extra param, you can do so with the `extra_query`, `extra_body`, and `extra_headers` request\noptions.\n\n> [!WARNING]\n>\n> The `extra_` parameters of the same name overrides the documented parameters. For security reasons, ensure these methods are only used with trusted input data.\n\n#### Undocumented response properties\n\nTo access undocumented response properties, you can access the extra fields like `response.unknown_prop`. You\ncan also get all the extra fields on the Pydantic model as a dict with\n[`response.model_extra`](https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel.model_extra).\n\n### Configuring the HTTP client\n\nYou can directly override the [httpx client](https://www.python-httpx.org/api/#client) to customize it for your use case, including:\n\n- Support for [proxies](https://www.python-httpx.org/advanced/proxies/)\n- Custom [transports](https://www.python-httpx.org/advanced/transports/)\n- Additional [advanced](https://www.python-httpx.org/advanced/clients/) functionality\n\n```python\nimport httpx\nfrom anthropic import Anthropic, DefaultHttpxClient\n\nclient = Anthropic(\n    # Or use the `ANTHROPIC_BASE_URL` env var\n    base_url=\"http://my.test.server.example.com:8083\",\n    http_client=DefaultHttpxClient(\n        proxy=\"http://my.test.proxy.example.com\",\n        transport=httpx.HTTPTransport(local_address=\"0.0.0.0\"),\n    ),\n)\n```\n\nYou can also customize the client on a per-request basis by using `with_options()`:\n\n```python\nclient.with_options(http_client=DefaultHttpxClient(...))\n```\n\n### Managing HTTP resources\n\nBy default the library closes underlying HTTP connections whenever the client is [garbage collected](https://docs.python.org/3/reference/datamodel.html#object.__del__). You can manually close the client using the `.close()` method if desired, or with a context manager that closes when exiting.\n\n```py\nfrom anthropic import Anthropic\n\nwith Anthropic() as client:\n  # make requests here\n  ...\n\n# HTTP client is now closed\n```\n\n## Versioning\n\nThis package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions, though certain backwards-incompatible changes may be released as minor versions:\n\n1. Changes that only affect static types, without breaking runtime behavior.\n2. Changes to library internals which are technically public but not intended or documented for external use. _(Please open a GitHub issue to let us know if you are relying on such internals.)_\n3. Changes that we do not expect to impact the vast majority of users in practice.\n\nWe take backwards-compatibility seriously and work hard to ensure you can rely on a smooth upgrade experience.\n\nWe are keen for your feedback; please open an [issue](https://www.github.com/anthropics/anthropic-sdk-python/issues) with questions, bugs, or suggestions.\n\n### Determining the installed version\n\nIf you've upgraded to the latest version but aren't seeing any new features you were expecting then your python environment is likely still using an older version.\n\nYou can determine the version that is being used at runtime with:\n\n```py\nimport anthropic\nprint(anthropic.__version__)\n```\n\n## Requirements\n\nPython 3.8 or higher.\n\n## Contributing\n\nSee [the contributing documentation](./CONTRIBUTING.md).",
+                "lineStart": 1,
+                "lineEnd": 874,
+                "totalLines": 874,
+                "truncated": false
+              }
+            },
+            "title": "app/code/README.md",
+            "time": {
+              "start": 1789945146841,
+              "end": 1789945147058
+            }
+          },
+          "id": "prt_0c10b6dc90011iAbCyihr1h80n",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6b61001y9JBprBfZghx1z"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-919e0c90935510d0",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/setup.py"
+            },
+            "error": "File not found: /app/code/setup.py",
+            "time": {
+              "start": 1789945146928,
+              "end": 1789945146944
+            }
+          },
+          "id": "prt_0c10b6def001cpgQ7ITBIYesYT",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6b61001y9JBprBfZghx1z"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 10423,
+            "input": 10292,
+            "output": 131,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10b6eb9001YFm3xJVbnPNGre",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6b61001y9JBprBfZghx1z"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c10b5f14001ltUv4VcnIM1vEH",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 20566,
+          "input": 20402,
+          "output": 164,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789945147080,
+          "completed": 1789945148143
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c10b6ec8001QQzobaVtzKMfS3",
+        "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10b706c001mtCQ6RqkOYzGNN",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6ec8001QQzobaVtzKMfS3"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-8b539677443ac554",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "find /app/code -type f -name \"*.py\" | head -20"
+            },
+            "output": "/app/code/tests/test_files.py\n/app/code/tests/lib/tools/test_runners.py\n/app/code/tests/lib/tools/__init__.py\n/app/code/tests/lib/tools/test_functions.py\n/app/code/tests/lib/test_bedrock.py\n/app/code/tests/lib/__init__.py\n/app/code/tests/lib/test_vertex.py\n/app/code/tests/lib/streaming/test_messages.py\n/app/code/tests/lib/streaming/test_beta_messages.py\n/app/code/tests/lib/streaming/test_partial_json.py\n/app/code/tests/lib/streaming/__init__.py\n/app/code/tests/lib/streaming/helpers.py\n/app/code/tests/lib/utils.py\n/app/code/tests/lib/snapshots.py\n/app/code/tests/decoders/test_jsonl.py\n/app/code/tests/test_qs.py\n/app/code/tests/test_extract_files.py\n/app/code/tests/test_transform.py\n/app/code/tests/__init__.py\n/app/code/tests/test_response.py\n",
+            "metadata": {
+              "output": "/app/code/tests/test_files.py\n/app/code/tests/lib/tools/test_runners.py\n/app/code/tests/lib/tools/__init__.py\n/app/code/tests/lib/tools/test_functions.py\n/app/code/tests/lib/test_bedrock.py\n/app/code/tests/lib/__init__.py\n/app/code/tests/lib/test_vertex.py\n/app/code/tests/lib/streaming/test_messages.py\n/app/code/tests/lib/streaming/test_beta_messages.py\n/app/code/tests/lib/streaming/test_partial_json.py\n/app/code/tests/lib/streaming/__init__.py\n/app/code/tests/lib/streaming/helpers.py\n/app/code/tests/lib/utils.py\n/app/code/tests/lib/snapshots.py\n/app/code/tests/decoders/test_jsonl.py\n/app/code/tests/test_qs.py\n/app/code/tests/test_extract_files.py\n/app/code/tests/test_transform.py\n/app/code/tests/__init__.py\n/app/code/tests/test_response.py\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "find /app/code -type f -name \"*.py\" | head -20",
+            "time": {
+              "start": 1789945147652,
+              "end": 1789945147804
+            }
+          },
+          "id": "prt_0c10b70700018cagWjpYoTYkqL",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6ec8001QQzobaVtzKMfS3"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-b01fc4882ab80c98",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "ls -la /app/code/"
+            },
+            "output": "total 916\ndrwx------ 9  501 dialout   4096 Sep 20 21:30 .\ndrwxrwxrwx 1 root root      4096 Sep 20 22:58 ..\ndrwx------ 2  501 dialout   4096 Sep 20 21:30 .devcontainer\n-rwx------ 1  501 dialout      7 Sep 20 21:30 .python-version\n-rwx------ 1  501 dialout     19 Sep 20 21:30 .release-please-manifest.json\n-rwx------ 1  501 dialout    291 Sep 20 21:30 .stats.yml\ndrwx------ 2  501 dialout   4096 Sep 20 21:30 .vscode\n-rwx------ 1  501 dialout     11 Sep 20 21:30 Brewfile\n-rwx------ 1  501 dialout 164223 Sep 20 21:30 CHANGELOG.md\n-rwx------ 1  501 dialout   3597 Sep 20 21:30 CONTRIBUTING.md\n-rwx------ 1  501 dialout   1056 Sep 20 21:30 LICENSE\n-rwx------ 1  501 dialout  26181 Sep 20 21:30 README.md\n-rwx------ 1  501 dialout   1204 Sep 20 21:30 SECURITY.md\n-rwx------ 1  501 dialout  16378 Sep 20 21:30 api.md\ndrwx------ 2  501 dialout   4096 Sep 20 21:30 bin\ndrwx------ 3  501 dialout   4096 Sep 20 21:30 examples\n-rwx------ 1  501 dialout   3713 Sep 20 21:30 helpers.md\n-rwx------ 1  501 dialout   6477 Sep 20 21:30 pyproject.toml\n-rwx------ 1  501 dialout   1325 Sep 20 21:30 release-please-config.json\n-rwx------ 1  501 dialout   3614 Sep 20 21:30 requirements-dev.lock\ndrwx------ 3  501 dialout   4096 Sep 20 21:30 scripts\ndrwx------ 3  501 dialout   4096 Sep 20 21:30 src\ndrwx------ 6  501 dialout   4096 Sep 20 21:30 tests\n-rwx------ 1  501 dialout   2187 Sep 20 21:30 tools.md\n-rwx------ 1  501 dialout 632752 Sep 20 21:30 uv.lock\n",
+            "metadata": {
+              "output": "total 916\ndrwx------ 9  501 dialout   4096 Sep 20 21:30 .\ndrwxrwxrwx 1 root root      4096 Sep 20 22:58 ..\ndrwx------ 2  501 dialout   4096 Sep 20 21:30 .devcontainer\n-rwx------ 1  501 dialout      7 Sep 20 21:30 .python-version\n-rwx------ 1  501 dialout     19 Sep 20 21:30 .release-please-manifest.json\n-rwx------ 1  501 dialout    291 Sep 20 21:30 .stats.yml\ndrwx------ 2  501 dialout   4096 Sep 20 21:30 .vscode\n-rwx------ 1  501 dialout     11 Sep 20 21:30 Brewfile\n-rwx------ 1  501 dialout 164223 Sep 20 21:30 CHANGELOG.md\n-rwx------ 1  501 dialout   3597 Sep 20 21:30 CONTRIBUTING.md\n-rwx------ 1  501 dialout   1056 Sep 20 21:30 LICENSE\n-rwx------ 1  501 dialout  26181 Sep 20 21:30 README.md\n-rwx------ 1  501 dialout   1204 Sep 20 21:30 SECURITY.md\n-rwx------ 1  501 dialout  16378 Sep 20 21:30 api.md\ndrwx------ 2  501 dialout   4096 Sep 20 21:30 bin\ndrwx------ 3  501 dialout   4096 Sep 20 21:30 examples\n-rwx------ 1  501 dialout   3713 Sep 20 21:30 helpers.md\n-rwx------ 1  501 dialout   6477 Sep 20 21:30 pyproject.toml\n-rwx------ 1  501 dialout   1325 Sep 20 21:30 release-please-config.json\n-rwx------ 1  501 dialout   3614 Sep 20 21:30 requirements-dev.lock\ndrwx------ 3  501 dialout   4096 Sep 20 21:30 scripts\ndrwx------ 3  501 dialout   4096 Sep 20 21:30 src\ndrwx------ 6  501 dialout   4096 Sep 20 21:30 tests\n-rwx------ 1  501 dialout   2187 Sep 20 21:30 tools.md\n-rwx------ 1  501 dialout 632752 Sep 20 21:30 uv.lock\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "ls -la /app/code/",
+            "time": {
+              "start": 1789945147752,
+              "end": 1789945147813
+            }
+          },
+          "id": "prt_0c10b7107001ctqF9xx6hGFXCb",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6ec8001QQzobaVtzKMfS3"
+        },
+        {
+          "type": "tool",
+          "tool": "bash",
+          "callID": "chatcmpl-tool-a166d6b087b59ea5",
+          "state": {
+            "status": "completed",
+            "input": {
+              "command": "ls -la /app/non-passed/"
+            },
+            "output": "total 16\ndrwx------ 2  501 dialout 4096 Sep 20 21:35 .\ndrwxrwxrwx 1 root root    4096 Sep 20 22:58 ..\n-rwx------ 1  501 dialout 5820 Sep 20 21:35 summary.jsonl\n",
+            "metadata": {
+              "output": "total 16\ndrwx------ 2  501 dialout 4096 Sep 20 21:35 .\ndrwxrwxrwx 1 root root    4096 Sep 20 22:58 ..\n-rwx------ 1  501 dialout 5820 Sep 20 21:35 summary.jsonl\n",
+              "exit": 0,
+              "truncated": false
+            },
+            "title": "ls -la /app/non-passed/",
+            "time": {
+              "start": 1789945147843,
+              "end": 1789945147940
+            }
+          },
+          "id": "prt_0c10b7176001QfJ053k5DdKhHz",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6ec8001QQzobaVtzKMfS3"
+        },
+        {
+          "type": "tool",
+          "tool": "grep",
+          "callID": "chatcmpl-tool-a18b307e13fe4df9",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "test_path_params",
+              "path": "/app/code/tests"
+            },
+            "output": "Found 36 matches\n/app/code/tests/api_resources/test_models.py:\n  Line 61:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n\n  Line 148:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n\n\n/app/code/tests/api_resources/beta/test_skills.py:\n  Line 104:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n\n  Line 185:     def test_path_params_delete(self, client: Anthropic) -> None:\n\n  Line 275:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n\n  Line 356:     async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n\n\n/app/code/tests/api_resources/beta/test_models.py:\n  Line 61:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n\n  Line 148:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n\n\n/app/code/tests/api_resources/beta/test_files.py:\n  Line 106:     def test_path_params_delete(self, client: Anthropic) -> None:\n\n  Line 177:     def test_path_params_download(self, client: Anthropic) -> None:\n\n  Line 223:     def test_path_params_retrieve_metadata(self, client: Anthropic) -> None:\n\n  Line 349:     async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n\n  Line 420:     async def test_path_params_download(self, async_client: AsyncAnthropic) -> None:\n\n  Line 466:     async def test_path_params_retrieve_metadata(self, async_client: AsyncAnthropic) -> None:\n\n\n/app/code/tests/api_resources/messages/test_batches.py:\n  Line 131:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n\n  Line 203:     def test_path_params_delete(self, client: Anthropic) -> None:\n\n  Line 241:     def test_path_params_cancel(self, client: Anthropic) -> None:\n\n  Line 388:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n\n  Line 460:     async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n\n  Line 498:     async def test_path_params_cancel(self, async_client: AsyncAnthropic) -> None:\n\n\n/app/code/tests/api_resources/beta/messages/test_batches.py:\n  Line 269:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n\n  Line 350:     def test_path_params_delete(self, client: Anthropic) -> None:\n\n  Line 396:     def test_path_params_cancel(self, client: Anthropic) -> None:\n\n  Line 435:     def test_path_params_results(self, client: Anthropic) -> None:\n\n  Line 689:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n\n  Line 770:     async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n\n  Line 816:     async def test_path_params_cancel(self, async_client: AsyncAnthropic) -> None:\n\n  Line 856:     async def test_path_params_results(self, async_client: AsyncAnthropic) -> None:\n\n\n/app/code/tests/api_resources/beta/skills/test_versions.py:\n  Line 72:     def test_path_params_create(self, client: Anthropic) -> None:\n\n  Line 122:     def test_path_params_retrieve(self, client: Anthropic) -> None:\n\n  Line 177:     def test_path_params_list(self, client: Anthropic) -> None:\n\n  Line 227:     def test_path_params_delete(self, client: Anthropic) -> None:\n\n  Line 292:     async def test_path_params_create(self, async_client: AsyncAnthropic) -> None:\n\n  Line 342:     async def test_path_params_retrieve(self, async_client: AsyncAnthropic) -> None:\n\n  Line 397:     async def test_path_params_list(self, async_client: AsyncAnthropic) -> None:\n\n  Line 447:     async def test_path_params_delete(self, async_client: AsyncAnthropic) -> None:\n",
+            "metadata": {
+              "matches": 36,
+              "truncated": false
+            },
+            "title": "test_path_params",
+            "time": {
+              "start": 1789945147988,
+              "end": 1789945148019
+            }
+          },
+          "id": "prt_0c10b7228001RwpJynvHrvfOXn",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6ec8001QQzobaVtzKMfS3"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-89ef7da8b2df6825",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/api_resources/beta/skills/test_*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1789945148109,
+              "end": 1789945148135
+            }
+          },
+          "id": "prt_0c10b7268001r2m97Ep4PQwjhB",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6ec8001QQzobaVtzKMfS3"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 20566,
+            "input": 20402,
+            "output": 164,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10b72e9001pMvtyZ2XUWc0Tf",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b6ec8001QQzobaVtzKMfS3"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c10b5f14001ltUv4VcnIM1vEH",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 22853,
+          "input": 22628,
+          "output": 225,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1789945148148,
+          "completed": 1789945149353
+        },
+        "finish": "stop",
+        "id": "msg_0c10b72f4001Bv244Zw1Iv2x4f",
+        "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c10b7432001uvsjKVZP3rRfvJ",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b72f4001Bv244Zw1Iv2x4f"
+        },
+        {
+          "type": "text",
+          "text": "Based on my analysis of the Python project structure and the non-passed test cases, here are 3 to 5 plausible future tasks for this codebase:\n\n1. Implement path parameter handling for beta skills versions API endpoints in `src/anthropic/api_resources/beta/skills/versions.py` to support the failing tests like `test_path_params_list` and `test_path_params_retrieve`.\n\n2. Add missing async implementations for beta skills versions API methods in `src/anthropic/api_resources/beta/skills/versions.py` to address the async test failures.\n\n3. Create or update the API resource classes in `src/anthropic/api_resources/beta/skills/__init__.py` to properly expose the skills versions functionality with correct path parameter handling.\n\n4. Implement missing test fixtures and setup in `tests/api_resources/beta/skills/test_versions.py` to properly initialize the test environment for path parameter tests.\n\n5. Add missing path parameter validation and serialization logic in the base API resource classes in `src/anthropic/api_resources/` to ensure consistent handling of path parameters across all beta endpoints.",
+          "time": {
+            "start": 1789945148469,
+            "end": 1789945149341
+          },
+          "id": "prt_0c10b7434001CYEtxtsF6ANchE",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b72f4001Bv244Zw1Iv2x4f"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 22853,
+            "input": 22628,
+            "output": 225,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c10b77a20013fe1bb6nyZ5pC5",
+          "sessionID": "ses_f3ef4a143ffejBYvlQd7F9nByl",
+          "messageID": "msg_0c10b72f4001Bv244Zw1Iv2x4f"
+        }
+      ]
+    }
+  ]
+}

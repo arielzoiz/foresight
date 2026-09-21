@@ -1,0 +1,757 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 02:17:58
+@@ -32,6 +32,12 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    Versions,
++    AsyncVersions,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -58,4 +64,8 @@
+     "AsyncBetaWithRawResponse",
+     "BetaWithStreamingResponse",
+     "AsyncBetaWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "Versions",
++    "AsyncVersions",
+ ]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 02:18:04
+@@ -18,6 +18,12 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    Versions,
++    AsyncVersions,
++)
+ from ..._compat import cached_property
+ from ..._resource import SyncAPIResource, AsyncAPIResource
+ from .messages.messages import (
+@@ -46,6 +52,10 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -77,6 +87,10 @@
+     @cached_property
+     def files(self) -> AsyncFiles:
+         return AsyncFiles(self._client)
++
++    @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
+ 
+     @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions.py b/src/anthropic/resources/beta/skills/versions.py
+--- a/src/anthropic/resources/beta/skills/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions.py	2026-09-21 02:17:54
+@@ -0,0 +1,19 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import List, Optional, Union
++from ...._compat import cached_property
++from ...._resource import SyncAPIResource, AsyncAPIResource
++from ...._response import APIResponse
++from ...._types import NOT_GIVEN, NotGivenOr
++from ...._utils import maybe_transform
++from ...._models import BaseModel
++from ....types.beta import (
++    VersionCreateResponse,
++    VersionRetrieveResponse,
++    VersionListResponse,
++    VersionDeleteResponse,
++)
++
++__all__ = ["Versions", "AsyncVersions"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills.py b/src/anthropic/resources/beta/skills.py
+--- a/src/anthropic/resources/beta/skills.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills.py	2026-09-21 02:18:48
+@@ -0,0 +1,579 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import List, Optional, Union
++from ...._compat import cached_property
++from ...._resource import SyncAPIResource, AsyncAPIResource
++from ...._response import APIResponse
++from ...._types import NOT_GIVEN, NotGivenOr
++from ...._utils import maybe_transform
++from ...._models import BaseModel
++from ....types.beta import (
++    SkillCreateResponse,
++    SkillRetrieveResponse,
++    SkillListResponse,
++    SkillDeleteResponse,
++    VersionCreateResponse,
++    VersionRetrieveResponse,
++    VersionListResponse,
++    VersionDeleteResponse,
++)
++
++__all__ = ["Skills", "AsyncSkills"]
++
++
++class Skills(SyncAPIResource):
++    @cached_property
++    def versions(self) -> Versions:
++        return Versions(self._client)
++
++    def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillCreateResponse]:
++        """Create a new skill."""
++        body = maybe_transform(
++            {
++                "display_title": display_title,
++                "files": files,
++                "betas": betas,
++            },
++            {
++                "display_title": lambda x: x,
++                "files": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return self._post(
++            "/beta/skills",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        """Retrieve a specific skill by skill_id."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return self._get(
++            f"/beta/skills/{skill_id}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillListResponse]:
++        """List skills with pagination support."""
++        query = maybe_transform(
++            {
++                "limit": limit,
++                "page": page,
++                "source": source,
++                "betas": betas,
++            },
++            {
++                "limit": lambda x: x,
++                "page": lambda x: x,
++                "source": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return self._get(
++            "/beta/skills",
++            query=query,
++            headers=extra_headers,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillListResponse,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillDeleteResponse]:
++        """Delete a specific skill by skill_id."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return self._delete(
++            f"/beta/skills/{skill_id}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillDeleteResponse,
++        )
++
++
++class AsyncSkills(AsyncAPIResource):
++    @cached_property
++    def versions(self) -> AsyncVersions:
++        return AsyncVersions(self._client)
++
++    async def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillCreateResponse]:
++        """Create a new skill."""
++        body = maybe_transform(
++            {
++                "display_title": display_title,
++                "files": files,
++                "betas": betas,
++            },
++            {
++                "display_title": lambda x: x,
++                "files": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return await self._post(
++            "/beta/skills",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        """Retrieve a specific skill by skill_id."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return await self._get(
++            f"/beta/skills/{skill_id}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillRetrieveResponse,
++        )
++
++    async def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillListResponse]:
++        """List skills with pagination support."""
++        query = maybe_transform(
++            {
++                "limit": limit,
++                "page": page,
++                "source": source,
++                "betas": betas,
++            },
++            {
++                "limit": lambda x: x,
++                "page": lambda x: x,
++                "source": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return await self._get(
++            "/beta/skills",
++            query=query,
++            headers=extra_headers,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillListResponse,
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[SkillDeleteResponse]:
++        """Delete a specific skill by skill_id."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return await self._delete(
++            f"/beta/skills/{skill_id}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillDeleteResponse,
++        )
++
++
++class Versions(SyncAPIResource):
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionCreateResponse]:
++        """Create a new version."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        body = maybe_transform(
++            {
++                "files": files,
++                "betas": betas,
++            },
++            {
++                "files": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return self._post(
++            f"/beta/skills/{skill_id}/versions",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        """Retrieve a specific version by skill_id and version."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionListResponse]:
++        """List versions for a skill with pagination support."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        query = maybe_transform(
++            {
++                "limit": limit,
++                "page": page,
++                "betas": betas,
++            },
++            {
++                "limit": lambda x: x,
++                "page": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return self._get(
++            f"/beta/skills/{skill_id}/versions",
++            query=query,
++            headers=extra_headers,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionListResponse,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionDeleteResponse]:
++        """Delete a specific version by skill_id and version."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionDeleteResponse,
++        )
++
++
++class AsyncVersions(AsyncAPIResource):
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionCreateResponse]:
++        """Create a new version."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        body = maybe_transform(
++            {
++                "files": files,
++                "betas": betas,
++            },
++            {
++                "files": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return await self._post(
++            f"/beta/skills/{skill_id}/versions",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        """Retrieve a specific version by skill_id and version."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return await self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionRetrieveResponse,
++        )
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionListResponse]:
++        """List versions for a skill with pagination support."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        query = maybe_transform(
++            {
++                "limit": limit,
++                "page": page,
++                "betas": betas,
++            },
++            {
++                "limit": lambda x: x,
++                "page": lambda x: x,
++                "betas": lambda x: x,
++            },
++        )
++        return await self._get(
++            f"/beta/skills/{skill_id}/versions",
++            query=query,
++            headers=extra_headers,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionListResponse,
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[dict] = None,
++        extra_query: Optional[dict] = None,
++        extra_body: Optional[dict] = None,
++        timeout: Union[float, None] = None,
++    ) -> APIResponse[VersionDeleteResponse]:
++        """Delete a specific version by skill_id and version."""
++        if skill_id == "":
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if version == "":
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        body = maybe_transform(
++            {
++                "betas": betas,
++            },
++            {
++                "betas": lambda x: x,
++            },
++        )
++        return await self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            body=body,
++            headers=extra_headers,
++            query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionDeleteResponse,
++        )
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/types/beta/__init__.py b/src/anthropic/types/beta/__init__.py
+--- a/src/anthropic/types/beta/__init__.py	2026-09-21 00:30:30
++++ b/src/anthropic/types/beta/__init__.py	2026-09-21 02:18:46
+@@ -263,3 +263,13 @@
+ from .beta_text_editor_code_execution_str_replace_result_block_param import (
+     BetaTextEditorCodeExecutionStrReplaceResultBlockParam as BetaTextEditorCodeExecutionStrReplaceResultBlockParam,
+ )
++from .skill_and_version_responses import (
++    SkillCreateResponse as SkillCreateResponse,
++    SkillRetrieveResponse as SkillRetrieveResponse,
++    SkillListResponse as SkillListResponse,
++    SkillDeleteResponse as SkillDeleteResponse,
++    VersionCreateResponse as VersionCreateResponse,
++    VersionRetrieveResponse as VersionRetrieveResponse,
++    VersionListResponse as VersionListResponse,
++    VersionDeleteResponse as VersionDeleteResponse,
++)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/types/beta/skill_and_version_responses.py b/src/anthropic/types/beta/skill_and_version_responses.py
+--- a/src/anthropic/types/beta/skill_and_version_responses.py	1970-01-01 02:00:00
++++ b/src/anthropic/types/beta/skill_and_version_responses.py	2026-09-21 02:18:08
+@@ -0,0 +1,64 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import List, Optional, Union
++from .._models import BaseModel
++
++
++class SkillCreateResponse(BaseModel):
++    id: str
++    display_title: Optional[str] = None
++    created_at: str
++    files: List[Union[str, bytes]]
++    betas: List[str]
++
++
++class SkillRetrieveResponse(BaseModel):
++    id: str
++    display_title: Optional[str] = None
++    created_at: str
++    files: List[Union[str, bytes]]
++    betas: List[str]
++
++
++class SkillListResponse(BaseModel):
++    id: str
++    display_title: Optional[str] = None
++    created_at: str
++    files: List[Union[str, bytes]]
++    betas: List[str]
++
++
++class SkillDeleteResponse(BaseModel):
++    id: str
++    deleted: bool
++
++
++class VersionCreateResponse(BaseModel):
++    id: str
++    skill_id: str
++    created_at: str
++    files: List[Union[str, bytes]]
++    betas: List[str]
++
++
++class VersionRetrieveResponse(BaseModel):
++    id: str
++    skill_id: str
++    created_at: str
++    files: List[Union[str, bytes]]
++    betas: List[str]
++
++
++class VersionListResponse(BaseModel):
++    id: str
++    skill_id: str
++    created_at: str
++    files: List[Union[str, bytes]]
++    betas: List[str]
++
++
++class VersionDeleteResponse(BaseModel):
++    id: str
++    deleted: bool
+\ No newline at end of file

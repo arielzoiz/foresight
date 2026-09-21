@@ -1,0 +1,45 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/back/rtlil.py b/amaranth/back/rtlil.py
+--- a/amaranth/back/rtlil.py	2026-09-20 23:37:00
++++ b/amaranth/back/rtlil.py	2026-09-20 23:50:20
+@@ -1059,11 +1059,13 @@
+         }
+         if isinstance(cell, _nir.AsyncReadPort):
+             transparency_mask = 0
+-        if isinstance(cell, _nir.SyncReadPort):
++        elif isinstance(cell, _nir.SyncReadPort):
+             transparency_mask = sum(
+                 1 << memory_info.write_port_ids[write_port_cell_index]
+                 for write_port_cell_index in cell.transparent_for
+             )
++        else:
++            transparency_mask = 0
+         parameters = {
+             "MEMID": memory_info.memid,
+             "ABITS": len(cell.addr),
+@@ -1084,7 +1086,7 @@
+                 "CLK_ENABLE": False,
+                 "CLK_POLARITY": True,
+             })
+-        if isinstance(cell, _nir.SyncReadPort):
++        elif isinstance(cell, _nir.SyncReadPort):
+             ports.update({
+                 "EN": self.sigspec(cell.en),
+                 "CLK": self.sigspec(cell.clk),
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_cd.py b/amaranth/hdl/_cd.py
+--- a/amaranth/hdl/_cd.py	2026-09-20 23:31:24
++++ b/amaranth/hdl/_cd.py	2026-09-20 23:50:04
+@@ -77,6 +77,14 @@
+ 
+         self.local = local
+ 
++    def __eq__(self, other):
++        if not isinstance(other, ClockDomain):
++            return False
++        return (self.name == other.name and
++                self.clk_edge == other.clk_edge and
++                self.async_reset == other.async_reset and
++                self.local == other.local)
++
+     def rename(self, new_name):
+         self.name = new_name
+         self.clk.name = self._name_for(new_name, "clk")

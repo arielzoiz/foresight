@@ -1,0 +1,711 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 02:22:22
+@@ -24,6 +24,22 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
++from .skills.versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ from .messages import (
+     Messages,
+     AsyncMessages,
+@@ -52,6 +68,18 @@
+     "AsyncFilesWithRawResponse",
+     "FilesWithStreamingResponse",
+     "AsyncFilesWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
++    "Versions",
++    "AsyncVersions",
++    "VersionsWithRawResponse",
++    "AsyncVersionsWithRawResponse",
++    "VersionsWithStreamingResponse",
++    "AsyncVersionsWithStreamingResponse",
+     "Beta",
+     "AsyncBeta",
+     "BetaWithRawResponse",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 02:22:34
+@@ -18,6 +18,22 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
++from .skills.versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ from ..._compat import cached_property
+ from ..._resource import SyncAPIResource, AsyncAPIResource
+ from .messages.messages import (
+@@ -46,6 +62,10 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -79,6 +99,10 @@
+         return AsyncFiles(self._client)
+ 
+     @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -114,7 +138,11 @@
+     def files(self) -> FilesWithRawResponse:
+         return FilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithRawResponse:
++        return SkillsWithRawResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithRawResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -131,7 +159,11 @@
+     def files(self) -> AsyncFilesWithRawResponse:
+         return AsyncFilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> AsyncSkillsWithRawResponse:
++        return AsyncSkillsWithRawResponse(self._beta.skills)
+ 
++
+ class BetaWithStreamingResponse:
+     def __init__(self, beta: Beta) -> None:
+         self._beta = beta
+@@ -148,7 +180,11 @@
+     def files(self) -> FilesWithStreamingResponse:
+         return FilesWithStreamingResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithStreamingResponse:
++        return SkillsWithStreamingResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithStreamingResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -164,3 +200,7 @@
+     @cached_property
+     def files(self) -> AsyncFilesWithStreamingResponse:
+         return AsyncFilesWithStreamingResponse(self._beta.files)
++
++    @cached_property
++    def skills(self) -> AsyncSkillsWithStreamingResponse:
++        return AsyncSkillsWithStreamingResponse(self._beta.skills)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/__init__.py b/src/anthropic/resources/beta/skills/__init__.py
+--- a/src/anthropic/resources/beta/skills/__init__.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/__init__.py	2026-09-21 02:23:00
+@@ -0,0 +1,276 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING
++
++if TYPE_CHECKING:
++    from ..._base_client import BaseClient
++    from ..beta import Beta
++
++from ..._resource import SyncAPIResource, AsyncAPIResource
++from ..._utils import required_args
++
++
++class Skills(SyncAPIResource):
++    def __init__(self, client: BaseClient) -> None:
++        super().__init__(client)
++
++    @required_args(["skill_id"])
++    def retrieve(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve.
++            betas: Optional list of beta features to enable.
++        """
++        return self._get(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None)
++
++    def list(self, *, limit: int | None = None, page: str | None = None, source: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all skills.
++
++        Args:
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            source: Source filter.
++            betas: Optional list of beta features to enable.
++        """
++        return self._get("/beta/skills", params={
++            "limit": limit,
++            "page": page,
++            "source": source,
++            "betas": betas,
++        } if any([limit, page, source, betas]) else None)
++
++    @required_args(["skill_id"])
++    def delete(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete.
++            betas: Optional list of beta features to enable.
++        """
++        return self._delete(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None)
++
++
++class AsyncSkills(AsyncAPIResource):
++    def __init__(self, client: BaseClient) -> None:
++        super().__init__(client)
++
++    @required_args(["skill_id"])
++    async def retrieve(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._get(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None)
++
++    async def list(self, *, limit: int | None = None, page: str | None = None, source: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all skills.
++
++        Args:
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            source: Source filter.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._get("/beta/skills", params={
++            "limit": limit,
++            "page": page,
++            "source": source,
++            "betas": betas,
++        } if any([limit, page, source, betas]) else None)
++
++    @required_args(["skill_id"])
++    async def delete(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._delete(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None)
++
++
++class SkillsWithRawResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    @required_args(["skill_id"])
++    def retrieve(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve.
++            betas: Optional list of beta features to enable.
++        """
++        return self._skills._get(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    def list(self, *, limit: int | None = None, page: str | None = None, source: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all skills.
++
++        Args:
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            source: Source filter.
++            betas: Optional list of beta features to enable.
++        """
++        return self._skills._get("/beta/skills", params={
++            "limit": limit,
++            "page": page,
++            "source": source,
++            "betas": betas,
++        } if any([limit, page, source, betas]) else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    @required_args(["skill_id"])
++    def delete(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete.
++            betas: Optional list of beta features to enable.
++        """
++        return self._skills._delete(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++
++class AsyncSkillsWithRawResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    @required_args(["skill_id"])
++    async def retrieve(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._skills._get(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    async def list(self, *, limit: int | None = None, page: str | None = None, source: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all skills.
++
++        Args:
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            source: Source filter.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._skills._get("/beta/skills", params={
++            "limit": limit,
++            "page": page,
++            "source": source,
++            "betas": betas,
++        } if any([limit, page, source, betas]) else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    @required_args(["skill_id"])
++    async def delete(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._skills._delete(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++
++class SkillsWithStreamingResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    @required_args(["skill_id"])
++    def retrieve(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve.
++            betas: Optional list of beta features to enable.
++        """
++        return self._skills._get(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
++
++    def list(self, *, limit: int | None = None, page: str | None = None, source: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all skills.
++
++        Args:
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            source: Source filter.
++            betas: Optional list of beta features to enable.
++        """
++        return self._skills._get("/beta/skills", params={
++            "limit": limit,
++            "page": page,
++            "source": source,
++            "betas": betas,
++        } if any([limit, page, source, betas]) else None, extra_headers={"Accept": "text/event-stream"})
++
++    @required_args(["skill_id"])
++    def delete(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete.
++            betas: Optional list of beta features to enable.
++        """
++        return self._skills._delete(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
++
++
++class AsyncSkillsWithStreamingResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    @required_args(["skill_id"])
++    async def retrieve(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._skills._get(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
++
++    async def list(self, *, limit: int | None = None, page: str | None = None, source: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all skills.
++
++        Args:
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            source: Source filter.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._skills._get("/beta/skills", params={
++            "limit": limit,
++            "page": page,
++            "source": source,
++            "betas": betas,
++        } if any([limit, page, source, betas]) else None, extra_headers={"Accept": "text/event-stream"})
++
++    @required_args(["skill_id"])
++    async def delete(self, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._skills._delete(f"/beta/skills/{skill_id}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions.py b/src/anthropic/resources/beta/skills/versions.py
+--- a/src/anthropic/resources/beta/skills/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions.py	2026-09-21 02:23:24
+@@ -0,0 +1,288 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING
++
++if TYPE_CHECKING:
++    from ..._base_client import BaseClient
++    from ..beta import Beta
++
++from ..._resource import SyncAPIResource, AsyncAPIResource
++from ..._utils import required_args
++
++
++class Versions(SyncAPIResource):
++    def __init__(self, client: BaseClient) -> None:
++        super().__init__(client)
++
++    @required_args(["version", "skill_id"])
++    def retrieve(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill version by version and skill_id.
++
++        Args:
++            version: The version to retrieve.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return self._get(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None)
++
++    @required_args(["skill_id"])
++    def list(self, skill_id: str, *, limit: int | None = None, page: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all versions for a skill.
++
++        Args:
++            skill_id: The ID of the skill.
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            betas: Optional list of beta features to enable.
++        """
++        return self._get(f"/beta/skills/{skill_id}/versions", params={
++            "limit": limit,
++            "page": page,
++            "betas": betas,
++        } if any([limit, page, betas]) else None)
++
++    @required_args(["version", "skill_id"])
++    def delete(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill version by version and skill_id.
++
++        Args:
++            version: The version to delete.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return self._delete(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None)
++
++
++class AsyncVersions(AsyncAPIResource):
++    def __init__(self, client: BaseClient) -> None:
++        super().__init__(client)
++
++    @required_args(["version", "skill_id"])
++    async def retrieve(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill version by version and skill_id.
++
++        Args:
++            version: The version to retrieve.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._get(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None)
++
++    @required_args(["skill_id"])
++    async def list(self, skill_id: str, *, limit: int | None = None, page: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all versions for a skill.
++
++        Args:
++            skill_id: The ID of the skill.
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._get(f"/beta/skills/{skill_id}/versions", params={
++            "limit": limit,
++            "page": page,
++            "betas": betas,
++        } if any([limit, page, betas]) else None)
++
++    @required_args(["version", "skill_id"])
++    async def delete(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill version by version and skill_id.
++
++        Args:
++            version: The version to delete.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._delete(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None)
++
++
++class VersionsWithRawResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    @required_args(["version", "skill_id"])
++    def retrieve(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill version by version and skill_id.
++
++        Args:
++            version: The version to retrieve.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return self._versions._get(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    @required_args(["skill_id"])
++    def list(self, skill_id: str, *, limit: int | None = None, page: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all versions for a skill.
++
++        Args:
++            skill_id: The ID of the skill.
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            betas: Optional list of beta features to enable.
++        """
++        return self._versions._get(f"/beta/skills/{skill_id}/versions", params={
++            "limit": limit,
++            "page": page,
++            "betas": betas,
++        } if any([limit, page, betas]) else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    @required_args(["version", "skill_id"])
++    def delete(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill version by version and skill_id.
++
++        Args:
++            version: The version to delete.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return self._versions._delete(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++
++class AsyncVersionsWithRawResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    @required_args(["version", "skill_id"])
++    async def retrieve(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill version by version and skill_id.
++
++        Args:
++            version: The version to retrieve.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._versions._get(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    @required_args(["skill_id"])
++    async def list(self, skill_id: str, *, limit: int | None = None, page: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all versions for a skill.
++
++        Args:
++            skill_id: The ID of the skill.
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._versions._get(f"/beta/skills/{skill_id}/versions", params={
++            "limit": limit,
++            "page": page,
++            "betas": betas,
++        } if any([limit, page, betas]) else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++    @required_args(["version", "skill_id"])
++    async def delete(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill version by version and skill_id.
++
++        Args:
++            version: The version to delete.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._versions._delete(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"X-Stainless-Response-Format": "raw"})
++
++
++class VersionsWithStreamingResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    @required_args(["version", "skill_id"])
++    def retrieve(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill version by version and skill_id.
++
++        Args:
++            version: The version to retrieve.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return self._versions._get(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
++
++    @required_args(["skill_id"])
++    def list(self, skill_id: str, *, limit: int | None = None, page: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all versions for a skill.
++
++        Args:
++            skill_id: The ID of the skill.
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            betas: Optional list of beta features to enable.
++        """
++        return self._versions._get(f"/beta/skills/{skill_id}/versions", params={
++            "limit": limit,
++            "page": page,
++            "betas": betas,
++        } if any([limit, page, betas]) else None, extra_headers={"Accept": "text/event-stream"})
++
++    @required_args(["version", "skill_id"])
++    def delete(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill version by version and skill_id.
++
++        Args:
++            version: The version to delete.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return self._versions._delete(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
++
++
++class AsyncVersionsWithStreamingResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    @required_args(["version", "skill_id"])
++    async def retrieve(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Retrieves a skill version by version and skill_id.
++
++        Args:
++            version: The version to retrieve.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._versions._get(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
++
++    @required_args(["skill_id"])
++    async def list(self, skill_id: str, *, limit: int | None = None, page: str | None = None, betas: list[str] | None = None) -> object:
++        """
++        Lists all versions for a skill.
++
++        Args:
++            skill_id: The ID of the skill.
++            limit: Maximum number of items to return.
++            page: Page token for pagination.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._versions._get(f"/beta/skills/{skill_id}/versions", params={
++            "limit": limit,
++            "page": page,
++            "betas": betas,
++        } if any([limit, page, betas]) else None, extra_headers={"Accept": "text/event-stream"})
++
++    @required_args(["version", "skill_id"])
++    async def delete(self, version: str, skill_id: str, *, betas: list[str] | None = None) -> object:
++        """
++        Deletes a skill version by version and skill_id.
++
++        Args:
++            version: The version to delete.
++            skill_id: The ID of the skill.
++            betas: Optional list of beta features to enable.
++        """
++        return await self._versions._delete(f"/beta/skills/{skill_id}/versions/{version}", params={"betas": betas} if betas else None, extra_headers={"Accept": "text/event-stream"})
+\ No newline at end of file

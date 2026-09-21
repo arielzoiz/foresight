@@ -1,0 +1,605 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 01:55:42
+@@ -32,6 +32,22 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
++from .skills.versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -58,4 +74,16 @@
+     "AsyncBetaWithRawResponse",
+     "BetaWithStreamingResponse",
+     "AsyncBetaWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
++    "Versions",
++    "AsyncVersions",
++    "VersionsWithRawResponse",
++    "AsyncVersionsWithRawResponse",
++    "VersionsWithStreamingResponse",
++    "AsyncVersionsWithStreamingResponse",
+ ]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 01:55:54
+@@ -18,6 +18,14 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
+ from ..._compat import cached_property
+ from ..._resource import SyncAPIResource, AsyncAPIResource
+ from .messages.messages import (
+@@ -46,6 +54,10 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -79,6 +91,10 @@
+         return AsyncFiles(self._client)
+ 
+     @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -114,7 +130,11 @@
+     def files(self) -> FilesWithRawResponse:
+         return FilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithRawResponse:
++        return SkillsWithRawResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithRawResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -131,7 +151,11 @@
+     def files(self) -> AsyncFilesWithRawResponse:
+         return AsyncFilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> AsyncSkillsWithRawResponse:
++        return AsyncSkillsWithRawResponse(self._beta.skills)
+ 
++
+ class BetaWithStreamingResponse:
+     def __init__(self, beta: Beta) -> None:
+         self._beta = beta
+@@ -148,7 +172,11 @@
+     def files(self) -> FilesWithStreamingResponse:
+         return FilesWithStreamingResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithStreamingResponse:
++        return SkillsWithStreamingResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithStreamingResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -164,3 +192,7 @@
+     @cached_property
+     def files(self) -> AsyncFilesWithStreamingResponse:
+         return AsyncFilesWithStreamingResponse(self._beta.files)
++
++    @cached_property
++    def skills(self) -> AsyncSkillsWithStreamingResponse:
++        return AsyncSkillsWithStreamingResponse(self._beta.skills)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions.py b/src/anthropic/resources/beta/skills/versions.py
+--- a/src/anthropic/resources/beta/skills/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions.py	2026-09-21 01:55:38
+@@ -0,0 +1,244 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, List, Optional
++
++from .._resource import AsyncAPIResource, SyncAPIResource
++from .._base_client import SyncAPIClient, AsyncAPIClient
++from ...types.beta.skills import (
++    VersionCreateResponse,
++    VersionRetrieveResponse,
++    VersionListResponse,
++    VersionDeleteResponse,
++)
++from ...pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ..._client import Anthropic, AsyncAnthropic
++
++
++class Versions(SyncAPIResource):
++    def __init__(self, client: SyncAPIClient) -> None:
++        super().__init__(client)
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[bytes]] = None,
++        betas: Optional[List[str]] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++            skill_id: The ID of the skill
++            files: Files associated with the version
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        body = {}
++        if files is not None:
++            body["files"] = files
++        if betas is not None:
++            body["betas"] = betas
++            
++        return self._post(f"/beta/skills/{skill_id}/versions", body=body, response_cls=VersionCreateResponse)
++
++    def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++            skill_id: The ID of the skill
++            version: The version identifier
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return self._get(f"/beta/skills/{skill_id}/versions/{version}", params=params, response_cls=VersionRetrieveResponse)
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++    ) -> SyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++            skill_id: The ID of the skill
++            limit: Maximum number of results to return
++            page: Page token for pagination
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        params = {}
++        if limit is not None:
++            params["limit"] = limit
++        if page is not None:
++            params["page"] = page
++        if betas is not None:
++            params["betas"] = betas
++            
++        return self._get_api_list(f"/beta/skills/{skill_id}/versions", params=params, response_cls=VersionListResponse)
++
++    def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++            skill_id: The ID of the skill
++            version: The version identifier
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return self._delete(f"/beta/skills/{skill_id}/versions/{version}", params=params, response_cls=VersionDeleteResponse)
++
++
++class AsyncVersions(AsyncAPIResource):
++    def __init__(self, client: AsyncAPIClient) -> None:
++        super().__init__(client)
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[bytes]] = None,
++        betas: Optional[List[str]] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++            skill_id: The ID of the skill
++            files: Files associated with the version
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        body = {}
++        if files is not None:
++            body["files"] = files
++        if betas is not None:
++            body["betas"] = betas
++            
++        return await self._post(f"/beta/skills/{skill_id}/versions", body=body, response_cls=VersionCreateResponse)
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++            skill_id: The ID of the skill
++            version: The version identifier
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return await self._get(f"/beta/skills/{skill_id}/versions/{version}", params=params, response_cls=VersionRetrieveResponse)
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++            skill_id: The ID of the skill
++            limit: Maximum number of results to return
++            page: Page token for pagination
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        params = {}
++        if limit is not None:
++            params["limit"] = limit
++        if page is not None:
++            params["page"] = page
++        if betas is not None:
++            params["betas"] = betas
++            
++        return await self._get_api_list(f"/beta/skills/{skill_id}/versions", params=params, response_cls=VersionListResponse)
++
++    async def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++            skill_id: The ID of the skill
++            version: The version identifier
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return await self._delete(f"/beta/skills/{skill_id}/versions/{version}", params=params, response_cls=VersionDeleteResponse)
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills.py b/src/anthropic/resources/beta/skills.py
+--- a/src/anthropic/resources/beta/skills.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills.py	2026-09-21 01:55:30
+@@ -0,0 +1,224 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, List, Optional, Union
++
++from .._resource import AsyncAPIResource, SyncAPIResource
++from .._base_client import SyncAPIClient, AsyncAPIClient
++from ...types.beta import (
++    SkillCreateResponse,
++    SkillRetrieveResponse,
++    SkillListResponse,
++    SkillDeleteResponse,
++)
++from ...pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ..._client import Anthropic, AsyncAnthropic
++
++
++class Skills(SyncAPIResource):
++    def __init__(self, client: SyncAPIClient) -> None:
++        super().__init__(client)
++
++    def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[List[bytes]] = None,
++        betas: Optional[List[str]] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++            display_title: Display title for the skill
++            files: Files associated with the skill
++            betas: Beta features to enable
++        """
++        body = {}
++        if display_title is not None:
++            body["display_title"] = display_title
++        if files is not None:
++            body["files"] = files
++        if betas is not None:
++            body["betas"] = betas
++            
++        return self._post("/beta/skills", body=body, response_cls=SkillCreateResponse)
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return self._get(f"/beta/skills/{skill_id}", params=params, response_cls=SkillRetrieveResponse)
++
++    def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++    ) -> SyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++            limit: Maximum number of results to return
++            page: Page token for pagination
++            source: Source filter
++            betas: Beta features to enable
++        """
++        params = {}
++        if limit is not None:
++            params["limit"] = limit
++        if page is not None:
++            params["page"] = page
++        if source is not None:
++            params["source"] = source
++        if betas is not None:
++            params["betas"] = betas
++            
++        return self._get_api_list("/beta/skills", params=params, response_cls=SkillListResponse)
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return self._delete(f"/beta/skills/{skill_id}", params=params, response_cls=SkillDeleteResponse)
++
++
++class AsyncSkills(AsyncAPIResource):
++    def __init__(self, client: AsyncAPIClient) -> None:
++        super().__init__(client)
++
++    async def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[List[bytes]] = None,
++        betas: Optional[List[str]] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++            display_title: Display title for the skill
++            files: Files associated with the skill
++            betas: Beta features to enable
++        """
++        body = {}
++        if display_title is not None:
++            body["display_title"] = display_title
++        if files is not None:
++            body["files"] = files
++        if betas is not None:
++            body["betas"] = betas
++            
++        return await self._post("/beta/skills", body=body, response_cls=SkillCreateResponse)
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return await self._get(f"/beta/skills/{skill_id}", params=params, response_cls=SkillRetrieveResponse)
++
++    async def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++            limit: Maximum number of results to return
++            page: Page token for pagination
++            source: Source filter
++            betas: Beta features to enable
++        """
++        params = {}
++        if limit is not None:
++            params["limit"] = limit
++        if page is not None:
++            params["page"] = page
++        if source is not None:
++            params["source"] = source
++        if betas is not None:
++            params["betas"] = betas
++            
++        return await self._get_api_list("/beta/skills", params=params, response_cls=SkillListResponse)
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete
++            betas: Beta features to enable
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        params = {}
++        if betas is not None:
++            params["betas"] = betas
++            
++        return await self._delete(f"/beta/skills/{skill_id}", params=params, response_cls=SkillDeleteResponse)
+\ No newline at end of file

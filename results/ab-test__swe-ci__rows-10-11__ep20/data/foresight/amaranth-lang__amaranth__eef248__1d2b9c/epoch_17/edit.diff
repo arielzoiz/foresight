@@ -1,0 +1,73 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-21 01:11:58
++++ b/amaranth/hdl/_ir.py	2026-09-21 01:23:54
+@@ -447,45 +447,18 @@
+                 # If we can't find the fragment in our map, we're done
+                 break
+         
+-        # Domain not found in hierarchy - this should not happen in a properly constructed design
+-        # but let's be defensive and check all fragments in case of unusual circumstances
+-        for frag in self.fragments:
+-            # Safely check if the fragment has domains attribute and if domain_name exists
+-            if hasattr(frag, 'domains'):
+-                try:
+-                    domains = frag.domains
+-                    # Handle different types of domain containers
+-                    if hasattr(domains, '__iter__') and hasattr(domains, '__contains__'):
+-                        # Standard dict-like or set-like object
+-                        if domain_name in domains:
+-                            return domains[domain_name]
+-                    elif isinstance(domains, dict):
+-                        # Explicit dict check
+-                        if domain_name in domains:
+-                            return domains[domain_name]
+-                    elif hasattr(domains, 'keys'):
+-                        # OrderedDict-like or other dict-like objects
+-                        if domain_name in domains:
+-                            return domains[domain_name]
+-                    else:
+-                        # For special domain containers like _ModuleBuilderDomainSet, 
+-                        # we try direct access or fallback to getattr
+-                        try:
+-                            if hasattr(domains, domain_name):
+-                                # If it's an attribute-based container, access it directly
+-                                return getattr(domains, domain_name)
+-                        except (AttributeError, TypeError):
+-                            # Fall back to checking if it's a container that supports iteration
+-                            try:
+-                                if hasattr(domains, '__contains__') and domain_name in domains:
+-                                    return domains[domain_name]
+-                            except (TypeError, AttributeError):
+-                                pass
+-                except (TypeError, AttributeError, KeyError):
+-                    # If accessing domains fails, skip this fragment
+-                    continue
+-        
+-        # Domain not found in hierarchy - raise an appropriate error
++        # If not found in hierarchy, check if we're dealing with a transformed fragment
++        # where domains may have been renamed
++        try:
++            # Check if the fragment has been transformed and domains were renamed
++            # This is a more direct approach to find the domain
++            for frag, info in self.fragments.items():
++                if domain_name in frag.domains:
++                    return frag.domains[domain_name]
++        except Exception:
++            pass
++            
++        # Domain not found - raise an appropriate error
+         raise KeyError(f"Domain '{domain_name}' not found in fragment hierarchy")
+ 
+     def _compute_fragment_depth_parent(self, fragment: Fragment, parent: "Fragment | None", depth: int):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/pysim.py b/amaranth/sim/pysim.py
+--- a/amaranth/sim/pysim.py	2026-09-21 01:20:42
++++ b/amaranth/sim/pysim.py	2026-09-21 01:23:48
+@@ -364,7 +364,7 @@
+         self.pending = pending
+         self.waiters = {}
+         self.curr = self.next = signal.init
+-        self._prev_value = None
++        self._prev_value = signal.init
+ 
+     def set(self, value):
+         if self.next == value:

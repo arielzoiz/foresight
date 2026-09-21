@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/amaranth/sim/core.py</location>
+        <description>The Tick, Delay, and other simulator command classes are missing proper async iteration protocol implementation for use in 'await' expressions. Tests are failing with TypeError: object Tick can't be used in 'await' expression.</description>
+        <contract>Simulator command classes (Tick, Delay, PosEdgeTrigger, NegEdgeTrigger, etc.) must implement proper async iteration protocol (__aiter__ and __anext__) to be compatible with await expressions in test scenarios. The classes should properly yield control to the async event loop rather than raising StopAsyncIteration immediately.</contract>
+        <acceptance>tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_delay, tests/test_sim.py::SimulatorRegressionTestCase::test_latch, tests/test_sim.py::SimulatorRegressionTestCase::test_edge, tests/test_sim.py::SimulatorRegressionTestCase::test_struct, tests/test_sim.py::SimulatorRegressionTestCase::test_sync_reset, tests/test_sim.py::SimulatorRegressionTestCase::test_timeout, tests/test_sim.py::SimulatorRegressionTestCase::test_valuecastable, tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_changed, tests/test_sim.py::SimulatorRegressionTestCase::test_critical, tests/test_sim.py::SimulatorRegressionTestCase::test_async_reset, tests/test_sim.py::SimulatorRegressionTestCase::test_sample, tests/test_sim.py::SimulatorRegressionTestCase::test_delay, tests/test_sim.py::SimulatorRegressionTestCase::test_tick_repeat_until, tests/test_sim.py::SimulatorRegressionTestCase::test_broken_multiedge</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/amaranth/sim/core.py</location>
+        <description>The Context class's posedge and negedge methods return inner classes that don't properly implement the async iteration protocol. Tests expect these to be awaitable objects but they raise StopAsyncIteration immediately.</description>
+        <contract>Inner trigger classes (PosEdgeTrigger, NegEdgeTrigger, ChangedTrigger) returned by Context.posedge(), Context.negedge(), and Context.changed() must properly implement async iteration protocol (__aiter__ and __anext__) to be compatible with await expressions in test scenarios.</contract>
+        <acceptance>tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_delay, tests/test_sim.py::SimulatorRegressionTestCase::test_latch, tests/test_sim.py::SimulatorRegressionTestCase::test_edge, tests/test_sim.py::SimulatorRegressionTestCase::test_struct, tests/test_sim.py::SimulatorRegressionTestCase::test_sync_reset, tests/test_sim.py::SimulatorRegressionTestCase::test_timeout, tests/test_sim.py::SimulatorRegressionTestCase::test_valuecastable, tests/test_sim.py::SimulatorRegressionTestCase::test_abandon_changed, tests/test_sim.py::SimulatorRegressionTestCase::test_critical, tests/test_sim.py::SimulatorRegressionTestCase::test_async_reset, tests/test_sim.py::SimulatorRegressionTestCase::test_sample, tests/test_sim.py::SimulatorRegressionTestCase::test_delay, tests/test_sim.py::SimulatorRegressionTestCase::test_tick_repeat_until, tests/test_sim.py::SimulatorRegressionTestCase::test_broken_multiedge</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/amaranth/sim/core.py</location>
+        <description>BrokenTrigger class is referenced in tests but not properly defined or imported in the module. Tests are failing with NameError: name 'BrokenTrigger' is not defined.</description>
+        <contract>The BrokenTrigger class must be properly defined and exported from the sim module to be accessible to tests. The class should be defined at module level and added to __all__.</contract>
+        <acceptance>tests/test_sim.py::SimulatorRegressionTestCase::test_broken_other_trigger</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/amaranth/lib/crc/__init__.py</location>
+        <description>Some CRC tests are failing due to pickling issues with module objects. Tests are failing with TypeError: cannot pickle 'module' object.</description>
+        <contract>CRC-related classes and methods should not attempt to pickle module objects. The implementation should avoid serializing module references in ways that cause pickling errors.</contract>
+        <acceptance>tests/test_lib_crc.py::CRCTestCase::test_crc_bytes, tests/test_lib_crc.py::CRCTestCase::test_crc_match, tests/test_lib_crc.py::CRCTestCase::test_crc_words</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/amaranth/sim/core.py</location>
+        <description>The Context.sample() method attempts to access signal attributes that may not exist, causing AttributeError when accessing _init attribute on Slice objects.</description>
+        <contract>Context.sample() method must safely handle signal access without assuming presence of specific attributes like '_init'. It should gracefully handle missing attributes and provide fallback behavior.</contract>
+        <acceptance>tests/test_sim.py::SimulatorRegressionTestCase::test_struct</acceptance>
+    </requirement>
+</requirement_document>

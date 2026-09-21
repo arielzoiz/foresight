@@ -1,0 +1,61 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/sim/pysim.py b/amaranth/sim/pysim.py
+--- a/amaranth/sim/pysim.py	2026-09-21 01:09:10
++++ b/amaranth/sim/pysim.py	2026-09-21 01:20:42
+@@ -364,6 +364,7 @@
+         self.pending = pending
+         self.waiters = {}
+         self.curr = self.next = signal.init
++        self._prev_value = None
+ 
+     def set(self, value):
+         if self.next == value:
+@@ -552,18 +553,25 @@
+     def tick(self):
+         """Advance simulation by one delta cycle."""
+         self._step_rtl()
++        return self
+ 
+     def set(self, signal, value):
+         """Set a signal to a specific value."""
+         index = self._state.get_signal(signal)
+         self._state.slots[index].set(value)
++        return self
+ 
+     def posedge(self, signal):
+         """Wait for a positive edge on a signal."""
+         # Return whether the signal went from 0 to 1
+         index = self._state.get_signal(signal)
+         state = self._state.slots[index]
+-        return state.curr == 0 and value == 1
++        # We need to track the previous value to detect edges
++        prev_value = getattr(state, '_prev_value', None)
++        current_value = state.curr
++        # Store current value for next iteration
++        state._prev_value = current_value
++        return prev_value == 0 and current_value == 1
+ 
+     def changed(self, signal):
+         """Check if a signal has changed."""
+@@ -571,8 +579,12 @@
+         # For now, we'll return a boolean indicating if the signal changed
+         index = self._state.get_signal(signal)
+         state = self._state.slots[index]
+-        # In a real implementation, this would track changes over time
+-        return False
++        # Track previous value to detect changes
++        prev_value = getattr(state, '_prev_value', None)
++        current_value = state.curr
++        # Store current value for next iteration
++        state._prev_value = current_value
++        return prev_value != current_value and prev_value is not None
+ 
+     def delay(self, duration):
+         """Delay execution for a specified duration."""
+@@ -581,6 +593,7 @@
+             self._timeline.delay(duration, None)
+         else:
+             self._timeline.delay(0, None)
++        return self
+ 
+     def get(self, signal):
+         """Get the current value of a signal."""

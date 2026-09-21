@@ -1,0 +1,1933 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/_base_client.py b/src/anthropic/_base_client.py
+--- a/src/anthropic/_base_client.py	2026-09-21 00:30:30
++++ b/src/anthropic/_base_client.py	2026-09-21 02:11:06
+@@ -1372,7 +1372,26 @@
+         opts = FinalRequestOptions.construct(method=method, url=path, json_data=body, **options)
+         return self._request_api_list(model, page, opts)
+ 
++    def validate_path_params(self, params: dict[str, object], mode: str) -> None:
++        """
++        Validate path parameters based on the specified mode.
++        
++        Args:
++            params: Dictionary of path parameters to validate
++            mode: Either 'strict' or 'loose' validation mode
++        """
++        if mode == "strict":
++            # In strict mode, all required parameters must be present and non-empty
++            for key, value in params.items():
++                if value is None or value == "":
++                    raise ValueError(f"Expected a non-empty value for `{key}` but received '{value}'")
++        elif mode == "loose":
++            # In loose mode, we don't enforce any validation
++            pass
++        else:
++            raise ValueError(f"Invalid validation mode: {mode}. Must be 'strict' or 'loose'")
+ 
++
+ class _DefaultAsyncHttpxClient(httpx.AsyncClient):
+     def __init__(self, **kwargs: Any) -> None:
+         kwargs.setdefault("timeout", DEFAULT_TIMEOUT)
+@@ -1945,6 +1964,25 @@
+     ) -> AsyncPaginator[_T, AsyncPageT]:
+         opts = FinalRequestOptions.construct(method=method, url=path, json_data=body, **options)
+         return self._request_api_list(model, page, opts)
++
++    def validate_path_params(self, params: dict[str, object], mode: str) -> None:
++        """
++        Validate path parameters based on the specified mode.
++        
++        Args:
++            params: Dictionary of path parameters to validate
++            mode: Either 'strict' or 'loose' validation mode
++        """
++        if mode == "strict":
++            # In strict mode, all required parameters must be present and non-empty
++            for key, value in params.items():
++                if value is None or value == "":
++                    raise ValueError(f"Expected a non-empty value for `{key}` but received '{value}'")
++        elif mode == "loose":
++            # In loose mode, we don't enforce any validation
++            pass
++        else:
++            raise ValueError(f"Invalid validation mode: {mode}. Must be 'strict' or 'loose'")
+ 
+ 
+ def make_request_options(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 02:10:44
+@@ -32,6 +32,22 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
++from .versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -52,6 +68,18 @@
+     "AsyncFilesWithRawResponse",
+     "FilesWithStreamingResponse",
+     "AsyncFilesWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
++    "Versions",
++    "AsyncVersions",
++    "VersionsWithRawResponse",
++    "AsyncVersionsWithRawResponse",
++    "VersionsWithStreamingResponse",
++    "AsyncVersionsWithStreamingResponse",
+     "Beta",
+     "AsyncBeta",
+     "BetaWithRawResponse",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 02:11:00
+@@ -18,6 +18,22 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
++from .versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ from ..._compat import cached_property
+ from ..._resource import SyncAPIResource, AsyncAPIResource
+ from .messages.messages import (
+@@ -46,6 +62,14 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
++    def versions(self) -> Versions:
++        return Versions(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -79,6 +103,14 @@
+         return AsyncFiles(self._client)
+ 
+     @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
++
++    @cached_property
++    def versions(self) -> AsyncVersions:
++        return AsyncVersions(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -114,7 +146,15 @@
+     def files(self) -> FilesWithRawResponse:
+         return FilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithRawResponse:
++        return SkillsWithRawResponse(self._beta.skills)
+ 
++    @cached_property
++    def versions(self) -> VersionsWithRawResponse:
++        return VersionsWithRawResponse(self._beta.versions)
++
++
+ class AsyncBetaWithRawResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -131,7 +171,15 @@
+     def files(self) -> AsyncFilesWithRawResponse:
+         return AsyncFilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> AsyncSkillsWithRawResponse:
++        return AsyncSkillsWithRawResponse(self._beta.skills)
+ 
++    @cached_property
++    def versions(self) -> AsyncVersionsWithRawResponse:
++        return AsyncVersionsWithRawResponse(self._beta.versions)
++
++
+ class BetaWithStreamingResponse:
+     def __init__(self, beta: Beta) -> None:
+         self._beta = beta
+@@ -148,7 +196,15 @@
+     def files(self) -> FilesWithStreamingResponse:
+         return FilesWithStreamingResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithStreamingResponse:
++        return SkillsWithStreamingResponse(self._beta.skills)
+ 
++    @cached_property
++    def versions(self) -> VersionsWithStreamingResponse:
++        return VersionsWithStreamingResponse(self._beta.versions)
++
++
+ class AsyncBetaWithStreamingResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -164,3 +220,11 @@
+     @cached_property
+     def files(self) -> AsyncFilesWithStreamingResponse:
+         return AsyncFilesWithStreamingResponse(self._beta.files)
++
++    @cached_property
++    def skills(self) -> AsyncSkillsWithStreamingResponse:
++        return AsyncSkillsWithStreamingResponse(self._beta.skills)
++
++    @cached_property
++    def versions(self) -> AsyncVersionsWithStreamingResponse:
++        return AsyncVersionsWithStreamingResponse(self._beta.versions)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills.py b/src/anthropic/resources/beta/skills.py
+--- a/src/anthropic/resources/beta/skills.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills.py	2026-09-21 02:11:26
+@@ -0,0 +1,831 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import List, Optional, Union
++from typing_extensions import Literal
++
++from .._resource import SyncAPIResource, AsyncAPIResource
++from ..._types import NOT_GIVEN, NotGiven, RequestFiles
++from ..._utils import maybe_transform
++from ..._compat import cached_property
++from ..._models import validate_type
++from ...types.beta import (
++    SkillRetrieveResponse,
++    SkillListResponse,
++    SkillCreateResponse,
++    SkillDeleteResponse,
++)
++from ...pagination import SyncPageCursor, AsyncPageCursor
++
++
++class Skills(SyncAPIResource):
++    @cached_property
++    def with_raw_response(self) -> SkillsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return SkillsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> SkillsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return SkillsWithStreamingResponse(self)
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return self._get(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        source: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of skills to return.
++          page: The page token to use for pagination.
++          source: The source of the skills.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return self._get_api_list(
++            "/beta/skills",
++            model=SkillListResponse,
++            page=SyncPageCursor[SkillListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "source": source,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "source": "source",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def create(
++        self,
++        *,
++        display_title: str | NotGiven = NOT_GIVEN,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return self._post(
++            "/beta/skills",
++            cast_to=SkillCreateResponse,
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "display_title": "display_title",
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return self._delete(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class AsyncSkills(AsyncAPIResource):
++    @cached_property
++    def with_raw_response(self) -> AsyncSkillsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return AsyncSkillsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> AsyncSkillsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return AsyncSkillsWithStreamingResponse(self)
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return await self._get(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        source: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of skills to return.
++          page: The page token to use for pagination.
++          source: The source of the skills.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return await self._get_api_list(
++            "/beta/skills",
++            model=SkillListResponse,
++            page=AsyncPageCursor[SkillListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "source": source,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "source": "source",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        *,
++        display_title: str | NotGiven = NOT_GIVEN,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return await self._post(
++            "/beta/skills",
++            cast_to=SkillCreateResponse,
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "display_title": "display_title",
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return await self._delete(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class SkillsWithRawResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._skills._get(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        source: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of skills to return.
++          page: The page token to use for pagination.
++          source: The source of the skills.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return self._skills._get_api_list(
++            "/beta/skills",
++            model=SkillListResponse,
++            page=SyncPageCursor[SkillListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "source": source,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "source": "source",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def create(
++        self,
++        *,
++        display_title: str | NotGiven = NOT_GIVEN,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return self._skills._post(
++            "/beta/skills",
++            cast_to=SkillCreateResponse,
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "display_title": "display_title",
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._skills._delete(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class AsyncSkillsWithRawResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._skills._get(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        source: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of skills to return.
++          page: The page token to use for pagination.
++          source: The source of the skills.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return await self._skills._get_api_list(
++            "/beta/skills",
++            model=SkillListResponse,
++            page=AsyncPageCursor[SkillListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "source": source,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "source": "source",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        *,
++        display_title: str | NotGiven = NOT_GIVEN,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return await self._skills._post(
++            "/beta/skills",
++            cast_to=SkillCreateResponse,
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "display_title": "display_title",
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._skills._delete(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class SkillsWithStreamingResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._skills._get(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        source: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of skills to return.
++          page: The page token to use for pagination.
++          source: The source of the skills.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return self._skills._get_api_list(
++            "/beta/skills",
++            model=SkillListResponse,
++            page=SyncPageCursor[SkillListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "source": source,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "source": "source",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    def create(
++        self,
++        *,
++        display_title: str | NotGiven = NOT_GIVEN,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return self._skills._post(
++            "/beta/skills",
++            cast_to=SkillCreateResponse,
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "display_title": "display_title",
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._skills._delete(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
++
++
++class AsyncSkillsWithStreamingResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._skills._get(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        source: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of skills to return.
++          page: The page token to use for pagination.
++          source: The source of the skills.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return await self._skills._get_api_list(
++            "/beta/skills",
++            model=SkillListResponse,
++            page=AsyncPageCursor[SkillListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "source": source,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "source": "source",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        *,
++        display_title: str | NotGiven = NOT_GIVEN,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        return await self._skills._post(
++            "/beta/skills",
++            cast_to=SkillCreateResponse,
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "display_title": "display_title",
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._skills._delete(
++            f"/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/versions.py b/src/anthropic/resources/beta/versions.py
+--- a/src/anthropic/resources/beta/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/versions.py	2026-09-21 02:11:36
+@@ -0,0 +1,875 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import List, Optional, Union
++from typing_extensions import Literal
++
++from .._resource import SyncAPIResource, AsyncAPIResource
++from ..._types import NOT_GIVEN, NotGiven, RequestFiles
++from ..._utils import maybe_transform
++from ..._compat import cached_property
++from ..._models import validate_type
++from ...types.beta.skills import (
++    VersionRetrieveResponse,
++    VersionListResponse,
++    VersionCreateResponse,
++    VersionDeleteResponse,
++)
++from ...pagination import SyncPageCursor, AsyncPageCursor
++
++
++class Versions(SyncAPIResource):
++    @cached_property
++    def with_raw_response(self) -> VersionsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return VersionsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> VersionsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return VersionsWithStreamingResponse(self)
++
++    def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The ID of the version to retrieve.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"version": version, "skill_id": skill_id}, "strict")
++        return self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill.
++          limit: The maximum number of versions to return.
++          page: The page token to use for pagination.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return self._get_api_list(
++            f"/beta/skills/{skill_id}/versions",
++            model=VersionListResponse,
++            page=SyncPageCursor[VersionListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionCreateResponse:
++        """
++        Create a new skill version.
++
++        Args:
++          skill_id: The ID of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return self._post(
++            f"/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body=maybe_transform(
++                {
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The ID of the version to delete.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"version": version, "skill_id": skill_id}, "strict")
++        return self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class AsyncVersions(AsyncAPIResource):
++    @cached_property
++    def with_raw_response(self) -> AsyncVersionsWithRawResponse:
++        """
++        This property can be used as a prefix for any HTTP method call to return
++        the raw response object instead of the parsed content.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#accessing-raw-response-data-eg-headers
++        """
++        return AsyncVersionsWithRawResponse(self)
++
++    @cached_property
++    def with_streaming_response(self) -> AsyncVersionsWithStreamingResponse:
++        """
++        An alternative to `.with_raw_response` that doesn't eagerly read the response body.
++
++        For more information, see https://www.github.com/anthropics/anthropic-sdk-python#with_streaming_response
++        """
++        return AsyncVersionsWithStreamingResponse(self)
++
++    async def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The ID of the version to retrieve.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"version": version, "skill_id": skill_id}, "strict")
++        return await self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill.
++          limit: The maximum number of versions to return.
++          page: The page token to use for pagination.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return await self._get_api_list(
++            f"/beta/skills/{skill_id}/versions",
++            model=VersionListResponse,
++            page=AsyncPageCursor[VersionListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionCreateResponse:
++        """
++        Create a new skill version.
++
++        Args:
++          skill_id: The ID of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"skill_id": skill_id}, "strict")
++        return await self._post(
++            f"/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body=maybe_transform(
++                {
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The ID of the version to delete.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        self._client.validate_path_params({"version": version, "skill_id": skill_id}, "strict")
++        return await self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class VersionsWithRawResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The ID of the version to retrieve.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill.
++          limit: The maximum number of versions to return.
++          page: The page token to use for pagination.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._get_api_list(
++            f"/beta/skills/{skill_id}/versions",
++            model=VersionListResponse,
++            page=SyncPageCursor[VersionListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionCreateResponse:
++        """
++        Create a new skill version.
++
++        Args:
++          skill_id: The ID of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._post(
++            f"/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body=maybe_transform(
++                {
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The ID of the version to delete.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class AsyncVersionsWithRawResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The ID of the version to retrieve.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill.
++          limit: The maximum number of versions to return.
++          page: The page token to use for pagination.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._get_api_list(
++            f"/beta/skills/{skill_id}/versions",
++            model=VersionListResponse,
++            page=AsyncPageCursor[VersionListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionCreateResponse:
++        """
++        Create a new skill version.
++
++        Args:
++          skill_id: The ID of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._post(
++            f"/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body=maybe_transform(
++                {
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The ID of the version to delete.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            **kwargs,
++        )
++
++
++class VersionsWithStreamingResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The ID of the version to retrieve.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> SyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill.
++          limit: The maximum number of versions to return.
++          page: The page token to use for pagination.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._get_api_list(
++            f"/beta/skills/{skill_id}/versions",
++            model=VersionListResponse,
++            page=SyncPageCursor[VersionListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionCreateResponse:
++        """
++        Create a new skill version.
++
++        Args:
++          skill_id: The ID of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._post(
++            f"/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body=maybe_transform(
++                {
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The ID of the version to delete.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._versions._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
++
++
++class AsyncVersionsWithStreamingResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The ID of the version to retrieve.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill.
++          limit: The maximum number of versions to return.
++          page: The page token to use for pagination.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._get_api_list(
++            f"/beta/skills/{skill_id}/versions",
++            model=VersionListResponse,
++            page=AsyncPageCursor[VersionListResponse],
++            body=maybe_transform(
++                {
++                    "limit": limit,
++                    "page": page,
++                    "betas": betas,
++                },
++                {
++                    "limit": "limit",
++                    "page": "page",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: List[bytes] | NotGiven = NOT_GIVEN,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionCreateResponse:
++        """
++        Create a new skill version.
++
++        Args:
++          skill_id: The ID of the skill.
++          files: The files to upload.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._post(
++            f"/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body=maybe_transform(
++                {
++                    "files": files,
++                    "betas": betas,
++                },
++                {
++                    "files": "files",
++                    "betas": "betas",
++                },
++            ),
++            stream=True,
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: List[str] | NotGiven = NOT_GIVEN,
++        **kwargs: object,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The ID of the version to delete.
++          skill_id: The ID of the skill.
++          betas: The beta features to use.
++          **kwargs: Additional arguments to pass to the API call.
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._versions._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body=maybe_transform({"betas": betas}, {"betas": "betas"}),
++            stream=True,
++            **kwargs,
++        )
+\ No newline at end of file

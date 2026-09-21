@@ -1,0 +1,1074 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-21 00:30:30
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 01:54:06
+@@ -32,6 +32,14 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -58,4 +66,10 @@
+     "AsyncBetaWithRawResponse",
+     "BetaWithStreamingResponse",
+     "AsyncBetaWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
+ ]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/__init__.py b/src/anthropic/resources/beta/skills/__init__.py
+--- a/src/anthropic/resources/beta/skills/__init__.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/__init__.py	2026-09-21 01:54:12
+@@ -0,0 +1,475 @@
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any, Dict, Optional, cast
++
++from ..._resource import BaseResource
++from ..._response import APIResponse, AsyncAPIResponse
++from ..._streaming import Stream, AsyncStream
++from ...pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ..._client import Anthropic, AsyncAnthropic
++
++from ...types.beta.skills import (
++    SkillListResponse,
++    SkillCreateResponse,
++    SkillDeleteResponse,
++    SkillRetrieveResponse,
++)
++from .versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
++
++__all__ = [
++    "Versions",
++    "AsyncVersions",
++    "VersionsWithRawResponse",
++    "AsyncVersionsWithRawResponse",
++    "VersionsWithStreamingResponse",
++    "AsyncVersionsWithStreamingResponse",
++]
++
++
++class Skills(BaseResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[SkillRetrieveResponse]: The retrieved skill
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._get(
++            f"/v1/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++    def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SyncPageCursor[SkillListResponse]]:
++        """
++        List skills.
++
++        Args:
++            limit: Maximum number of items to return
++            page: Page token for pagination
++            source: Source filter
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[SyncPageCursor[SkillListResponse]]: Paginated list of skills
++        """
++        return self._get(
++            "/v1/beta/skills",
++            cast_to=cast(type, SyncPageCursor[SkillListResponse]),
++            body={
++                "limit": limit,
++                "page": page,
++                "source": source,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SkillCreateResponse]:
++        """
++        Create a new skill.
++
++        Args:
++            display_title: Display title for the skill
++            files: List of file contents as bytes
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[SkillCreateResponse]: The created skill
++        """
++        return self._post(
++            "/v1/beta/skills",
++            cast_to=SkillCreateResponse,
++            body={
++                "display_title": display_title,
++                "files": files,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SkillDeleteResponse]:
++        """
++        Delete a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[SkillDeleteResponse]: Deletion confirmation
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._delete(
++            f"/v1/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++
++class AsyncSkills(BaseResource):
++    def __init__(self, client: AsyncAnthropic) -> None:
++        super().__init__(client)
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SkillRetrieveResponse]:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[SkillRetrieveResponse]: The retrieved skill
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._get(
++            f"/v1/beta/skills/{skill_id}",
++            cast_to=SkillRetrieveResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SyncPageCursor[SkillListResponse]]:
++        """
++        List skills.
++
++        Args:
++            limit: Maximum number of items to return
++            page: Page token for pagination
++            source: Source filter
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[SyncPageCursor[SkillListResponse]]: Paginated list of skills
++        """
++        return await self._get(
++            "/v1/beta/skills",
++            cast_to=cast(type, SyncPageCursor[SkillListResponse]),
++            body={
++                "limit": limit,
++                "page": page,
++                "source": source,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SkillCreateResponse]:
++        """
++        Create a new skill.
++
++        Args:
++            display_title: Display title for the skill
++            files: List of file contents as bytes
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[SkillCreateResponse]: The created skill
++        """
++        return await self._post(
++            "/v1/beta/skills",
++            cast_to=SkillCreateResponse,
++            body={
++                "display_title": display_title,
++                "files": files,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SkillDeleteResponse]:
++        """
++        Delete a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[SkillDeleteResponse]: Deletion confirmation
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._delete(
++            f"/v1/beta/skills/{skill_id}",
++            cast_to=SkillDeleteResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++
++class SkillsWithRawResponse(Skills):
++    """Class for raw response handling for Skills."""
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        """Retrieve a skill by ID."""
++        return super().retrieve(skill_id, betas=betas, **kwargs)
++
++    def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SyncPageCursor[SkillListResponse]]:
++        """List skills."""
++        return super().list(limit=limit, page=page, source=source, betas=betas, **kwargs)
++
++    def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SkillCreateResponse]:
++        """Create a new skill."""
++        return super().create(display_title=display_title, files=files, betas=betas, **kwargs)
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SkillDeleteResponse]:
++        """Delete a skill by ID."""
++        return super().delete(skill_id, betas=betas, **kwargs)
++
++
++class AsyncSkillsWithRawResponse(AsyncSkills):
++    """Class for raw response handling for AsyncSkills."""
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SkillRetrieveResponse]:
++        """Retrieve a skill by ID."""
++        return await super().retrieve(skill_id, betas=betas, **kwargs)
++
++    async def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SyncPageCursor[SkillListResponse]]:
++        """List skills."""
++        return await super().list(limit=limit, page=page, source=source, betas=betas, **kwargs)
++
++    async def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SkillCreateResponse]:
++        """Create a new skill."""
++        return await super().create(display_title=display_title, files=files, betas=betas, **kwargs)
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SkillDeleteResponse]:
++        """Delete a skill by ID."""
++        return await super().delete(skill_id, betas=betas, **kwargs)
++
++
++class SkillsWithStreamingResponse(Skills):
++    """Class for streaming response handling for Skills."""
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[SkillRetrieveResponse]:
++        """Retrieve a skill by ID."""
++        return super().retrieve(skill_id, betas=betas, **kwargs)
++
++    def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[SyncPageCursor[SkillListResponse]]:
++        """List skills."""
++        return super().list(limit=limit, page=page, source=source, betas=betas, **kwargs)
++
++    def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[SkillCreateResponse]:
++        """Create a new skill."""
++        return super().create(display_title=display_title, files=files, betas=betas, **kwargs)
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[SkillDeleteResponse]:
++        """Delete a skill by ID."""
++        return super().delete(skill_id, betas=betas, **kwargs)
++
++
++class AsyncSkillsWithStreamingResponse(AsyncSkills):
++    """Class for streaming response handling for AsyncSkills."""
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[SkillRetrieveResponse]:
++        """Retrieve a skill by ID."""
++        return await super().retrieve(skill_id, betas=betas, **kwargs)
++
++    async def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[SyncPageCursor[SkillListResponse]]:
++        """List skills."""
++        return await super().list(limit=limit, page=page, source=source, betas=betas, **kwargs)
++
++    async def create(
++        self,
++        *,
++        display_title: Optional[str] = None,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[SkillCreateResponse]:
++        """Create a new skill."""
++        return await super().create(display_title=display_title, files=files, betas=betas, **kwargs)
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[SkillDeleteResponse]:
++        """Delete a skill by ID."""
++        return await super().delete(skill_id, betas=betas, **kwargs)
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions/__init__.py b/src/anthropic/resources/beta/skills/versions/__init__.py
+--- a/src/anthropic/resources/beta/skills/versions/__init__.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions/__init__.py	2026-09-21 01:53:58
+@@ -0,0 +1,492 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any, Dict, Optional, cast
++
++from ..._resource import BaseResource
++from ..._response import APIResponse, AsyncAPIResponse
++from ..._streaming import Stream, AsyncStream
++from ...pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ..._client import Anthropic, AsyncAnthropic
++
++from ...types.beta.skills import (
++    VersionListResponse,
++    VersionCreateResponse,
++    VersionDeleteResponse,
++    VersionRetrieveResponse,
++)
++
++
++class Versions(BaseResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++            version: The version ID to retrieve
++            skill_id: The ID of the skill
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[VersionRetrieveResponse]: The retrieved skill version
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._get(
++            f"/v1/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SyncPageCursor[VersionListResponse]]:
++        """
++        List skill versions.
++
++        Args:
++            skill_id: The ID of the skill
++            limit: Maximum number of items to return
++            page: Page token for pagination
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[SyncPageCursor[VersionListResponse]]: Paginated list of skill versions
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._get(
++            f"/v1/beta/skills/{skill_id}/versions",
++            cast_to=cast(type, SyncPageCursor[VersionListResponse]),
++            body={
++                "limit": limit,
++                "page": page,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[VersionCreateResponse]:
++        """
++        Create a new skill version.
++
++        Args:
++            skill_id: The ID of the skill
++            files: List of file contents as bytes
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[VersionCreateResponse]: The created skill version
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._post(
++            f"/v1/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body={
++                "files": files,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[VersionDeleteResponse]:
++        """
++        Delete a skill version by ID.
++
++        Args:
++            version: The version ID to delete
++            skill_id: The ID of the skill
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            APIResponse[VersionDeleteResponse]: Deletion confirmation
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._delete(
++            f"/v1/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++
++class AsyncVersions(BaseResource):
++    def __init__(self, client: AsyncAnthropic) -> None:
++        super().__init__(client)
++
++    async def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[VersionRetrieveResponse]:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++            version: The version ID to retrieve
++            skill_id: The ID of the skill
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[VersionRetrieveResponse]: The retrieved skill version
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._get(
++            f"/v1/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionRetrieveResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SyncPageCursor[VersionListResponse]]:
++        """
++        List skill versions.
++
++        Args:
++            skill_id: The ID of the skill
++            limit: Maximum number of items to return
++            page: Page token for pagination
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[SyncPageCursor[VersionListResponse]]: Paginated list of skill versions
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._get(
++            f"/v1/beta/skills/{skill_id}/versions",
++            cast_to=cast(type, SyncPageCursor[VersionListResponse]),
++            body={
++                "limit": limit,
++                "page": page,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[VersionCreateResponse]:
++        """
++        Create a new skill version.
++
++        Args:
++            skill_id: The ID of the skill
++            files: List of file contents as bytes
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[VersionCreateResponse]: The created skill version
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._post(
++            f"/v1/beta/skills/{skill_id}/versions",
++            cast_to=VersionCreateResponse,
++            body={
++                "files": files,
++                "betas": betas,
++            },
++            **kwargs,
++        )
++
++    async def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[VersionDeleteResponse]:
++        """
++        Delete a skill version by ID.
++
++        Args:
++            version: The version ID to delete
++            skill_id: The ID of the skill
++            betas: Optional list of beta features to enable
++            **kwargs: Additional arguments to pass to the API call
++
++        Returns:
++            AsyncAPIResponse[VersionDeleteResponse]: Deletion confirmation
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._delete(
++            f"/v1/beta/skills/{skill_id}/versions/{version}",
++            cast_to=VersionDeleteResponse,
++            body={"betas": betas} if betas else {},
++            **kwargs,
++        )
++
++
++class VersionsWithRawResponse(Versions):
++    """Class for raw response handling for Versions."""
++
++    def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        """Retrieve a skill version by ID."""
++        return super().retrieve(version, skill_id, betas=betas, **kwargs)
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[SyncPageCursor[VersionListResponse]]:
++        """List skill versions."""
++        return super().list(skill_id, limit=limit, page=page, betas=betas, **kwargs)
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[VersionCreateResponse]:
++        """Create a new skill version."""
++        return super().create(skill_id, files=files, betas=betas, **kwargs)
++
++    def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> APIResponse[VersionDeleteResponse]:
++        """Delete a skill version by ID."""
++        return super().delete(version, skill_id, betas=betas, **kwargs)
++
++
++class AsyncVersionsWithRawResponse(AsyncVersions):
++    """Class for raw response handling for AsyncVersions."""
++
++    async def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[VersionRetrieveResponse]:
++        """Retrieve a skill version by ID."""
++        return await super().retrieve(version, skill_id, betas=betas, **kwargs)
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[SyncPageCursor[VersionListResponse]]:
++        """List skill versions."""
++        return await super().list(skill_id, limit=limit, page=page, betas=betas, **kwargs)
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[VersionCreateResponse]:
++        """Create a new skill version."""
++        return await super().create(skill_id, files=files, betas=betas, **kwargs)
++
++    async def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncAPIResponse[VersionDeleteResponse]:
++        """Delete a skill version by ID."""
++        return await super().delete(version, skill_id, betas=betas, **kwargs)
++
++
++class VersionsWithStreamingResponse(Versions):
++    """Class for streaming response handling for Versions."""
++
++    def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[VersionRetrieveResponse]:
++        """Retrieve a skill version by ID."""
++        return super().retrieve(version, skill_id, betas=betas, **kwargs)
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[SyncPageCursor[VersionListResponse]]:
++        """List skill versions."""
++        return super().list(skill_id, limit=limit, page=page, betas=betas, **kwargs)
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[VersionCreateResponse]:
++        """Create a new skill version."""
++        return super().create(skill_id, files=files, betas=betas, **kwargs)
++
++    def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> Stream[VersionDeleteResponse]:
++        """Delete a skill version by ID."""
++        return super().delete(version, skill_id, betas=betas, **kwargs)
++
++
++class AsyncVersionsWithStreamingResponse(AsyncVersions):
++    """Class for streaming response handling for AsyncVersions."""
++
++    async def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[VersionRetrieveResponse]:
++        """Retrieve a skill version by ID."""
++        return await super().retrieve(version, skill_id, betas=betas, **kwargs)
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[SyncPageCursor[VersionListResponse]]:
++        """List skill versions."""
++        return await super().list(skill_id, limit=limit, page=page, betas=betas, **kwargs)
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[list[bytes]] = None,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[VersionCreateResponse]:
++        """Create a new skill version."""
++        return await super().create(skill_id, files=files, betas=betas, **kwargs)
++
++    async def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[list[str]] = None,
++        **kwargs: Any,
++    ) -> AsyncStream[VersionDeleteResponse]:
++        """Delete a skill version by ID."""
++        return await super().delete(version, skill_id, betas=betas, **kwargs)
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/types/beta/skills/__init__.py b/src/anthropic/types/beta/skills/__init__.py
+--- a/src/anthropic/types/beta/skills/__init__.py	1970-01-01 02:00:00
++++ b/src/anthropic/types/beta/skills/__init__.py	2026-09-21 01:54:00
+@@ -0,0 +1,63 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from typing import List, Optional, Union
++
++from .._base_model import BaseModel
++
++# Skill-related types
++class SkillListResponse(BaseModel):
++    id: str
++    display_title: Optional[str]
++    created_at: str
++    updated_at: str
++    source: str
++    versions: List[str]
++
++class SkillCreateResponse(BaseModel):
++    id: str
++    display_title: Optional[str]
++    created_at: str
++    updated_at: str
++    source: str
++    versions: List[str]
++
++class SkillDeleteResponse(BaseModel):
++    id: str
++    deleted: bool
++
++class SkillRetrieveResponse(BaseModel):
++    id: str
++    display_title: Optional[str]
++    created_at: str
++    updated_at: str
++    source: str
++    versions: List[str]
++
++# Version-related types
++class VersionListResponse(BaseModel):
++    id: str
++    skill_id: str
++    version: str
++    created_at: str
++    updated_at: str
++    files: List[str]
++
++class VersionCreateResponse(BaseModel):
++    id: str
++    skill_id: str
++    version: str
++    created_at: str
++    updated_at: str
++    files: List[str]
++
++class VersionDeleteResponse(BaseModel):
++    id: str
++    deleted: bool
++
++class VersionRetrieveResponse(BaseModel):
++    id: str
++    skill_id: str
++    version: str
++    created_at: str
++    updated_at: str
++    files: List[str]
+\ No newline at end of file

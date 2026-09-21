@@ -1,0 +1,515 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-20 23:33:08
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 00:09:40
+@@ -32,6 +32,14 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -52,6 +60,12 @@
+     "AsyncFilesWithRawResponse",
+     "FilesWithStreamingResponse",
+     "AsyncFilesWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
+     "Beta",
+     "AsyncBeta",
+     "BetaWithRawResponse",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-20 23:33:08
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 00:09:58
+@@ -18,6 +18,14 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
+ from ..._compat import cached_property
+ from ..._resource import SyncAPIResource, AsyncAPIResource
+ from .messages.messages import (
+@@ -46,6 +54,10 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -79,6 +91,10 @@
+         return AsyncFiles(self._client)
+ 
+     @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -114,7 +130,11 @@
+     def files(self) -> FilesWithRawResponse:
+         return FilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithRawResponse:
++        return SkillsWithRawResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithRawResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -131,7 +151,11 @@
+     def files(self) -> AsyncFilesWithRawResponse:
+         return AsyncFilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> AsyncSkillsWithRawResponse:
++        return AsyncSkillsWithRawResponse(self._beta.skills)
+ 
++
+ class BetaWithStreamingResponse:
+     def __init__(self, beta: Beta) -> None:
+         self._beta = beta
+@@ -148,7 +172,11 @@
+     def files(self) -> FilesWithStreamingResponse:
+         return FilesWithStreamingResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithStreamingResponse:
++        return SkillsWithStreamingResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithStreamingResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -164,3 +192,7 @@
+     @cached_property
+     def files(self) -> AsyncFilesWithStreamingResponse:
+         return AsyncFilesWithStreamingResponse(self._beta.files)
++
++    @cached_property
++    def skills(self) -> AsyncSkillsWithStreamingResponse:
++        return AsyncSkillsWithStreamingResponse(self._beta.skills)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/__init__.py b/src/anthropic/resources/beta/skills/__init__.py
+--- a/src/anthropic/resources/beta/skills/__init__.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/__init__.py	2026-09-21 00:09:36
+@@ -0,0 +1,5 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from .skills import Skills
++
++__all__ = ["Skills"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions.py b/src/anthropic/resources/beta/skills/versions.py
+--- a/src/anthropic/resources/beta/skills/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions.py	2026-09-21 00:09:36
+@@ -0,0 +1,175 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any, Dict, Optional
++
++from ..._resource import BaseResource
++from ..._response import APIResponse
++from ..._streaming import Stream
++from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
++from ..._utils import maybe_transform
++from ...types.beta.skills import (
++    VersionCreateResponse,
++    VersionDeleteResponse,
++    VersionListResponse,
++    VersionRetrieveResponse,
++)
++
++if TYPE_CHECKING:
++    from ..._client import Anthropic
++
++
++class Versions(BaseResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: list[bytes],
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[VersionCreateResponse]:
++        """
++        Create a new version of a skill.
++
++        Args:
++            skill_id: The ID of the skill to create a version for
++            files: The files to upload for the version
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._post(
++            f"/v1/beta/skills/{skill_id}/versions",
++            body=maybe_transform(
++                {
++                    "files": files,
++                    "betas": betas,
++                },
++                VersionCreateResponse,
++            ),
++            headers=extra_headers,
++            query=extra_query,
++            body_format="form",
++            cast_to=VersionCreateResponse,
++            stream=False,
++            timeout=timeout,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[VersionRetrieveResponse]:
++        """
++        Retrieve a version of a skill.
++
++        Args:
++            skill_id: The ID of the skill
++            version: The version identifier
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        return self._get(
++            f"/v1/beta/skills/{skill_id}/versions/{version}",
++            headers=extra_headers,
++            query=extra_query,
++            cast_to=VersionRetrieveResponse,
++            stream=False,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[VersionListResponse]:
++        """
++        List versions of a skill.
++
++        Args:
++            skill_id: The ID of the skill to list versions for
++            limit: Maximum number of versions to return
++            page: Page token for pagination
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._get(
++            f"/v1/beta/skills/{skill_id}/versions",
++            headers=extra_headers,
++            query=extra_query,
++            cast_to=VersionListResponse,
++            stream=False,
++            timeout=timeout,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        version: str,
++        *,
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[VersionDeleteResponse]:
++        """
++        Delete a version of a skill.
++
++        Args:
++            skill_id: The ID of the skill
++            version: The version identifier to delete
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        return self._delete(
++            f"/v1/beta/skills/{skill_id}/versions/{version}",
++            headers=extra_headers,
++            query=extra_query,
++            cast_to=VersionDeleteResponse,
++            stream=False,
++            timeout=timeout,
++        )
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills.py b/src/anthropic/resources/beta/skills.py
+--- a/src/anthropic/resources/beta/skills.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills.py	2026-09-21 00:09:28
+@@ -0,0 +1,205 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, Any, Dict, Optional
++
++from ..._resource import BaseResource
++from ..._response import APIResponse
++from ..._streaming import Stream
++from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
++from ..._utils import maybe_transform
++from ...types.beta import (
++    SkillCreateResponse,
++    SkillDeleteResponse,
++    SkillListResponse,
++    SkillRetrieveResponse,
++)
++
++if TYPE_CHECKING:
++    from ..._client import Anthropic
++
++
++class Skills(BaseResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    def create(
++        self,
++        *,
++        display_title: str,
++        files: list[bytes],
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[SkillCreateResponse]:
++        """
++        Create a new skill.
++
++        Args:
++            display_title: The display title for the skill
++            files: The files to upload for the skill
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        return self._post(
++            "/v1/beta/skills",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "files": files,
++                    "betas": betas,
++                },
++                SkillCreateResponse,
++            ),
++            headers=extra_headers,
++            query=extra_query,
++            body_format="form",
++            cast_to=SkillCreateResponse,
++            stream=False,
++            timeout=timeout,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to retrieve
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._get(
++            f"/v1/beta/skills/{skill_id}",
++            headers=extra_headers,
++            query=extra_query,
++            cast_to=SkillRetrieveResponse,
++            stream=False,
++            timeout=timeout,
++        )
++
++    def update(
++        self,
++        skill_id: str,
++        *,
++        display_title: str,
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[SkillRetrieveResponse]:
++        """
++        Update a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to update
++            display_title: The display title for the skill
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._patch(
++            f"/v1/beta/skills/{skill_id}",
++            body=maybe_transform(
++                {
++                    "display_title": display_title,
++                    "betas": betas,
++                },
++                SkillRetrieveResponse,
++            ),
++            headers=extra_headers,
++            query=extra_query,
++            cast_to=SkillRetrieveResponse,
++            stream=False,
++            timeout=timeout,
++        )
++
++    def list(
++        self,
++        *,
++        limit: int | NotGiven = NOT_GIVEN,
++        page: str | NotGiven = NOT_GIVEN,
++        source: str | NotGiven = NOT_GIVEN,
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++            limit: Maximum number of skills to return
++            page: Page token for pagination
++            source: Source filter for skills
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        return self._get(
++            "/v1/beta/skills",
++            headers=extra_headers,
++            query=extra_query,
++            cast_to=SkillListResponse,
++            stream=False,
++            timeout=timeout,
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: list[str] | NotGiven = NOT_GIVEN,
++        extra_headers: Headers | None = None,
++        extra_query: Query | None = None,
++        extra_body: Body | None = None,
++        timeout: float | None | NotGiven = NOT_GIVEN,
++    ) -> APIResponse[SkillDeleteResponse]:
++        """
++        Delete a skill by ID.
++
++        Args:
++            skill_id: The ID of the skill to delete
++            betas: Beta features to enable for this request
++            extra_headers: Send extra headers
++            extra_query: Add additional query parameters
++            extra_body: Add additional JSON body parameters
++            timeout: Override the client's default timeout
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++        return self._delete(
++            f"/v1/beta/skills/{skill_id}",
++            headers=extra_headers,
++            query=extra_query,
++            cast_to=SkillDeleteResponse,
++            stream=False,
++            timeout=timeout,
++        )
+\ No newline at end of file

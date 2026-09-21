@@ -1,0 +1,2309 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/__init__.py b/src/anthropic/resources/beta/__init__.py
+--- a/src/anthropic/resources/beta/__init__.py	2026-09-20 23:33:08
++++ b/src/anthropic/resources/beta/__init__.py	2026-09-21 00:15:38
+@@ -32,6 +32,20 @@
+     MessagesWithStreamingResponse,
+     AsyncMessagesWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
+ 
+ __all__ = [
+     "Models",
+@@ -52,6 +66,18 @@
+     "AsyncFilesWithRawResponse",
+     "FilesWithStreamingResponse",
+     "AsyncFilesWithStreamingResponse",
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
++    "Versions",
++    "AsyncVersions",
++    "VersionsWithRawResponse",
++    "AsyncVersionsWithRawResponse",
++    "VersionsWithStreamingResponse",
++    "AsyncVersionsWithStreamingResponse",
+     "Beta",
+     "AsyncBeta",
+     "BetaWithRawResponse",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/beta.py b/src/anthropic/resources/beta/beta.py
+--- a/src/anthropic/resources/beta/beta.py	2026-09-20 23:33:08
++++ b/src/anthropic/resources/beta/beta.py	2026-09-21 00:15:34
+@@ -18,6 +18,14 @@
+     ModelsWithStreamingResponse,
+     AsyncModelsWithStreamingResponse,
+ )
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
+ from ..._compat import cached_property
+ from ..._resource import SyncAPIResource, AsyncAPIResource
+ from .messages.messages import (
+@@ -46,6 +54,10 @@
+         return Files(self._client)
+ 
+     @cached_property
++    def skills(self) -> Skills:
++        return Skills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> BetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -79,6 +91,10 @@
+         return AsyncFiles(self._client)
+ 
+     @cached_property
++    def skills(self) -> AsyncSkills:
++        return AsyncSkills(self._client)
++
++    @cached_property
+     def with_raw_response(self) -> AsyncBetaWithRawResponse:
+         """
+         This property can be used as a prefix for any HTTP method call to return
+@@ -114,7 +130,11 @@
+     def files(self) -> FilesWithRawResponse:
+         return FilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithRawResponse:
++        return SkillsWithRawResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithRawResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -131,7 +151,11 @@
+     def files(self) -> AsyncFilesWithRawResponse:
+         return AsyncFilesWithRawResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> AsyncSkillsWithRawResponse:
++        return AsyncSkillsWithRawResponse(self._beta.skills)
+ 
++
+ class BetaWithStreamingResponse:
+     def __init__(self, beta: Beta) -> None:
+         self._beta = beta
+@@ -148,7 +172,11 @@
+     def files(self) -> FilesWithStreamingResponse:
+         return FilesWithStreamingResponse(self._beta.files)
+ 
++    @cached_property
++    def skills(self) -> SkillsWithStreamingResponse:
++        return SkillsWithStreamingResponse(self._beta.skills)
+ 
++
+ class AsyncBetaWithStreamingResponse:
+     def __init__(self, beta: AsyncBeta) -> None:
+         self._beta = beta
+@@ -164,3 +192,7 @@
+     @cached_property
+     def files(self) -> AsyncFilesWithStreamingResponse:
+         return AsyncFilesWithStreamingResponse(self._beta.files)
++
++    @cached_property
++    def skills(self) -> AsyncSkillsWithStreamingResponse:
++        return AsyncSkillsWithStreamingResponse(self._beta.skills)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/__init__.py b/src/anthropic/resources/beta/skills/__init__.py
+--- a/src/anthropic/resources/beta/skills/__init__.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/__init__.py	2026-09-21 00:14:10
+@@ -0,0 +1,33 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from .skills import (
++    Skills,
++    AsyncSkills,
++    SkillsWithRawResponse,
++    AsyncSkillsWithRawResponse,
++    SkillsWithStreamingResponse,
++    AsyncSkillsWithStreamingResponse,
++)
++from .versions import (
++    Versions,
++    AsyncVersions,
++    VersionsWithRawResponse,
++    AsyncVersionsWithRawResponse,
++    VersionsWithStreamingResponse,
++    AsyncVersionsWithStreamingResponse,
++)
++
++__all__ = [
++    "Skills",
++    "AsyncSkills",
++    "SkillsWithRawResponse",
++    "AsyncSkillsWithRawResponse",
++    "SkillsWithStreamingResponse",
++    "AsyncSkillsWithStreamingResponse",
++    "Versions",
++    "AsyncVersions",
++    "VersionsWithRawResponse",
++    "AsyncVersionsWithRawResponse",
++    "VersionsWithStreamingResponse",
++    "AsyncVersionsWithStreamingResponse",
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/skills.py b/src/anthropic/resources/beta/skills/skills.py
+--- a/src/anthropic/resources/beta/skills/skills.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/skills.py	2026-09-21 00:14:44
+@@ -0,0 +1,1043 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, List, Optional, Union, cast
++
++from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
++from ..._compat import cached_property
++from ..._resource import SyncAPIResource, AsyncAPIResource
++from ....types.beta.skills import (
++    SkillCreateResponse,
++    SkillDeleteResponse,
++    SkillListResponse,
++    SkillRetrieveResponse,
++)
++from ....types.beta.skills import (
++    SkillCreateParams,
++    SkillDeleteParams,
++    SkillListParams,
++    SkillRetrieveParams,
++)
++from ....pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ...._client import Anthropic
++
++
++class Skills(SyncAPIResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    def create(
++        self,
++        *,
++        display_title: str,
++        files: List[Union[str, bytes]],
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload for the skill.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._post(
++            "/beta/skills",
++            body=cast(Body, {
++                "display_title": display_title,
++                "files": files,
++                "betas": betas,
++            }),
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "create",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._get(
++            f"/beta/skills/{skill_id}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "retrieve",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillRetrieveResponse,
++        )
++
++    def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          source: The source to filter by.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._get(
++            "/beta/skills",
++            query=cast(Query, {
++                "limit": limit,
++                "page": page,
++                "source": source,
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "list",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SyncPageCursor[SkillListResponse],
++        )
++
++    def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._delete(
++            f"/beta/skills/{skill_id}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "delete",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillDeleteResponse,
++        )
++
++
++class AsyncSkills(AsyncAPIResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    async def create(
++        self,
++        *,
++        display_title: str,
++        files: List[Union[str, bytes]],
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload for the skill.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._post(
++            "/beta/skills",
++            body=cast(Body, {
++                "display_title": display_title,
++                "files": files,
++                "betas": betas,
++            }),
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "create",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._get(
++            f"/beta/skills/{skill_id}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "retrieve",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillRetrieveResponse,
++        )
++
++    async def list(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          source: The source to filter by.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._get(
++            "/beta/skills",
++            query=cast(Query, {
++                "limit": limit,
++                "page": page,
++                "source": source,
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "list",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=AsyncPageCursor[SkillListResponse],
++        )
++
++    async def delete(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._delete(
++            f"/beta/skills/{skill_id}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "delete",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SkillDeleteResponse,
++        )
++
++
++class SkillsWithRawResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def create(self) -> SkillsWithRawResponseCreate:
++        return SkillsWithRawResponseCreate(self._skills)
++
++    @cached_property
++    def retrieve(self) -> SkillsWithRawResponseRetrieve:
++        return SkillsWithRawResponseRetrieve(self._skills)
++
++    @cached_property
++    def list(self) -> SkillsWithRawResponseList:
++        return SkillsWithRawResponseList(self._skills)
++
++    @cached_property
++    def delete(self) -> SkillsWithRawResponseDelete:
++        return SkillsWithRawResponseDelete(self._skills)
++
++
++class SkillsWithRawResponseCreate:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        *,
++        display_title: str,
++        files: List[Union[str, bytes]],
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload for the skill.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.create(
++            display_title=display_title,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithRawResponseRetrieve:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithRawResponseList:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          source: The source to filter by.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithRawResponseDelete:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithRawResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def create(self) -> AsyncSkillsWithRawResponseCreate:
++        return AsyncSkillsWithRawResponseCreate(self._skills)
++
++    @cached_property
++    def retrieve(self) -> AsyncSkillsWithRawResponseRetrieve:
++        return AsyncSkillsWithRawResponseRetrieve(self._skills)
++
++    @cached_property
++    def list(self) -> AsyncSkillsWithRawResponseList:
++        return AsyncSkillsWithRawResponseList(self._skills)
++
++    @cached_property
++    def delete(self) -> AsyncSkillsWithRawResponseDelete:
++        return AsyncSkillsWithRawResponseDelete(self._skills)
++
++
++class AsyncSkillsWithRawResponseCreate:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        *,
++        display_title: str,
++        files: List[Union[str, bytes]],
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload for the skill.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.create(
++            display_title=display_title,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithRawResponseRetrieve:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithRawResponseList:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          source: The source to filter by.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithRawResponseDelete:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithStreamingResponse:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def create(self) -> SkillsWithStreamingResponseCreate:
++        return SkillsWithStreamingResponseCreate(self._skills)
++
++    @cached_property
++    def retrieve(self) -> SkillsWithStreamingResponseRetrieve:
++        return SkillsWithStreamingResponseRetrieve(self._skills)
++
++    @cached_property
++    def list(self) -> SkillsWithStreamingResponseList:
++        return SkillsWithStreamingResponseList(self._skills)
++
++    @cached_property
++    def delete(self) -> SkillsWithStreamingResponseDelete:
++        return SkillsWithStreamingResponseDelete(self._skills)
++
++
++class SkillsWithStreamingResponseCreate:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        *,
++        display_title: str,
++        files: List[Union[str, bytes]],
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload for the skill.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.create(
++            display_title=display_title,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithStreamingResponseRetrieve:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithStreamingResponseList:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          source: The source to filter by.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class SkillsWithStreamingResponseDelete:
++    def __init__(self, skills: Skills) -> None:
++        self._skills = skills
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithStreamingResponse:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    @cached_property
++    def create(self) -> AsyncSkillsWithStreamingResponseCreate:
++        return AsyncSkillsWithStreamingResponseCreate(self._skills)
++
++    @cached_property
++    def retrieve(self) -> AsyncSkillsWithStreamingResponseRetrieve:
++        return AsyncSkillsWithStreamingResponseRetrieve(self._skills)
++
++    @cached_property
++    def list(self) -> AsyncSkillsWithStreamingResponseList:
++        return AsyncSkillsWithStreamingResponseList(self._skills)
++
++    @cached_property
++    def delete(self) -> AsyncSkillsWithStreamingResponseDelete:
++        return AsyncSkillsWithStreamingResponseDelete(self._skills)
++
++
++class AsyncSkillsWithStreamingResponseCreate:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        *,
++        display_title: str,
++        files: List[Union[str, bytes]],
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillCreateResponse:
++        """
++        Create a new skill.
++
++        Args:
++          display_title: The display title of the skill.
++          files: The files to upload for the skill.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.create(
++            display_title=display_title,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithStreamingResponseRetrieve:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillRetrieveResponse:
++        """
++        Retrieve a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to retrieve.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.retrieve(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithStreamingResponseList:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        source: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> AsyncPageCursor[SkillListResponse]:
++        """
++        List skills.
++
++        Args:
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          source: The source to filter by.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.list(
++            limit=limit,
++            page=page,
++            source=source,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncSkillsWithStreamingResponseDelete:
++    def __init__(self, skills: AsyncSkills) -> None:
++        self._skills = skills
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SkillDeleteResponse:
++        """
++        Delete a skill by ID.
++
++        Args:
++          skill_id: The ID of the skill to delete.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._skills.delete(
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/src/anthropic/resources/beta/skills/versions.py b/src/anthropic/resources/beta/skills/versions.py
+--- a/src/anthropic/resources/beta/skills/versions.py	1970-01-01 02:00:00
++++ b/src/anthropic/resources/beta/skills/versions.py	2026-09-21 00:15:20
+@@ -0,0 +1,1091 @@
++# File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
++
++from __future__ import annotations
++
++from typing import TYPE_CHECKING, List, Optional, Union, cast
++
++from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
++from ..._compat import cached_property
++from ..._resource import SyncAPIResource, AsyncAPIResource
++from ....types.beta.skills import (
++    VersionCreateResponse,
++    VersionDeleteResponse,
++    VersionListResponse,
++    VersionRetrieveResponse,
++)
++from ....types.beta.skills import (
++    VersionCreateParams,
++    VersionDeleteParams,
++    VersionListParams,
++    VersionRetrieveParams,
++)
++from ....pagination import SyncPageCursor, AsyncPageCursor
++
++if TYPE_CHECKING:
++    from ...._client import Anthropic
++
++
++class Versions(SyncAPIResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++          skill_id: The ID of the skill to create a version for.
++          files: The files to upload for the skill version.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._post(
++            f"/beta/skills/{skill_id}/versions",
++            body=cast(Body, {
++                "files": files,
++                "betas": betas,
++            }),
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "create",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionCreateResponse,
++        )
++
++    def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The version ID to retrieve.
++          skill_id: The ID of the skill to retrieve the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "retrieve",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionRetrieveResponse,
++        )
++
++    def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill to list versions for.
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._get(
++            f"/beta/skills/{skill_id}/versions",
++            query=cast(Query, {
++                "limit": limit,
++                "page": page,
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "list",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=SyncPageCursor[VersionListResponse],
++        )
++
++    def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The version ID to delete.
++          skill_id: The ID of the skill to delete the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "delete",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionDeleteResponse,
++        )
++
++
++class AsyncVersions(AsyncAPIResource):
++    def __init__(self, client: Anthropic) -> None:
++        super().__init__(client)
++
++    async def create(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++          skill_id: The ID of the skill to create a version for.
++          files: The files to upload for the skill version.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._post(
++            f"/beta/skills/{skill_id}/versions",
++            body=cast(Body, {
++                "files": files,
++                "betas": betas,
++            }),
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "create",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionCreateResponse,
++        )
++
++    async def retrieve(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The version ID to retrieve.
++          skill_id: The ID of the skill to retrieve the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._get(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "retrieve",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionRetrieveResponse,
++        )
++
++    async def list(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill to list versions for.
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._get(
++            f"/beta/skills/{skill_id}/versions",
++            query=cast(Query, {
++                "limit": limit,
++                "page": page,
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "list",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=AsyncPageCursor[VersionListResponse],
++        )
++
++    async def delete(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The version ID to delete.
++          skill_id: The ID of the skill to delete the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        if not version:
++            raise ValueError("Expected a non-empty value for `version` but received ''")
++        if not skill_id:
++            raise ValueError("Expected a non-empty value for `skill_id` but received ''")
++
++        return await self._delete(
++            f"/beta/skills/{skill_id}/versions/{version}",
++            query=cast(Query, {
++                "betas": betas,
++            }),
++            headers=cast(Headers, {
++                "X-Stainless-Param": "delete",
++            }),
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++            response_cls=VersionDeleteResponse,
++        )
++
++
++class VersionsWithRawResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    @cached_property
++    def create(self) -> VersionsWithRawResponseCreate:
++        return VersionsWithRawResponseCreate(self._versions)
++
++    @cached_property
++    def retrieve(self) -> VersionsWithRawResponseRetrieve:
++        return VersionsWithRawResponseRetrieve(self._versions)
++
++    @cached_property
++    def list(self) -> VersionsWithRawResponseList:
++        return VersionsWithRawResponseList(self._versions)
++
++    @cached_property
++    def delete(self) -> VersionsWithRawResponseDelete:
++        return VersionsWithRawResponseDelete(self._versions)
++
++
++class VersionsWithRawResponseCreate:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++          skill_id: The ID of the skill to create a version for.
++          files: The files to upload for the skill version.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithRawResponseRetrieve:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The version ID to retrieve.
++          skill_id: The ID of the skill to retrieve the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithRawResponseList:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill to list versions for.
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithRawResponseDelete:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The version ID to delete.
++          skill_id: The ID of the skill to delete the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithRawResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    @cached_property
++    def create(self) -> AsyncVersionsWithRawResponseCreate:
++        return AsyncVersionsWithRawResponseCreate(self._versions)
++
++    @cached_property
++    def retrieve(self) -> AsyncVersionsWithRawResponseRetrieve:
++        return AsyncVersionsWithRawResponseRetrieve(self._versions)
++
++    @cached_property
++    def list(self) -> AsyncVersionsWithRawResponseList:
++        return AsyncVersionsWithRawResponseList(self._versions)
++
++    @cached_property
++    def delete(self) -> AsyncVersionsWithRawResponseDelete:
++        return AsyncVersionsWithRawResponseDelete(self._versions)
++
++
++class AsyncVersionsWithRawResponseCreate:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++          skill_id: The ID of the skill to create a version for.
++          files: The files to upload for the skill version.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithRawResponseRetrieve:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The version ID to retrieve.
++          skill_id: The ID of the skill to retrieve the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithRawResponseList:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill to list versions for.
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithRawResponseDelete:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The version ID to delete.
++          skill_id: The ID of the skill to delete the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithStreamingResponse:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    @cached_property
++    def create(self) -> VersionsWithStreamingResponseCreate:
++        return VersionsWithStreamingResponseCreate(self._versions)
++
++    @cached_property
++    def retrieve(self) -> VersionsWithStreamingResponseRetrieve:
++        return VersionsWithStreamingResponseRetrieve(self._versions)
++
++    @cached_property
++    def list(self) -> VersionsWithStreamingResponseList:
++        return VersionsWithStreamingResponseList(self._versions)
++
++    @cached_property
++    def delete(self) -> VersionsWithStreamingResponseDelete:
++        return VersionsWithStreamingResponseDelete(self._versions)
++
++
++class VersionsWithStreamingResponseCreate:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++          skill_id: The ID of the skill to create a version for.
++          files: The files to upload for the skill version.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithStreamingResponseRetrieve:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The version ID to retrieve.
++          skill_id: The ID of the skill to retrieve the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithStreamingResponseList:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> SyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill to list versions for.
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class VersionsWithStreamingResponseDelete:
++    def __init__(self, versions: Versions) -> None:
++        self._versions = versions
++
++    def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The version ID to delete.
++          skill_id: The ID of the skill to delete the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithStreamingResponse:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    @cached_property
++    def create(self) -> AsyncVersionsWithStreamingResponseCreate:
++        return AsyncVersionsWithStreamingResponseCreate(self._versions)
++
++    @cached_property
++    def retrieve(self) -> AsyncVersionsWithStreamingResponseRetrieve:
++        return AsyncVersionsWithStreamingResponseRetrieve(self._versions)
++
++    @cached_property
++    def list(self) -> AsyncVersionsWithStreamingResponseList:
++        return AsyncVersionsWithStreamingResponseList(self._versions)
++
++    @cached_property
++    def delete(self) -> AsyncVersionsWithStreamingResponseDelete:
++        return AsyncVersionsWithStreamingResponseDelete(self._versions)
++
++
++class AsyncVersionsWithStreamingResponseCreate:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        files: Optional[List[Union[str, bytes]]] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionCreateResponse:
++        """
++        Create a new version of a skill.
++
++        Args:
++          skill_id: The ID of the skill to create a version for.
++          files: The files to upload for the skill version.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.create(
++            skill_id=skill_id,
++            files=files,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithStreamingResponseRetrieve:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionRetrieveResponse:
++        """
++        Retrieve a skill version by ID.
++
++        Args:
++          version: The version ID to retrieve.
++          skill_id: The ID of the skill to retrieve the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.retrieve(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithStreamingResponseList:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        skill_id: str,
++        *,
++        limit: Optional[int] = None,
++        page: Optional[str] = None,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> AsyncPageCursor[VersionListResponse]:
++        """
++        List skill versions.
++
++        Args:
++          skill_id: The ID of the skill to list versions for.
++          limit: The maximum number of items to return.
++          page: The page token to use to retrieve the next page of items.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.list(
++            skill_id=skill_id,
++            limit=limit,
++            page=page,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
++
++
++class AsyncVersionsWithStreamingResponseDelete:
++    def __init__(self, versions: AsyncVersions) -> None:
++        self._versions = versions
++
++    async def __call__(
++        self,
++        version: str,
++        skill_id: str,
++        *,
++        betas: Optional[List[str]] = None,
++        extra_headers: Optional[Headers] = None,
++        extra_query: Optional[Query] = None,
++        extra_body: Optional[Body] = None,
++        timeout: Union[float, None] = None,
++    ) -> VersionDeleteResponse:
++        """
++        Delete a skill version by ID.
++
++        Args:
++          version: The version ID to delete.
++          skill_id: The ID of the skill to delete the version for.
++          betas: Beta features to enable for this request.
++          extra_headers: Send extra headers
++          extra_query: Add additional query parameters to the request
++          extra_body: Add additional JSON body parameters to the request
++          timeout: Override the client's default timeout for this request
++        """
++        return await self._versions.delete(
++            version=version,
++            skill_id=skill_id,
++            betas=betas,
++            extra_headers=extra_headers,
++            extra_query=extra_query,
++            extra_body=extra_body,
++            timeout=timeout,
++        )
+\ No newline at end of file

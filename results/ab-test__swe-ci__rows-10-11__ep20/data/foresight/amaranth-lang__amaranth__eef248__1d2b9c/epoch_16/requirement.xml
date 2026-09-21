@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement>
+    <item>
+        <location>/app/code/amaranth/sim/pysim.py</location>
+        <description>The PySimEngine class has incomplete implementations of several key methods that cause AttributeError failures in simulator tests. Specifically, the methods `tick`, `set`, `posedge`, `changed`, `delay`, and `get` are either unimplemented or have incorrect behavior that returns None instead of proper process objects.</description>
+        <contract>The PySimEngine class must implement the following methods correctly:
+1. `tick()` - Should advance simulation by one delta cycle
+2. `set(signal, value)` - Should set a signal to a specific value
+3. `posedge(signal)` - Should return whether a signal went from 0 to 1 on the last evaluation
+4. `changed(signal)` - Should return whether a signal has changed since last evaluation
+5. `delay(duration)` - Should delay execution for a specified duration
+6. `get(signal)` - Should return the current value of a signal
+
+These methods should behave consistently with the expected simulator behavior and return proper values rather than None.</contract>
+        <acceptance>Tests in tests/test_sim.py that are failing with AttributeError: 'NoneType' object has no attribute 'tick', 'set', 'posedge', 'changed', 'delay', or 'get' should pass.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/hdl/_cd.py</location>
+        <description>The ClockDomain class has an equality method (__eq__) that should properly compare ClockDomain objects, but the test DomainLookupTestCase is expecting two ClockDomain objects with the same properties to be equal, which suggests there might be an issue with how domains are being compared or retrieved in the lookup mechanism.</description>
+        <contract>The ClockDomain.__eq__ method must correctly compare two ClockDomain objects and return True when they have identical properties (name, clk_edge, async_reset, reset_less, local). The domain lookup mechanism should properly handle comparisons between ClockDomain instances.</contract>
+        <acceptance>test_hdl_ir.py::DomainLookupTestCase::test_domain_lookup should pass, meaning ClockDomain objects with identical properties should be considered equal.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/amaranth/sim/pysim.py</location>
+        <description>The PySimEngine class is missing proper process management capabilities. The simulator processes are not being properly initialized or are returning None instead of valid process objects, causing failures in simulator regression tests.</description>
+        <contract>The PySimEngine class must properly initialize and manage simulator processes. All methods that should return process objects must return valid objects instead of None, and process lifecycle management must be implemented correctly to support testbench processes.</contract>
+        <acceptance>Tests in tests/test_sim.py that are failing with AttributeError related to missing process methods should pass.</acceptance>
+    </item>
+</requirement>

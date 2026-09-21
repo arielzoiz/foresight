@@ -1,0 +1,30 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/amaranth/hdl/_ir.py b/amaranth/hdl/_ir.py
+--- a/amaranth/hdl/_ir.py	2026-09-21 00:28:26
++++ b/amaranth/hdl/_ir.py	2026-09-21 00:37:22
+@@ -423,6 +423,26 @@
+                 self._use_signal(fragment, conn)
+         self._assign_names(fragment, hierarchy)
+ 
++    def lookup_domain(self, domain_name, fragment):
++        """Look up a domain by name within the design hierarchy.
++        
++        Args:
++            domain_name: The name of the domain to look up
++            fragment: The fragment context in which to look up the domain
++            
++        Returns:
++            The ClockDomain object for the given domain name
++        """
++        # Walk up the fragment hierarchy to find the domain
++        while fragment is not None:
++            # Check if the domain exists in this fragment
++            if domain_name in fragment.domains:
++                return fragment.domains[domain_name]
++            # Move to the parent fragment
++            fragment = self.fragments[fragment].parent
++        # Domain not found in hierarchy
++        raise KeyError(f"Domain '{domain_name}' not found in fragment hierarchy")
++
+     def _compute_fragment_depth_parent(self, fragment: Fragment, parent: "Fragment | None", depth: int):
+         """Recursively computes every fragment's depth and parent."""
+         self.fragments[fragment] = DesignFragmentInfo(parent, depth)
