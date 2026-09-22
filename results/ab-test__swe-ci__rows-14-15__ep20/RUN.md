@@ -38,6 +38,13 @@ Gap per epoch (starting state first; lower is better; `x` = pytest could not run
 | apprise ebbe26 | 48.7, 48.7, 48.7, 48.7, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5 | 48.7, 48.7, 48.7, 48.7, 48.7, 48.6, 48.6, 48.6, 48.6, 48.6, 48.6, 48.6, 48.6, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5, 48.5 |
 | pypeln 9121c6 | 52.9, 52.9, 52.9 | 53.4, 53.4, 53.4, 53.4, 53.2, 53.1, 53.1, 53.1, 53.1, 53.1, 53.1, 53.0, 53.3, 53.5, 53.4, 53.4, 53.4, 53.4 |
 
+## pylint note after each epoch (0 = start; 0-10, higher is better)
+
+| Task | control | foresight |
+|---|---|---|
+| apprise ebbe26 | 7.90, 7.90, 7.90, 7.90, 7.91, 7.91, 7.90, 7.90, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91, 7.91 | 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.92, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90, 7.90 |
+| pypeln 9121c6 | 4.15, 4.15, 4.15 | 4.07, 4.07, 4.07, 3.93, 3.93, 4.00, 4.00, 4.00, 4.03, 4.03, 4.03, 4.09, 4.06, 4.05, 4.07, 4.07, 4.07, 4.07 |
+
 Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; both exclude `tests/`. Only the change between epochs is meaningful, not the absolute value (see `tools/swe_ci_score_helper.py`).
 
 ## Timing (indicative: arms may share model capacity)

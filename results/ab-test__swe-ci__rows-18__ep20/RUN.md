@@ -34,6 +34,12 @@ Gap per epoch (starting state first; lower is better; `x` = pytest could not run
 |---|---|---|
 | httpdbg 22e489 | 49.1, 49.0, 48.6, 48.6, 44.8, 44.8, 45.4, 45.4, 44.6, 44.6, 44.5, 43.7, 43.5, 43.6, 44.5, 44.3, 44.3, 44.4, 44.8, 44.8, 44.8 | 49.1, 49.8, 49.8, 49.6, 49.6, 49.6, 49.9, 49.9, 49.9, 49.8, 49.9, 49.9, 49.8, 49.8, 49.8, 49.8, 49.8, 49.8, 49.8, 49.8, 49.8 |
 
+## pylint note after each epoch (0 = start; 0-10, higher is better)
+
+| Task | control | foresight |
+|---|---|---|
+| httpdbg 22e489 | 4.58, 4.58, 4.59, 4.59, 4.66, 4.66, 4.66, 4.67, 4.67, 4.67, 4.68, 4.65, 4.65, 4.66, 4.68, 4.67, 4.66, 4.67, 4.66, 4.65, 4.66 | 4.58, 4.60, 4.60, 4.59, 4.58, 4.59, 4.61, 4.61, 4.61, 4.61, 4.60, 4.61, 4.60, 4.60, 4.60, 4.60, 4.60, 4.60, 4.60, 4.60, 4.60 |
+
 Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; both exclude `tests/`. Only the change between epochs is meaningful, not the absolute value (see `tools/swe_ci_score_helper.py`).
 
 ## Timing (indicative: arms may share model capacity)
