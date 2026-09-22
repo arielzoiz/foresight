@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/flask.py</location>
+    <description>The Flask hook implementation is incomplete and does not properly integrate with Flask's routing system to extract route decorators and parameters for accurate group labeling.</description>
+    <contract>
+      The Flask hook must intercept Flask application execution to:
+      1. Detect Flask route decorators (@app.route) and error handlers (@app.errorhandler)
+      2. Extract route patterns and parameters for proper labeling
+      3. Set appropriate group labels like '@app.route("/")' and '@app.errorhandler(404)'
+      4. Handle parameterized routes like '/hello/&lt;xxxx&gt;/&lt;yyyy&gt;' with extracted parameter values
+      5. Integrate with the existing hook system to ensure proper grouping of server-side requests
+    </contract>
+    <acceptance>
+      - test_flask_endpoint passes with group.label == '@app.route("/")' 
+      - test_flask_endpoint_with_parameters passes with group.label == '@app.route("/hello/&lt;xxxx&gt;/&lt;yyyy&gt;")' and proper parameter extraction
+      - test_flask_not_found passes with group.label == '@app.errorhandler(404)'
+    </acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/flask.py</location>
+    <description>The Flask hook lacks proper integration with Flask's application lifecycle to capture server-side requests effectively.</description>
+    <contract>
+      The Flask hook must:
+      1. Properly instrument Flask's request handling to capture server-side HTTP requests
+      2. Ensure that requests initiated by Flask applications are correctly labeled with their route information
+      3. Support the server=True flag in httprecord context manager for capturing server-side traffic
+    </contract>
+    <acceptance>
+      All Flask server hook tests pass with client=False, server=True context
+    </acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/flask.py</location>
+    <description>The current Flask hook implementation doesn't support extracting and applying Flask-specific labels for route matching and parameter handling.</description>
+    <contract>
+      The Flask hook implementation must:
+      1. Parse Flask route decorators to extract route patterns and method names
+      2. Handle URL parameter extraction from route patterns like '/hello/&lt;param&gt;'
+      3. Create appropriate group labels that match the expected test assertions
+      4. Support error handlers with proper labeling like '@app.errorhandler(404)'
+    </contract>
+    <acceptance>
+      - test_flask_endpoint_with_parameters correctly extracts parameters and creates full_label with parameter values
+      - test_flask_not_found correctly identifies and labels error handlers
+    </acceptance>
+  </requirement>
+</requirement_document>

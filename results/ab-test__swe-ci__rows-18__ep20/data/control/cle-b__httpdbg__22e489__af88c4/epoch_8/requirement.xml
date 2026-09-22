@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/flask.py</location>
+    <description>The Flask hook implementation doesn't properly detect and hook Flask applications. Tests fail because Flask route handlers and error handlers aren't being recorded in the HTTP records.</description>
+    <contract>When a Flask application is running with httprecord(server=True), all Flask route handlers and error handlers should be properly intercepted and recorded in the HTTP records with correct group labels indicating the route or error handler.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/generic.py</location>
+    <description>The generic hook implementation has insufficient detection logic for Flask applications. It fails to recognize Flask app instances and their decorated route handlers and error handlers.</description>
+    <contract>The generic hook should detect Flask applications by checking for Flask app instances in modules and automatically hook their view functions and error handlers to record HTTP requests/responses.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/all.py</location>
+    <description>The hook composition order is incorrect for Flask applications. The flask hook is called after the generic hook, but the generic hook needs to detect Flask apps before they can be properly hooked.</description>
+    <contract>When server=True is enabled, the Flask hook should be called before the generic hook to ensure Flask applications are detected and their handlers are properly hooked.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+</requirement_document>

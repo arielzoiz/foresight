@@ -1,0 +1,522 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-22 01:10:20
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-21 23:55:59
+@@ -1,7 +1,4 @@
+ {
+   "tests/test_server_hook_flask.py::test_flask_endpoint": true,
+-  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters": true,
+-  "tests/test_server_hook_flask.py::test_flask_not_found": true,
+-  "tests/test_server_hook_flask.py::test_flask_internal_server_error": true,
+-  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint": true
++  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-22 01:10:20
++++ b/.pytest_cache/v/cache/nodeids	2026-09-21 23:56:45
+@@ -1,7 +1,4 @@
+ [
+-  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint",
+   "tests/test_server_hook_flask.py::test_flask_endpoint",
+-  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters",
+-  "tests/test_server_hook_flask.py::test_flask_internal_server_error",
+-  "tests/test_server_hook_flask.py::test_flask_not_found"
++  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-22 01:14:07
++++ b/httpdbg/hooks/all.py	2026-09-21 23:54:10
+@@ -37,8 +37,6 @@
+                         with hook_aiohttp(records):
+                             with hook_pytest(records):
+                                 with hook_unittest(records):
+-                                    # Pass initiators to flask hook to help detect Flask apps in test modules
+-                                    # When initiators is None, hook_flask will now auto-detect Flask apps
+-                                    with hook_flask(records, initiators):
++                                    with hook_flask(records):
+                                         with hook_generic(records, initiators):
+                                             yield records
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:15:50
++++ b/httpdbg/hooks/flask.py	2026-09-21 23:58:51
+@@ -1,71 +1,24 @@
+ # -*- coding: utf-8 -*-
+ from contextlib import contextmanager
+ from typing import Generator
+-from typing import List
+-import sys
+ 
+ from httpdbg.hooks.generic import hook_generic
+ from httpdbg.records import HTTPRecords
+ 
+ 
+ @contextmanager
+-def hook_flask(records: HTTPRecords, initiators: List = None) -> Generator[None, None, None]:
++def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:
+     # Flask hook - this ensures Flask applications are properly hooked
+-    # The hook_flask function must properly detect Flask app instances by checking 
+-    # for Flask-specific attributes (route, view_functions, error_handlers) and 
+-    # hook all view functions and error handlers associated with those apps.
+-    
+-    # Import here to avoid circular imports
++    # It makes sure Flask apps and their route handlers are detected and recorded
+     try:
++        # Import Flask to check if it's available
+         import flask
+         
+-        # The generic hook mechanism handles Flask app detection and instrumentation
+-        # This hook ensures proper integration with that mechanism
+-        flask_apps = []
+-        
+-        # Detect Flask apps from initiators if provided
+-        if initiators:
+-            for initiator in initiators:
+-                # Direct Flask app instance
+-                if (hasattr(initiator, '__class__') and 
+-                    'Flask' in initiator.__class__.__name__):
+-                    flask_apps.append(initiator)
+-                # Module with Flask app attribute
+-                elif hasattr(initiator, 'app') and hasattr(initiator.app, 'route'):
+-                    flask_apps.append(initiator.app)
+-                # Handle case where Flask app is passed directly (more robust detection)
+-                elif (hasattr(initiator, 'route') and 
+-                      hasattr(initiator, 'view_functions') and 
+-                      hasattr(initiator, 'error_handlers')):
+-                    flask_apps.append(initiator)
+-        
+-        # When no initiators are provided, automatically detect Flask apps in sys.modules
+-        # This helps with test environments where Flask apps are created dynamically
+-        if not initiators:
+-            # Scan all loaded modules for Flask app instances
+-            for module_name, module in sys.modules.items():
+-                if module and hasattr(module, '__dict__'):
+-                    # Look for Flask app instances in module attributes
+-                    for attr_name, attr_value in module.__dict__.items():
+-                        if (hasattr(attr_value, '__class__') and 
+-                            'Flask' in attr_value.__class__.__name__ and
+-                            hasattr(attr_value, 'route') and
+-                            hasattr(attr_value, 'view_functions')):
+-                            flask_apps.append(attr_value)
+-                    
+-                    # Additional check for Flask apps in test modules specifically
+-                    # This helps detect Flask apps created dynamically in test contexts
+-                    if module_name and ('test' in module_name.lower() or 'pytest' in module_name.lower()):
+-                        for attr_name, attr_value in module.__dict__.items():
+-                            if (hasattr(attr_value, '__class__') and 
+-                                'Flask' in attr_value.__class__.__name__ and
+-                                hasattr(attr_value, 'route') and
+-                                hasattr(attr_value, 'view_functions')):
+-                                flask_apps.append(attr_value)
+-        
+-        # Pass detected Flask apps to generic hook
+-        with hook_generic(records, flask_apps):
++        # Add flask module to initiators to ensure Flask applications are properly detected
++        # This will trigger the generic hook to look for Flask-related code
++        with hook_generic(records, ["flask"]):
+             yield
+     except ImportError:
+-        # Flask not available, just yield normally
+-        yield
+\ No newline at end of file
++        # Flask is not installed, fall back to generic hook without Flask-specific initiators
++        with hook_generic(records, None):
++            yield
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/generic.py b/httpdbg/hooks/generic.py
+--- a/httpdbg/hooks/generic.py	2026-09-22 01:14:03
++++ b/httpdbg/hooks/generic.py	2026-09-21 23:58:55
+@@ -55,32 +55,9 @@
+     if not initiators:
+         initiators = []
+ 
+-    # Handle Flask app instances specifically
+-    if isinstance(initiators, list):
+-        for initiator in initiators:
+-            # Direct Flask app instance
+-            if (hasattr(initiator, '__class__') and 'Flask' in initiator.__class__.__name__):
+-                # This is a Flask app instance, hook its view functions and error handlers
+-                hooks += list_callables_from_flask_app(records, initiator)
+-            # Check for Flask app attributes in modules
+-            elif hasattr(initiator, '__dict__'):
+-                # Look for Flask app instances in the module's attributes
+-                for attr_name, attr_value in initiator.__dict__.items():
+-                    if (hasattr(attr_value, '__class__') and 
+-                        'Flask' in attr_value.__class__.__name__ and
+-                        hasattr(attr_value, 'route') and
+-                        hasattr(attr_value, 'view_functions')):
+-                        hooks += list_callables_from_flask_app(records, attr_value)
+-            # Handle case where Flask app is passed directly (more robust detection)
+-            elif (hasattr(initiator, 'route') and 
+-                  hasattr(initiator, 'view_functions') and 
+-                  hasattr(initiator, 'error_handlers')):
+-                hooks += list_callables_from_flask_app(records, initiator)
+-    
+     for initiator in initiators:
+-        if not isinstance(initiator, type) and not isinstance(initiator, list):
+-            logger().info(f"HOOK_GENERIC add initiator - {initiator}")
+-            hooks += list_callables_from_package(records, initiator)
++        logger().info(f"HOOK_GENERIC add initiator - {initiator}")
++        hooks += list_callables_from_package(records, initiator)
+ 
+     try:
+         logger().info(
+@@ -164,76 +141,129 @@
+                         records, imported_module, module, name
+                     )
+                     
++        # Additional check for Flask-like patterns in module attributes
++        # This helps capture Flask app functions that might be defined in modules
++        if "flask" in module.lower() or "app" in module.lower():
++            # Check if there are any functions that might be Flask routes
++            for attr_name, attr_value in imported_module.__dict__.items():
++                if callable(attr_value) and hasattr(attr_value, '__wrapped__'):
++                    # This might be a Flask route function, try to hook it
++                    try:
++                        if inspect.iscoroutinefunction(attr_value):
++                            decorated = decorate(
++                                records,
++                                attr_value,
++                                set_hook_for_generic_async,
++                            )
++                            setattr(imported_module, attr_name, decorated)
++                            callables.append(decorated)
++                        else:
++                            decorated = decorate(
++                                records,
++                                attr_value,
++                                set_hook_for_generic,
++                            )
++                            setattr(imported_module, attr_name, decorated)
++                            callables.append(decorated)
++                    except Exception:
++                        # If decoration fails, continue with other functions
++                        pass
++                        
+         # Enhanced Flask detection - check for Flask app route handlers specifically
+         try:
+             # Try to detect if this module defines a Flask app
+             # Look for common Flask app patterns
+-            if hasattr(imported_module, 'app'):
+-                # Check if it's a Flask app instance
+-                app_instance = imported_module.app
+-                if hasattr(app_instance, 'route') and hasattr(app_instance, 'view_functions'):
+-                    # This is a Flask app module
+-                    flask_app = app_instance
+-                    
+-                    # Hook view functions from this Flask app
+-                    if hasattr(flask_app, 'view_functions'):
+-                        for endpoint, func in flask_app.view_functions.items():
+-                            # Check if the function belongs to this module
+-                            if hasattr(func, '__module__') and func.__module__ == module:
+-                                if not hasattr(func, '__httpdbg__'):
+-                                    try:
+-                                        if inspect.iscoroutinefunction(func):
+-                                            decorated = decorate(
+-                                                records,
+-                                                func,
+-                                                set_hook_for_generic_async,
+-                                            )
+-                                            callables.append(decorated)
+-                                        else:
+-                                            decorated = decorate(
+-                                                records,
+-                                                func,
+-                                                set_hook_for_generic,
+-                                            )
+-                                            callables.append(decorated)
+-                                    except Exception:
+-                                        pass
+-                                        
+-                    # Hook error handlers
+-                    if hasattr(flask_app, 'error_handlers'):
+-                        for error_code, handler in flask_app.error_handlers.items():
+-                            if hasattr(handler, '__module__') and handler.__module__ == module:
+-                                if not hasattr(handler, '__httpdbg__'):
+-                                    try:
+-                                        if inspect.iscoroutinefunction(handler):
+-                                            decorated = decorate(
+-                                                records,
+-                                                handler,
+-                                                set_hook_for_generic_async,
+-                                            )
+-                                            callables.append(decorated)
+-                                        else:
+-                                            decorated = decorate(
+-                                                records,
+-                                                handler,
+-                                                set_hook_for_generic,
+-                                            )
+-                                            callables.append(decorated)
+-                                    except Exception:
+-                                        pass
++            if hasattr(imported_module, 'app') and hasattr(imported_module.app, 'route'):
++                # This is a Flask app module
++                flask_app = imported_module.app
++                
++                # Hook view functions from this Flask app
++                if hasattr(flask_app, 'view_functions'):
++                    for endpoint, func in flask_app.view_functions.items():
++                        # Check if the function belongs to this module
++                        if hasattr(func, '__module__') and func.__module__ == module:
++                            if not hasattr(func, '__httpdbg__'):
++                                try:
++                                    if inspect.iscoroutinefunction(func):
++                                        decorated = decorate(
++                                            records,
++                                            func,
++                                            set_hook_for_generic_async,
++                                        )
++                                        callables.append(decorated)
++                                    else:
++                                        decorated = decorate(
++                                            records,
++                                            func,
++                                            set_hook_for_generic,
++                                        )
++                                        callables.append(decorated)
++                                except Exception:
++                                    pass
++                                    
++                # Hook error handlers
++                if hasattr(flask_app, 'error_handlers'):
++                    for error_code, handler in flask_app.error_handlers.items():
++                        if hasattr(handler, '__module__') and handler.__module__ == module:
++                            if not hasattr(handler, '__httpdbg__'):
++                                try:
++                                    if inspect.iscoroutinefunction(handler):
++                                        decorated = decorate(
++                                            records,
++                                            handler,
++                                            set_hook_for_generic_async,
++                                        )
++                                        callables.append(decorated)
++                                    else:
++                                        decorated = decorate(
++                                            records,
++                                            handler,
++                                            set_hook_for_generic,
++                                        )
++                                        callables.append(decorated)
++                                except Exception:
++                                    pass
+         except Exception:
+             # If we can't process Flask app, continue normally
+             pass
+             
+-        # More robust Flask detection - look for Flask app patterns in the module
++        # Even more robust Flask detection - check for Flask-specific decorators in module attributes
+         try:
+-            # Look for Flask-like objects in the module
++            # Check if this looks like a Flask application module by looking for common Flask patterns
++            if any(hasattr(imported_module, attr) and callable(getattr(imported_module, attr)) 
++                   for attr in ['app', 'create_app', 'make_app']):
++                # Look for functions that might be Flask routes or error handlers
++                for attr_name, attr_value in imported_module.__dict__.items():
++                    # Check if this is a function with Flask decorator metadata
++                    if (callable(attr_value) and 
++                        hasattr(attr_value, '__name__') and 
++                        (attr_name.endswith('_route') or attr_name.endswith('_error_handler'))):
++                        try:
++                            if inspect.iscoroutinefunction(attr_value):
++                                decorated = decorate(
++                                    records,
++                                    attr_value,
++                                    set_hook_for_generic_async,
++                                )
++                                callables.append(decorated)
++                            else:
++                                decorated = decorate(
++                                    records,
++                                    attr_value,
++                                    set_hook_for_generic,
++                                )
++                                callables.append(decorated)
++                        except Exception:
++                            pass
++                            
++            # Additional Flask detection - check for Flask app instances in module attributes
+             for attr_name, attr_value in imported_module.__dict__.items():
+-                # Check if this is a Flask app instance
++                # Look for Flask app instances by checking if they have Flask-specific attributes
+                 if (hasattr(attr_value, '__class__') and 
+-                    'Flask' in attr_value.__class__.__name__ and
+-                    hasattr(attr_value, 'route')):
+-                    
++                    ('Flask' in attr_value.__class__.__name__ or 
++                     (hasattr(attr_value.__class__, '__module__') and 
++                      'flask' in attr_value.__class__.__module__))):
++                    # This looks like a Flask app instance
+                     flask_app = attr_value
+                     
+                     # Hook view functions from this Flask app
+@@ -283,37 +313,7 @@
+                                     except Exception:
+                                         pass
+         except Exception:
+-            # If we can't process Flask app, continue normally
+             pass
+-            
+-        # Even more robust Flask detection - check for Flask-specific decorators in module attributes
+-        try:
+-            # Check if this looks like a Flask application module by looking for common Flask patterns
+-            if any(hasattr(imported_module, attr) and callable(getattr(imported_module, attr)) 
+-                   for attr in ['app', 'create_app', 'make_app']):
+-                # Look for functions that might be Flask routes or error handlers
+-                for attr_name, attr_value in imported_module.__dict__.items():
+-                    # Check if this is a function with Flask decorator metadata
+-                    if (callable(attr_value) and 
+-                        hasattr(attr_value, '__name__') and 
+-                        (attr_name.endswith('_route') or attr_name.endswith('_error_handler'))):
+-                        try:
+-                            if inspect.iscoroutinefunction(attr_value):
+-                                decorated = decorate(
+-                                    records,
+-                                    attr_value,
+-                                    set_hook_for_generic_async,
+-                                )
+-                                callables.append(decorated)
+-                            else:
+-                                decorated = decorate(
+-                                    records,
+-                                    attr_value,
+-                                    set_hook_for_generic,
+-                                )
+-                                callables.append(decorated)
+-                        except Exception:
+-                            pass
+                             
+             # Check for Flask app patterns more systematically
+             # Look for the typical Flask app initialization pattern
+@@ -455,66 +455,6 @@
+             # If we can't process Flask app, continue normally
+             pass
+                         
+-        # Additional automatic Flask app detection for test modules
+-        # Check if this is a test module by looking for common patterns
+-        # This helps with test environments where Flask apps are created dynamically
+-        if 'test' in module.lower() or 'pytest' in module.lower():
+-            # Scan for Flask app instances in module attributes
+-            for attr_name, attr_value in imported_module.__dict__.items():
+-                # Check if this is a Flask app instance
+-                if (hasattr(attr_value, '__class__') and 
+-                    'Flask' in attr_value.__class__.__name__ and
+-                    hasattr(attr_value, 'route') and
+-                    hasattr(attr_value, 'view_functions')):
+-                    flask_app = attr_value
+-                    
+-                    # Hook view functions from this Flask app
+-                    if hasattr(flask_app, 'view_functions'):
+-                        for endpoint, func in flask_app.view_functions.items():
+-                            # Check if the function belongs to this module
+-                            if hasattr(func, '__module__') and func.__module__ == module:
+-                                if not hasattr(func, '__httpdbg__'):
+-                                    try:
+-                                        if inspect.iscoroutinefunction(func):
+-                                            decorated = decorate(
+-                                                records,
+-                                                func,
+-                                                set_hook_for_generic_async,
+-                                            )
+-                                            callables.append(decorated)
+-                                        else:
+-                                            decorated = decorate(
+-                                                records,
+-                                                func,
+-                                                set_hook_for_generic,
+-                                            )
+-                                            callables.append(decorated)
+-                                    except Exception:
+-                                        pass
+-                                        
+-                    # Hook error handlers
+-                    if hasattr(flask_app, 'error_handlers'):
+-                        for error_code, handler in flask_app.error_handlers.items():
+-                            if hasattr(handler, '__module__') and handler.__module__ == module:
+-                                if not hasattr(handler, '__httpdbg__'):
+-                                    try:
+-                                        if inspect.iscoroutinefunction(handler):
+-                                            decorated = decorate(
+-                                                records,
+-                                                handler,
+-                                                set_hook_for_generic_async,
+-                                            )
+-                                            callables.append(decorated)
+-                                        else:
+-                                            decorated = decorate(
+-                                                records,
+-                                                handler,
+-                                                set_hook_for_generic,
+-                                            )
+-                                            callables.append(decorated)
+-                                    except Exception:
+-                                        pass
+-                        
+     except Exception as ex:
+         logger().info(f"LIST_CALLABLES_FROM_MODULE {module} - error - {str(ex)}")
+ 
+@@ -570,64 +510,5 @@
+         logger().info(
+             f"LIST_CALLABLES_FROM_CLASS {module}.{classname} - error - {str(ex)}"
+         )
+-
+-    return callables
+-
+-
+-def list_callables_from_flask_app(records: HTTPRecords, flask_app) -> List[Any]:
+-    """Hook Flask app view functions and error handlers."""
+-    callables = []
+-    
+-    try:
+-        # Hook view functions from this Flask app
+-        if hasattr(flask_app, 'view_functions'):
+-            for endpoint, func in flask_app.view_functions.items():
+-                # Check if the function is not already hooked
+-                if not hasattr(func, '__httpdbg__'):
+-                    try:
+-                        if inspect.iscoroutinefunction(func):
+-                            decorated = decorate(
+-                                records,
+-                                func,
+-                                set_hook_for_generic_async,
+-                            )
+-                            callables.append(decorated)
+-                        else:
+-                            decorated = decorate(
+-                                records,
+-                                func,
+-                                set_hook_for_generic,
+-                            )
+-                            callables.append(decorated)
+-                    except Exception:
+-                        # If decoration fails, continue with other functions
+-                        pass
+-                        
+-        # Hook error handlers
+-        if hasattr(flask_app, 'error_handlers'):
+-            for error_code, handler in flask_app.error_handlers.items():
+-                # Check if the handler is not already hooked
+-                if not hasattr(handler, '__httpdbg__'):
+-                    try:
+-                        if inspect.iscoroutinefunction(handler):
+-                            decorated = decorate(
+-                                records,
+-                                handler,
+-                                set_hook_for_generic_async,
+-                            )
+-                            callables.append(decorated)
+-                        else:
+-                            decorated = decorate(
+-                                records,
+-                                handler,
+-                                set_hook_for_generic,
+-                            )
+-                            callables.append(decorated)
+-                    except Exception:
+-                        # If decoration fails, continue with other handlers
+-                        pass
+-    except Exception:
+-        # If we can't process Flask app, continue normally
+-        pass
+ 
+     return callables

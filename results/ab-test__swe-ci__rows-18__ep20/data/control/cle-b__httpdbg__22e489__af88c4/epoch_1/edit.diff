@@ -1,0 +1,39 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/generic.py b/httpdbg/hooks/generic.py
+--- a/httpdbg/hooks/generic.py	2026-09-21 23:50:19
++++ b/httpdbg/hooks/generic.py	2026-09-21 23:53:08
+@@ -140,6 +140,35 @@
+                     callables += list_callables_from_class(
+                         records, imported_module, module, name
+                     )
++                    
++        # Additional check for Flask-like patterns in module attributes
++        # This helps capture Flask app functions that might be defined in modules
++        if "flask" in module.lower() or "app" in module.lower():
++            # Check if there are any functions that might be Flask routes
++            for attr_name, attr_value in imported_module.__dict__.items():
++                if callable(attr_value) and hasattr(attr_value, '__wrapped__'):
++                    # This might be a Flask route function, try to hook it
++                    try:
++                        if inspect.iscoroutinefunction(attr_value):
++                            decorated = decorate(
++                                records,
++                                attr_value,
++                                set_hook_for_generic_async,
++                            )
++                            setattr(imported_module, attr_name, decorated)
++                            callables.append(decorated)
++                        else:
++                            decorated = decorate(
++                                records,
++                                attr_value,
++                                set_hook_for_generic,
++                            )
++                            setattr(imported_module, attr_name, decorated)
++                            callables.append(decorated)
++                    except Exception:
++                        # If decoration fails, continue with other functions
++                        pass
++                        
+     except Exception as ex:
+         logger().info(f"LIST_CALLABLES_FROM_MODULE {module} - error - {str(ex)}")
+ 

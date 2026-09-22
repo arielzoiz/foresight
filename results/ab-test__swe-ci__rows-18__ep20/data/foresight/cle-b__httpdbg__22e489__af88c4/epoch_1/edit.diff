@@ -1,0 +1,319 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-22 02:27:08
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-22 02:27:08
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-22 02:27:08
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-22 02:57:00
+@@ -0,0 +1,8 @@
++{
++  "tests/test_server_hook_flask.py::test_flask_endpoint": true,
++  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters": true,
++  "tests/test_server_hook_flask.py::test_flask_not_found": true,
++  "tests/test_server_hook_flask.py::test_flask_internal_server_error": true,
++  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint": true,
++  "tests/test_server_hook_flask.py": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-22 02:57:36
+@@ -0,0 +1,7 @@
++[
++  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint",
++  "tests/test_server_hook_flask.py::test_flask_endpoint",
++  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters",
++  "tests/test_server_hook_flask.py::test_flask_internal_server_error",
++  "tests/test_server_hook_flask.py::test_flask_not_found"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-22 01:16:52
++++ b/httpdbg/hooks/all.py	2026-09-22 01:19:38
+@@ -7,6 +7,7 @@
+ 
+ from httpdbg.hooks.aiohttp import hook_aiohttp
+ from httpdbg.hooks.external import watcher_external
++from httpdbg.hooks.flask import hook_flask
+ from httpdbg.hooks.generic import hook_generic
+ from httpdbg.hooks.httpx import hook_httpx
+ from httpdbg.hooks.pytest import hook_pytest
+@@ -34,7 +35,8 @@
+                 with hook_requests(records):
+                     with hook_urllib3(records):
+                         with hook_aiohttp(records):
+-                            with hook_pytest(records):
+-                                with hook_unittest(records):
+-                                    with hook_generic(records, initiators):
+-                                        yield records
++                            with hook_flask(records):
++                                with hook_pytest(records):
++                                    with hook_unittest(records):
++                                        with hook_generic(records, initiators):
++                                            yield records
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	1970-01-01 02:00:00
++++ b/httpdbg/hooks/flask.py	2026-09-22 02:57:30
+@@ -0,0 +1,124 @@
++# -*- coding: utf-8 -*-
++from collections.abc import Callable
++from contextlib import contextmanager
++import traceback
++from typing import Generator, Optional
++
++from httpdbg.hooks.utils import getcallargs
++from httpdbg.initiator import httpdbg_initiator
++from httpdbg.records import HTTPRecords
++
++
++# Global registry to store route information for functions
++_route_registry = {}
++
++
++def set_hook_for_flask(records: HTTPRecords, method: Callable, route_rule: Optional[str] = None, error_code: Optional[int] = None):
++    """Set up a hook for Flask methods that captures route information."""
++    
++    # Build full label with function arguments
++    def hook(*args, **kwargs):
++        # Extract function arguments for group labeling
++        try:
++            callargs = getcallargs(method, *args, **kwargs)
++        except Exception:
++            callargs = {}
++            
++        # Build full label with function arguments
++        try:
++            arg_list = []
++            for key, value in callargs.items():
++                if key != 'self':
++                    arg_list.append(f"{key}={repr(value)}")
++            full_label = f"{method.__name__}({', '.join(arg_list)})"
++        except Exception:
++            full_label = method.__name__
++            
++        # Determine label based on Flask metadata
++        label = ""
++        
++        # Check if we have route information stored
++        if route_rule:
++            label = f"@app.route(\"{route_rule}\")"
++        elif error_code:
++            # Handle error handlers
++            label = f"@app.errorhandler({error_code})"
++        else:
++            # Try to get route info from registry
++            if method in _route_registry:
++                label = f"@app.route(\"{_route_registry[method]}\")"
++            else:
++                # Default to function name
++                label = method.__name__
++            
++        try:
++            with httpdbg_initiator(
++                records, traceback.extract_stack(), method, *args, **kwargs, 
++                full_label=full_label,
++                label=label
++            ) as initiator_and_group:
++                ret = method(*args, **kwargs)
++            return ret
++        except Exception as ex:
++            raise
++
++    return hook
++
++
++@contextmanager
++def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:
++    """Hook Flask application to capture route information."""
++    
++    # Import here to avoid circular imports
++    try:
++        import flask
++        
++        # Store original Flask functions
++        original_route = flask.Flask.route
++        original_errorhandler = flask.Flask.errorhandler
++        
++        # Create a wrapper for route decorator
++        def route_wrapper(self, rule, **options):
++            def decorator(f):
++                # Store route information in our registry BEFORE wrapping
++                _route_registry[f] = rule
++                
++                # Create the hooked version of the function
++                hooked_func = set_hook_for_flask(records, f, route_rule=rule)
++                
++                # Make sure the hooked function keeps the same name as the original
++                # to avoid endpoint conflicts in Flask
++                hooked_func.__name__ = f.__name__
++                hooked_func.__qualname__ = f.__qualname__
++                hooked_func.__annotations__ = getattr(f, '__annotations__', {})
++                
++                # Apply the original route decorator to the hooked function
++                # This ensures Flask handles endpoint registration correctly
++                # while still allowing us to hook the function execution
++                return original_route(self, rule, **options)(hooked_func)
++            return decorator
++            
++        # Create a wrapper for errorhandler decorator  
++        def errorhandler_wrapper(self, code):
++            def decorator(f):
++                # Create the hooked version of the function
++                hooked_func = set_hook_for_flask(records, f, error_code=code)
++                
++                # Apply the original errorhandler decorator to the hooked function
++                return original_errorhandler(self, code)(hooked_func)
++            return decorator
++            
++        # Monkey patch Flask's decorators
++        flask.Flask.route = route_wrapper
++        flask.Flask.errorhandler = errorhandler_wrapper
++        
++        try:
++            yield
++        finally:
++            # Restore original functions
++            flask.Flask.route = original_route
++            flask.Flask.errorhandler = original_errorhandler
++            
++    except ImportError:
++        # Flask not available, just yield
++        yield
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py.backup b/httpdbg/hooks/flask.py.backup
+--- a/httpdbg/hooks/flask.py.backup	1970-01-01 02:00:00
++++ b/httpdbg/hooks/flask.py.backup	2026-09-22 02:37:10
+@@ -0,0 +1,110 @@
++# -*- coding: utf-8 -*-
++from collections.abc import Callable
++from contextlib import contextmanager
++import traceback
++from typing import Generator
++
++from httpdbg.hooks.utils import getcallargs
++from httpdbg.initiator import httpdbg_initiator
++from httpdbg.records import HTTPRecords
++
++
++def set_hook_for_flask(records: HTTPRecords, method: Callable):
++    """Set up a hook for Flask methods that captures route information."""
++    
++    # Build full label with function arguments
++    def hook(*args, **kwargs):
++        # Extract function arguments for group labeling
++        try:
++            callargs = getcallargs(method, *args, **kwargs)
++        except Exception:
++            callargs = {}
++            
++        # Build full label with function arguments
++        try:
++            arg_list = []
++            for key, value in callargs.items():
++                if key != 'self':
++                    arg_list.append(f"{key}={repr(value)}")
++            full_label = f"{method.__name__}({', '.join(arg_list)})"
++        except Exception:
++            full_label = method.__name__
++            
++        # Determine label based on Flask metadata
++        label = ""
++        
++        # Check for stored attributes (the simpler approach that should work)
++        if hasattr(method, '__route_rule__'):
++            label = f"@app.route(\"{method.__route_rule__}\")"
++        elif hasattr(method, '__errorhandler__'):
++            error_code = method.__errorhandler__
++            label = f"@app.errorhandler({error_code})"
++        else:
++            # Default to function name
++            label = method.__name__
++            
++        try:
++            with httpdbg_initiator(
++                records, traceback.extract_stack(), method, *args, **kwargs, 
++                full_label=full_label,
++                label=label
++            ) as initiator_and_group:
++                ret = method(*args, **kwargs)
++            return ret
++        except Exception as ex:
++            raise
++
++    return hook
++
++
++@contextmanager
++def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:
++    """Hook Flask application to capture route information."""
++    
++    # Import here to avoid circular imports
++    try:
++        import flask
++        
++        # Store original Flask functions
++        original_route = flask.Flask.route
++        original_errorhandler = flask.Flask.errorhandler
++        
++        # Create a wrapper for route decorator
++        def route_wrapper(self, rule, **options):
++            def decorator(f):
++                # Store the route rule on the function for later lookup
++                f.__route_rule__ = rule
++                
++                # Wrap the function with our hook
++                wrapped_f = set_hook_for_flask(records, f)
++                
++                # Call the original route decorator with the wrapped function
++                # Don't interfere with the endpoint generation - let Flask handle it naturally
++                return original_route(self, rule, **options)(wrapped_f)
++            return decorator
++            
++        # Create a wrapper for errorhandler decorator  
++        def errorhandler_wrapper(self, code):
++            def decorator(f):
++                # Store error handler information on the function
++                f.__errorhandler__ = code
++                # Wrap the function with our hook
++                wrapped_f = set_hook_for_flask(records, f)
++                # Call the original errorhandler decorator
++                return original_errorhandler(self, code)(wrapped_f)
++            return decorator
++            
++        # Monkey patch Flask's decorators
++        flask.Flask.route = route_wrapper
++        flask.Flask.errorhandler = errorhandler_wrapper
++        
++        try:
++            yield
++        finally:
++            # Restore original functions
++            flask.Flask.route = original_route
++            flask.Flask.errorhandler = original_errorhandler
++            
++    except ImportError:
++        # Flask not available, just yield
++        yield
+\ No newline at end of file

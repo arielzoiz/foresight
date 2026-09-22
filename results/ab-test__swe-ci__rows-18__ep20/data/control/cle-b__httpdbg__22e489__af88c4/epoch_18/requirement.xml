@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/flask.py</location>
+    <description>The Flask hook implementation fails to detect and instrument Flask applications created within test modules. The hook_flask function only processes Flask apps when explicitly passed through the initiators parameter, but in test scenarios Flask apps are created dynamically within test functions and not passed as initiators.</description>
+    <contract>The hook_flask function must automatically detect Flask applications that are running in the same process, even when they are not explicitly provided as initiators. It should scan for Flask app instances in sys.modules and instrument their view functions and error handlers.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/generic.py</location>
+    <description>The generic hook mechanism does not properly instrument Flask view functions when Flask apps are created in test environments. The list_callables_from_module function lacks the capability to detect and instrument Flask applications that are not explicitly passed as initiators.</description>
+    <contract>The generic hook mechanism must be enhanced to automatically detect and instrument Flask applications that are running in the process, including those created in test modules, by scanning for Flask app instances and their associated view functions.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/all.py</location>
+    <description>The httprecord context manager does not properly facilitate Flask app detection in test environments. It passes initiators=None to hook_flask, which prevents automatic Flask app discovery.</description>
+    <contract>The httprecord context manager should either pass appropriate initiators to hook_flask or hook_flask should implement automatic Flask app detection when no initiators are provided.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+</requirement_document>

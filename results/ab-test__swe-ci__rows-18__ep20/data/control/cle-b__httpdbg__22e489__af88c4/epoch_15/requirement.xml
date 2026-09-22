@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/flask.py</location>
+    <description>The Flask hook implementation fails to properly instrument Flask view functions and error handlers. When Flask applications are created dynamically within test modules, the hook_flask function does not correctly detect and wrap the view functions and error handlers with HTTP recording hooks.</description>
+    <contract>When a Flask application is created dynamically within a test module (like in test_server_hook_flask.py), the hook_flask function must properly detect Flask app instances and instrument all view functions and error handlers associated with those apps. The hook should work regardless of how the Flask app is instantiated (directly, via factory function, or within test context) and should ensure that Flask endpoint execution is recorded as server-side calls with appropriate group labels.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/generic.py</location>
+    <description>The generic hook mechanism does not properly detect Flask applications passed through the initiators parameter in test environments. The current implementation fails to recognize Flask app instances that are passed via the initiators parameter, preventing proper instrumentation of Flask endpoints.</description>
+    <contract>When Flask app instances are passed via the initiators parameter in test environments, the hook_generic function must correctly identify these instances and apply hooks to all associated view functions and error handlers. This should enable proper attribution of HTTP requests to Flask endpoints rather than treating them as client requests.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/all.py</location>
+    <description>The httprecord context manager doesn't effectively utilize the initiators parameter to detect and instrument Flask applications in test scenarios. The flow of information from httprecord down to hook_flask is not properly configured for Flask app detection in test environments.</description>
+    <contract>The httprecord function must ensure that when initiators are provided (as they are in test scenarios), these are properly passed through to hook_flask so that Flask apps can be detected and instrumented. This will enable proper server-side grouping of Flask endpoint calls.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+</requirement_document>

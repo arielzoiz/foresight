@@ -1,0 +1,51 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-22 02:28:20
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-22 02:57:00
+@@ -3,5 +3,6 @@
+   "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters": true,
+   "tests/test_server_hook_flask.py::test_flask_not_found": true,
+   "tests/test_server_hook_flask.py::test_flask_internal_server_error": true,
+-  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint": true
++  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint": true,
++  "tests/test_server_hook_flask.py": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 02:46:54
++++ b/httpdbg/hooks/flask.py	2026-09-22 02:57:30
+@@ -80,23 +80,30 @@
+         # Create a wrapper for route decorator
+         def route_wrapper(self, rule, **options):
+             def decorator(f):
+-                # Store route information in our registry
++                # Store route information in our registry BEFORE wrapping
+                 _route_registry[f] = rule
+                 
+-                # Wrap the function with our hook
++                # Create the hooked version of the function
+                 hooked_func = set_hook_for_flask(records, f, route_rule=rule)
+                 
++                # Make sure the hooked function keeps the same name as the original
++                # to avoid endpoint conflicts in Flask
++                hooked_func.__name__ = f.__name__
++                hooked_func.__qualname__ = f.__qualname__
++                hooked_func.__annotations__ = getattr(f, '__annotations__', {})
++                
+                 # Apply the original route decorator to the hooked function
+-                # Flask will register the hooked function under the endpoint name
+-                # This preserves the hook while letting Flask handle routing normally
++                # This ensures Flask handles endpoint registration correctly
++                # while still allowing us to hook the function execution
+                 return original_route(self, rule, **options)(hooked_func)
+             return decorator
+             
+         # Create a wrapper for errorhandler decorator  
+         def errorhandler_wrapper(self, code):
+             def decorator(f):
+-                # Wrap the function with our hook
++                # Create the hooked version of the function
+                 hooked_func = set_hook_for_flask(records, f, error_code=code)
++                
+                 # Apply the original errorhandler decorator to the hooked function
+                 return original_errorhandler(self, code)(hooked_func)
+             return decorator

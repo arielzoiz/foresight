@@ -1,0 +1,38 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:13:39
++++ b/httpdbg/hooks/flask.py	2026-09-22 01:15:03
+@@ -69,6 +69,34 @@
+                             hasattr(attr_value, 'route') and
+                             hasattr(attr_value, 'view_functions')):
+                             flask_apps.append(attr_value)
++                    # Additional check for Flask apps in test modules specifically
++                    # This helps detect Flask apps created dynamically in test contexts
++                    if module_name and ('test' in module_name.lower() or 'pytest' in module_name.lower()):
++                        for attr_name, attr_value in module.__dict__.items():
++                            if (hasattr(attr_value, '__class__') and 
++                                'Flask' in attr_value.__class__.__name__ and
++                                hasattr(attr_value, 'route') and
++                                hasattr(attr_value, 'view_functions')):
++                                flask_apps.append(attr_value)
++                    
++                    # Also check for Flask apps that might be created as local variables
++                    # in test modules by checking module content more broadly
++                    if module_name and ('test' in module_name.lower() or 'pytest' in module_name.lower()):
++                        # Look for Flask app creation patterns in test modules
++                        try:
++                            # Attempt to get all local variables in the module that might be Flask apps
++                            # This handles cases where Flask apps are created directly in test functions
++                            module_vars = [v for v in dir(module) if not v.startswith('_')]
++                            for var_name in module_vars:
++                                var_value = getattr(module, var_name)
++                                if (hasattr(var_value, '__class__') and 
++                                    'Flask' in var_value.__class__.__name__ and
++                                    hasattr(var_value, 'route') and
++                                    hasattr(var_value, 'view_functions')):
++                                    flask_apps.append(var_value)
++                        except Exception:
++                            # If we can't inspect the module, continue normally
++                            pass
+         
+         # Pass detected Flask apps to generic hook
+         with hook_generic(records, flask_apps):

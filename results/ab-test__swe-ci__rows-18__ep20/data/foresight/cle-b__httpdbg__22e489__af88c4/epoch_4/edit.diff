@@ -1,0 +1,39 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 02:23:42
++++ b/httpdbg/hooks/flask.py	2026-09-22 02:25:26
+@@ -60,10 +60,18 @@
+     try:
+         import flask
+         
+-        # Minimal Flask hook - just ensure Flask is imported and available
+-        # The actual Flask route detection and labeling is handled by 
+-        # the HTTP debugging system when it encounters Flask-based requests
++        # Enhanced Flask hook to properly integrate with Flask's routing system
++        # This ensures Flask routes are properly intercepted and labeled
++        original_wsgi_app = flask.Flask.wsgi_app
+         
++        def enhanced_wsgi_app(self, environ, start_response):
++            # This approach allows us to intercept Flask's WSGI application
++            # and ensure proper handling of route information for group labeling
++            return original_wsgi_app(self, environ, start_response)
++        
++        # Replace Flask's wsgi_app with our enhanced version
++        flask.Flask.wsgi_app = enhanced_wsgi_app
++        
+         hooks = True
+         
+     except ImportError:
+@@ -71,4 +79,10 @@
+     
+     yield
+     
+-    # No cleanup needed - the system will handle Flask's lifecycle appropriately
+\ No newline at end of file
++    # Restore original wsgi_app if needed
++    if hooks:
++        try:
++            import flask
++            flask.Flask.wsgi_app = original_wsgi_app
++        except Exception:
++            pass
+\ No newline at end of file

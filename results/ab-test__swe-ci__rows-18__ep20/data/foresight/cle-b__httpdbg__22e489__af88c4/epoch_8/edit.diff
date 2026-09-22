@@ -1,0 +1,20 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 02:31:14
++++ b/httpdbg/hooks/flask.py	2026-09-22 02:32:18
+@@ -91,14 +91,11 @@
+             def decorator(f):
+                 # Store error handler information on the function
+                 f.__errorhandler__ = code
+-                # Generate a unique endpoint name to avoid conflicts
+-                unique_endpoint = f"errorhandler_{code}_{uuid.uuid4().hex[:8]}"
+-                # Set the endpoint in options to ensure Flask uses it
+-                options = {'endpoint': unique_endpoint}
+                 # Wrap the function with our hook
+                 wrapped_f = set_hook_for_flask(records, f)
+                 # Return the decorated function
+-                return original_errorhandler(self, code, **options)(wrapped_f)
++                # Note: Don't pass 'endpoint' to Flask's errorhandler as it's not supported in newer versions
++                return original_errorhandler(self, code)(wrapped_f)
+             return decorator
+             
+         # Monkey patch Flask's decorators

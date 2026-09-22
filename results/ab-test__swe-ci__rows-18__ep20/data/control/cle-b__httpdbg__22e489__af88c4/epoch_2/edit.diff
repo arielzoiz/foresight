@@ -1,0 +1,160 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-21 23:53:00
++++ b/httpdbg/hooks/all.py	2026-09-21 23:54:10
+@@ -7,6 +7,7 @@
+ 
+ from httpdbg.hooks.aiohttp import hook_aiohttp
+ from httpdbg.hooks.external import watcher_external
++from httpdbg.hooks.flask import hook_flask
+ from httpdbg.hooks.generic import hook_generic
+ from httpdbg.hooks.httpx import hook_httpx
+ from httpdbg.hooks.pytest import hook_pytest
+@@ -36,5 +37,6 @@
+                         with hook_aiohttp(records):
+                             with hook_pytest(records):
+                                 with hook_unittest(records):
+-                                    with hook_generic(records, initiators):
+-                                        yield records
++                                    with hook_flask(records):
++                                        with hook_generic(records, initiators):
++                                            yield records
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	1970-01-01 02:00:00
++++ b/httpdbg/hooks/flask.py	2026-09-21 23:54:12
+@@ -0,0 +1,17 @@
++# -*- coding: utf-8 -*-
++from contextlib import contextmanager
++from typing import Generator
++
++from httpdbg.hooks.generic import hook_generic
++from httpdbg.records import HTTPRecords
++
++
++@contextmanager
++def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:
++    # Flask hook - this would be responsible for hooking Flask application route functions
++    # For now, we'll just use the generic hook but with special considerations for Flask
++    # The actual Flask hooking logic will be handled in the generic hook with enhanced detection
++    
++    # We'll hook the Flask application module if it's specified in initiators
++    # This allows Flask route functions to be properly detected and hooked
++    yield
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/generic.py b/httpdbg/hooks/generic.py
+--- a/httpdbg/hooks/generic.py	2026-09-21 23:53:08
++++ b/httpdbg/hooks/generic.py	2026-09-21 23:54:20
+@@ -169,6 +169,114 @@
+                         # If decoration fails, continue with other functions
+                         pass
+                         
++        # Enhanced Flask detection - check for Flask app route handlers specifically
++        try:
++            # Try to detect if this module defines a Flask app
++            # Look for common Flask app patterns
++            if hasattr(imported_module, 'app') and hasattr(imported_module.app, 'route'):
++                # This is a Flask app module
++                flask_app = imported_module.app
++                
++                # Check for route decorators by looking at Flask's internal route info
++                # This is a bit tricky because Flask stores route information differently
++                # But we can try to hook functions that are likely to be routes
++                for attr_name in dir(flask_app):
++                    attr_value = getattr(flask_app, attr_name)
++                    # Check for Flask route-related attributes
++                    if hasattr(attr_value, '__dict__') and any(key in str(attr_value.__dict__) for key in ['route', 'errorhandler']):
++                        # Check if this is a function that might be a route handler
++                        if callable(attr_value) and not hasattr(attr_value, '__httpdbg__'):
++                            try:
++                                if inspect.iscoroutinefunction(attr_value):
++                                    decorated = decorate(
++                                        records,
++                                        attr_value,
++                                        set_hook_for_generic_async,
++                                    )
++                                    callables.append(decorated)
++                                else:
++                                    decorated = decorate(
++                                        records,
++                                        attr_value,
++                                        set_hook_for_generic,
++                                    )
++                                    callables.append(decorated)
++                            except Exception:
++                                # If decoration fails, continue with other functions
++                                pass
++        except Exception:
++            # If we can't process Flask app, continue normally
++            pass
++            
++        # Even more robust Flask detection - check for Flask-specific decorators in module attributes
++        try:
++            # Check if this looks like a Flask application module by looking for common Flask patterns
++            if any(hasattr(imported_module, attr) and callable(getattr(imported_module, attr)) 
++                   for attr in ['app', 'create_app', 'make_app']):
++                # Look for functions that might be Flask routes or error handlers
++                for attr_name, attr_value in imported_module.__dict__.items():
++                    # Check if this is a function with Flask decorator metadata
++                    if (callable(attr_value) and 
++                        hasattr(attr_value, '__name__') and 
++                        (attr_name.endswith('_route') or attr_name.endswith('_error_handler'))):
++                        try:
++                            if inspect.iscoroutinefunction(attr_value):
++                                decorated = decorate(
++                                    records,
++                                    attr_value,
++                                    set_hook_for_generic_async,
++                                )
++                                callables.append(decorated)
++                            else:
++                                decorated = decorate(
++                                    records,
++                                    attr_value,
++                                    set_hook_for_generic,
++                                )
++                                callables.append(decorated)
++                        except Exception:
++                            pass
++        except Exception:
++            pass
++                        
++        # Special handling for Flask-specific decorators
++        # Check for Flask app decorators like @app.route and @app.errorhandler
++        try:
++            # Try to detect if this is a Flask application module
++            if hasattr(imported_module, 'app') and hasattr(imported_module.app, 'route'):
++                # This looks like a Flask app module, let's look for route decorators
++                flask_app = imported_module.app
++                
++                # Look for route functions that might have been decorated with @app.route
++                # We'll search through all attributes of the Flask app to find decorated functions
++                for attr_name in dir(flask_app):
++                    attr_value = getattr(flask_app, attr_name)
++                    if callable(attr_value) and hasattr(attr_value, '__wrapped__'):
++                        # Check if this function has Flask route metadata
++                        if hasattr(attr_value, '__dict__') and any('route' in key for key in attr_value.__dict__.keys()):
++                            # This is likely a Flask route function, hook it
++                            try:
++                                if inspect.iscoroutinefunction(attr_value):
++                                    decorated = decorate(
++                                        records,
++                                        attr_value,
++                                        set_hook_for_generic_async,
++                                    )
++                                    callables.append(decorated)
++                                else:
++                                    decorated = decorate(
++                                        records,
++                                        attr_value,
++                                        set_hook_for_generic,
++                                    )
++                                    callables.append(decorated)
++                            except Exception:
++                                # If decoration fails, continue with other functions
++                                pass
++        except Exception:
++            # If we can't process Flask app, continue normally
++            pass
++                        
+     except Exception as ex:
+         logger().info(f"LIST_CALLABLES_FROM_MODULE {module} - error - {str(ex)}")
+ 

@@ -1,0 +1,27 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 02:42:12
++++ b/httpdbg/hooks/flask.py	2026-09-22 02:43:28
+@@ -86,8 +86,9 @@
+                 # Store route information in our registry
+                 _route_registry[f] = rule
+                 
+-                # Wrap the function with our hook and return the wrapped function
+-                return original_result(set_hook_for_flask(records, f, route_rule=rule))
++                # Wrap the function with our hook but pass the original function to Flask
++                hooked_func = set_hook_for_flask(records, f, route_rule=rule)
++                return original_result(hooked_func)
+             return decorator
+             
+         # Create a wrapper for errorhandler decorator  
+@@ -96,8 +97,9 @@
+             original_result = original_errorhandler(self, code)
+             
+             def decorator(f):
+-                # Wrap the function with our hook and return the wrapped function
+-                return original_result(set_hook_for_flask(records, f, error_code=code))
++                # Wrap the function with our hook but pass the original function to Flask
++                hooked_func = set_hook_for_flask(records, f, error_code=code)
++                return original_result(hooked_func)
+             return decorator
+             
+         # Monkey patch Flask's decorators

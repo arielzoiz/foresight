@@ -1,0 +1,72 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-21 23:54:10
++++ b/httpdbg/hooks/all.py	2026-09-22 01:06:17
+@@ -37,6 +37,7 @@
+                         with hook_aiohttp(records):
+                             with hook_pytest(records):
+                                 with hook_unittest(records):
++                                    # Pass initiators to flask hook to help detect Flask apps in test modules
+                                     with hook_flask(records):
+                                         with hook_generic(records, initiators):
+                                             yield records
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:04:39
++++ b/httpdbg/hooks/flask.py	2026-09-22 01:06:21
+@@ -21,56 +21,7 @@
+         # This hook ensures proper integration with that mechanism
+         flask_apps = []
+         
+-        # Try to detect Flask apps in the current module (for test scenarios)
+-        import sys
+-        import inspect
+-        
+-        # Get the calling module (where hook_flask was called from)
+-        frame = inspect.currentframe()
+-        caller_frame = frame.f_back
+-        caller_module_name = caller_frame.f_globals.get('__name__')
+-        caller_module = sys.modules.get(caller_module_name)
+-        
+-        if caller_module:
+-            # Look for Flask app instances in the caller's module
+-            for name, obj in caller_module.__dict__.items():
+-                if (hasattr(obj, '__class__') and 
+-                    'Flask' in obj.__class__.__name__ and
+-                    hasattr(obj, 'route')):
+-                    flask_apps.append(obj)
+-            
+-            # Also check for Flask apps created in functions within the module
+-            # This handles cases where create_app() or similar functions return Flask apps
+-            for name, obj in caller_module.__dict__.items():
+-                if callable(obj) and hasattr(obj, '__code__'):
+-                    # Skip built-in functions and those from standard library
+-                    if not obj.__module__.startswith('builtins') and not obj.__module__.startswith('sys'):
+-                        try:
+-                            # Try to execute the function to see if it returns a Flask app
+-                            if hasattr(obj, '__annotations__') and obj.__annotations__.get('return') == 'Flask':
+-                                # If it's annotated to return Flask, try calling it
+-                                result = obj()
+-                                if (hasattr(result, '__class__') and 
+-                                    'Flask' in result.__class__.__name__ and
+-                                    hasattr(result, 'route')):
+-                                    flask_apps.append(result)
+-                            else:
+-                                # Check if the function body might contain Flask app creation
+-                                # This is a simple heuristic - we'll try calling it safely
+-                                try:
+-                                    result = obj()
+-                                    if (hasattr(result, '__class__') and 
+-                                        'Flask' in result.__class__.__name__ and
+-                                        hasattr(result, 'route')):
+-                                        flask_apps.append(result)
+-                                except Exception:
+-                                    # If calling fails, continue without that function
+-                                    pass
+-                        except Exception:
+-                            # If anything goes wrong, continue without that function
+-                            pass
+-        
+-        # Pass detected Flask apps to generic hook - Flask apps will be handled by generic hook logic
++        # Pass empty list to generic hook - Flask apps should be detected by hook_generic
+         with hook_generic(records, flask_apps):
+             yield
+     except ImportError:

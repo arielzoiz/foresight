@@ -1,0 +1,83 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 02:28:24
++++ b/httpdbg/hooks/flask.py	2026-09-22 02:29:52
+@@ -10,6 +10,9 @@
+ 
+ 
+ def set_hook_for_flask(records: HTTPRecords, method: Callable):
++    """Set up a hook for Flask methods that captures route information."""
++    
++    # Build full label with function arguments
+     def hook(*args, **kwargs):
+         # Extract function arguments for group labeling
+         try:
+@@ -27,12 +30,10 @@
+         except Exception:
+             full_label = method.__name__
+             
+-        # For Flask hooks, we'll use the standard hook mechanism
+-        # The key is that the Flask hook should be able to provide
+-        # proper route information through the label parameter
++        # Determine label based on Flask metadata
+         label = ""
+         
+-        # If this is a Flask route function with route information, use it
++        # Check if this function has Flask route information
+         if hasattr(method, '__route__'):
+             label = f"@app.route(\"{method.__route__}\")"
+         elif hasattr(method, '__errorhandler__'):
+@@ -59,6 +60,49 @@
+ 
+ @contextmanager
+ def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:
+-    # Placeholder for Flask hook - actual hooking happens in the decorator pattern
+-    # This hook manager just yields to allow other hooks to function
+-    yield
+\ No newline at end of file
++    """Hook Flask application to capture route information."""
++    
++    # Import here to avoid circular imports
++    try:
++        import flask
++        
++        # Store original Flask functions
++        original_route = flask.Flask.route
++        original_errorhandler = flask.Flask.errorhandler
++        
++        # Create a wrapper for route decorator
++        def route_wrapper(self, rule, **options):
++            def decorator(f):
++                # Store route information on the function
++                f.__route__ = rule
++                # Wrap the function with our hook
++                wrapped_f = set_hook_for_flask(records, f)
++                # Return the decorated function
++                return original_route(self, rule, **options)(wrapped_f)
++            return decorator
++            
++        # Create a wrapper for errorhandler decorator  
++        def errorhandler_wrapper(self, code):
++            def decorator(f):
++                # Store error handler information on the function
++                f.__errorhandler__ = code
++                # Wrap the function with our hook
++                wrapped_f = set_hook_for_flask(records, f)
++                # Return the decorated function
++                return original_errorhandler(self, code)(wrapped_f)
++            return decorator
++            
++        # Monkey patch Flask's decorators
++        flask.Flask.route = route_wrapper
++        flask.Flask.errorhandler = errorhandler_wrapper
++        
++        try:
++            yield
++        finally:
++            # Restore original functions
++            flask.Flask.route = original_route
++            flask.Flask.errorhandler = original_errorhandler
++            
++    except ImportError:
++        # Flask not available, just yield
++        yield
+\ No newline at end of file

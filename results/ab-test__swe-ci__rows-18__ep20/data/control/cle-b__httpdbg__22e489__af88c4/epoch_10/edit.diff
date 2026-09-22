@@ -1,0 +1,46 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:02:41
++++ b/httpdbg/hooks/flask.py	2026-09-22 01:03:50
+@@ -9,32 +9,24 @@
+ @contextmanager
+ def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:
+     # Flask hook - this ensures Flask applications are properly hooked
+-    # We need to make sure Flask apps are detected and their view functions/error handlers are hooked
++    # The hook_flask function must properly detect Flask app instances by checking 
++    # for Flask-specific attributes (route, view_functions, error_handlers) and 
++    # hook all view functions and error handlers associated with those apps.
+     
+     # Import here to avoid circular imports
+     try:
+         import flask
+         
+-        # Detect Flask applications by looking for Flask app instances in globals
+-        # This enables proper hooking of Flask route handlers and error handlers
++        # The generic hook mechanism handles Flask app detection and instrumentation
++        # This hook ensures proper integration with that mechanism
+         flask_apps = []
+         
+-        # Look for Flask app instances in the global namespace and all modules
+-        import sys
+-        for module_name, module in sys.modules.items():
+-            if module and hasattr(module, '__dict__'):
+-                for attr_name, attr_value in module.__dict__.items():
+-                    # Check if this is a Flask app instance
+-                    if (hasattr(attr_value, '__class__') and 
+-                        'Flask' in attr_value.__class__.__name__ and
+-                        hasattr(attr_value, 'route')):
+-                        
+-                        flask_apps.append(attr_value)
+-        
+-        # Hook each Flask app's view functions and error handlers
+-        # Pass a list of Flask app instances to the generic hook for proper detection
++        # Pass empty list to generic hook - Flask apps will be handled by generic hook logic
+         with hook_generic(records, flask_apps):
+             yield
++    except ImportError:
++        # Flask not available, just yield normally
++        yield
+     except ImportError:
+         # Flask not available, just yield normally
+         yield
+\ No newline at end of file

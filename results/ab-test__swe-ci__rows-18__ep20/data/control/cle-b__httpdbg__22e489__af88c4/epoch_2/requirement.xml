@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/generic.py</location>
+    <description>The generic hook mechanism doesn't properly handle Flask application routing. When Flask apps are running, the Flask route functions aren't being intercepted by the generic hook mechanism that looks for functions in modules. The Flask route functions are defined dynamically and aren't captured by the current implementation. The test failure shows that the group label is showing 'requests.get(...)' instead of '@app.route("/")', indicating that the Flask route function itself isn't being hooked.</description>
+    <contract>Flask application route functions should be detected and intercepted by the generic hook mechanism when they are defined in the Flask application module. This includes both standard route decorators (@app.route) and error handlers (@app.errorhandler). The group label should reflect the Flask decorator rather than the client request.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/all.py</location>
+    <description>The httprecord context manager doesn't enable server-side hooking for Flask applications. Currently, it only enables client-side hooking, but for Flask testing, we need server-side recording to capture incoming HTTP requests to Flask endpoints. The server-side hooking is needed to capture the Flask application's internal processing of HTTP requests.</description>
+    <contract>The httprecord context manager should properly support server-side recording when server=True is specified, which should intercept Flask application route execution and capture the HTTP responses. This requires implementing a specific Flask hook mechanism or enhancing the generic hook to properly detect and hook Flask route functions.</contract>
+    <acceptance>tests/test_server_hook_flask.py::test_flask_endpoint, tests/test_server_hook_flask.py::test_flask_not_found, tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</acceptance>
+  </requirement>
+</requirement_document>

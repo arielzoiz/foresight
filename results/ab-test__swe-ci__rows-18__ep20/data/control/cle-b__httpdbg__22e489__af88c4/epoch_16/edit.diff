@@ -1,0 +1,49 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-21 23:55:59
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-22 01:10:20
+@@ -1,4 +1,7 @@
+ {
+   "tests/test_server_hook_flask.py::test_flask_endpoint": true,
+-  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters": true
++  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters": true,
++  "tests/test_server_hook_flask.py::test_flask_not_found": true,
++  "tests/test_server_hook_flask.py::test_flask_internal_server_error": true,
++  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-22 01:00:51
++++ b/.pytest_cache/v/cache/nodeids	2026-09-22 01:10:20
+@@ -1,4 +1,7 @@
+ [
++  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint",
+   "tests/test_server_hook_flask.py::test_flask_endpoint",
+-  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters"
++  "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters",
++  "tests/test_server_hook_flask.py::test_flask_internal_server_error",
++  "tests/test_server_hook_flask.py::test_flask_not_found"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:09:21
++++ b/httpdbg/hooks/flask.py	2026-09-22 01:10:33
+@@ -46,13 +46,15 @@
+                             hasattr(attr_value, 'route') and
+                             hasattr(attr_value, 'view_functions')):
+                             flask_apps.append(attr_value)
++                # Additional check: look for Flask apps in the initiator itself if it's a Flask app module
++                elif (hasattr(initiator, 'route') and 
++                      hasattr(initiator, 'view_functions') and 
++                      hasattr(initiator, 'error_handlers')):
++                    flask_apps.append(initiator)
+         
+         # Pass detected Flask apps to generic hook
+         with hook_generic(records, flask_apps):
+             yield
+-    except ImportError:
+-        # Flask not available, just yield normally
+-        yield
+     except ImportError:
+         # Flask not available, just yield normally
+         yield
+\ No newline at end of file

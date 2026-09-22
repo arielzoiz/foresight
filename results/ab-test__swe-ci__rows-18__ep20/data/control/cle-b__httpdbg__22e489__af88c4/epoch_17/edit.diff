@@ -1,0 +1,36 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:10:33
++++ b/httpdbg/hooks/flask.py	2026-09-22 01:11:32
+@@ -46,11 +46,14 @@
+                             hasattr(attr_value, 'route') and
+                             hasattr(attr_value, 'view_functions')):
+                             flask_apps.append(attr_value)
+-                # Additional check: look for Flask apps in the initiator itself if it's a Flask app module
++                # More robust detection for test modules where Flask app might be created locally
++                # Check if this is a Flask app instance created in test context
+                 elif (hasattr(initiator, 'route') and 
+-                      hasattr(initiator, 'view_functions') and 
++                      hasattr(initiator, 'view_functions') and
+                       hasattr(initiator, 'error_handlers')):
+-                    flask_apps.append(initiator)
++                    # Double-check that it's a Flask instance
++                    if hasattr(initiator, '__class__') and 'Flask' in initiator.__class__.__name__:
++                        flask_apps.append(initiator)
+         
+         # Pass detected Flask apps to generic hook
+         with hook_generic(records, flask_apps):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/generic.py b/httpdbg/hooks/generic.py
+--- a/httpdbg/hooks/generic.py	2026-09-22 01:09:16
++++ b/httpdbg/hooks/generic.py	2026-09-22 01:11:26
+@@ -76,11 +76,6 @@
+                   hasattr(initiator, 'view_functions') and 
+                   hasattr(initiator, 'error_handlers')):
+                 hooks += list_callables_from_flask_app(records, initiator)
+-            # Handle case where Flask app is passed directly (more robust detection)
+-            elif (hasattr(initiator, 'route') and 
+-                  hasattr(initiator, 'view_functions') and 
+-                  hasattr(initiator, 'error_handlers')):
+-                hooks += list_callables_from_flask_app(records, initiator)
+     
+     for initiator in initiators:
+         if not isinstance(initiator, type) and not isinstance(initiator, list):

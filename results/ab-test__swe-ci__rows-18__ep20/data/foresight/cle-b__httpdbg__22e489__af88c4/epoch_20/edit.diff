@@ -1,0 +1,34 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-22 02:28:20
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-22 02:57:00
+@@ -3,5 +3,6 @@
+   "tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters": true,
+   "tests/test_server_hook_flask.py::test_flask_not_found": true,
+   "tests/test_server_hook_flask.py::test_flask_internal_server_error": true,
+-  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint": true
++  "tests/test_server_hook_flask.py::test_flask_client_request_in_endpoint": true,
++  "tests/test_server_hook_flask.py": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 02:52:46
++++ b/httpdbg/hooks/flask.py	2026-09-22 02:57:30
+@@ -86,9 +86,15 @@
+                 # Create the hooked version of the function
+                 hooked_func = set_hook_for_flask(records, f, route_rule=rule)
+                 
+-                # Apply the original route decorator to the hooked function directly
+-                # This avoids any potential endpoint conflicts by letting Flask handle
+-                # the routing registration with the hooked function
++                # Make sure the hooked function keeps the same name as the original
++                # to avoid endpoint conflicts in Flask
++                hooked_func.__name__ = f.__name__
++                hooked_func.__qualname__ = f.__qualname__
++                hooked_func.__annotations__ = getattr(f, '__annotations__', {})
++                
++                # Apply the original route decorator to the hooked function
++                # This ensures Flask handles endpoint registration correctly
++                # while still allowing us to hook the function execution
+                 return original_route(self, rule, **options)(hooked_func)
+             return decorator
+             

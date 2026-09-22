@@ -1,0 +1,33 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:08:00
++++ b/httpdbg/hooks/flask.py	2026-09-22 01:09:21
+@@ -26,7 +26,8 @@
+         if initiators:
+             for initiator in initiators:
+                 # Direct Flask app instance
+-                if hasattr(initiator, '__class__') and 'Flask' in initiator.__class__.__name__:
++                if (hasattr(initiator, '__class__') and 
++                    'Flask' in initiator.__class__.__name__):
+                     flask_apps.append(initiator)
+                 # Module with Flask app attribute
+                 elif hasattr(initiator, 'app') and hasattr(initiator.app, 'route'):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/generic.py b/httpdbg/hooks/generic.py
+--- a/httpdbg/hooks/generic.py	2026-09-22 01:08:08
++++ b/httpdbg/hooks/generic.py	2026-09-22 01:09:16
+@@ -71,6 +71,16 @@
+                         hasattr(attr_value, 'route') and
+                         hasattr(attr_value, 'view_functions')):
+                         hooks += list_callables_from_flask_app(records, attr_value)
++            # Handle case where Flask app is passed directly (more robust detection)
++            elif (hasattr(initiator, 'route') and 
++                  hasattr(initiator, 'view_functions') and 
++                  hasattr(initiator, 'error_handlers')):
++                hooks += list_callables_from_flask_app(records, initiator)
++            # Handle case where Flask app is passed directly (more robust detection)
++            elif (hasattr(initiator, 'route') and 
++                  hasattr(initiator, 'view_functions') and 
++                  hasattr(initiator, 'error_handlers')):
++                hooks += list_callables_from_flask_app(records, initiator)
+     
+     for initiator in initiators:
+         if not isinstance(initiator, type) and not isinstance(initiator, list):

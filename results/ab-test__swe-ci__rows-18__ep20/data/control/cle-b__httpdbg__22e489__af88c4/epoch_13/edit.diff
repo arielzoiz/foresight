@@ -1,0 +1,48 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-22 01:06:17
++++ b/httpdbg/hooks/all.py	2026-09-22 01:07:09
+@@ -38,6 +38,6 @@
+                             with hook_pytest(records):
+                                 with hook_unittest(records):
+                                     # Pass initiators to flask hook to help detect Flask apps in test modules
+-                                    with hook_flask(records):
++                                    with hook_flask(records, initiators):
+                                         with hook_generic(records, initiators):
+                                             yield records
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/flask.py b/httpdbg/hooks/flask.py
+--- a/httpdbg/hooks/flask.py	2026-09-22 01:06:21
++++ b/httpdbg/hooks/flask.py	2026-09-22 01:07:07
+@@ -1,13 +1,14 @@
+ # -*- coding: utf-8 -*-
+ from contextlib import contextmanager
+ from typing import Generator
++from typing import List
+ 
+ from httpdbg.hooks.generic import hook_generic
+ from httpdbg.records import HTTPRecords
+ 
+ 
+ @contextmanager
+-def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:
++def hook_flask(records: HTTPRecords, initiators: List = None) -> Generator[None, None, None]:
+     # Flask hook - this ensures Flask applications are properly hooked
+     # The hook_flask function must properly detect Flask app instances by checking 
+     # for Flask-specific attributes (route, view_functions, error_handlers) and 
+@@ -21,7 +22,16 @@
+         # This hook ensures proper integration with that mechanism
+         flask_apps = []
+         
+-        # Pass empty list to generic hook - Flask apps should be detected by hook_generic
++        # Detect Flask apps from initiators if provided
++        if initiators:
++            for initiator in initiators:
++                if hasattr(initiator, '__class__') and 'Flask' in initiator.__class__.__name__:
++                    flask_apps.append(initiator)
++                elif hasattr(initiator, 'app') and hasattr(initiator.app, 'route'):
++                    # Handle case where a module with a Flask app is passed
++                    flask_apps.append(initiator.app)
++        
++        # Pass detected Flask apps to generic hook
+         with hook_generic(records, flask_apps):
+             yield
+     except ImportError:
