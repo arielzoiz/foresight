@@ -1,0 +1,85 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-22 03:09:01
++++ b/.pytest_cache/v/cache/nodeids	2026-09-22 03:15:52
+@@ -1,4 +1,37 @@
+ [
++  "tests/test_asg.py::TestAutoScalingGroup::test_AutoScalingRollingUpdate_all_defaults",
++  "tests/test_asg.py::TestAutoScalingGroup::test_AutoScalingRollingUpdate_validation",
++  "tests/test_asg.py::TestAutoScalingGroup::test_exclusive",
++  "tests/test_asg.py::TestAutoScalingGroup::test_helperfn_as_AutoScalingRollingUpdate",
++  "tests/test_asg.py::TestAutoScalingGroup::test_helperfn_as_updatepolicy",
++  "tests/test_asg.py::TestAutoScalingGroup::test_instanceid",
++  "tests/test_asg.py::TestAutoScalingGroup::test_launchconfigurationname",
++  "tests/test_asg.py::TestAutoScalingGroup::test_none",
++  "tests/test_asg.py::TestAutoScalingGroup::test_size_if",
++  "tests/test_awslambda.py::TestAWSLambda::test_check_zip_file",
++  "tests/test_awslambda.py::TestAWSLambda::test_environment_variable_invalid_name",
++  "tests/test_awslambda.py::TestAWSLambda::test_environment_variable_not_reserved",
++  "tests/test_awslambda.py::TestAWSLambda::test_environment_variable_reserved",
++  "tests/test_awslambda.py::TestAWSLambda::test_exclusive",
++  "tests/test_awslambda.py::TestAWSLambda::test_package_type_image",
++  "tests/test_awslambda.py::TestAWSLambda::test_package_type_invalid",
++  "tests/test_awslambda.py::TestAWSLambda::test_package_type_zip",
++  "tests/test_awslambda.py::TestAWSLambda::test_zip_file",
++  "tests/test_awslambda.py::TestCode::test_validate_image_and_s3",
++  "tests/test_awslambda.py::TestCode::test_validate_image_and_zip",
++  "tests/test_awslambda.py::TestCode::test_validate_image_uri",
++  "tests/test_awslambda.py::TestCode::test_validate_s3",
++  "tests/test_awslambda.py::TestCode::test_validate_s3_missing_required",
++  "tests/test_awslambda.py::TestCode::test_validate_zip_and_s3",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_command",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_command_too_long",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_empty",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_entry_point",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_entry_point_too_long",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_memory_size_boundaries",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_memory_size_throws",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_working_directory",
++  "tests/test_awslambda.py::TestImageConfig::test_validate_working_directory_too_long",
+   "tests/test_basic.py::TestAttributes::test_BogusAttribute",
+   "tests/test_basic.py::TestAttributes::test_UpdateReplacePolicy",
+   "tests/test_basic.py::TestBasic::test___eq__",
+@@ -94,6 +127,15 @@
+   "tests/test_rds.py::TestRDSValidators::test_validate_license_model",
+   "tests/test_rds.py::TestRDSValidators::test_validate_maintenance_window",
+   "tests/test_rds.py::TestRDSValidators::test_validate_storage_type",
++  "tests/test_s3.py::TestBucket::test_bucket_accesscontrol",
++  "tests/test_s3.py::TestBucket::test_bucket_accesscontrol_bad_string",
++  "tests/test_s3.py::TestBucket::test_bucket_accesscontrol_bad_type",
++  "tests/test_s3.py::TestBucket::test_bucket_accesscontrol_ref",
++  "tests/test_s3.py::TestBucketTemplate::test_bucket_template",
++  "tests/test_s3.py::TestS3AccelerateConfiguration::test_accelerate_configuration_enabled",
++  "tests/test_s3.py::TestS3AccelerateConfiguration::test_accelerate_configuration_invalid_value",
++  "tests/test_s3.py::TestS3AccelerateConfiguration::test_accelerate_configuration_suspended",
++  "tests/test_s3.py::TestS3AccelerateConfiguration::test_s3_bucket_accelerate_configuration",
+   "tests/test_tags.py::TestTags::test_ASTagAddition",
+   "tests/test_tags.py::TestTags::test_Formats",
+   "tests/test_tags.py::TestTags::test_TagAddition",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:13:24
++++ b/troposphere/__init__.py	2026-09-22 03:15:23
+@@ -259,21 +259,9 @@
+             # to deal with this that we'll come up with eventually
+             # BUT we should still validate that it's compatible with the expected type
+             if isinstance(value, AWSHelperFn):
+-                # Allow AWSHelperFn objects to pass through for dict-type fields
+-                # as they represent valid AWS expressions that resolve to dicts at runtime
+-                if isinstance(expected_type, (list, tuple)) and len(expected_type) > 0:
+-                    # Handle list of types
+-                    if dict in expected_type or isinstance(expected_type[0], type) and issubclass(expected_type[0], dict):
+-                        return self.properties.__setitem__(name, value)
+-                elif expected_type == dict or expected_type is dict:
+-                    # Allow AWSHelperFn for dict fields (like Tags)
+-                    return self.properties.__setitem__(name, value)
+-                elif isinstance(expected_type, type) and issubclass(expected_type, dict):
+-                    # Allow AWSHelperFn for dict subclasses
+-                    return self.properties.__setitem__(name, value)
+-                # For non-dict types, we still need to enforce type checking
+-                # Fall through to normal validation below
+-                pass
++                # Allow AWSHelperFn objects to pass through for all types
++                # as they represent valid AWS expressions that resolve to values at runtime
++                return self.properties.__setitem__(name, value)
+ 
+             # If it's a function, call it...
+             elif isinstance(expected_type, types.FunctionType):

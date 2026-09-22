@@ -1,0 +1,128 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/socket.py b/httpdbg/hooks/socket.py
+--- a/httpdbg/hooks/socket.py	2026-09-22 04:01:47
++++ b/httpdbg/hooks/socket.py	2026-09-22 04:07:32
+@@ -14,7 +14,8 @@
+ 
+ from httpdbg.initiator import httpdbg_initiator
+ from httpdbg.log import logger
+-from httpdbg.hooks.recordhttp1 import HTTP1Record
++
++from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record
+ from httpdbg.hooks.utils import getcallargs
+ from httpdbg.hooks.utils import decorate
+ from httpdbg.hooks.utils import undecorate
+@@ -363,7 +364,7 @@
+                                 initiator.tbegin = tbegin
+                                 group.tbegin = tbegin
+                         # Detect HTTP/2 protocol
+-                        from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record
++                        
+                         # Extract the first line to detect HTTP/2
+                         end_of_first_line = socketdata.rawdata[:2048].find(b"\r\n")
+                         if end_of_first_line != -1:
+@@ -417,13 +418,13 @@
+                 socketdata.rawdata += buffer
+                 http_detected = socketdata.http_detected()
+                 if http_detected:
+-                    logger().info("SENDALL - http detected")
++                    logger().info("RECV - http detected")
+                     with httpdbg_initiator(
+                         records,
+                         traceback.extract_stack(),
+                         method,
+                         self,
+-                        data,
++                        buffer,
+                         *args,
+                         **kwargs,
+                     ) as initiator_and_group:
+@@ -435,7 +436,7 @@
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+                         # Detect HTTP/2 protocol
+-                        from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record
++                        
+                         # Extract the first line to detect HTTP/2
+                         end_of_first_line = socketdata.rawdata[:2048].find(b"\r\n")
+                         if end_of_first_line != -1:
+@@ -452,6 +453,7 @@
+                             group.id,
+                             records.current_tag,
+                             tbegin=socketdata.tbegin,
++                            is_client=True,
+                         )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl
+@@ -484,13 +486,13 @@
+                 socketdata.rawdata += data
+                 http_detected = socketdata.http_detected()
+                 if http_detected:
+-                    logger().info("RECV - http detected")
++                    logger().info("SENDALL - http detected")
+                     with httpdbg_initiator(
+                         records,
+                         traceback.extract_stack(),
+                         method,
+                         self,
+-                        bufsize,
++                        data,
+                         *args,
+                         **kwargs,
+                     ) as initiator_and_group:
+@@ -502,7 +504,7 @@
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+                         # Detect HTTP/2 protocol
+-                        from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record
++                        
+                         # Extract the first line to detect HTTP/2
+                         end_of_first_line = socketdata.rawdata[:2048].find(b"\r\n")
+                         if end_of_first_line != -1:
+@@ -519,11 +521,12 @@
+                             group.id,
+                             records.current_tag,
+                             tbegin=socketdata.tbegin,
++                            is_client=True,
+                         )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl
+                         socketdata.record.receive_data(socketdata.rawdata)
+-                        if records.server:
++                        if records.client:
+                             records.requests[socketdata.record.id] = socketdata.record
+                 elif http_detected is False:  # if None, there is nothing to do
+                     records._tracerhttp1.mark_as_not_a_http_request(self)
+@@ -571,7 +574,7 @@
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+                         # Detect HTTP/2 protocol
+-                        from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record
++                        
+                         # Extract the first line to detect HTTP/2
+                         end_of_first_line = socketdata.rawdata[:2048].find(b"\r\n")
+                         if end_of_first_line != -1:
+@@ -588,6 +591,7 @@
+                             group.id,
+                             records.current_tag,
+                             tbegin=socketdata.tbegin,
++                            is_client=True,
+                         )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl
+@@ -664,7 +668,7 @@
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+                         # Detect HTTP/2 protocol
+-                        from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record
++                        
+                         # Extract the first line to detect HTTP/2
+                         end_of_first_line = socketdata.rawdata[:2048].find(b"\r\n")
+                         if end_of_first_line != -1:
+@@ -681,6 +685,7 @@
+                             group.id,
+                             records.current_tag,
+                             tbegin=socketdata.tbegin,
++                            is_client=True,
+                         )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl

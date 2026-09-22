@@ -1,0 +1,434 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-22 03:00:08
++++ b/httpdbg/hooks/all.py	2026-09-22 03:08:11
+@@ -8,6 +8,7 @@
+ from httpdbg.hooks.fastapi import hook_fastapi
+ from httpdbg.hooks.flask import hook_flask
+ from httpdbg.hooks.generic import hook_generic
++from httpdbg.hooks.h2 import hook_h2
+ from httpdbg.hooks.http import hook_http
+ from httpdbg.hooks.httpx import hook_httpx
+ from httpdbg.hooks.pytest import hook_pytest
+@@ -40,20 +41,21 @@
+                     with hook_uvicorn(records):
+                         with hook_http(records):
+                             with hook_httpx(records):
+-                                with hook_requests(records):
+-                                    with hook_urllib3(records):
+-                                        with hook_aiohttp(records):
+-                                            with hook_pytest(records):
+-                                                with hook_unittest(records):
+-                                                    with hook_generic(
+-                                                        records, initiators
+-                                                    ):
+-                                                        if multiprocess:
+-                                                            with watcher_external(
+-                                                                records,
+-                                                                initiators,
+-                                                                server,
+-                                                            ):
++                                with hook_h2(records):
++                                    with hook_requests(records):
++                                        with hook_urllib3(records):
++                                            with hook_aiohttp(records):
++                                                with hook_pytest(records):
++                                                    with hook_unittest(records):
++                                                        with hook_generic(
++                                                            records, initiators
++                                                        ):
++                                                            if multiprocess:
++                                                                with watcher_external(
++                                                                    records,
++                                                                    initiators,
++                                                                    server,
++                                                                ):
++                                                                    yield records
++                                                            else:
+                                                                 yield records
+-                                                        else:
+-                                                            yield records
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	1970-01-01 02:00:00
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:07:57
+@@ -0,0 +1,125 @@
++# -*- coding: utf-8 -*-
++from collections.abc import Callable
++from contextlib import contextmanager
++import traceback
++from typing import Generator
++
++from httpdbg.hooks.utils import getcallargs
++from httpdbg.hooks.utils import decorate
++from httpdbg.hooks.utils import undecorate
++from httpdbg.initiator import httpdbg_initiator
++from httpdbg.records import HTTPRecords
++
++
++def set_hook_for_httpx_async_h2(records: HTTPRecords, method: Callable):
++    async def hook(*args, **kwargs):
++        initiator_and_group = None
++        try:
++            with httpdbg_initiator(
++                records, traceback.extract_stack(), method, *args, **kwargs
++            ) as initiator_and_group:
++                ret = await method(*args, **kwargs)
++            return ret
++        except Exception as ex:
++            callargs = getcallargs(method, *args, **kwargs)
++
++            if "url" in callargs:
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        records.add_new_record_exception(
++                            initiator, group, str(callargs["url"]), ex
++                        )
++            raise
++
++    return hook
++
++
++def set_hook_for_httpx_h2(records: HTTPRecords, method: Callable):
++    def hook(*args, **kwargs):
++        initiator_and_group = None
++        try:
++            with httpdbg_initiator(
++                records, traceback.extract_stack(), method, *args, **kwargs
++            ) as initiator_and_group:
++                ret = method(*args, **kwargs)
++            return ret
++        except Exception as ex:
++            callargs = getcallargs(method, *args, **kwargs)
++
++            if "url" in callargs:
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        records.add_new_record_exception(
++                            initiator, group, str(callargs["url"]), ex
++                        )
++            raise
++
++    return hook
++
++
++@contextmanager
++def hook_h2(records: HTTPRecords) -> Generator[None, None, None]:
++    hooks = False
++    try:
++        import httpx
++
++        httpx.AsyncClient.get = decorate(
++            records, httpx.AsyncClient.get, set_hook_for_httpx_async_h2
++        )
++        httpx.AsyncClient.post = decorate(
++            records, httpx.AsyncClient.post, set_hook_for_httpx_async_h2
++        )
++        httpx.AsyncClient.patch = decorate(
++            records, httpx.AsyncClient.patch, set_hook_for_httpx_async_h2
++        )
++        httpx.AsyncClient.put = decorate(
++            records, httpx.AsyncClient.put, set_hook_for_httpx_async_h2
++        )
++        httpx.AsyncClient.delete = decorate(
++            records, httpx.AsyncClient.delete, set_hook_for_httpx_async_h2
++        )
++        httpx.AsyncClient.head = decorate(
++            records, httpx.AsyncClient.head, set_hook_for_httpx_async_h2
++        )
++        httpx.AsyncClient.options = decorate(
++            records, httpx.AsyncClient.options, set_hook_for_httpx_async_h2
++        )
++        httpx.AsyncClient.request = decorate(
++            records, httpx.AsyncClient.request, set_hook_for_httpx_async_h2
++        )
++
++        httpx.get = decorate(records, httpx.get, set_hook_for_httpx_h2)
++        httpx.post = decorate(records, httpx.post, set_hook_for_httpx_h2)
++        httpx.patch = decorate(records, httpx.patch, set_hook_for_httpx_h2)
++        httpx.put = decorate(records, httpx.put, set_hook_for_httpx_h2)
++        httpx.delete = decorate(records, httpx.delete, set_hook_for_httpx_h2)
++        httpx.head = decorate(records, httpx.head, set_hook_for_httpx_h2)
++        httpx.options = decorate(records, httpx.options, set_hook_for_httpx_h2)
++        httpx.request = decorate(records, httpx.request, set_hook_for_httpx_h2)
++
++        hooks = True
++    except ImportError:
++        pass
++
++    yield
++
++    if hooks:
++        httpx.AsyncClient.get = undecorate(httpx.AsyncClient.get)
++        httpx.AsyncClient.post = undecorate(httpx.AsyncClient.post)
++        httpx.AsyncClient.patch = undecorate(httpx.AsyncClient.patch)
++        httpx.AsyncClient.put = undecorate(httpx.AsyncClient.put)
++        httpx.AsyncClient.delete = undecorate(httpx.AsyncClient.delete)
++        httpx.AsyncClient.head = undecorate(httpx.AsyncClient.head)
++        httpx.AsyncClient.options = undecorate(httpx.AsyncClient.options)
++        httpx.AsyncClient.request = undecorate(httpx.AsyncClient.request)
++
++        httpx.get = undecorate(httpx.get)
++        httpx.post = undecorate(httpx.post)
++        httpx.patch = undecorate(httpx.patch)
++        httpx.put = undecorate(httpx.put)
++        httpx.delete = undecorate(httpx.delete)
++        httpx.head = undecorate(httpx.head)
++        httpx.options = undecorate(httpx.options)
++        httpx.request = undecorate(httpx.request)
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	1970-01-01 02:00:00
++++ b/httpdbg/hooks/recordhttp2.py	2026-09-22 03:08:06
+@@ -0,0 +1,250 @@
++import datetime
++from urllib.parse import urlparse
++
++from httpdbg.preview import generate_preview
++from httpdbg.hooks.record import HTTPRecord
++from httpdbg.hooks.record import HTTPRecordReqResp
++from httpdbg.hooks.record import HTTPRecordRequest
++from httpdbg.hooks.record import HTTPRecordResponse
++from httpdbg.utils import chunked_to_bytes
++from httpdbg.utils import HTTPDBGCookie
++from httpdbg.utils import HTTPDBGHeader
++from httpdbg.utils import list_cookies_headers_request_simple_cookies
++from httpdbg.utils import list_cookies_headers_response_simple_cookies
++
++
++class HTTP2RecordReqResp(HTTPRecordReqResp):
++    def __init__(self) -> None:
++        self._rawdata: bytes = bytes()
++        self._rawheaders: bytes = bytes()
++        self._headers: list[HTTPDBGHeader] = []
++        self.last_update: datetime.datetime = datetime.datetime.now(
++            datetime.timezone.utc
++        )
++
++    def get_header(self, name: str, default: str = "") -> str:
++        for header in self.headers:
++            if header.name.lower() == name.lower():
++                return header.value
++        return default
++
++    @property
++    def rawheaders(self) -> bytes:
++        if not self._rawheaders:
++            # For HTTP/2, we need to parse the frame data differently
++            # This is a simplified implementation - in reality, HTTP/2 frames would be parsed
++            # But for this hook, we'll treat it similar to HTTP/1 for now
++            if self.rawdata:
++                # Try to find headers section (simplified)
++                sep = self.rawdata.find(b"\r\n\r\n")
++                if sep > -1:
++                    self._rawheaders = self.rawdata[:sep]
++        return self._rawheaders
++
++    @property
++    def headers(self) -> list[HTTPDBGHeader]:
++        if not self._headers:
++            if self.rawheaders:
++                # Simplified header parsing for HTTP/2
++                # In a real implementation, this would parse HTTP/2 frames properly
++                for header in self.rawheaders[self.rawheaders.find(b"\r\n") :].split(
++                    b"\r\n"
++                ):
++                    sh = header.split(b":")
++                    name = sh[0]
++                    value = b":".join(sh[1:])
++                    if name:
++                        self._headers.append(
++                            HTTPDBGHeader(name.decode().strip(), value.decode().strip())
++                        )
++        return self._headers
++
++    @property
++    def content(self) -> bytes:
++        rawdata = bytes()
++
++        # Simplified content extraction for HTTP/2
++        if self.rawdata:
++            sep = self.rawdata.find(b"\r\n\r\n")
++            if sep > -1:
++                rawcontent = self.rawdata[sep + 4 :]
++
++                content_length = self.get_header("Content-Length")
++
++                if content_length:
++                    rawdata = rawcontent[: min(len(rawcontent), int(content_length))]
++                elif "chunked" in self.get_header("Transfer-Encoding", "").lower():
++                    rawdata = chunked_to_bytes(rawcontent)
++                else:
++                    rawdata = rawcontent
++
++        return rawdata
++
++    @property
++    def preview(self):
++        return generate_preview(
++            self.content,
++            self.get_header("Content-Type"),
++            self.get_header("Content-Encoding"),
++        )
++
++    @property
++    def rawdata(self) -> bytes:
++        return self._rawdata
++
++    @rawdata.setter
++    def rawdata(self, value: bytes):
++        self.last_update = datetime.datetime.now(datetime.timezone.utc)
++        self._rawdata = value
++
++
++class HTTP2RecordRequest(HTTPRecordRequest, HTTP2RecordReqResp):
++    def __init__(self) -> None:
++        super().__init__()
++        self._method = bytes()
++        self._uri = bytes()
++        self._protocol = bytes()
++
++    @property
++    def cookies(self) -> list[HTTPDBGCookie]:
++        return list_cookies_headers_request_simple_cookies(self.headers)
++
++    def _parse_first_line(self) -> None:
++        if self.rawheaders:
++            # HTTP/2 doesn't have a first line like HTTP/1
++            # This is a placeholder for a real HTTP/2 implementation
++            pass
++
++    @property
++    def method(self) -> str:
++        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
++        # For now, returning a default as placeholder
++        return "UNKNOWN"
++
++    @property
++    def uri(self) -> str:
++        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
++        # For now, returning a default as placeholder
++        return ""
++
++    @property
++    def protocol(self) -> str:
++        return "HTTP/2"
++
++
++class HTTP2RecordResponse(HTTPRecordResponse, HTTP2RecordReqResp):
++    def __init__(self):
++        super().__init__()
++        self._protocol = bytes()
++        self._status_code = bytes()
++        self._message = bytes()
++
++    @property
++    def cookies(self) -> list[HTTPDBGCookie]:
++        return list_cookies_headers_response_simple_cookies(self.headers)
++
++    def _parse_first_line(self) -> None:
++        # HTTP/2 doesn't have a first line like HTTP/1
++        # This is a placeholder for a real HTTP/2 implementation
++        pass
++
++    @property
++    def protocol(self) -> str:
++        return "HTTP/2"
++
++    @property
++    def status_code(self) -> int:
++        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
++        # For now, returning 0 as placeholder
++        return 0
++
++    @property
++    def message(self) -> str:
++        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
++        # For now, returning empty as placeholder
++        return ""
++
++
++class HTTP2Record(HTTPRecord):
++    def __init__(
++        self,
++        initiator_id: str,
++        group_id: str,
++        tag: str = None,
++        tbegin: datetime.datetime = None,
++        is_client: bool = True,
++    ) -> None:
++        super().__init__(initiator_id, group_id, tag, tbegin, is_client)
++        self.request: HTTP2RecordRequest = HTTP2RecordRequest()
++        self.response: HTTP2RecordResponse = HTTP2RecordResponse()
++
++    @property
++    def url(self) -> str:
++        if not self._url:
++            # For HTTP/2, we would typically get this from the :authority and :path pseudo-headers
++            # For now, returning a placeholder
++            self._url = "http://placeholder.example.com"
++        return self._url
++
++    @url.setter
++    def url(self, value: str) -> None:
++        self._url = value
++
++    @property
++    def method(self) -> str:
++        return self.request.method
++
++    @property
++    def status_code(self) -> int:
++        if self.exception:
++            return -1
++        else:
++            return self.response.status_code if self.response.status_code else 0
++
++    @property
++    def reason(self) -> str:
++        desc = "in progress"
++        if self.response.message:
++            desc = self.response.message
++        elif self.exception is not None:
++            desc = getattr(type(self.exception), "__name__", str(type(self.exception)))
++        return desc
++
++    @property
++    def netloc(self) -> str:
++        url = urlparse(self.url)
++        return f"{url.scheme}://{url.netloc}"
++
++    @property
++    def urlext(self) -> str:
++        return self.url[len(self.netloc) :]
++
++    @property
++    def in_progress(self) -> bool:
++        try:
++            length = int(self.response.get_header("Content-Length", "0"))
++            if length:
++                return len(self.response.content) < length
++        except Exception:
++            pass
++        return False
++
++    @property
++    def last_update(self) -> datetime.datetime:
++        return max(self.request.last_update, self.response.last_update)
++
++    def receive_data(self, data: bytes):
++        if self.is_client:
++            self.response.rawdata += data
++        else:
++            self.request.rawdata += data
++
++    def send_data(self, data: bytes):
++        if self.is_client:
++            self.request.rawdata += data
++        else:
++            self.response.rawdata += data
++
++    @property
++    def protocol(self) -> str:
++        return "HTTP/2"
+\ No newline at end of file

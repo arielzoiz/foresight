@@ -1,0 +1,148 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-22 03:24:41
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-22 03:30:06
+@@ -1,3 +1,5 @@
+ {
+-  "tests/test_tags.py::TestTags::test_json_tags": true
++  "tests/test_tags.py::TestTags::test_json_tags": true,
++  "tests/test_tags.py::TestTags::test_TagConditional": true,
++  "tests/test_tags.py::TestTags::test_object_tags": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:28:54
++++ b/troposphere/__init__.py	2026-09-22 03:29:57
+@@ -720,62 +720,82 @@
+ 
+     def __init__(self, *args: object, **kwargs: Any):
+         self.tags = []
+-        tag_dict: Dict[Any, Any]
+         if not args:
+             # Assume kwargs variant
+             tag_dict = kwargs
+         else:
+-            # Validate that we don't have multiple positional arguments
+-            # This catches cases like Tags("key", "value") which should raise TypeError
+-            if len(args) > 1:
+-                raise TypeError("Tags needs to be either kwargs, dict, or AWSHelperFn")
+-            
+-            # Validate single positional argument
+-            arg = args[0]
+-            if isinstance(arg, AWSHelperFn):
+-                self.tags.append(arg)
+-            elif isinstance(arg, dict):
+-                tag_dict = cast(Dict[str, Any], arg)
+-            elif isinstance(arg, Tags):
+-                # If it's a Tags instance, copy its tags
+-                self.tags.extend(arg.tags)
+-                return
+-            else:
+-                # Check if it's a simple value type that should raise TypeError
+-                # This handles cases like Tags("tag") or Tags(1) which should raise TypeError
+-                if isinstance(arg, (str, int, float, bool, list, tuple)):
+-                    raise TypeError(
+-                        "Tags needs to be either kwargs, dict, or AWSHelperFn"
+-                    )
+-                # For backward compatibility, let's try to treat the arg as a dict if it's iterable
+-                # This addresses the case where a dict is passed as a positional argument
+-                try:
+-                    # Convert to dict to handle cases like passing a dict as a positional argument
+-                    if hasattr(arg, 'items'):
+-                        tag_dict = dict(arg)
+-                    else:
+-                        tag_dict = dict(arg)
+-                except (TypeError, AttributeError):
+-                    # If it's not iterable or not a dict, raise the original error
+-                    raise TypeError(
+-                        "Tags needs to be either kwargs, dict, or AWSHelperFn"
+-                    )
++            # Process all arguments - can be a mix of dict, AWSHelperFn, and Tags objects
++            for arg in args:
++                if isinstance(arg, AWSHelperFn):
++                    # AWSHelperFn objects (like If expressions) should be accepted
++                    self.tags.append(arg)
++                elif isinstance(arg, dict):
++                    # Handle dict argument
++                    tag_dict = cast(Dict[str, Any], arg)
++                    # Process the dict items preserving order
++                    def add_tag(
++                        tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
++                    ):
++                        tag_list.append(
++                            {
++                                "Key": k,
++                                "Value": v,
++                            }
++                        )
++                    
++                    # Process items in their original order (don't sort)
++                    for k, v in tag_dict.items():
++                        add_tag(self.tags, k, v)
++                elif isinstance(arg, Tags):
++                    # If it's a Tags instance, copy its tags
++                    self.tags.extend(arg.tags)
++                else:
++                    # For backward compatibility, let's try to treat the arg as a dict if it's iterable
++                    # This addresses the case where a dict is passed as a positional argument
++                    try:
++                        # Convert to dict to handle cases like passing a dict as a positional argument
++                        if hasattr(arg, 'items'):
++                            tag_dict = dict(arg)
++                            # Process the dict items preserving order
++                            def add_tag(
++                                tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
++                            ):
++                                tag_list.append(
++                                    {
++                                        "Key": k,
++                                        "Value": v,
++                                    }
++                                )
++                            
++                            # Process items in their original order (don't sort)
++                            for k, v in tag_dict.items():
++                                add_tag(self.tags, k, v)
++                        else:
++                            # If it's not a dict-like object, raise error
++                            raise TypeError(
++                                "Tags needs to be either kwargs, dict, or AWSHelperFn"
++                            )
++                    except (TypeError, AttributeError):
++                        # If it's not iterable or not a dict, raise the original error
++                        raise TypeError(
++                            "Tags needs to be either kwargs, dict, or AWSHelperFn"
++                        )
+ 
+-        def add_tag(
+-            tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
+-        ):
+-            tag_list.append(
+-                {
+-                    "Key": k,
+-                    "Value": v,
+-                }
+-            )
+-
+-        # Detect and handle non-string Tag items which do not sort in Python3
+-        if all(isinstance(k, str) for k in tag_dict):
+-            for k, v in sorted(tag_dict.items()):
+-                add_tag(self.tags, k, v)
+-        else:
++        # Handle kwargs if any
++        if kwargs:
++            tag_dict = kwargs
++            # Process the kwargs items preserving order
++            def add_tag(
++                tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
++            ):
++                tag_list.append(
++                    {
++                        "Key": k,
++                        "Value": v,
++                    }
++                )
++            
++            # Process items in their original order (don't sort)
+             for k, v in tag_dict.items():
+                 add_tag(self.tags, k, v)
+ 

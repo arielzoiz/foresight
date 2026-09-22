@@ -1,0 +1,62 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:28:01
++++ b/troposphere/__init__.py	2026-09-22 03:28:54
+@@ -736,6 +736,10 @@
+                 self.tags.append(arg)
+             elif isinstance(arg, dict):
+                 tag_dict = cast(Dict[str, Any], arg)
++            elif isinstance(arg, Tags):
++                # If it's a Tags instance, copy its tags
++                self.tags.extend(arg.tags)
++                return
+             else:
+                 # Check if it's a simple value type that should raise TypeError
+                 # This handles cases like Tags("tag") or Tags(1) which should raise TypeError
+@@ -748,9 +752,9 @@
+                 try:
+                     # Convert to dict to handle cases like passing a dict as a positional argument
+                     if hasattr(arg, 'items'):
+-                        tag_dict.update(dict(arg))
++                        tag_dict = dict(arg)
+                     else:
+-                        tag_dict.update(dict(arg))
++                        tag_dict = dict(arg)
+                 except (TypeError, AttributeError):
+                     # If it's not iterable or not a dict, raise the original error
+                     raise TypeError(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/batch.py b/troposphere/batch.py
+--- a/troposphere/batch.py	2026-09-22 03:26:16
++++ b/troposphere/batch.py	2026-09-22 03:28:55
+@@ -21,7 +21,7 @@
+     """Validate that Tags parameter is a valid type."""
+     # Allow Tags instances, AWSHelperFn, and dict objects
+     if isinstance(value, Tags):
+-        # Tags instance is allowed
++        # Tags instance is allowed - pass through unchanged
+         return value
+     elif hasattr(value, '__class__') and 'AWSHelperFn' in str(type(value).__mro__):
+         # AWSHelperFn is allowed
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/dynamodb.py b/troposphere/dynamodb.py
+--- a/troposphere/dynamodb.py	2026-09-22 03:26:18
++++ b/troposphere/dynamodb.py	2026-09-22 03:28:58
+@@ -376,14 +376,15 @@
+             # Apply stricter validation for Tags parameter
+             # Only allow Tags instances and AWSHelperFn
+             if isinstance(value, Tags):
+-                # Valid Tags instance
+-                pass
++                # Valid Tags instance - pass through unchanged
++                super().__setattr__(name, value)
++                return
+             elif hasattr(value, '__class__') and 'AWSHelperFn' in str(type(value).__mro__):
+-                # Valid AWSHelperFn
+-                pass
++                # Valid AWSHelperFn - pass through
++                super().__setattr__(name, value)
++                return
+             elif isinstance(value, dict):
+                 # Allow dict - convert to Tags instance
+-                # This is needed to align with AWS behavior and test expectations
+                 super().__setattr__(name, Tags(value))
+                 return
+             elif isinstance(value, str):

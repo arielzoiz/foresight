@@ -1,0 +1,75 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:32:51
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:34:03
+@@ -50,8 +50,8 @@
+             
+             if "url" in callargs:
+                 records.add_new_record_exception(
+-                    "httpx.AsyncClient", 
+-                    method.__name__, 
++                    initiator, 
++                    group, 
+                     str(url), 
+                     ex
+                 )
+@@ -96,8 +96,8 @@
+             
+             if "url" in callargs:
+                 records.add_new_record_exception(
+-                    "httpx.Client", 
+-                    method.__name__, 
++                    initiator, 
++                    group, 
+                     str(url), 
+                     ex
+                 )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	2026-09-22 03:32:54
++++ b/httpdbg/hooks/recordhttp2.py	2026-09-22 03:34:09
+@@ -140,7 +140,7 @@
+     def method(self) -> str:
+         # Extract :method pseudo-header from HTTP/2
+         for header in self.headers:
+-            if header.name == "method":
++            if header.name == ":method":
+                 return header.value
+         # Fallback to placeholder
+         return "UNKNOWN"
+@@ -151,9 +151,9 @@
+         path = ""
+         authority = ""
+         for header in self.headers:
+-            if header.name == "path":
++            if header.name == ":path":
+                 path = header.value
+-            elif header.name == "authority":
++            elif header.name == ":authority":
+                 authority = header.value
+         
+         # Construct full URI
+@@ -197,15 +197,13 @@
+     def status_code(self) -> int:
+         # Extract :status pseudo-header from HTTP/2
+         for header in self.headers:
+-            if header.name == "status":
++            if header.name == ":status":
+                 try:
+                     return int(header.value)
+                 except ValueError:
+                     return 0
+         # Fallback to placeholder
+         return 0
+-        # Fallback to placeholder
+-        return 0
+ 
+     @property
+     def message(self) -> str:
+@@ -213,7 +211,7 @@
+         # The status code and reason phrase are usually sent together
+         # For now, we'll try to extract a reasonable message
+         for header in self.headers:
+-            if header.name == "status":
++            if header.name == ":status":
+                 # Map common status codes to standard messages
+                 status_map = {
+                     "200": "OK",

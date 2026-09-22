@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/troposphere/__init__.py:718</location>
+    <description>The Tags class constructor has incorrect validation logic that fails to consistently raise TypeError for invalid inputs. Tests expect TypeError to be raised for invalid arguments such as Tags("tag") or Tags(1), but the current implementation doesn't raise the error or raises it inconsistently.</description>
+    <contract>The Tags class constructor must consistently raise TypeError with message "Tags needs to be either kwargs, dict, or AWSHelperFn" when called with:
+1. Multiple positional arguments (e.g., Tags("key", "value")) 
+2. Single positional argument that is not a dict, AWSHelperFn, or Tags instance (e.g., Tags("tag"), Tags(1))
+3. Invalid argument types that don't match expected patterns</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_json_tags, tests/test_tags.py::TestTags::test_TagConditional, tests/test_tags.py::TestTags::test_object_tags</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/troposphere/batch.py:20</location>
+    <description>The validate_tags function in batch.py incorrectly rejects valid Tags instances when used in JobDefinition. The validation logic should accept Tags instances as valid input rather than rejecting them.</description>
+    <contract>The validate_tags function must accept:
+1. Tags instances (should pass through unchanged)
+2. AWSHelperFn instances (should pass through)
+3. dict objects (should be converted to Tags instances)
+4. Raise TypeError with message "Tags must be a Tags instance, dict, or AWSHelperFn" for invalid types</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_json_tags</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/troposphere/dynamodb.py:374</location>
+    <description>The Table class in dynamodb.py has overly restrictive validation that rejects valid Tags instances in the Tags parameter. The validation should allow Tags instances to pass through unchanged.</description>
+    <contract>The Table class __setattr__ method must allow:
+1. Tags instances to pass through without conversion or modification
+2. AWSHelperFn instances to pass through
+3. dict objects to be converted to Tags instances
+4. String values to raise TypeError with message "Tags must be a Tags instance, dict, or AWSHelperFn"</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_object_tags</acceptance>
+  </requirement>
+</requirements>

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/troposphere/rds.py</location>
+        <description>The DBInstance validation logic incorrectly handles credential requirements vs snapshot identifiers. The validation logic in the validate method is checking for conflicting conditions and raising incorrect error messages. The test expects a specific error message format but the current implementation raises a different message.</description>
+        <contract>The validation should correctly check that either:
+1. MasterUsername is provided along with either MasterUserPassword or ManageMasterUserPassword, OR
+2. DBSnapshotIdentifier is provided
+3. The error message should match exactly: "Either (MasterUsername and either MasterUserPassword or ManageMasterUserPassword) or DBSnapshotIdentifier are required"
+
+The validation should also properly handle cases where a DBInstance has no snapshot identifier, cluster identifier, or source DB instance identifier, but still requires either credentials or a snapshot identifier.</contract>
+        <acceptance>tests/test_rds.py::TestRDS::test_it_rds_instances_require_either_a_snapshot_or_credentials</acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/validators/__init__.py</location>
+        <description>The tags_or_list validator doesn't properly validate Tags objects when they contain Items arrays (used by CloudFront AnycastIpList). The validator should accept Tag objects in the Items array.</description>
+        <contract>The tags_or_list validator should properly validate Tags objects that contain Items arrays with Tag objects. It should accept:
+1. AWSHelperFn objects
+2. Tags objects
+3. Lists of Tag objects when contained in Items of a Tags dict
+4. Regular lists of dictionaries with Key/Value pairs</contract>
+        <acceptance>tests/test_tags.py::TestTags::test_tags_items_array</acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/__init__.py</location>
+        <description>The Parameter validation logic incorrectly rejects CommaDelimitedList parameters with AllowedPattern. The validation should allow this combination.</description>
+        <contract>The Parameter validator should allow AllowedPattern to be used with CommaDelimitedList parameter types. The validation should not raise an error for this valid combination.</contract>
+        <acceptance>tests/test_parameters.py::TestParameterValidator::test_allowed_pattern_for_comma_delimited_list_and_string</acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/__init__.py</location>
+        <description>The AWSHelperFn equality comparison logic in the __eq__ method doesn't properly handle comparison with TypeComparator objects. The comparison logic needs to be improved to handle these edge cases.</description>
+        <contract>The __eq__ method for AWSHelperFn should properly handle comparisons with TypeComparator objects and other types that might not be standard objects. It should correctly evaluate equality relationships.</contract>
+        <acceptance>tests/test_basic.py::TestBasic::test___eq__</acceptance>
+    </item>
+</requirement>

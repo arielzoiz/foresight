@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/httpdbg/hooks/http2.py</location>
+    <description>The current implementation in set_hook_for_http2 and set_hook_for_http2_async doesn't properly create HTTP2Record instances for successful requests. The tests show that records is empty (len(&lt;httpdbg.records.HTTPRecords object at 0x7f4a63fa8100&gt;) returns 0). The hooks are decorating httpx methods but not properly recording the HTTP2Record when requests complete successfully.</description>
+    <contract>Modify the hook functions to ensure that HTTP2Record instances are created and stored in records.requests when HTTP/2 requests complete successfully. The record should include proper URL, method, status code, and protocol information. The HTTP2Record should be created using the correct initiator and group information.</contract>
+    <acceptance>Tests in /app/code/tests/test_hook_h2.py should pass, specifically test_h2, test_h2_request, test_h2_response, etc. The records collection should contain exactly one record per successful HTTP/2 request.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/httpdbg/records.py</location>
+    <description>The add_new_record_exception method doesn't properly detect and use HTTP2Record for HTTP/2 requests when creating records for exceptions. Currently, it tries to detect HTTP/2 by checking existing records but this approach is unreliable and doesn't handle the case where a new HTTP/2 request is being processed.</description>
+    <contract>Update add_new_record_exception to properly handle HTTP/2 exception records. When an exception occurs during an HTTP/2 request, the method should create an HTTP2Record if the associated initiator/group indicates an HTTP/2 connection, rather than defaulting to HTTP1Record.</contract>
+    <acceptance>Exception handling tests in /app/code/tests/test_hook_h2.py should pass. When HTTP/2 requests fail, they should still create HTTP2Record instances with proper protocol information.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/httpdbg/hooks/socket.py</location>
+    <description>The HTTP/2 protocol detection logic in socket hooks needs improvement to correctly identify when HTTP/2 data arrives, particularly around the PRI * HTTP/2.0\r\n magic bytes detection. The current detection logic isn't consistently triggering the creation of HTTP2Record instances.</description>
+    <contract>Enhance the HTTP/2 detection logic in socket hooks to reliably detect HTTP/2 streams from the initial connection data. When the magic bytes PRI * HTTP/2.0\r\n are detected, ensure that HTTP2Record instances are created instead of HTTP1Record instances.</contract>
+    <acceptance>Socket-based HTTP/2 detection tests should pass. The socket hooks should properly detect HTTP/2 protocol and create appropriate records.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/httpdbg/hooks/http2.py</location>
+    <description>The hook_http2 context manager needs to ensure proper decoration of all relevant httpx methods including async clients and session-based methods. The current implementation only decorates a subset of methods.</description>
+    <contract>Expand the hook_http2 context manager to decorate all relevant httpx client methods including session-based methods and ensure consistent HTTP/2 handling across all httpx interfaces.</contract>
+    <acceptance>Full suite of tests in /app/code/tests/test_hook_h2.py should pass, including async and session-based tests.</acceptance>
+  </item>
+</requirement>

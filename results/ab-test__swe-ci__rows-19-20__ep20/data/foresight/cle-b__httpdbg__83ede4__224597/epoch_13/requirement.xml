@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The HTTP/2 hook implementation creates HTTP2Record objects but fails to properly extract method and URL information from HTTP/2 request call arguments. The current implementation incorrectly extracts URL from kwargs but doesn't properly set the HTTP method.</description>
+        <contract>The HTTP2Record constructor should be called with proper URL and method information extracted from the call arguments. The hook must extract the HTTP method from the call arguments (e.g., 'get', 'post', 'put', etc.) and the URL from the 'url' parameter in the call arguments.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_client_not_found, test_h2_server_request, test_h2_server_response</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The HTTP2Record initialization is not properly setting the is_client flag, causing mismatched client/server detection in tests.</description>
+        <contract>The HTTP2Record constructor should receive the correct is_client flag based on the context of the request (client vs server). The flag should be determined by the context in which the hook is executed, not hardcoded to True.</contract>
+        <acceptance>test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp1.py</location>
+        <description>The HTTP2Record class does not properly implement the method property to extract HTTP method from the request data. The method property should return the HTTP method from the request.</description>
+        <contract>The HTTP2Record.method property must return the HTTP method (GET, POST, PUT, etc.) from the underlying request object, which should be parsed from the request data.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_client_not_found</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp1.py</location>
+        <description>The HTTP2Record.receive_data and HTTP2Record.send_data methods are not properly routing data to request/response objects based on the is_client flag.</description>
+        <contract>The receive_data and send_data methods should route data to the correct request/response objects based on the is_client flag. Client-initiated requests should route data to request objects, server responses to response objects.</contract>
+        <acceptance>All HTTP/2 tests involving data handling</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/records.py</location>
+        <description>The add_new_record_exception method doesn't correctly identify HTTP/2 requests when creating records for exceptions, leading to incorrect record type creation.</description>
+        <contract>The add_new_record_exception method should properly detect if an exception occurred during an HTTP/2 request and create an HTTP2Record accordingly instead of defaulting to HTTP1Record.</contract>
+        <acceptance>test_h2_client_not_found</acceptance>
+    </requirement>
+</requirement_document>

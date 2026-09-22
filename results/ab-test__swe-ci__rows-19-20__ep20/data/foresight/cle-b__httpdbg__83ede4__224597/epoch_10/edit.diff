@@ -1,0 +1,99 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/http2.py b/httpdbg/hooks/http2.py
+--- a/httpdbg/hooks/http2.py	2026-09-22 05:12:46
++++ b/httpdbg/hooks/http2.py	2026-09-22 05:21:27
+@@ -14,7 +14,6 @@
+ 
+ def set_hook_for_http2_async(records: HTTPRecords, method: Callable):
+     async def hook(*args, **kwargs):
+-        initiator_and_group = None
+         try:
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+@@ -29,21 +28,30 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag
+                         )
+-                        record.url = str(kwargs.get("url", ""))
++                        # Set URL from kwargs
++                        callargs = getcallargs(method, *args, **kwargs)
++                        record.url = str(callargs.get("url", ""))
+                         records.requests[record.id] = record
+                         
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+ 
+-            if "url" in callargs:
+-                if initiator_and_group:
+-                    initiator, group, is_new = initiator_and_group
+-                    if is_new:
+-                        # For exceptions, we should still create HTTP2Record by default
+-                        records.add_new_record_exception(
+-                            initiator, group, str(callargs["url"]), ex
+-                        )
++            # Even on exception, we still want to create a record if this is a new request
++            try:
++                with httpdbg_initiator(
++                    records, traceback.extract_stack(), method, *args, **kwargs
++                ) as initiator_and_group:
++                    if initiator_and_group:
++                        initiator, group, is_new = initiator_and_group
++                        if is_new:
++                            # For exceptions, we should still create HTTP2Record by default
++                            records.add_new_record_exception(
++                                initiator, group, str(callargs.get("url", "")), ex
++                            )
++            except Exception:
++                pass
++                
+             raise
+ 
+     return hook
+@@ -51,7 +59,6 @@
+ 
+ def set_hook_for_http2(records: HTTPRecords, method: Callable):
+     def hook(*args, **kwargs):
+-        initiator_and_group = None
+         try:
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+@@ -66,21 +73,30 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag
+                         )
+-                        record.url = str(kwargs.get("url", ""))
++                        # Set URL from kwargs
++                        callargs = getcallargs(method, *args, **kwargs)
++                        record.url = str(callargs.get("url", ""))
+                         records.requests[record.id] = record
+                         
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+ 
+-            if "url" in callargs:
+-                if initiator_and_group:
+-                    initiator, group, is_new = initiator_and_group
+-                    if is_new:
+-                        # For exceptions, we should still create HTTP2Record by default
+-                        records.add_new_record_exception(
+-                            initiator, group, str(callargs["url"]), ex
+-                        )
++            # Even on exception, we still want to create a record if this is a new request
++            try:
++                with httpdbg_initiator(
++                    records, traceback.extract_stack(), method, *args, **kwargs
++                ) as initiator_and_group:
++                    if initiator_and_group:
++                        initiator, group, is_new = initiator_and_group
++                        if is_new:
++                            # For exceptions, we should still create HTTP2Record by default
++                            records.add_new_record_exception(
++                                initiator, group, str(callargs.get("url", "")), ex
++                            )
++            except Exception:
++                pass
++                
+             raise
+ 
+     return hook

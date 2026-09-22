@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The HTTP/2 hook implementation is incomplete. While it attempts to decorate httpx methods, it doesn't properly capture and record HTTP/2 requests/responses. The hook is called but doesn't actually record the HTTP records in the records collection.</description>
+        <contract>The http2 hook should properly intercept HTTP/2 requests made via httpx and record them as HTTP2Record instances in the provided records collection. It must correctly capture both request and response data and store them in the records container.</contract>
+        <acceptance>tests/test_hook_h2.py::test_h2</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/hooks/socket.py</location>
+        <description>The HTTP/2 detection logic in socket hooks has a flaw. It detects HTTP/2 protocol but doesn't properly create HTTP2Record instances when the socket data is received. The HTTP2Record creation is not correctly integrated with the flow.</description>
+        <contract>When HTTP/2 protocol is detected in socket data (identified by "PRI * HTTP/2.0\r\n" magic bytes), the socket hooks should create HTTP2Record instances instead of HTTP1Record instances when recording the request/response data.</contract>
+        <acceptance>tests/test_hook_h2.py::test_h2_client_get_empty_request_content</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/hooks/httpx.py</location>
+        <description>The httpx hook doesn't properly integrate with HTTP/2 functionality. It decorates methods but doesn't ensure that HTTP2Record instances are created for HTTP/2 requests.</description>
+        <contract>The httpx hook should properly delegate to HTTP/2-specific recording when HTTP/2 is used, ensuring that HTTP2Record instances are created for HTTP/2 requests/responses.</contract>
+        <acceptance>tests/test_hook_h2.py::test_h2_client_many_requests</acceptance>
+    </item>
+</requirement>

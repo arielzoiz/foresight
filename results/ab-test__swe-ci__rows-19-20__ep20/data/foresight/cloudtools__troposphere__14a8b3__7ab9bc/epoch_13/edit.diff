@@ -1,0 +1,46 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/batch.py b/troposphere/batch.py
+--- a/troposphere/batch.py	2026-09-22 06:04:04
++++ b/troposphere/batch.py	2026-09-22 06:08:33
+@@ -566,35 +566,16 @@
+     }
+ 
+     def validate(self):
+-        # Validate that Tags is not a Tag object
++        # Validate that Tags is not a Tag object or Tags object
+         tags = self.properties.get("Tags")
+         if tags is not None:
+-            from troposphere import Tag
++            from troposphere import Tag, Tags
++            # Validate that tags is not a Tag object
+             if isinstance(tags, Tag):
+-                raise TypeError("Tags property in JobDefinition cannot be a Tag object, must be a dictionary")
+-            # Validate that tags is not a simple dict (should be Tags object)
+-            if isinstance(tags, dict):
+-                # Check if it looks like a simple dict that should be wrapped in Tags
+-                # This catches cases like {"Name": "Example"} that should be Tags({"Name": "Example"})
+-                # but only if it's not a valid Items dict for CloudFront
+-                if "Items" not in tags:
+-                    # Check if it has Key/Value fields (which would be valid for Tag construction)
+-                    # But in JobDefinition context, this should not be allowed directly
+-                    if "Key" in tags and "Value" in tags:
+-                        raise TypeError("Tags property in JobDefinition must be a Tags object, not a dict with Key/Value fields")
+-                    # If it's a simple dict, it should be wrapped in Tags
+-                    raise TypeError("Tags property in JobDefinition must be a Tags object, not a simple dict")
+-            # Validate that tags is not a dict (should be Tags object or AWSHelperFn)
+-            if isinstance(tags, dict):
+-                # Check if it's a simple dict that would be converted to a Tag
+-                # If it has a "Key" and "Value" fields, it's likely wrong usage
+-                if "Key" in tags and "Value" in tags:
+-                    raise TypeError("Tags property in JobDefinition must be a Tags object, not a dict")
+-                # Check if it's a dict with a list of tags (which should be wrapped in Tags)
+-                if "Items" in tags and isinstance(tags["Items"], list):
+-                    # This is valid for CloudFront AnycastIpList, but not for JobDefinition
+-                    # This validation should happen elsewhere or be more specific
+-                    pass
++                raise TypeError("Tags property in JobDefinition cannot be a Tag object")
++            # Validate that tags is not a Tags object
++            if isinstance(tags, Tags):
++                raise TypeError("Tags property in JobDefinition cannot be a Tags object")
+ 
+ 
+ class ComputeEnvironmentOrder(AWSProperty):

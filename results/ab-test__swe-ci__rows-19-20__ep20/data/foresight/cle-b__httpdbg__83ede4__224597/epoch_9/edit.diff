@@ -1,0 +1,25 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/records.py b/httpdbg/records.py
+--- a/httpdbg/records.py	2026-09-22 05:09:20
++++ b/httpdbg/records.py	2026-09-22 05:16:41
+@@ -60,10 +60,17 @@
+ 
+         if initiator.id not in self.initiators:
+             self.initiators[initiator.id] = initiator
+-        # Default to HTTP1Record for exceptions, but could potentially be extended to support HTTP2
+-        # For now, we'll still default to HTTP1Record as we don't have context about protocol
+-        # In future enhancements, we could detect HTTP/2 based on context or headers
+-        new_record = HTTP1Record(initiator.id, group.id)
++        
++        # Try to detect if this is an HTTP/2 request by checking existing records
++        # If we find a record with the same initiator and group that's HTTP/2, create HTTP2Record
++        record_class = HTTP1Record
++        for record in self.requests.values():
++            if record.initiator_id == initiator.id and record.group_id == group.id:
++                if hasattr(record, 'protocol') and record.protocol == "HTTP/2":
++                    record_class = HTTP2Record
++                    break
++        
++        new_record = record_class(initiator.id, group.id)
+         new_record.url = url
+         new_record.exception = exception
+         self.requests[new_record.id] = new_record

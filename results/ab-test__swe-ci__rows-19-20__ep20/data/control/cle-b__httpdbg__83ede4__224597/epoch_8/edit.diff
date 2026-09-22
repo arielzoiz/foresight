@@ -1,0 +1,91 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:17:39
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:19:05
+@@ -20,19 +20,21 @@
+             callargs = getcallargs(method, *args, **kwargs)
+             url = callargs.get("url", "")
+             # Create a new record for this request using the new method
+-            record = records.add_new_record(
+-                "httpx.AsyncClient", 
+-                method.__name__, 
+-                url, 
+-                is_client=True,
+-                record_type="http2"
+-            )
+-            
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+-                ret = await method(*args, **kwargs)
++                initiator, group, _ = initiator_and_group
++                
++                record = records.add_new_record(
++                    initiator, 
++                    group, 
++                    url, 
++                    is_client=True,
++                    record_type="http2"
++                )
+             
++            ret = await method(*args, **kwargs)
++            
+             # Now we need to properly populate the record with data
+             # This will happen through the HTTP/2 connection handling
+             return ret
+@@ -60,18 +62,20 @@
+             callargs = getcallargs(method, *args, **kwargs)
+             url = callargs.get("url", "")
+             # Create a new record for this request using the new method
+-            record = records.add_new_record(
+-                "httpx.Client", 
+-                method.__name__, 
+-                url, 
+-                is_client=True,
+-                record_type="http2"
+-            )
+-            
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+-                ret = method(*args, **kwargs)
++                initiator, group, _ = initiator_and_group
++                
++                record = records.add_new_record(
++                    initiator, 
++                    group, 
++                    url, 
++                    is_client=True,
++                    record_type="http2"
++                )
++            
++            ret = method(*args, **kwargs)
+             
+             # Now we need to properly populate the record with data
+             # This will happen through the HTTP/2 connection handling
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/records.py b/httpdbg/records.py
+--- a/httpdbg/records.py	2026-09-22 03:17:06
++++ b/httpdbg/records.py	2026-09-22 03:18:59
+@@ -85,23 +85,6 @@
+         self.requests[new_record.id] = new_record
+         return new_record
+ 
+-    def add_new_record(
+-        self, initiator: Initiator, group: Group, url: str, is_client: bool = True
+-    ) -> HTTPRecord:
+-        from httpdbg.hooks.recordhttp1 import HTTP1Record
+-        from httpdbg.hooks.recordhttp2 import HTTP2Record
+-
+-        if initiator.id not in self.initiators:
+-            self.initiators[initiator.id] = initiator
+-            
+-        # For now, we'll create HTTP1Record by default
+-        # HTTP/2 records will be created elsewhere when needed
+-        new_record = HTTP1Record(initiator.id, group.id)
+-        new_record.url = url
+-        new_record.is_client = is_client
+-        self.requests[new_record.id] = new_record
+-        return new_record
+-
+     def add_initiator(self, initiator: Initiator):
+         self.initiators[initiator.id] = initiator
+         self.current_initiator = initiator.id

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/socket.py</location>
+    <description>The HTTP/2 protocol detection in socket hooks is incomplete and doesn't properly instantiate HTTP2Record objects. The tests show that HTTP/2 requests aren't being recorded because the protocol detection logic in `set_hook_for_socket_recv_into` and related functions fails to correctly identify HTTP/2 protocol and create HTTP2Record instances.</description>
+    <contract>
+      <behavior>The socket hooks must properly detect HTTP/2 protocol from initial data and create HTTP2Record instances instead of defaulting to HTTP1Record when HTTP/2 is detected. The detection should work for both client and server-side requests.</behavior>
+      <interface>
+        <input>Socket data from recv_into, recv, send, sendall methods</input>
+        <output>Correctly instantiated HTTPRecord (HTTP1Record or HTTP2Record) based on protocol detection</output>
+        <error_handling>No NameError for undefined variables</error_handling>
+      </interface>
+      <validation>
+        <test_nodeid>tests/test_hook_h2.py::test_h2</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_initiator</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_request</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_response</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_cookies</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_redirect</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_not_found</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_get_empty_request_content</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_many_requests</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_many_requests_session</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_asyncclient</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server_only</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server_request</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server_response</test_nodeid>
+      </validation>
+    </contract>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/flask.py</location>
+    <description>The Flask hook has a NameError for 'bufsize' variable which suggests that the variable is referenced but not defined in certain code paths. This occurs in the hook_flask function when processing Flask requests.</description>
+    <contract>
+      <behavior>The Flask hooks must properly handle all code paths without undefined variable errors. All variables used in function bodies must be properly defined before use.</behavior>
+      <interface>
+        <input>Flask request handling functions</input>
+        <output>No NameError exceptions</output>
+        <error_handling>Proper variable scoping and definition</error_handling>
+      </interface>
+      <validation>
+        <test_nodeid>tests/test_server_hook_flask.py::test_flask_not_found</test_nodeid>
+        <test_nodeid>tests/test_server_hook_flask.py::test_flask_endpoint</test_nodeid>
+        <test_nodeid>tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters</test_nodeid>
+      </validation>
+    </contract>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/httpx.py</location>
+    <description>The httpx hooking mechanism needs to properly support HTTP/2 requests and responses to match the expected behavior in the failing tests. Currently, it's not properly handling HTTP/2 protocol detection and recording.</description>
+    <contract>
+      <behavior>The httpx hooks must properly record HTTP/2 requests/responses with correct protocol identification and data handling.</behavior>
+      <interface>
+        <input>HTTPX client methods (get, post, etc.)</input>
+        <output>HTTP2Record instances for HTTP/2 requests</output>
+        <error_handling>Consistent handling of HTTP/2 protocol</error_handling>
+      </interface>
+      <validation>
+        <test_nodeid>tests/test_hook_h2.py::test_h2</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_asyncclient</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_many_requests</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_many_requests_session</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_not_found</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_redirect</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_get_empty_request_content</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_request</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_response</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_cookies</test_nodeid>
+      </validation>
+    </contract>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/recordhttp1.py</location>
+    <description>The HTTP2Record classes need to properly parse and store HTTP/2 request and response data to satisfy test assertions about method, status_code, and other properties. The HTTP2Record implementation appears to be present but may have issues with data handling.</description>
+    <contract>
+      <behavior>HTTP2Record objects must correctly parse and store HTTP/2 request and response data with proper access to method, status_code, and other attributes.</behavior>
+      <interface>
+        <input>HTTP/2 raw data from socket operations</input>
+        <output>HTTP2Record instances with populated request/response data</output>
+        <error_handling>Proper parsing and data storage for HTTP/2</error_handling>
+      </interface>
+      <validation>
+        <test_nodeid>tests/test_hook_h2.py::test_h2</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_initiator</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_request</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_response</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_cookies</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_redirect</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_not_found</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_get_empty_request_content</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_many_requests</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_many_requests_session</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_client_asyncclient</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server_only</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server_request</test_nodeid>
+        <test_nodeid>tests/test_hook_h2.py::test_h2_server_response</test_nodeid>
+      </validation>
+    </contract>
+  </requirement>
+</requirements>

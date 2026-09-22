@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/h2.py</location>
+        <description>The HTTP/2 hook implementation fails to properly integrate with HTTP/2 connection handlers to capture request/response data. Tests are failing because HTTP/2 records are not being populated with complete information (URL, method, status code, headers, content).</description>
+        <contract>HTTP/2 hooking mechanism must properly integrate with HTTP/2 connection handlers to capture complete request and response data. When a request is made via httpx with HTTP/2 enabled, the hook should create a complete HTTP2Record with accurate URL, method, status code, headers, and content information. The record should be populated with all relevant data from the HTTP/2 transaction.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+        <description>The HTTP2Record class does not correctly extract and store HTTP/2-specific data such as pseudo-headers (:method, :path, :authority, :status) from the actual HTTP/2 frames. This leads to incomplete records with missing information.</description>
+        <contract>The HTTP2Record class must properly parse and store HTTP/2 pseudo-headers and standard headers from the underlying HTTP/2 communication. The record should accurately capture the HTTP method, URL/path, authority, status code, reason phrase, headers, and content from HTTP/2 transactions.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+        <description>The HTTP2Record's URL construction logic fails to properly extract and reconstruct the full URL from HTTP/2 pseudo-headers. Tests expect a complete URL but the current implementation often returns placeholders or incomplete URLs.</description>
+        <contract>The HTTP2Record.url property must correctly reconstruct the full URL from HTTP/2 pseudo-headers (specifically :authority and :path) and handle various URL formats appropriately. The URL should match the original request URL as expected by the test assertions.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+        <description>The HTTP2Record class does not implement proper data receiving/sending methods for HTTP/2 frames. This prevents the records from being populated with actual request/response data as it flows through the connection.</description>
+        <contract>The HTTP2Record class must implement receive_data and send_data methods that properly accumulate HTTP/2 frame data into the request and response objects. These methods should append received data to the respective rawdata properties of the request and response objects.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/h2.py</location>
+        <description>The HTTP/2 hook implementation lacks proper handling of exceptions and error cases. When HTTP/2 requests fail, the exceptions are not properly associated with the records.</description>
+        <contract>The HTTP/2 hook must properly handle and associate exceptions with the corresponding HTTP2Record instances. When an HTTP/2 request fails, the exception should be attached to the record so that tests expecting exception handling can pass.</contract>
+        <acceptance>test_httpx_exception, test_httpx_exception_asyncclient</acceptance>
+    </requirement>
+</requirement_document>

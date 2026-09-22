@@ -1,0 +1,206 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 05:39:08
++++ b/httpdbg/hooks/httpx.py	2026-09-22 05:45:37
+@@ -10,6 +10,7 @@
+ from httpdbg.initiator import httpdbg_initiator
+ from httpdbg.records import HTTPRecords
+ from httpdbg.hooks.recordhttp1 import HTTP2Record
++from httpdbg.hooks.recordhttp1 import HTTP1Record
+ 
+ 
+ def set_hook_for_httpx_async(records: HTTPRecords, method: Callable):
+@@ -32,11 +33,19 @@
+                         if not isinstance(method_name, str):
+                             method_name = "GET"
+                         
+-                        # Create HTTP2Record for the new request
+-                        record = HTTP2Record(
+-                            initiator.id, group.id, records.current_tag, method=method_name
+-                        )
++                        # Check if this is an HTTP/2 request based on kwargs
++                        is_http2 = callargs.get("http2", False) or callargs.get("http2", False)
+                         
++                        # Create appropriate record type based on HTTP/2 flag
++                        if is_http2:
++                            record = HTTP2Record(
++                                initiator.id, group.id, records.current_tag, method=method_name
++                            )
++                        else:
++                            record = HTTP1Record(
++                                initiator.id, group.id, records.current_tag
++                            )
++                        
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+@@ -74,10 +83,18 @@
+                         if not isinstance(method_name, str):
+                             method_name = "GET"
+                         
+-                        # Create HTTP2Record for the new request
+-                        record = HTTP2Record(
+-                            initiator.id, group.id, records.current_tag, method=method_name
+-                        )
++                        # Check if this is an HTTP/2 request based on kwargs
++                        is_http2 = callargs.get("http2", False) or callargs.get("http2", False)
++                        
++                        # Create appropriate record type based on HTTP/2 flag
++                        if is_http2:
++                            record = HTTP2Record(
++                                initiator.id, group.id, records.current_tag, method=method_name
++                            )
++                        else:
++                            record = HTTP1Record(
++                                initiator.id, group.id, records.current_tag
++                            )
+                         
+             return ret
+         except Exception as ex:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp1.py b/httpdbg/hooks/recordhttp1.py
+--- a/httpdbg/hooks/recordhttp1.py	2026-09-22 05:43:53
++++ b/httpdbg/hooks/recordhttp1.py	2026-09-22 05:45:55
+@@ -249,18 +249,33 @@
+         return list_cookies_headers_request_simple_cookies(self.headers)
+ 
+     def _parse_first_line(self) -> None:
+-        if self.rawheaders:
+-            firstline = self.rawheaders[: self.rawheaders.find(b"\r\n")]
+-            try:
+-                self._method, self._uri, self._protocol = firstline.split(b" ")
+-            except ValueError:
+-                # Handle case where there are less than 3 parts
+-                parts = firstline.split(b" ")
+-                if len(parts) >= 2:
+-                    self._method = parts[0]
+-                    self._uri = parts[1]
+-                    if len(parts) >= 3:
+-                        self._protocol = parts[2]
++        # For HTTP/2, we need to parse pseudo-headers from the headers list
++        # Look for :method, :path, and :scheme pseudo-headers
++        if not self._method or not self._uri or not self._protocol:
++            # Try to parse from raw headers if needed
++            if self.rawheaders:
++                firstline = self.rawheaders[: self.rawheaders.find(b"\r\n")]
++                try:
++                    self._method, self._uri, self._protocol = firstline.split(b" ")
++                except ValueError:
++                    # Handle case where there are less than 3 parts
++                    parts = firstline.split(b" ")
++                    if len(parts) >= 2:
++                        self._method = parts[0]
++                        self._uri = parts[1]
++                        if len(parts) >= 3:
++                            self._protocol = parts[2]
++            
++            # If we still don't have the values, try to extract from headers
++            if not self._method or not self._uri or not self._protocol:
++                # Parse pseudo-headers from headers list
++                for header in self.headers:
++                    if header.name == ":method":
++                        self._method = header.value.encode()
++                    elif header.name == ":path":
++                        self._uri = header.value.encode()
++                    elif header.name == ":scheme":
++                        self._protocol = header.value.encode()
+ 
+     @property
+     def method(self) -> str:
+@@ -297,18 +312,29 @@
+         return list_cookies_headers_response_simple_cookies(self.headers)
+ 
+     def _parse_first_line(self) -> None:
+-        if self.rawheaders:
+-            firstline = self.rawheaders[: self.rawheaders.find(b"\r\n")]
+-            try:
+-                self._protocol, self._status_code, self._message = firstline.split(b" ", 2)
+-            except ValueError:
+-                # Handle case where there are less than 3 parts
+-                parts = firstline.split(b" ")
+-                if len(parts) >= 2:
+-                    self._protocol = parts[0]
+-                    self._status_code = parts[1]
+-                    if len(parts) >= 3:
+-                        self._message = b" ".join(parts[2:])
++        # For HTTP/2, we need to parse the :status pseudo-header
++        if not self._status_code:
++            # Try to parse from raw headers if needed
++            if self.rawheaders:
++                firstline = self.rawheaders[: self.rawheaders.find(b"\r\n")]
++                try:
++                    self._protocol, self._status_code, self._message = firstline.split(b" ", 2)
++                except ValueError:
++                    # Handle case where there are less than 3 parts
++                    parts = firstline.split(b" ")
++                    if len(parts) >= 2:
++                        self._protocol = parts[0]
++                        self._status_code = parts[1]
++                        if len(parts) >= 3:
++                            self._message = b" ".join(parts[2:])
++            
++            # If we still don't have the status code, try to extract from headers
++            if not self._status_code:
++                # Parse :status pseudo-header from headers list
++                for header in self.headers:
++                    if header.name == ":status":
++                        self._status_code = header.value.encode()
++                        break
+ 
+     @property
+     def protocol(self) -> str:
+@@ -346,19 +372,44 @@
+     @property
+     def url(self) -> str:
+         if not self._url:
+-            address = self.request.get_header("host").split(":") or self.address
+-            host = address[0]
+-            port = address[1] if len(address) == 2 else None
+-            sport = ""
+-            if self.ssl:
+-                scheme = "https"
+-                if port:
+-                    sport = f":{port}" if port != "443" else ""
++            # For HTTP/2, extract host from :authority header and path from :path header
++            authority = self.request.get_header(":authority")
++            path = self.request.get_header(":path")
++            
++            if authority and path:
++                # Extract scheme from :scheme header
++                scheme = self.request.get_header(":scheme", "https" if self.ssl else "http")
++                # Extract host and port from authority
++                host_parts = authority.split(":")
++                host = host_parts[0]
++                port = host_parts[1] if len(host_parts) > 1 else None
++                
++                sport = ""
++                if self.ssl:
++                    scheme = "https"
++                    if port:
++                        sport = f":{port}" if port != "443" else ""
++                else:
++                    scheme = "http"
++                    if port:
++                        sport = f":{port}" if port != "80" else ""
++                
++                self._url = f"{scheme}://{host}{sport}{path}"
+             else:
+-                scheme = "http"
+-                if port:
+-                    sport = f":{port}" if port != "80" else ""
+-            self._url = f"{scheme}://{host}{sport}{self.request.uri}"
++                # Fallback to original method if pseudo-headers not available
++                address = self.request.get_header("host").split(":") or self.address
++                host = address[0]
++                port = address[1] if len(address) == 2 else None
++                sport = ""
++                if self.ssl:
++                    scheme = "https"
++                    if port:
++                        sport = f":{port}" if port != "443" else ""
++                else:
++                    scheme = "http"
++                    if port:
++                        sport = f":{port}" if port != "80" else ""
++                self._url = f"{scheme}://{host}{sport}{self.request.uri}"
+         return self._url
+ 
+     @url.setter

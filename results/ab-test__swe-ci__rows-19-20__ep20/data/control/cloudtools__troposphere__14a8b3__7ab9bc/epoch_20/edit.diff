@@ -1,0 +1,116 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:29:57
++++ b/troposphere/__init__.py	2026-09-22 03:31:07
+@@ -720,84 +720,38 @@
+ 
+     def __init__(self, *args: object, **kwargs: Any):
+         self.tags = []
+-        if not args:
+-            # Assume kwargs variant
+-            tag_dict = kwargs
+-        else:
+-            # Process all arguments - can be a mix of dict, AWSHelperFn, and Tags objects
+-            for arg in args:
+-                if isinstance(arg, AWSHelperFn):
+-                    # AWSHelperFn objects (like If expressions) should be accepted
+-                    self.tags.append(arg)
+-                elif isinstance(arg, dict):
+-                    # Handle dict argument
+-                    tag_dict = cast(Dict[str, Any], arg)
+-                    # Process the dict items preserving order
+-                    def add_tag(
+-                        tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
+-                    ):
+-                        tag_list.append(
+-                            {
+-                                "Key": k,
+-                                "Value": v,
+-                            }
+-                        )
+-                    
+-                    # Process items in their original order (don't sort)
+-                    for k, v in tag_dict.items():
+-                        add_tag(self.tags, k, v)
+-                elif isinstance(arg, Tags):
+-                    # If it's a Tags instance, copy its tags
+-                    self.tags.extend(arg.tags)
+-                else:
+-                    # For backward compatibility, let's try to treat the arg as a dict if it's iterable
+-                    # This addresses the case where a dict is passed as a positional argument
+-                    try:
+-                        # Convert to dict to handle cases like passing a dict as a positional argument
+-                        if hasattr(arg, 'items'):
+-                            tag_dict = dict(arg)
+-                            # Process the dict items preserving order
+-                            def add_tag(
+-                                tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
+-                            ):
+-                                tag_list.append(
+-                                    {
+-                                        "Key": k,
+-                                        "Value": v,
+-                                    }
+-                                )
+-                            
+-                            # Process items in their original order (don't sort)
+-                            for k, v in tag_dict.items():
+-                                add_tag(self.tags, k, v)
+-                        else:
+-                            # If it's not a dict-like object, raise error
+-                            raise TypeError(
+-                                "Tags needs to be either kwargs, dict, or AWSHelperFn"
+-                            )
+-                    except (TypeError, AttributeError):
+-                        # If it's not iterable or not a dict, raise the original error
+-                        raise TypeError(
+-                            "Tags needs to be either kwargs, dict, or AWSHelperFn"
+-                        )
++        
++        # Process all arguments - can be a mix of dict, AWSHelperFn, and Tags objects
++        for arg in args:
++            if isinstance(arg, AWSHelperFn):
++                # AWSHelperFn objects (like If expressions) should be accepted
++                self.tags.append(arg)
++            elif isinstance(arg, dict):
++                # Handle dict argument
++                tag_dict = cast(Dict[str, Any], arg)
++                # Process the dict items preserving order
++                for k, v in tag_dict.items():
++                    self.tags.append({
++                        "Key": k,
++                        "Value": v,
++                    })
++            elif isinstance(arg, Tags):
++                # If it's a Tags instance, copy its tags
++                self.tags.extend(arg.tags)
++            else:
++                # Raise TypeError for invalid types
++                raise TypeError(
++                    "Tags needs to be either kwargs, dict, or AWSHelperFn"
++                )
+ 
+         # Handle kwargs if any
+         if kwargs:
+-            tag_dict = kwargs
+             # Process the kwargs items preserving order
+-            def add_tag(
+-                tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
+-            ):
+-                tag_list.append(
+-                    {
+-                        "Key": k,
+-                        "Value": v,
+-                    }
+-                )
+-            
+-            # Process items in their original order (don't sort)
+-            for k, v in tag_dict.items():
+-                add_tag(self.tags, k, v)
++            for k, v in kwargs.items():
++                self.tags.append({
++                    "Key": k,
++                    "Value": v,
++                })
+ 
+     # allow concatenation of the Tags object via '+' operator
+     def __add__(self, newtags: Tags) -> Tags:

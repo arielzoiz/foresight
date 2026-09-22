@@ -1,0 +1,105 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/http2.py b/httpdbg/hooks/http2.py
+--- a/httpdbg/hooks/http2.py	2026-09-22 05:36:43
++++ b/httpdbg/hooks/http2.py	2026-09-22 05:38:47
+@@ -26,7 +26,7 @@
+                     if is_new:
+                         # Create HTTP2Record for the new request
+                         record = HTTP2Record(
+-                            initiator.id, group.id, records.current_tag
++                            initiator.id, group.id, records.current_tag, method=method_name
+                         )
+                         # Set URL and method from kwargs
+                         callargs = getcallargs(method, *args, **kwargs)
+@@ -87,7 +87,7 @@
+                     if is_new:
+                         # Create HTTP2Record for the new request
+                         record = HTTP2Record(
+-                            initiator.id, group.id, records.current_tag
++                            initiator.id, group.id, records.current_tag, method=method_name
+                         )
+                         # Set URL and method from kwargs
+                         callargs = getcallargs(method, *args, **kwargs)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 05:33:44
++++ b/httpdbg/hooks/httpx.py	2026-09-22 05:39:08
+@@ -25,20 +25,18 @@
+                 if initiator_and_group:
+                     initiator, group, is_new = initiator_and_group
+                     if is_new:
+-                        # Create HTTP2Record for the new request
+-                        record = HTTP2Record(
+-                            initiator.id, group.id, records.current_tag
+-                        )
+                         # Extract URL and method properly
+                         callargs = getcallargs(method, *args, **kwargs)
+-                        record.url = str(callargs.get("url", ""))
+                         # Extract HTTP method from callargs
+                         method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
+                         if not isinstance(method_name, str):
+                             method_name = "GET"
+-                        record.request._method = method_name.encode()
+-                        records.requests[record.id] = record
+                         
++                        # Create HTTP2Record for the new request
++                        record = HTTP2Record(
++                            initiator.id, group.id, records.current_tag, method=method_name
++                        )
++                        
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+@@ -69,19 +67,17 @@
+                 if initiator_and_group:
+                     initiator, group, is_new = initiator_and_group
+                     if is_new:
+-                        # Create HTTP2Record for the new request
+-                        record = HTTP2Record(
+-                            initiator.id, group.id, records.current_tag
+-                        )
+                         # Extract URL and method properly
+                         callargs = getcallargs(method, *args, **kwargs)
+-                        record.url = str(callargs.get("url", ""))
+                         # Extract HTTP method from callargs
+                         method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
+                         if not isinstance(method_name, str):
+                             method_name = "GET"
+-                        record.request._method = method_name.encode()
+-                        records.requests[record.id] = record
++                        
++                        # Create HTTP2Record for the new request
++                        record = HTTP2Record(
++                            initiator.id, group.id, records.current_tag, method=method_name
++                        )
+                         
+             return ret
+         except Exception as ex:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp1.py b/httpdbg/hooks/recordhttp1.py
+--- a/httpdbg/hooks/recordhttp1.py	2026-09-22 05:34:21
++++ b/httpdbg/hooks/recordhttp1.py	2026-09-22 05:38:39
+@@ -236,11 +236,13 @@
+ 
+ 
+ class HTTP2RecordRequest(HTTPRecordRequest, HTTP2RecordReqResp):
+-    def __init__(self) -> None:
++    def __init__(self, method: str = None) -> None:
+         super().__init__()
+         self._method = bytes()
+         self._uri = bytes()
+         self._protocol = bytes()
++        if method:
++            self._method = method.encode()
+ 
+     @property
+     def cookies(self) -> list[HTTPDBGCookie]:
+@@ -331,9 +333,10 @@
+         tag: str = None,
+         tbegin: datetime.datetime = None,
+         is_client: bool = False,
++        method: str = None,
+     ) -> None:
+         super().__init__(initiator_id, group_id, tag, tbegin, is_client)
+-        self.request: HTTP2RecordRequest = HTTP2RecordRequest()
++        self.request: HTTP2RecordRequest = HTTP2RecordRequest(method)
+         self.response: HTTP2RecordResponse = HTTP2RecordResponse()
+ 
+     @property

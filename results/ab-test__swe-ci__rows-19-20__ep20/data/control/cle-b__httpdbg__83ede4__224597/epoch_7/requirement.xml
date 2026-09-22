@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/h2.py</location>
+        <description>The HTTP/2 hook implementation in h2.py creates HTTP/1.1 records instead of HTTP/2 records, causing failures in HTTP/2-related tests. The hook attempts to create records but doesn't properly instantiate HTTP2Record objects, resulting in missing or incomplete HTTP/2 data.</description>
+        <contract>Modify the hook_h2 function to properly create HTTP2Record instances instead of HTTP1Record instances when capturing HTTP/2 requests. The records should correctly store HTTP/2-specific information like pseudo-headers (:method, :path, :authority, :status) and handle the HTTP/2 protocol properly.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/records.py</location>
+        <description>The HTTPRecords class lacks a proper add_new_record method to create HTTP2Record instances. Currently, it only has add_new_record_exception for error cases, but not for successful HTTP/2 requests.</description>
+        <contract>Add an add_new_record method to HTTPRecords that can create and return HTTP2Record instances when needed, particularly for HTTP/2 requests that require special handling.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+        <description>The HTTP2Record class is missing proper initialization of the URL property and has issues with header parsing. The URL property doesn't correctly initialize from request headers, and the header parsing logic doesn't fully handle HTTP/2 pseudo-headers.</description>
+        <contract>Fix the HTTP2Record class to properly initialize the URL property from HTTP/2 pseudo-headers and enhance header parsing to correctly extract all HTTP/2 headers including pseudo-headers.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/httpx.py</location>
+        <description>The httpx hook implementation in httpx.py doesn't properly integrate with HTTP/2 detection and record creation. It creates generic records without considering HTTP/2-specific protocols.</description>
+        <contract>Update the hook_httpx function to properly detect HTTP/2 requests and ensure they are handled by HTTP2Record instead of HTTP1Record.</contract>
+        <acceptance>test_httpx_exception, test_httpx_exception_asyncclient</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/h2.py</location>
+        <description>The hook_h2 implementation doesn't properly handle async HTTPX clients. The hook_async methods need to be enhanced to correctly manage HTTP/2 records for asynchronous operations.</description>
+        <contract>Enhance the set_hook_for_httpx_async_h2 and set_hook_for_httpx_h2 functions in hook_h2.py to properly handle HTTP/2 requests for both synchronous and asynchronous HTTPX clients, ensuring that HTTP2Record objects are created and populated correctly.</contract>
+        <acceptance>test_h2_client_asyncclient, test_h2_client_asyncclient, test_h2_client_asyncclient</acceptance>
+    </requirement>
+</requirement_document>

@@ -1,0 +1,28 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:08:54
++++ b/troposphere/__init__.py	2026-09-22 03:13:24
+@@ -257,8 +257,23 @@
+             # If the value is a AWSHelperFn we can't do much validation
+             # we'll have to leave that to Amazon.  Maybe there's another way
+             # to deal with this that we'll come up with eventually
++            # BUT we should still validate that it's compatible with the expected type
+             if isinstance(value, AWSHelperFn):
+-                return self.properties.__setitem__(name, value)
++                # Allow AWSHelperFn objects to pass through for dict-type fields
++                # as they represent valid AWS expressions that resolve to dicts at runtime
++                if isinstance(expected_type, (list, tuple)) and len(expected_type) > 0:
++                    # Handle list of types
++                    if dict in expected_type or isinstance(expected_type[0], type) and issubclass(expected_type[0], dict):
++                        return self.properties.__setitem__(name, value)
++                elif expected_type == dict or expected_type is dict:
++                    # Allow AWSHelperFn for dict fields (like Tags)
++                    return self.properties.__setitem__(name, value)
++                elif isinstance(expected_type, type) and issubclass(expected_type, dict):
++                    # Allow AWSHelperFn for dict subclasses
++                    return self.properties.__setitem__(name, value)
++                # For non-dict types, we still need to enforce type checking
++                # Fall through to normal validation below
++                pass
+ 
+             # If it's a function, call it...
+             elif isinstance(expected_type, types.FunctionType):

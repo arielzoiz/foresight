@@ -1,0 +1,51 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 05:51:20
++++ b/troposphere/__init__.py	2026-09-22 05:52:27
+@@ -1054,6 +1054,9 @@
+             except ValueError:
+                 return False
+ 
++        # Get the Type specified first to avoid UnboundLocalError
++        param_type = self.properties.get("Type")
++
+         # Validate the Default parameter value
+         default = self.properties.get("Default")
+         if default:
+@@ -1064,7 +1067,6 @@
+             # Get the Type specified and see whether the default type
+             # matches (in the case of a String Type) or can be coerced
+             # into one of the number formats.
+-            param_type = self.properties.get("Type")
+             if param_type == "String" and not isinstance(default, str):
+                 raise ValueError(error_str % ("String", type(default), default))
+             elif param_type == "Number":
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/rds.py b/troposphere/rds.py
+--- a/troposphere/rds.py	2026-09-22 05:51:12
++++ b/troposphere/rds.py	2026-09-22 05:52:30
+@@ -314,7 +314,8 @@
+                 "Both MasterUserPassword and ManageMasterUserPassword cannot be set simultaneously."
+             )
+             
+-        # Ensure credentials are provided if not using snapshot or cluster
++        # Ensure credentials are provided if not using snapshot, cluster or replica
++        # But allow DBSnapshotIdentifier to bypass credential requirements
+         if (
+             "DBSnapshotIdentifier" not in self.properties
+             and "DBClusterIdentifier" not in self.properties
+@@ -328,12 +329,10 @@
+                 
+             # Check if either password or management is provided
+             if not master_user_password and not manage_master_user_password:
+-                # Allow for the case where a DBSnapshotIdentifier is provided
+-                if "DBSnapshotIdentifier" not in self.properties:
+-                    raise ValueError(
+-                        "Either (MasterUsername and either MasterUserPassword or ManageMasterUserPassword) or "
+-                        "DBSnapshotIdentifier are required in type AWS::RDS::DBInstance."
+-                    )
++                raise ValueError(
++                    "Either (MasterUsername and either MasterUserPassword or ManageMasterUserPassword) or "
++                    "DBSnapshotIdentifier are required in type AWS::RDS::DBInstance."
++                )
+ 
+ 
+ class DBParameterGroup(AWSObject):

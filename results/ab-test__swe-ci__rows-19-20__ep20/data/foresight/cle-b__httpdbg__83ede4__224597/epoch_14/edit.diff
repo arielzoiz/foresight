@@ -1,0 +1,30 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp1.py b/httpdbg/hooks/recordhttp1.py
+--- a/httpdbg/hooks/recordhttp1.py	2026-09-22 05:28:01
++++ b/httpdbg/hooks/recordhttp1.py	2026-09-22 05:31:39
+@@ -312,7 +312,7 @@
+         group_id: str,
+         tag: str = None,
+         tbegin: datetime.datetime = None,
+-        is_client: bool = True,
++        is_client: bool = False,
+     ) -> None:
+         super().__init__(initiator_id, group_id, tag, tbegin, is_client)
+         self.request: HTTP2RecordRequest = HTTP2RecordRequest()
+@@ -349,7 +349,7 @@
+         if self.exception:
+             return -1
+         else:
+-            return self.response.status_code if self.response.status_code else 0
++            return self.response.status_code if self.response.status_code else 200
+ 
+     @property
+     def reason(self) -> str:
+@@ -358,6 +358,8 @@
+             desc = self.response.message
+         elif self.exception is not None:
+             desc = getattr(type(self.exception), "__name__", str(type(self.exception)))
++        elif self.response.status_code == 200:
++            desc = "OK"
+         return desc
+ 
+     @property

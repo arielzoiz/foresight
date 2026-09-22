@@ -1,0 +1,89 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 05:13:47
++++ b/httpdbg/hooks/httpx.py	2026-09-22 05:33:44
+@@ -29,7 +29,14 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag
+                         )
+-                        record.url = str(kwargs.get("url", ""))
++                        # Extract URL and method properly
++                        callargs = getcallargs(method, *args, **kwargs)
++                        record.url = str(callargs.get("url", ""))
++                        # Extract HTTP method from callargs
++                        method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
++                        if not isinstance(method_name, str):
++                            method_name = "GET"
++                        record.request._method = method_name.encode()
+                         records.requests[record.id] = record
+                         
+             return ret
+@@ -66,7 +73,14 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag
+                         )
+-                        record.url = str(kwargs.get("url", ""))
++                        # Extract URL and method properly
++                        callargs = getcallargs(method, *args, **kwargs)
++                        record.url = str(callargs.get("url", ""))
++                        # Extract HTTP method from callargs
++                        method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
++                        if not isinstance(method_name, str):
++                            method_name = "GET"
++                        record.request._method = method_name.encode()
+                         records.requests[record.id] = record
+                         
+             return ret
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp1.py b/httpdbg/hooks/recordhttp1.py
+--- a/httpdbg/hooks/recordhttp1.py	2026-09-22 05:31:39
++++ b/httpdbg/hooks/recordhttp1.py	2026-09-22 05:34:21
+@@ -249,7 +249,16 @@
+     def _parse_first_line(self) -> None:
+         if self.rawheaders:
+             firstline = self.rawheaders[: self.rawheaders.find(b"\r\n")]
+-            self._method, self._uri, self._protocol = firstline.split(b" ")
++            try:
++                self._method, self._uri, self._protocol = firstline.split(b" ")
++            except ValueError:
++                # Handle case where there are less than 3 parts
++                parts = firstline.split(b" ")
++                if len(parts) >= 2:
++                    self._method = parts[0]
++                    self._uri = parts[1]
++                    if len(parts) >= 3:
++                        self._protocol = parts[2]
+ 
+     @property
+     def method(self) -> str:
+@@ -284,7 +293,16 @@
+     def _parse_first_line(self) -> None:
+         if self.rawheaders:
+             firstline = self.rawheaders[: self.rawheaders.find(b"\r\n")]
+-            self._protocol, self._status_code, self._message = firstline.split(b" ", 2)
++            try:
++                self._protocol, self._status_code, self._message = firstline.split(b" ", 2)
++            except ValueError:
++                # Handle case where there are less than 3 parts
++                parts = firstline.split(b" ")
++                if len(parts) >= 2:
++                    self._protocol = parts[0]
++                    self._status_code = parts[1]
++                    if len(parts) >= 3:
++                        self._message = b" ".join(parts[2:])
+ 
+     @property
+     def protocol(self) -> str:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/records.py b/httpdbg/records.py
+--- a/httpdbg/records.py	2026-09-22 05:23:18
++++ b/httpdbg/records.py	2026-09-22 05:33:47
+@@ -61,9 +61,8 @@
+         if initiator.id not in self.initiators:
+             self.initiators[initiator.id] = initiator
+         
+-        # Determine if this should be an HTTP2Record based on the context
+-        # We'll check if there's an existing HTTP2Record with same initiator/group
+-        # This is the most reliable way to determine if it's an HTTP/2 request
++        # Determine if this should be an HTTP2Record based on context
++        # Check if we already have a record with the same initiator and group that is HTTP/2
+         record_class = HTTP1Record
+         for record in self.requests.values():
+             if record.initiator_id == initiator.id and record.group_id == group.id:

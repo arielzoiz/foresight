@@ -1,0 +1,106 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:14:44
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:17:39
+@@ -19,18 +19,14 @@
+         try:
+             callargs = getcallargs(method, *args, **kwargs)
+             url = callargs.get("url", "")
+-            # Create a new record for this request
++            # Create a new record for this request using the new method
+             record = records.add_new_record(
+                 "httpx.AsyncClient", 
+                 method.__name__, 
+                 url, 
+-                is_client=True
++                is_client=True,
++                record_type="http2"
+             )
+-            # Set the record to be an HTTP2Record
+-            if isinstance(record, HTTP2Record):
+-                # We'll use the record's URL setter to ensure it gets the correct URL
+-                # The actual URL construction happens during the HTTP exchange
+-                pass
+             
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+@@ -63,19 +59,15 @@
+         try:
+             callargs = getcallargs(method, *args, **kwargs)
+             url = callargs.get("url", "")
+-            # Create a new record for this request
++            # Create a new record for this request using the new method
+             record = records.add_new_record(
+                 "httpx.Client", 
+                 method.__name__, 
+                 url, 
+-                is_client=True
++                is_client=True,
++                record_type="http2"
+             )
+-            # Set the record to be an HTTP2Record
+-            if isinstance(record, HTTP2Record):
+-                # We'll use the record's URL setter to ensure it gets the correct URL
+-                # The actual URL construction happens during the HTTP exchange
+-                pass
+-                
++            
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 03:00:08
++++ b/httpdbg/hooks/httpx.py	2026-09-22 03:16:40
+@@ -9,6 +9,7 @@
+ from httpdbg.hooks.utils import undecorate
+ from httpdbg.initiator import httpdbg_initiator
+ from httpdbg.records import HTTPRecords
++from httpdbg.hooks.recordhttp2 import HTTP2Record
+ 
+ 
+ def set_hook_for_httpx_async(records: HTTPRecords, method: Callable):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/records.py b/httpdbg/records.py
+--- a/httpdbg/records.py	2026-09-22 03:00:08
++++ b/httpdbg/records.py	2026-09-22 03:17:06
+@@ -66,6 +66,42 @@
+         self.requests[new_record.id] = new_record
+         return new_record
+ 
++    def add_new_record(
++        self, initiator: Initiator, group: Group, url: str, is_client: bool = True, record_type: str = "http1"
++    ) -> HTTPRecord:
++        from httpdbg.hooks.recordhttp1 import HTTP1Record
++        from httpdbg.hooks.recordhttp2 import HTTP2Record
++
++        if initiator.id not in self.initiators:
++            self.initiators[initiator.id] = initiator
++            
++        # Create appropriate record type based on parameter
++        if record_type == "http2":
++            new_record = HTTP2Record(initiator.id, group.id, is_client=is_client)
++        else:
++            new_record = HTTP1Record(initiator.id, group.id)
++        new_record.url = url
++        new_record.is_client = is_client
++        self.requests[new_record.id] = new_record
++        return new_record
++
++    def add_new_record(
++        self, initiator: Initiator, group: Group, url: str, is_client: bool = True
++    ) -> HTTPRecord:
++        from httpdbg.hooks.recordhttp1 import HTTP1Record
++        from httpdbg.hooks.recordhttp2 import HTTP2Record
++
++        if initiator.id not in self.initiators:
++            self.initiators[initiator.id] = initiator
++            
++        # For now, we'll create HTTP1Record by default
++        # HTTP/2 records will be created elsewhere when needed
++        new_record = HTTP1Record(initiator.id, group.id)
++        new_record.url = url
++        new_record.is_client = is_client
++        self.requests[new_record.id] = new_record
++        return new_record
++
+     def add_initiator(self, initiator: Initiator):
+         self.initiators[initiator.id] = initiator
+         self.current_initiator = initiator.id

@@ -1,0 +1,26 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:26:37
++++ b/troposphere/__init__.py	2026-09-22 03:27:22
+@@ -734,10 +734,21 @@
+                 elif isinstance(arg, dict):
+                     tag_dict.update(cast(Dict[str, Any], arg))
+                 else:
++                    # Check if it's a simple value type that should raise TypeError
++                    # This handles cases like Tags("key", "value") or Tags(1) 
++                    # which should raise TypeError according to tests
++                    if isinstance(arg, (str, int, float, bool, list, tuple)):
++                        raise TypeError(
++                            "Tags needs to be either kwargs, dict, or AWSHelperFn"
++                        )
+                     # For backward compatibility, let's try to treat the arg as a dict if it's iterable
+                     # This addresses the case where a dict is passed as a positional argument
+                     try:
+-                        tag_dict.update(arg)
++                        # Convert to dict to handle cases like passing a dict as a positional argument
++                        if hasattr(arg, 'items'):
++                            tag_dict.update(dict(arg))
++                        else:
++                            tag_dict.update(dict(arg))
+                     except (TypeError, AttributeError):
+                         # If it's not iterable or not a dict, raise the original error
+                         raise TypeError(

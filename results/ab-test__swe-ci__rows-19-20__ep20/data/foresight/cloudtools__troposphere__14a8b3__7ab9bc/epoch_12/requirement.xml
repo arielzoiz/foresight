@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/troposphere/validators/__init__.py</location>
+        <description>The tags_or_list validator incorrectly rejects valid tag list inputs. When a list is passed containing tag dictionaries with "Key" and "Value" fields, it should be accepted as valid input for Tags properties.</description>
+        <contract>Modify the tags_or_list validator to accept valid tag list structures. A list of dictionaries with "Key" and "Value" fields should be considered valid input for Tags properties, while still rejecting invalid inputs like strings or other non-tag structures.</contract>
+        <acceptance>Tests should pass for:
+1. tags_or_list(Tags()) - existing functionality
+2. tags_or_list([]) - accept empty tag lists
+3. tags_or_list([{"Key": "foo", "Value": "bar"}]) - accept valid tag list
+4. tags_or_list({"Items": [...]}) - existing functionality for Items structure
+5. tags_or_list("invalid") - still reject invalid inputs like strings</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/__init__.py</location>
+        <description>The Tags class constructor does not properly handle list inputs for tag creation. When a list of tag dictionaries is passed, it should be processed correctly instead of raising TypeError.</description>
+        <contract>Enhance the Tags class constructor to accept list inputs. When a list is provided as an argument, each item should be validated as a tag dictionary (containing "Key" and "Value" fields) and converted to the internal representation. This should support the standard AWS tag format.</contract>
+        <acceptance>Tests should pass for:
+1. Tags({"foo": "bar"}) - existing functionality
+2. Tags([{"Key": "foo", "Value": "bar"}]) - new functionality to accept tag lists
+3. Tags(foo="bar") - existing functionality  
+4. Tags([{"Key": "foo", "Value": "bar"}, {"Key": "baz", "Value": "qux"}]) - new functionality for multiple tags</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/batch.py</location>
+        <description>The Batch JobDefinition resource's Tags property validation rejects valid tag list inputs, causing test failures.</description>
+        <contract>Update the validation for the Tags property in the Batch resource to accept valid tag list structures as inputs.</contract>
+        <acceptance>Test case should pass: JobDefinition("myjobdef", Type="container", ContainerProperties=ContainerProperties(Image="image", Vcpus=2, Memory=2000, Command=["echo", "foobar"]), Tags=[{"Key": "foo", "Value": "bar"}])</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/dynamodb.py</location>
+        <description>The DynamoDB Table resource's Tags property validation rejects valid tag list inputs, causing test failures.</description>
+        <contract>Update the validation for the Tags property in the DynamoDB Table resource to accept valid tag list structures as inputs.</contract>
+        <acceptance>Test case should pass: Table("mytable", KeySchema=[KeySchema(KeyType="HASH", AttributeName="id")], BillingMode="PAY_PER_REQUEST", Tags=[{"Key": "Name", "Value": "Example"}])</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/cloudfront.py</location>
+        <description>The CloudFront AnycastIpList resource's Tags property validation is overly restrictive and rejects valid tag list inputs.</description>
+        <contract>Update the validation for the Tags property in the CloudFront AnycastIpList resource to accept valid tag list structures in addition to the existing Items structure.</contract>
+        <acceptance>Test case should pass: AnycastIpList("AnycastIpList", IpCount=1, Name="test", Tags=[{"Key": "bar", "Value": "bar"}, {"Key": "baz", "Value": "baz"}])</acceptance>
+    </requirement>
+</requirement_document>

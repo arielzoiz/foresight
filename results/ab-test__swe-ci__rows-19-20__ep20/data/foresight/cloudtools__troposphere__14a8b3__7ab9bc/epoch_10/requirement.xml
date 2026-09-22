@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/troposphere/rds.py:DBInstance.validate</location>
+    <description>The RDS DBInstance validation logic produces an incorrect error message when validating credentials requirements. The current implementation raises a different error message than what the test expects. The test expects: "Either (MasterUsername and either MasterUserPassword or ManageMasterUserPassword) or DBSnapshotIdentifier are required" but the implementation raises: "MasterUsername is required when neither DBSnapshotIdentifier, DBClusterIdentifier, nor SourceDBInstanceIdentifier is provided."</description>
+    <contract>The validation should raise a ValueError with the exact error message: "Either (MasterUsername and either MasterUserPassword or ManageMasterUserPassword) or DBSnapshotIdentifier are required" when credentials are not provided along with snapshot/cluster/replica identifiers.</contract>
+    <acceptance>tests/test_rds.py::TestRDS::test_it_rds_instances_require_either_a_snapshot_or_credentials</acceptance>
+  </item>
+  <item>
+    <location>/app/code/troposphere/cloudfront.py:AnycastIpList.props</location>
+    <description>The AnycastIpList class uses validate_tags_or_list validator for Tags property, but the validator in /app/code/troposphere/validators/__init__.py doesn't properly validate the structure for AnycastIpList. The test expects strict validation that Tags must be a dict with only an "Items" key containing Tag objects, but the current validator accepts broader structures.</description>
+    <contract>The Tags property for AnycastIpList should enforce that Tags is a dictionary with exactly one key "Items", and the value of Items must be a list of Tag objects (or equivalent structures) that conform to the expected format.</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_tags_items_array</acceptance>
+  </item>
+  <item>
+    <location>/app/code/troposphere/batch.py:JobDefinition.props</location>
+    <description>The JobDefinition class incorrectly allows Tag objects in the Tags parameter. The test expects a TypeError to be raised when Tag objects are passed as the Tags value, but currently it allows them. The Tags property should only accept dictionaries, not Tag objects.</description>
+    <contract>The Tags property in JobDefinition should only accept dictionary values and raise TypeError when Tag objects are passed.</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_json_tags</acceptance>
+  </item>
+</requirement>

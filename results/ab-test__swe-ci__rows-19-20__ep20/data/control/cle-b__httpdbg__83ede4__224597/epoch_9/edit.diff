@@ -1,0 +1,175 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 03:16:40
++++ b/httpdbg/hooks/httpx.py	2026-09-22 03:21:24
+@@ -12,49 +12,85 @@
+ from httpdbg.hooks.recordhttp2 import HTTP2Record
+ 
+ 
+-def set_hook_for_httpx_async(records: HTTPRecords, method: Callable):
++def set_hook_for_httpx_async_h2(records: HTTPRecords, method: Callable):
+     async def hook(*args, **kwargs):
+-        initiator_and_group = None
++        # Create a new HTTP2Record for this request before the call
++        # This ensures proper integration with the records system
+         try:
++            callargs = getcallargs(method, *args, **kwargs)
++            url = callargs.get("url", "")
++            # Create a new record for this request using the new method
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+-                ret = await method(*args, **kwargs)
++                initiator, group, _ = initiator_and_group
++                
++                record = records.add_new_record(
++                    initiator, 
++                    group, 
++                    url, 
++                    is_client=True,
++                    record_type="http2"
++                )
++            
++            ret = await method(*args, **kwargs)
++            
++            # Now we need to properly populate the record with data
++            # This will happen through the HTTP/2 connection handling
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+-
++            url = callargs.get("url", "")
++            
+             if "url" in callargs:
+-                if initiator_and_group:
+-                    initiator, group, is_new = initiator_and_group
+-                    if is_new:
+-                        records.add_new_record_exception(
+-                            initiator, group, str(callargs["url"]), ex
+-                        )
++                records.add_new_record_exception(
++                    "httpx.AsyncClient", 
++                    method.__name__, 
++                    str(url), 
++                    ex
++                )
+             raise
+ 
+     return hook
+ 
+ 
+-def set_hook_for_httpx(records: HTTPRecords, method: Callable):
++def set_hook_for_httpx_h2(records: HTTPRecords, method: Callable):
+     def hook(*args, **kwargs):
+-        initiator_and_group = None
++        # Create a new HTTP2Record for this request before the call
++        # This ensures proper integration with the records system
+         try:
++            callargs = getcallargs(method, *args, **kwargs)
++            url = callargs.get("url", "")
++            # Create a new record for this request using the new method
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+-                ret = method(*args, **kwargs)
++                initiator, group, _ = initiator_and_group
++                
++                record = records.add_new_record(
++                    initiator, 
++                    group, 
++                    url, 
++                    is_client=True,
++                    record_type="http2"
++                )
++            
++            ret = method(*args, **kwargs)
++            
++            # Now we need to properly populate the record with data
++            # This will happen through the HTTP/2 connection handling
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+-
++            url = callargs.get("url", "")
++            
+             if "url" in callargs:
+-                if initiator_and_group:
+-                    initiator, group, is_new = initiator_and_group
+-                    if is_new:
+-                        records.add_new_record_exception(
+-                            initiator, group, str(callargs["url"]), ex
+-                        )
++                records.add_new_record_exception(
++                    "httpx.Client", 
++                    method.__name__, 
++                    str(url), 
++                    ex
++                )
+             raise
+ 
+     return hook
+@@ -66,39 +102,41 @@
+     try:
+         import httpx
+ 
++        # Apply hooks to async methods
+         httpx.AsyncClient.get = decorate(
+-            records, httpx.AsyncClient.get, set_hook_for_httpx_async
++            records, httpx.AsyncClient.get, set_hook_for_httpx_async_h2
+         )
+         httpx.AsyncClient.post = decorate(
+-            records, httpx.AsyncClient.post, set_hook_for_httpx_async
++            records, httpx.AsyncClient.post, set_hook_for_httpx_async_h2
+         )
+         httpx.AsyncClient.patch = decorate(
+-            records, httpx.AsyncClient.patch, set_hook_for_httpx_async
++            records, httpx.AsyncClient.patch, set_hook_for_httpx_async_h2
+         )
+         httpx.AsyncClient.put = decorate(
+-            records, httpx.AsyncClient.put, set_hook_for_httpx_async
++            records, httpx.AsyncClient.put, set_hook_for_httpx_async_h2
+         )
+         httpx.AsyncClient.delete = decorate(
+-            records, httpx.AsyncClient.delete, set_hook_for_httpx_async
++            records, httpx.AsyncClient.delete, set_hook_for_httpx_async_h2
+         )
+         httpx.AsyncClient.head = decorate(
+-            records, httpx.AsyncClient.head, set_hook_for_httpx_async
++            records, httpx.AsyncClient.head, set_hook_for_httpx_async_h2
+         )
+         httpx.AsyncClient.options = decorate(
+-            records, httpx.AsyncClient.options, set_hook_for_httpx_async
++            records, httpx.AsyncClient.options, set_hook_for_httpx_async_h2
+         )
+         httpx.AsyncClient.request = decorate(
+-            records, httpx.AsyncClient.request, set_hook_for_httpx_async
++            records, httpx.AsyncClient.request, set_hook_for_httpx_async_h2
+         )
+ 
+-        httpx.get = decorate(records, httpx.get, set_hook_for_httpx)
+-        httpx.post = decorate(records, httpx.post, set_hook_for_httpx)
+-        httpx.patch = decorate(records, httpx.patch, set_hook_for_httpx)
+-        httpx.put = decorate(records, httpx.put, set_hook_for_httpx)
+-        httpx.delete = decorate(records, httpx.delete, set_hook_for_httpx)
+-        httpx.head = decorate(records, httpx.head, set_hook_for_httpx)
+-        httpx.options = decorate(records, httpx.options, set_hook_for_httpx)
+-        httpx.request = decorate(records, httpx.request, set_hook_for_httpx)
++        # Apply hooks to sync methods
++        httpx.get = decorate(records, httpx.get, set_hook_for_httpx_h2)
++        httpx.post = decorate(records, httpx.post, set_hook_for_httpx_h2)
++        httpx.patch = decorate(records, httpx.patch, set_hook_for_httpx_h2)
++        httpx.put = decorate(records, httpx.put, set_hook_for_httpx_h2)
++        httpx.delete = decorate(records, httpx.delete, set_hook_for_httpx_h2)
++        httpx.head = decorate(records, httpx.head, set_hook_for_httpx_h2)
++        httpx.options = decorate(records, httpx.options, set_hook_for_httpx_h2)
++        httpx.request = decorate(records, httpx.request, set_hook_for_httpx_h2)
+ 
+         hooks = True
+     except ImportError:
+@@ -107,6 +145,7 @@
+     yield
+ 
+     if hooks:
++        # Restore original methods
+         httpx.AsyncClient.get = undecorate(httpx.AsyncClient.get)
+         httpx.AsyncClient.post = undecorate(httpx.AsyncClient.post)
+         httpx.AsyncClient.patch = undecorate(httpx.AsyncClient.patch)

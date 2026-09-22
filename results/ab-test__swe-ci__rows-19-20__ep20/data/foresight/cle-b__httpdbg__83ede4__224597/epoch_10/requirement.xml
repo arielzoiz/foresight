@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The hook_http2 function in the HTTP/2 hook module is incomplete and does not properly intercept HTTP/2 requests to create and store HTTP2Record objects in the records collection. All tests in test_hook_h2.py are failing with "len(<httpdbg.records.HTTPRecords object at 0x...>) == 0" indicating no records are being created.</description>
+        <contract>
+            The hook_http2 function must properly intercept HTTP/2 requests made via httpx library and create HTTP2Record instances that are added to the HTTPRecords collection. Specifically:
+            1. Intercept httpx client methods (get, post, put, delete, etc.) for both sync and async clients
+            2. Create HTTP2Record instances with proper initialization including URL, method, and protocol
+            3. Add these records to records.requests dictionary with unique IDs
+            4. Ensure proper metadata tracking (initiator, group, etc.)
+            5. Handle both successful requests and exceptions properly
+        </contract>
+        <acceptance>
+            The test case tests/test_hook_h2.py::test_h2 should pass, confirming that 1 HTTP2Record is created and stored in records.
+        </acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The current hook_http2 implementation only sets up decorators but doesn't actually capture the request/response data needed for HTTP2Record objects to be properly populated.</description>
+        <contract>
+            The hook_http2 function must properly capture HTTP/2 request and response data and populate HTTP2Record instances with:
+            1. Request details (URL, method, headers, content)
+            2. Response details (status code, headers, content)
+            3. Protocol information (HTTP/2)
+            4. Proper timing and metadata
+        </contract>
+        <acceptance>
+            The test case tests/test_hook_h2.py::test_h2_request should pass, verifying request data capture.
+        </acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The hook_http2 function doesn't properly handle the async nature of httpx.AsyncClient methods, which are essential for full HTTP/2 support.</description>
+        <contract>
+            The hook_http2 function must support both synchronous and asynchronous httpx client methods:
+            1. Handle sync httpx methods (get, post, put, delete, etc.) 
+            2. Handle async httpx methods (get, post, put, delete, etc.) with async hooks
+            3. Ensure proper context management for both cases
+        </contract>
+        <acceptance>
+            The test case tests/test_hook_h2.py::test_h2_client_asyncclient should pass, confirming async support.
+        </acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The HTTP2Record creation logic in hook_http2 is fundamentally flawed - it creates records but doesn't properly link them to the HTTPRecords system.</description>
+        <contract>
+            The hook_http2 function must properly integrate with the HTTPRecords system by:
+            1. Creating HTTP2Record instances with correct constructor parameters
+            2. Setting up proper relationships between records, initiators, and groups
+            3. Ensuring records are stored in the records.requests dictionary
+            4. Setting protocol property to "HTTP/2" for all created records
+        </contract>
+        <acceptance>
+            The test case tests/test_hook_h2.py::test_h2_response should pass, verifying proper record population.
+        </acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The hook_http2 function doesn't support multiple concurrent requests or sessions which are tested in several test cases.</description>
+        <contract>
+            The hook_http2 function must handle multiple concurrent requests and sessions properly:
+            1. Support multiple requests within the same session
+            2. Support multiple requests across different sessions
+            3. Maintain proper record separation between different request contexts
+            4. Handle both client and server-side HTTP/2 tracking when enabled
+        </contract>
+        <acceptance>
+            The test cases tests/test_hook_h2.py::test_h2_client_many_requests and tests/test_hook_h2.py::test_h2_client_many_requests_session should pass, confirming multi-request support.
+        </acceptance>
+    </requirement>
+</requirement_document>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/h2.py</location>
+    <description>The HTTP/2 hook implementation fails to properly capture and populate HTTP/2 request/response data. Tests show that records are created but often have incomplete or missing data (empty content, incorrect method, missing headers, etc.). This is likely due to improper integration with HTTP/2 connection handlers that should populate the records with actual request/response data.</description>
+    <contract>Fix the HTTP/2 hook implementation to ensure that HTTP/2 records are properly populated with request and response data. The hook should correctly integrate with HTTP/2 connection handlers to capture request/response headers, content, and metadata. Records should contain complete information including method, URL, status code, headers, content, and protocol.</contract>
+    <acceptance>tests/test_hook_h2.py::test_h2, tests/test_hook_h2.py::test_h2_request, tests/test_hook_h2.py::test_h2_response, tests/test_hook_h2.py::test_h2_cookies, tests/test_hook_h2.py::test_h2_client_redirect, tests/test_hook_h2.py::test_h2_client_not_found, tests/test_hook_h2.py::test_h2_client_get_empty_request_content, tests/test_hook_h2.py::test_h2_client_many_requests, tests/test_hook_h2.py::test_h2_client_many_requests_session, tests/test_hook_h2.py::test_h2_client_asyncclient, tests/test_hook_h2.py::test_h2_server, tests/test_hook_h2.py::test_h2_server_only, tests/test_hook_h2.py::test_h2_server_request, tests/test_hook_h2.py::test_h2_server_response</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/httpx.py</location>
+    <description>The HTTPX hook implementation has issues with exception handling and record creation. Some tests fail because records are not being created properly or exceptions are not being captured correctly in HTTPX hooks, particularly in async scenarios.</description>
+    <contract>Ensure that HTTPX hooks properly create records for all HTTP requests/responses and correctly handle exceptions. The hooks should ensure that all requests (including async ones) result in properly populated records with correct URL, method, status code, headers, and content. Exception handling should properly associate exceptions with existing records.</contract>
+    <acceptance>tests/test_hook_httpx.py::test_httpx_exception, tests/test_hook_httpx.py::test_httpx_exception_asyncclient, tests/test_hook_httpx.py::test_httpx_get_empty_request_content, tests/test_hook_httpx.py::test_httpx_many_requests, tests/test_hook_httpx.py::test_httpx_many_requests_session</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+    <description>The HTTP/2 record implementation has issues with parsing HTTP/2 pseudo-headers and constructing proper URL information. Tests show that records have incorrect or missing URL, method, status code, and reason information.</description>
+    <contract>Improve the HTTP/2 record parsing logic to correctly extract pseudo-headers (:method, :path, :authority, :status) and construct proper URL information from them. The implementation should correctly populate URL, method, status code, and reason properties from HTTP/2 headers.</contract>
+    <acceptance>tests/test_hook_h2.py::test_h2, tests/test_hook_h2.py::test_h2_request, tests/test_hook_h2.py::test_h2_response, tests/test_hook_h2.py::test_h2_cookies, tests/test_hook_h2.py::test_h2_client_redirect, tests/test_hook_h2.py::test_h2_client_not_found, tests/test_hook_h2.py::test_h2_client_get_empty_request_content, tests/test_hook_h2.py::test_h2_client_many_requests, tests/test_hook_h2.py::test_h2_client_many_requests_session, tests/test_hook_h2.py::test_h2_client_asyncclient, tests/test_hook_h2.py::test_h2_server, tests/test_hook_h2.py::test_h2_server_only, tests/test_hook_h2.py::test_h2_server_request, tests/test_hook_h2.py::test_h2_server_response</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/records.py</location>
+    <description>The records management system lacks proper handling of HTTP/2 records. The system needs to be enhanced to properly manage and distinguish between HTTP/1 and HTTP/2 records when they are created.</description>
+    <contract>Enhance the HTTPRecords.add_new_record method to properly support HTTP/2 record creation by correctly passing the record_type parameter and ensuring HTTP/2 records are instantiated with the correct class.</contract>
+    <acceptance>tests/test_hook_h2.py::test_h2, tests/test_hook_h2.py::test_h2_request, tests/test_hook_h2.py::test_h2_response, tests/test_hook_h2.py::test_h2_cookies, tests/test_hook_h2.py::test_h2_client_redirect, tests/test_hook_h2.py::test_h2_client_not_found, tests/test_hook_h2.py::test_h2_client_get_empty_request_content, tests/test_hook_h2.py::test_h2_client_many_requests, tests/test_hook_h2.py::test_h2_client_many_requests_session, tests/test_hook_h2.py::test_h2_client_asyncclient, tests/test_hook_h2.py::test_h2_server, tests/test_hook_h2.py::test_h2_server_only, tests/test_hook_h2.py::test_h2_server_request, tests/test_hook_h2.py::test_h2_server_response</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/all.py</location>
+    <description>The hook ordering in the httprecord context manager may be causing issues with HTTP/2 handling. The h2 hook is placed after httpx hook, which could prevent proper interception of HTTP/2 requests.</description>
+    <contract>Review and adjust the hook ordering in the httprecord context manager to ensure HTTP/2 hooks are properly applied before other hooks that might interfere with HTTP/2 request handling.</contract>
+    <acceptance>tests/test_hook_h2.py::test_h2, tests/test_hook_h2.py::test_h2_request, tests/test_hook_h2.py::test_h2_response, tests/test_hook_h2.py::test_h2_cookies, tests/test_hook_h2.py::test_h2_client_redirect, tests/test_hook_h2.py::test_h2_client_not_found, tests/test_hook_h2.py::test_h2_client_get_empty_request_content, tests/test_hook_h2.py::test_h2_client_many_requests, tests/test_hook_h2.py::test_h2_client_many_requests_session, tests/test_hook_h2.py::test_h2_client_asyncclient, tests/test_hook_h2.py::test_h2_server, tests/test_hook_h2.py::test_h2_server_only, tests/test_hook_h2.py::test_h2_server_request, tests/test_hook_h2.py::test_h2_server_response</acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,55 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/http2.py b/httpdbg/hooks/http2.py
+--- a/httpdbg/hooks/http2.py	2026-09-22 05:27:44
++++ b/httpdbg/hooks/http2.py	2026-09-22 05:36:43
+@@ -31,12 +31,22 @@
+                         # Set URL and method from kwargs
+                         callargs = getcallargs(method, *args, **kwargs)
+                         record.url = str(callargs.get("url", ""))
++                        
+                         # Extract HTTP method from the call arguments
+-                        method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
+-                        # For httpx, method is typically passed as a keyword argument, but for direct calls it might be the first positional argument
++                        # Method can be passed as keyword argument or as first positional argument
++                        method_name = "GET"
++                        if "method" in callargs:
++                            method_name = callargs["method"]
++                        elif len(args) > 0:
++                            # First positional argument might be the method
++                            method_name = args[0]
++                        
++                        # Ensure method_name is a string
+                         if not isinstance(method_name, str):
+                             method_name = "GET"
+-                        record.request._method = method_name.encode()
++                            
++                        # Set method using the property setter (not direct attribute assignment)
++                        record.request.method = method_name
+                         records.requests[record.id] = record
+                         
+             return ret
+@@ -82,12 +92,22 @@
+                         # Set URL and method from kwargs
+                         callargs = getcallargs(method, *args, **kwargs)
+                         record.url = str(callargs.get("url", ""))
++                        
+                         # Extract HTTP method from the call arguments
+-                        method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
+-                        # For httpx, method is typically passed as a keyword argument, but for direct calls it might be the first positional argument
++                        # Method can be passed as keyword argument or as first positional argument
++                        method_name = "GET"
++                        if "method" in callargs:
++                            method_name = callargs["method"]
++                        elif len(args) > 0:
++                            # First positional argument might be the method
++                            method_name = args[0]
++                        
++                        # Ensure method_name is a string
+                         if not isinstance(method_name, str):
+                             method_name = "GET"
+-                        record.request._method = method_name.encode()
++                            
++                        # Set method using the property setter (not direct attribute assignment)
++                        record.request.method = method_name
+                         records.requests[record.id] = record
+                         
+             return ret

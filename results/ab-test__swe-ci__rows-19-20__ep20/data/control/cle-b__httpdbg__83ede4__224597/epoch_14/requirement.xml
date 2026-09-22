@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/httpdbg/hooks/h2.py</location>
+        <description>The HTTP/2 hook implementation has issues with capturing request/response data properly. The tests show that records are not being populated with the correct HTTP/2 data, particularly for headers and content. There are also issues with exception handling where string objects are incorrectly treated as exceptions.</description>
+        <contract>
+            <description>The HTTP/2 hook should correctly capture and populate HTTP/2 request/response data including headers, content, status codes, and method information. Exception handling should properly capture and store actual exception objects rather than treating strings as exceptions.</description>
+            <behavior>
+                <input>HTTP/2 requests made via httpx.Client and httpx.AsyncClient with various methods (GET, POST, etc.)</input>
+                <output>HTTPRecords with properly populated HTTP2Record objects that contain accurate URL, method, status_code, reason, protocol, headers, content, cookies, and exception information</output>
+                <exception_handling>
+                    When an exception occurs during HTTP/2 request processing, the actual exception object should be stored in the record's exception field, not a string representation.
+                </exception_handling>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_hook_h2.py::test_h2</test>
+            <test>tests/test_hook_h2.py::test_h2_request</test>
+            <test>tests/test_hook_h2.py::test_h2_response</test>
+            <test>tests/test_hook_h2.py::test_h2_cookies</test>
+            <test>tests/test_hook_h2.py::test_h2_client_get_empty_request_content</test>
+            <test>tests/test_hook_httpx.py::test_httpx_exception</test>
+            <test>tests/test_hook_httpx.py::test_httpx_exception_asyncclient</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+        <description>The HTTP2Record classes don't properly extract HTTP/2 pseudo-headers (like :method, :path, :authority, :status) from the raw data. This leads to missing information in the records such as method, URL, status code, and reason.</description>
+        <contract>
+            <description>HTTP2RecordRequest and HTTP2RecordResponse should correctly parse HTTP/2 pseudo-headers from the raw data to populate the method, URL, status_code, and reason fields.</description>
+            <behavior>
+                <input>Raw HTTP/2 frames containing headers with pseudo-headers</input>
+                <output>HTTP2RecordRequest and HTTP2RecordResponse objects with properly extracted method, URL, status_code, and reason</output>
+                <data_extraction>
+                    Method should be extracted from the :method pseudo-header
+                    URL should be constructed from :authority and :path pseudo-headers  
+                    Status code should be extracted from the :status pseudo-header
+                    Reason should be derived from the status code mapping
+                </data_extraction>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_hook_h2.py::test_h2</test>
+            <test>tests/test_hook_h2.py::test_h2_request</test>
+            <test>tests/test_hook_h2.py::test_h2_response</test>
+            <test>tests/test_hook_h2.py::test_h2_client_not_found</test>
+            <test>tests/test_hook_h2.py::test_h2_client_redirect</test>
+            <test>tests/test_hook_h2.py::test_h2_server</test>
+            <test>tests/test_hook_h2.py::test_h2_server_request</test>
+            <test>tests/test_hook_h2.py::test_h2_server_response</test>
+            <test>tests/test_hook_h2.py::test_h2_server_only</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/httpx.py</location>
+        <description>The HTTPX hook implementation has a bug in the exception handling section where it passes incorrect parameters to the add_new_record_exception method.</description>
+        <contract>
+            <description>The HTTPX hook should correctly pass the initiator and group objects to the add_new_record_exception method when exceptions occur.</description>
+            <behavior>
+                <input>HTTPX requests that cause exceptions (e.g., connection errors)</input>
+                <output>HTTPRecords with properly recorded exceptions</output>
+                <exception_handling>
+                    When an exception occurs, the exception should be properly associated with the initiator and group that caused it.
+                </exception_handling>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_hook_httpx.py::test_httpx_exception</test>
+            <test>tests/test_hook_httpx.py::test_httpx_exception_asyncclient</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+        <description>The HTTP2Record classes do not correctly handle the case when URL is not initially available during record creation. This causes issues in tests expecting the URL to be properly set.</description>
+        <contract>
+            <description>HTTP2Record should correctly populate the URL property based on the available pseudo-headers from the request, even when the URL isn't provided at record creation time.</description>
+            <behavior>
+                <input>HTTP/2 requests with pseudo-headers but without explicit URL</input>
+                <output>HTTP2Record with properly constructed URL from :authority and :path pseudo-headers</output>
+                <url_construction>
+                    URL should be constructed from :authority and :path pseudo-headers when available
+                    Should fallback gracefully when headers are missing
+                </url_construction>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_hook_h2.py::test_h2</test>
+            <test>tests/test_hook_h2.py::test_h2_request</test>
+            <test>tests/test_hook_h2.py::test_h2_response</test>
+            <test>tests/test_hook_h2.py::test_h2_client_not_found</test>
+        </acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+        <description>The HTTP2Record classes have an issue with the status_code property getter that contains duplicate code and potential logic errors.</description>
+        <contract>
+            <description>The HTTP2Record.status_code property should reliably extract the status code from the response pseudo-headers and return appropriate values for both normal and exceptional cases.</description>
+            <behavior>
+                <input>HTTP/2 responses with :status pseudo-header</input>
+                <output>Integer status code extracted from :status pseudo-header or -1 for exceptions</output>
+                <status_code_logic>
+                    Should return status code from :status pseudo-header when available
+                    Should return -1 when exception is present
+                    Should return 0 when neither is available (fallback)
+                </status_code_logic>
+            </behavior>
+        </contract>
+        <acceptance>
+            <test>tests/test_hook_h2.py::test_h2_client_not_found</test>
+            <test>tests/test_hook_h2.py::test_h2_response</test>
+            <test>tests/test_hook_h2.py::test_h2_server_response</test>
+        </acceptance>
+    </requirement>
+</requirement_document>

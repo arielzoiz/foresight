@@ -1,0 +1,60 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:23:52
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:28:24
+@@ -11,6 +11,8 @@
+ from httpdbg.records import HTTPRecords
+ from httpdbg.hooks.recordhttp2 import HTTP2Record
+ 
++# Global storage for hook contexts to enable data population later
++_hook_contexts = {}
+ 
+ def set_hook_for_httpx_async_h2(records: HTTPRecords, method: Callable):
+     async def hook(*args, **kwargs):
+@@ -36,6 +38,8 @@
+                 # Store the record reference for later population with data
+                 # This will be accessed by HTTP/2 connection handlers
+                 record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
++                # Store globally for easy access by connection handlers
++                _hook_contexts[record.id] = record
+             
+             ret = await method(*args, **kwargs)
+             
+@@ -80,6 +84,8 @@
+                 # Store the record reference for later population with data
+                 # This will be accessed by HTTP/2 connection handlers
+                 record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
++                # Store globally for easy access by connection handlers
++                _hook_contexts[record.id] = record
+             
+             ret = method(*args, **kwargs)
+             
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 03:24:33
++++ b/httpdbg/hooks/httpx.py	2026-09-22 03:28:41
+@@ -11,6 +11,8 @@
+ from httpdbg.records import HTTPRecords
+ from httpdbg.hooks.recordhttp2 import HTTP2Record
+ 
++# Global storage for hook contexts to enable data population later
++_hook_contexts = {}
+ 
+ def set_hook_for_httpx_async_h2(records: HTTPRecords, method: Callable):
+     async def hook(*args, **kwargs):
+@@ -36,6 +38,8 @@
+                 # Store the record reference for later population with data
+                 # This will be accessed by HTTP/2 connection handlers
+                 record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
++                # Store globally for easy access by connection handlers
++                _hook_contexts[record.id] = record
+             
+             ret = await method(*args, **kwargs)
+             
+@@ -80,6 +84,8 @@
+                 # Store the record reference for later population with data
+                 # This will be accessed by HTTP/2 connection handlers
+                 record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
++                # Store globally for easy access by connection handlers
++                _hook_contexts[record.id] = record
+             
+             ret = method(*args, **kwargs)
+             

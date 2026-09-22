@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/troposphere/batch.py</location>
+    <description>The JobDefinition class in batch.py enforces strict validation on the Tags parameter, requiring only Tags instances or AWSHelperFn objects. However, the test expects that regular dict objects should be accepted as valid Tags input, which is inconsistent with the validation logic.</description>
+    <contract>The Tags parameter in JobDefinition should accept both Tags instances and dict objects, similar to how it's handled in other AWS resources like DynamoDB Table. The validation should convert dict inputs to Tags instances internally.</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_json_tags</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/troposphere/dynamodb.py</location>
+    <description>The Table class in dynamodb.py has overly restrictive validation for the Tags parameter that rejects dict objects. This causes test failures when passing regular dicts as tags, which should be allowed.</description>
+    <contract>The Tags parameter in Table should accept both Tags instances and dict objects, converting dicts to Tags instances internally to maintain consistency with AWS behavior.</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_object_tags</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/troposphere/__init__.py</location>
+    <description>The Tags class constructor has logic to handle dict inputs but doesn't properly validate or convert inputs in all cases. When a dict is passed as an argument, it should be converted to a proper Tags instance.</description>
+    <contract>The Tags class constructor should properly handle dict inputs by converting them to Tags instances and should allow dict inputs to be passed to the constructor.</contract>
+    <acceptance>tests/test_tags.py::TestTags::test_Formats</acceptance>
+  </requirement>
+</requirement_document>

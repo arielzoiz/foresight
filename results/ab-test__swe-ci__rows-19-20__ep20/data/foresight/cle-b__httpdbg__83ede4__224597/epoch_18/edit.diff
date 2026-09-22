@@ -1,0 +1,95 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/http2.py b/httpdbg/hooks/http2.py
+--- a/httpdbg/hooks/http2.py	2026-09-22 05:38:47
++++ b/httpdbg/hooks/http2.py	2026-09-22 05:41:12
+@@ -15,6 +15,20 @@
+ def set_hook_for_http2_async(records: HTTPRecords, method: Callable):
+     async def hook(*args, **kwargs):
+         try:
++            # Extract HTTP method from the call arguments FIRST
++            # Method can be passed as keyword argument or as first positional argument
++            callargs = getcallargs(method, *args, **kwargs)
++            method_name = "GET"
++            if "method" in callargs:
++                method_name = callargs["method"]
++            elif len(args) > 0:
++                # First positional argument might be the method
++                method_name = args[0]
++            
++            # Ensure method_name is a string
++            if not isinstance(method_name, str):
++                method_name = "GET"
++                
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+@@ -28,23 +42,9 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag, method=method_name
+                         )
+-                        # Set URL and method from kwargs
+-                        callargs = getcallargs(method, *args, **kwargs)
++                        # Set URL from kwargs
+                         record.url = str(callargs.get("url", ""))
+                         
+-                        # Extract HTTP method from the call arguments
+-                        # Method can be passed as keyword argument or as first positional argument
+-                        method_name = "GET"
+-                        if "method" in callargs:
+-                            method_name = callargs["method"]
+-                        elif len(args) > 0:
+-                            # First positional argument might be the method
+-                            method_name = args[0]
+-                        
+-                        # Ensure method_name is a string
+-                        if not isinstance(method_name, str):
+-                            method_name = "GET"
+-                            
+                         # Set method using the property setter (not direct attribute assignment)
+                         record.request.method = method_name
+                         records.requests[record.id] = record
+@@ -76,6 +76,20 @@
+ def set_hook_for_http2(records: HTTPRecords, method: Callable):
+     def hook(*args, **kwargs):
+         try:
++            # Extract HTTP method from the call arguments FIRST
++            # Method can be passed as keyword argument or as first positional argument
++            callargs = getcallargs(method, *args, **kwargs)
++            method_name = "GET"
++            if "method" in callargs:
++                method_name = callargs["method"]
++            elif len(args) > 0:
++                # First positional argument might be the method
++                method_name = args[0]
++            
++            # Ensure method_name is a string
++            if not isinstance(method_name, str):
++                method_name = "GET"
++                
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+@@ -89,23 +103,9 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag, method=method_name
+                         )
+-                        # Set URL and method from kwargs
+-                        callargs = getcallargs(method, *args, **kwargs)
++                        # Set URL from kwargs
+                         record.url = str(callargs.get("url", ""))
+                         
+-                        # Extract HTTP method from the call arguments
+-                        # Method can be passed as keyword argument or as first positional argument
+-                        method_name = "GET"
+-                        if "method" in callargs:
+-                            method_name = callargs["method"]
+-                        elif len(args) > 0:
+-                            # First positional argument might be the method
+-                            method_name = args[0]
+-                        
+-                        # Ensure method_name is a string
+-                        if not isinstance(method_name, str):
+-                            method_name = "GET"
+-                            
+                         # Set method using the property setter (not direct attribute assignment)
+                         record.request.method = method_name
+                         records.requests[record.id] = record

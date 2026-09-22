@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/h2.py</location>
+    <description>The HTTP/2 hook implementation is incomplete. It creates records but doesn't properly capture and populate HTTP/2 request/response data from the actual HTTP/2 connection. Tests fail because HTTP/2 records are created but lack essential information like method, status code, headers, content, and URL.</description>
+    <contract>Fix the HTTP/2 hook implementation to properly capture and populate HTTP/2 request/response data. When a request is made via HTTP/2, the hook should:
+1. Properly extract and store HTTP/2 pseudo-headers (:method, :path, :authority) to construct the URL and method
+2. Capture and store HTTP/2 response pseudo-headers (:status) to populate status code and reason
+3. Ensure all HTTP/2 request/response headers and content are captured and stored correctly
+4. Handle both synchronous and asynchronous HTTP/2 clients properly
+5. Ensure HTTP/2 records are properly populated with all relevant data for assertions in tests</contract>
+    <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/httpx.py</location>
+    <description>The HTTPX hook implementation duplicates the HTTP/2 hook logic, causing redundancy and potential conflicts. Both files contain nearly identical code for handling HTTP/2 hooks, which is not ideal for maintenance.</description>
+    <contract>Refactor the HTTPX hook to remove duplicate HTTP/2 hook logic and properly integrate with the existing HTTP/2 hook implementation. The HTTPX hook should leverage the existing HTTP/2 hook functionality rather than duplicating it.</contract>
+    <acceptance>test_httpx_exception, test_httpx_exception_asyncclient</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+    <description>The HTTP/2 record implementation has issues with parsing and extracting data from HTTP/2 frames. It's not correctly capturing request/response data from HTTP/2 connections.</description>
+    <contract>Improve the HTTP/2 record implementation to correctly:
+1. Parse HTTP/2 pseudo-headers and extract method, URL, status code, and reason
+2. Properly extract request and response headers and content from HTTP/2 frames
+3. Handle cases where HTTP/2 frames may not contain complete data
+4. Correctly set the URL property using HTTP/2 pseudo-headers</contract>
+    <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator, test_httpx_exception, test_httpx_exception_asyncclient</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/all.py</location>
+    <description>The hook order in the httprecord context manager may cause issues with HTTP/2 hooking. The order of hooking may prevent proper interception of HTTP/2 traffic.</description>
+    <contract>Ensure proper hook ordering in the httprecord context manager to guarantee that HTTP/2 hooks are applied correctly and intercept HTTP/2 traffic properly before it reaches lower-level hooks.</contract>
+    <acceptance>All HTTP/2 and HTTPX related tests</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/records.py</location>
+    <description>The add_new_record method doesn't properly handle HTTP/2 records. It defaults to HTTP/1 records even when HTTP/2 is specified.</description>
+    <contract>Modify the add_new_record method to properly support HTTP/2 records by checking the record_type parameter and creating HTTP2Record instances when appropriate.</contract>
+    <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_redirect, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response, test_h2_initiator</acceptance>
+  </requirement>
+</requirement_document>

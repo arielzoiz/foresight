@@ -1,0 +1,101 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/batch.py b/troposphere/batch.py
+--- a/troposphere/batch.py	2026-09-22 03:20:08
++++ b/troposphere/batch.py	2026-09-22 03:22:24
+@@ -8,6 +8,7 @@
+ 
+ from . import AWSObject, AWSProperty, PropsDictType, Tags
+ from .validators import boolean, double, integer
++from typing import Any
+ from .validators.batch import (
+     validate_allocation_strategy,
+     validate_environment_state,
+@@ -18,18 +19,15 @@
+ 
+ def validate_tags(value):
+     """Validate that Tags parameter is a valid type."""
+-    # Allow plain dicts, Tags instances, and AWSHelperFn
+-    if isinstance(value, dict) and not isinstance(value, Tags):
+-        # Plain dict is allowed - it will be converted to Tags internally
+-        return value
+-    elif isinstance(value, Tags):
++    # Only allow Tags instances and AWSHelperFn
++    if isinstance(value, Tags):
+         # Tags instance is allowed
+         return value
+     elif hasattr(value, '__class__') and 'AWSHelperFn' in str(type(value).__mro__):
+         # AWSHelperFn is allowed
+         return value
+     else:
+-        raise TypeError("Tags must be a Tags instance, plain dict, or AWSHelperFn")
++        raise TypeError("Tags must be a Tags instance or AWSHelperFn")
+ 
+ 
+ class Ec2ConfigurationObject(AWSProperty):
+@@ -580,6 +578,29 @@
+         "Timeout": (Timeout, False),
+         "Type": (str, True),
+     }
++    
++    def __setattr__(self, name: str, value: Any) -> None:
++        if name == "Tags" and value is not None:
++            # Apply stricter validation for Tags parameter
++            # Only allow Tags instances and AWSHelperFn
++            if isinstance(value, Tags):
++                # Valid Tags instance
++                pass
++            elif hasattr(value, '__class__') and 'AWSHelperFn' in str(type(value).__mro__):
++                # Valid AWSHelperFn
++                pass
++            elif isinstance(value, dict):
++                # Reject plain dict
++                raise TypeError("Tags must be a Tags instance or AWSHelperFn")
++            elif isinstance(value, str):
++                # Reject string
++                raise TypeError("Tags must be a Tags instance or AWSHelperFn")
++            else:
++                # For other types, let the normal validation handle it
++                pass
++        
++        # Call parent implementation
++        super().__setattr__(name, value)
+ 
+ 
+ class ComputeEnvironmentOrder(AWSProperty):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/dynamodb.py b/troposphere/dynamodb.py
+--- a/troposphere/dynamodb.py	2026-09-22 03:01:40
++++ b/troposphere/dynamodb.py	2026-09-22 03:22:25
+@@ -8,6 +8,7 @@
+ 
+ from . import AWSObject, AWSProperty, PropsDictType, Tags
+ from .validators import boolean, double, integer
++from typing import Any
+ from .validators.dynamodb import (
+     attribute_type_validator,
+     billing_mode_validator,
+@@ -369,3 +370,26 @@
+ 
+     def validate(self):
+         validate_table(self)
++        
++    def __setattr__(self, name: str, value: Any) -> None:
++        if name == "Tags" and value is not None:
++            # Apply stricter validation for Tags parameter
++            # Only allow Tags instances and AWSHelperFn
++            if isinstance(value, Tags):
++                # Valid Tags instance
++                pass
++            elif hasattr(value, '__class__') and 'AWSHelperFn' in str(type(value).__mro__):
++                # Valid AWSHelperFn
++                pass
++            elif isinstance(value, dict):
++                # Reject plain dict
++                raise TypeError("Tags must be a Tags instance or AWSHelperFn")
++            elif isinstance(value, str):
++                # Reject string
++                raise TypeError("Tags must be a Tags instance or AWSHelperFn")
++            else:
++                # For other types, let the normal validation handle it
++                pass
++        
++        # Call parent implementation
++        super().__setattr__(name, value)

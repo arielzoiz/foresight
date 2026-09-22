@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/troposphere/__init__.py</location>
+        <description>The Tags class doesn't properly handle dict inputs with an "Items" key as required by test_json_tags and test_tags_items_array. Currently raises ValueError when trying to pass Tags({"Items": [...]})</description>
+        <contract>
+            <description>The Tags class should accept dictionaries with an "Items" key containing a list of Tag objects and validate that the dict contains only the "Items" key. The validation should allow this format for specific AWS services like CloudFront.</description>
+            <behavior>
+                <input>Tags({"Items": [Tag("key1", "value1"), Tag("key2", "value2")]})</input>
+                <expected_output>Valid Tags object with the items properly formatted</expected_output>
+                <validation>Should pass validation for test_tags_items_array and test_json_tags</validation>
+            </behavior>
+        </contract>
+        <acceptance>test_tags_items_array, test_json_tags</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/troposphere/rds.py</location>
+        <description>The validate_dbinstance function in DBInstance class has incorrect validation logic that prevents valid DB instances from being created when ManageMasterUserPassword is used.</description>
+        <contract>
+            <description>The validation should allow DB instances to be created when either MasterUsername and MasterUserPassword OR MasterUsername and ManageMasterUserPassword OR DBSnapshotIdentifier are provided. The error message should also match the expected format.</description>
+            <behavior>
+                <input>DBInstance with MasterUsername and ManageMasterUserPassword</input>
+                <expected_output>Valid DB instance creation</expected_output>
+                <validation>Should pass test_it_rds_credentials_using_managemasteruserpassword and test_it_rds_instances_require_either_a_snapshot_or_credentials</validation>
+            </behavior>
+        </contract>
+        <acceptance>test_it_rds_credentials_using_managemasteruserpassword, test_it_rds_instances_require_either_a_snapshot_or_credentials</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/troposphere/__init__.py</location>
+        <description>The Parameter class doesn't allow AllowedPattern validation for CommaDelimitedList type parameters as required by test_allowed_pattern_for_comma_delimited_list_and_string.</description>
+        <contract>
+            <description>The Parameter validation should allow AllowedPattern to be used with CommaDelimitedList type parameters, similar to how it's allowed with String type parameters.</description>
+            <behavior>
+                <input>Parameter with Type="CommaDelimitedList" and AllowedPattern="^[A-Z]{2}$"</input>
+                <expected_output>Valid parameter creation</expected_output>
+                <validation>Should pass test_allowed_pattern_for_comma_delimited_list_and_string</validation>
+            </behavior>
+        </contract>
+        <acceptance>test_allowed_pattern_for_comma_delimited_list_and_string</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/troposphere/__init__.py</location>
+        <description>The BaseAWSObject.__eq__ method doesn't properly handle comparison with TypeComparator objects as required by test___eq__.</description>
+        <contract>
+            <description>The __eq__ method should properly handle comparison with TypeComparator objects by checking if the other object's valid_types includes the current object's type.</description>
+            <behavior>
+                <input>FakeAWSObject("foobar", callcorrect=True) == TypeComparator(AWSObject)</input>
+                <expected_output>True</expected_output>
+                <validation>Should pass test___eq__</validation>
+            </behavior>
+        </contract>
+        <acceptance>test___eq__</acceptance>
+    </requirement>
+</requirements>

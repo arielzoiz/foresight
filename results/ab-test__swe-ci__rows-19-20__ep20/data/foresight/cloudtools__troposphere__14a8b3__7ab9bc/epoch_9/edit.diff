@@ -1,0 +1,111 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-22 06:00:33
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-22 06:00:33
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-22 06:00:33
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-22 06:00:39
+@@ -0,0 +1,4 @@
++{
++  "tests/test_rds.py::TestRDS::test_it_rds_instances_require_either_a_snapshot_or_credentials": true,
++  "tests/test_tags.py::TestTags::test_tags_items_array": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-22 06:00:39
+@@ -0,0 +1,5 @@
++[
++  "tests/test_parameters.py::TestParameterValidator::test_allowed_pattern_for_comma_delimited_list_and_string",
++  "tests/test_rds.py::TestRDS::test_it_rds_instances_require_either_a_snapshot_or_credentials",
++  "tests/test_tags.py::TestTags::test_tags_items_array"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 05:58:17
++++ b/troposphere/__init__.py	2026-09-22 06:00:12
+@@ -732,15 +732,23 @@
+                                 elif isinstance(item, dict) and "Key" in item and "Value" in item:
+                                     self.tags.append(item)
+                                 else:
+-                                    raise TypeError(
+-                                        "Items in Tags dict must contain Tag objects or dicts with Key/Value"
+-                                    )
++                                    # Try to accept any dict with Key/Value fields even if not validated properly
++                                    if isinstance(item, dict) and "Key" in item and "Value" in item:
++                                        self.tags.append(item)
++                                    else:
++                                        raise TypeError(
++                                            "Items in Tags dict must contain Tag objects or dicts with Key/Value"
++                                        )
+                         else:
+                             raise ValueError(
+                                 "Tags dict with Items key must contain only the 'Items' key"
+                             )
+                     else:
+-                        tag_dict.update(cast(Dict[str, Any], arg))
++                        # Handle direct dict with Key/Value pairs (not in Items)
++                        if "Key" in arg and "Value" in arg:
++                            self.tags.append(arg)
++                        else:
++                            tag_dict.update(cast(Dict[str, Any], arg))
+                 # Validate argument passed in is a Tag object
+                 elif isinstance(arg, Tag):
+                     self.tags.append(arg)
+@@ -1127,7 +1135,7 @@
+                     if not any(check_type(x, d) for x in allowed):
+                         raise ValueError(error_str % (param_type, type(d), dlist))
+ 
+-        if param_type != "String":
++        if param_type != "String" and param_type != "CommaDelimitedList":
+             for p in self.STRING_PROPERTIES:
+                 if p in self.properties:
+                     raise ValueError(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/rds.py b/troposphere/rds.py
+--- a/troposphere/rds.py	2026-09-22 05:58:10
++++ b/troposphere/rds.py	2026-09-22 06:00:02
+@@ -327,8 +327,7 @@
+             if not (master_username and (master_user_password or manage_master_user_password or "DBSnapshotIdentifier" in self.properties)):
+                 raise ValueError(
+                     r"Either \(MasterUsername and either MasterUserPassword or ManageMasterUserPassword\) or"
+-                    r" DBSnapshotIdentifier are required in type "
+-                    r"AWS::RDS::DBInstance."
++                    r" DBSnapshotIdentifier are required"
+                 )
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/validators/rds.py b/troposphere/validators/rds.py
+--- a/troposphere/validators/rds.py	2026-09-22 05:56:50
++++ b/troposphere/validators/rds.py	2026-09-22 06:00:22
+@@ -364,8 +364,7 @@
+         if not (master_user_password or manage_master_user_password):
+             raise ValueError(
+                 r"Either \(MasterUsername and either MasterUserPassword or ManageMasterUserPassword\) or"
+-                r" DBSnapshotIdentifier are required in type "
+-                r"AWS::RDS::DBInstance."
++                r" DBSnapshotIdentifier are required"
+             )
+ 
+     if "KmsKeyId" in self.properties and "StorageEncrypted" not in self.properties:

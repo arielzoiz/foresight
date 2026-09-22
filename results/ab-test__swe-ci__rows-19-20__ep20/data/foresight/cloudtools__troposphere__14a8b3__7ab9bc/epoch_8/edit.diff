@@ -1,0 +1,70 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 05:55:06
++++ b/troposphere/__init__.py	2026-09-22 05:58:17
+@@ -523,6 +523,15 @@
+             return self.to_json() == other.to_json()
+         if isinstance(other, (dict, list)):
+             return self.to_dict() == other
++        # Handle comparison with TypeComparator and other types
++        if hasattr(other, '__class__') and hasattr(other.__class__, '__name__'):
++            # If other is a TypeComparator or similar, check if it's compatible
++            if hasattr(other, 'valid_types'):
++                # Check if other.valid_types includes the current object's type
++                if isinstance(other.valid_types, (list, tuple)):
++                    return any(isinstance(self, t) for t in other.valid_types)
++                elif hasattr(other, 'valid_types'):
++                    return isinstance(self, other.valid_types)
+         return False
+ 
+     def __hash__(self) -> int:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/rds.py b/troposphere/rds.py
+--- a/troposphere/rds.py	2026-09-22 05:55:02
++++ b/troposphere/rds.py	2026-09-22 05:58:10
+@@ -322,14 +322,9 @@
+             and "SourceDBInstanceIdentifier" not in self.properties
+         ):
+             master_username = self.properties.get("MasterUsername")
+-            if not master_username:
+-                raise ValueError(
+-                    "MasterUsername is required when neither DBSnapshotIdentifier, DBClusterIdentifier, nor SourceDBInstanceIdentifier is provided."
+-                )
+-                
+             # Check if either password or management is provided
+             # Allow either (MasterUsername and MasterUserPassword) OR (MasterUsername and ManageMasterUserPassword) OR (DBSnapshotIdentifier)
+-            if not (master_user_password or manage_master_user_password or "DBSnapshotIdentifier" in self.properties):
++            if not (master_username and (master_user_password or manage_master_user_password or "DBSnapshotIdentifier" in self.properties)):
+                 raise ValueError(
+                     r"Either \(MasterUsername and either MasterUserPassword or ManageMasterUserPassword\) or"
+                     r" DBSnapshotIdentifier are required in type "
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/validators/__init__.py b/troposphere/validators/__init__.py
+--- a/troposphere/validators/__init__.py	2026-09-22 03:55:54
++++ b/troposphere/validators/__init__.py	2026-09-22 05:58:12
+@@ -105,10 +105,27 @@
+     """backward compatibility"""
+     from .. import AWSHelperFn, Tags
+ 
++    # Handle the case where x is a dict with an "Items" key (used by CloudFront AnycastIpList)
++    if isinstance(x, dict) and "Items" in x:
++        # Should be a dict with only the "Items" key
++        if len(x) == 1:
++            items = x["Items"]
++            # Validate that Items is a list
++            if isinstance(items, list):
++                # Validate each item in the Items list
++                for item in items:
++                    if not isinstance(item, (AWSHelperFn, Tags, dict)):
++                        raise ValueError(f"Items in Tags dict must contain either AWSHelperFn, Tags, or dict objects")
++                return x  # type: ignore
++            else:
++                raise ValueError(f"Value {x} of type {type(x)} must have Items as a list")
++        else:
++            raise ValueError(f"Value {x} of type {type(x)} must contain only the 'Items' key")
++
+     if isinstance(x, (AWSHelperFn, Tags, list)):
+         return x  # type: ignore
+ 
+-    raise ValueError(f"Value {x} of type {type(x)} must be either Tags or list")
++    raise ValueError(f"Value {x} of type {type(x)} must be either Tags, list, or dict with Items key")
+ 
+ 
+ def ignore(x: __T) -> __T:

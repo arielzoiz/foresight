@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/httpdbg/hooks/httpx.py</location>
+    <description>The current httpx hooking implementation only handles HTTP/1.x requests. It lacks support for HTTP/2 protocol detection and handling, causing HTTP/2 requests to be missed entirely by the recording mechanism.</description>
+    <contract>Extend the httpx hooking mechanism to properly intercept and record HTTP/2 requests. The hooking system should be able to detect when HTTP/2 is being used and correctly store the protocol information in HTTP records. The implementation should also support both sync and async HTTP/2 clients.</contract>
+    <acceptance>Tests in test_hook_h2.py should pass, specifically focusing on test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_not_found, test_h2_client_get_empty_request_content, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_asyncclient, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/httpdbg/hooks/socket.py</location>
+    <description>The socket hooking system currently only detects HTTP/1.x protocol by checking for HTTP/1.0 or HTTP/1.1 in the first line. HTTP/2 protocol detection is not implemented, so HTTP/2 requests are not being captured in the records.</description>
+    <contract>Enhance the socket hooking system to detect HTTP/2 protocol. The system should recognize HTTP/2 requests and route them to appropriate HTTP/2 record handling, while still maintaining backward compatibility with HTTP/1.x requests.</contract>
+    <acceptance>The HTTP/2 protocol detection should correctly identify HTTP/2 requests and set the protocol field to "HTTP/2" in the HTTPRecord objects, as verified by the test assertions.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/httpdbg/hooks/recordhttp1.py</location>
+    <description>The HTTP1Record class handles HTTP/1.x requests but lacks support for HTTP/2 protocol-specific features like HTTP/2 headers and cookies handling.</description>
+    <contract>Create an HTTP2Record class that inherits from HTTPRecord and properly handles HTTP/2 protocol specifics, including header and cookie handling, content parsing, and protocol detection.</contract>
+    <acceptance>HTTP/2 records should properly populate all required fields including protocol, headers, cookies, content, and status codes as demonstrated in the failing tests.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/httpdbg/records.py</location>
+    <description>The HTTPRecords class currently only supports HTTP/1.x records and does not have mechanisms to handle HTTP/2 records.</description>
+    <contract>Update HTTPRecords to support both HTTP/1.x and HTTP/2 records, allowing for proper storage and retrieval of both protocol types.</contract>
+    <acceptance>The records collection should properly store HTTP/2 records alongside HTTP/1.x records, with len(records) returning the correct count for HTTP/2 requests.</acceptance>
+  </item>
+  <item>
+    <location>/app/code/httpdbg/hooks/all.py</location>
+    <description>The all.py module initializes all hooking systems but doesn't specifically handle HTTP/2 protocol requirements. It needs to ensure proper initialization for HTTP/2 support.</description>
+    <contract>Ensure that the main hooking initialization properly sets up all necessary components for HTTP/2 support, including proper ordering of hook initialization.</contract>
+    <acceptance>All HTTP/2 tests should pass, confirming that the hooking system properly intercepts HTTP/2 requests from various sources.</acceptance>
+  </item>
+</requirement>

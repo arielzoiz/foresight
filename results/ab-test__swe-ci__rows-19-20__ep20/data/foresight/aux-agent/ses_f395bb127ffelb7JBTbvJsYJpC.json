@@ -1,0 +1,707 @@
+{
+  "info": {
+    "id": "ses_f395bb127ffelb7JBTbvJsYJpC",
+    "slug": "eager-river",
+    "projectID": "global",
+    "directory": "/app",
+    "path": "app",
+    "title": "Python project task planning and requirement analysis",
+    "agent": "build",
+    "model": {
+      "id": "aux-model",
+      "providerID": "custom",
+      "variant": "default"
+    },
+    "version": "1.18.32",
+    "summary": {
+      "additions": 0,
+      "deletions": 0,
+      "files": 0
+    },
+    "cost": 0,
+    "tokens": {
+      "input": 53338,
+      "output": 791,
+      "reasoning": 0,
+      "cache": {
+        "read": 0,
+        "write": 0
+      }
+    },
+    "permission": [
+      {
+        "permission": "question",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_enter",
+        "pattern": "*",
+        "action": "deny"
+      },
+      {
+        "permission": "plan_exit",
+        "pattern": "*",
+        "action": "deny"
+      }
+    ],
+    "time": {
+      "created": 1790039051992,
+      "updated": 1790039058468
+    }
+  },
+  "messages": [
+    {
+      "info": {
+        "role": "user",
+        "time": {
+          "created": 1790039052074
+        },
+        "agent": "build",
+        "model": {
+          "providerID": "custom",
+          "modelID": "aux-model"
+        },
+        "summary": {
+          "diffs": []
+        },
+        "id": "msg_0c6a44f2a001ETbC0q6iquP8iq",
+        "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC"
+      },
+      "parts": [
+        {
+          "type": "text",
+          "text": "\"You are inspecting a Python project inside a container at /app.\n\nREAD ONLY. Do not create, modify or delete any file under /app.\nAny write there invalidates this run.\n\nA developer is about to work on the task described below.\n\n\\\"\n<prompt>\n    <role_setting>\n        <identity>You are a senior software architect proficient in Python software engineering and Test-Driven Development (TDD).</identity>\n        <expertise>You excel at accurately identifying functional gaps from test feedback and writing high-quality software development requirement documents.</expertise>\n        <scene>You are collaborating closely with a senior programmer and plan to complete the development of a Python software incrementally through multiple rounds of \\\\\"planning-coding\\\\\" in small, rapid steps.</scene>\n        <responsibilities>Your responsibility is to analyze functional gaps in the code based on the currently non-passed test cases and write a clear, specific incremental development requirement document for the programmer.</responsibilities>\n    </role_setting>\n\n    <input>\n        <permission>You are allowed to browse all content in the current working directory.</permission>\n        <item name=\\\\\"/app/code/\\\\\">The folder containing all source code for this Python project.</item>\n        <item name=\\\\\"/app/code/tests/\\\\\">The folder containing all unit tests for this Python project.</item>\n        <item name=\\\\\"/app/non-passed/\\\\\">The folder containing full information for all test cases that are expected to pass but currently non-passed in the current implementation.</item>\n        <item name=\\\\\"/app/non-passed/summary.jsonl\\\\\">A file that records the meta-information of all test cases that are expected to pass but currently non-passed.</item>\n    </input>\n\n    <workflow>\n        <rule>You MUST strictly follow the workflow below:</rule>\n        <step index=\\\\\"1\\\\\" action=\\\\\"summary\\\\\">\n            Consult the file /app/non-passed/summary.jsonl to grasp the meta-information of all non-passed test cases, and locate and summarize the core reasons leading to the test failures. If necessary, you may consult other JSON files in /app/non-passed/ to obtain detailed report information for the failed tests.\n        </step>\n        <step index=\\\\\"2\\\\\" action=\\\\\"trace\\\\\">\n            Consult the corresponding test files in /app/code/tests/ to analyze environmental dependencies, assertion intentions, inputs and outputs, exception handling, and boundary conditions of the non-passed tests, and determine the involved source code modules and interface contracts.\n        </step>\n        <step index=\\\\\"3\\\\\" action=\\\\\"attribute\\\\\">\n            Consult the relevant source code in /app/code/ and, combined with the test results and detailed report information, locate the root causes of the failures within the source code.\n        </step>\n        <step index=\\\\\"4\\\\\" action=\\\\\"filter\\\\\">\n            From all identified reasons, filter out the most critical code change requirements, limited to **1 to 5 items**. Follow the principle of small-step iterations and consider the programmer's workload; do not attempt to fix too many failed tests or propose too many requirements at once.\n            You MUST use the following priority rules for filtering and sorting:\n            <priority_rules>\n                <rule>Prioritize changes that enable the highest number of non-passed tests to pass.</rule>\n                <rule>When benefits are similar, prioritize fixing error/collection/import issues, followed by failed, and then missing.</rule>\n                <rule>When benefits are similar, prioritize fixes for low-level common modules/interfaces over fixes for specific test case exceptions.</rule>\n                <rule>If a clear dependency chain exists, fix downstream base capabilities before fixing upper-level behaviors.</rule>\n            </priority_rules>\n        </step>\n        <step index=\\\\\"5\\\\\" action=\\\\\"document\\\\\">\n            Based on the filtered change requirements, create a clear, specific, and verifiable requirement document in XML format and save it to /app/requirement.xml. As an architect, you MUST focus on \\\\\"what needs to be achieved\\\\\" and avoid excessive involvement in implementation details.\n        </step>\n    </workflow>\n\n    <output>\n        <product>A single, independent XML requirement document saved at /app/requirement.xml</product>\n        <content>\n            The document should contain 1 to 5 code change requirements. Each item MUST include the following:\n            <item name=\\\\\"location\\\\\">Specify the source file path and its corresponding class or function scope (if it does not exist yet, specify the expected location).</item>\n            <item name=\\\\\"description\\\\\">Detail the current state and the type of problem (e.g., collection/import blockages, missing logic, undefined interfaces, return values/exception handling inconsistent with expectations, etc.).</item>\n            <item name=\\\\\"contract\\\\\">Define the expected behavioral goals in detail (interface inputs/outputs, exception types, data structure fields, boundary conditions, and business constraints, etc.). Describe \\\\\"what to achieve\\\\\" in detail and avoid over-describing \\\\\"how specifically to do it.\\\\\" You are allowed to describe function/method signature-level information and return value structures, but should not involve specific implementation details.</item>\n            <item name=\\\\\"acceptance\\\\\">Detail the acceptance criteria that can verify whether this code change is successful. This can be the nodeid of specific test cases in the tests folder or your custom criteria.</item>\n        </content>\n    </output>\n\n    <constraints>\n        <operation>Strictly PROHIBITED from modifying, deleting, or creating any other files except for the generated requirement.xml.</operation>\n        <test_integrity>Strictly PROHIBITED from guiding the programmer to make any modifications to the test case folder /app/code/tests/.</test_integrity>\n        <granularity>You MUST focus on the core contradictions of the current code and select the most urgent requirements.</granularity>\n        <non_implementation>As an architect, you MUST focus on behavioral contracts and verifiable results, and avoid providing specific code implementations in the requirement document.</non_implementation>\n        <no_execution>You are strictly PROHIBITED from actively executing pytest, unittest, or any other test commands or scripts.</no_execution>\n    </constraints>\n</prompt>\n\n\\\"\n\nRead enough of /app/code to answer concretely, then name 3 to 5\nplausible FUTURE tasks that could reasonably follow this one in THIS codebase.\nRefer to real files, functions or modules you actually read. Do not solve the\ntask, and do not write any file.\"",
+          "id": "prt_0c6a44f44001n6kP6BmayLT5br",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a44f2a001ETbC0q6iquP8iq"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c6a44f2a001ETbC0q6iquP8iq",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 8853,
+          "input": 8724,
+          "output": 129,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790039052695,
+          "completed": 1790039054864
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c6a45197001SKpJ4dVakvwlfQ",
+        "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c6a45584001e66sxjCgofiIV0",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45197001SKpJ4dVakvwlfQ"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a6910ac1ca8a0107",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/non-passed/summary.jsonl"
+            },
+            "output": "<path>/app/non-passed/summary.jsonl</path>\n<type>file</type>\n<content>\n1: {\"test\": \"tests/test_hook_h2.py::test_h2\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25ec2800>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2\"}\n2: {\"test\": \"tests/test_hook_h2.py::test_h2_initiator\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c52980>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_initiator\"}\n3: {\"test\": \"tests/test_server_hook_flask.py::test_flask_not_found\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_not_found\"}\n4: {\"test\": \"tests/test_server_hook_flask.py::test_flask_endpoint\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_endpoint\"}\n5: {\"test\": \"tests/test_hook_h2.py::test_h2_cookies\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a0baf0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_cookies\"}\n6: {\"test\": \"tests/test_hook_h2.py::test_h2_client_get_empty_request_content\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e0ac0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_get_empty_request_content\"}\n7: {\"test\": \"tests/test_hook_h2.py::test_h2_client_many_requests\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e21a0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_many_requests\"}\n8: {\"test\": \"tests/test_hook_h2.py::test_h2_server_request\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e3a60>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_request\"}\n9: {\"test\": \"tests/test_hook_h2.py::test_h2_response\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a096f0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_response\"}\n10: {\"test\": \"tests/test_hook_h2.py::test_h2_server_response\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a09ea0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_response\"}\n11: {\"test\": \"tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_endpoint_with_parameters\"}\n12: {\"test\": \"tests/test_hook_h2.py::test_h2_client_not_found\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e1240>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_not_found\"}\n13: {\"test\": \"tests/test_hook_h2.py::test_h2_client_many_requests_session\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e2440>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_many_requests_session\"}\n14: {\"test\": \"tests/test_hook_h2.py::test_h2_client_redirect\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e38e0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_redirect\"}\n15: {\"test\": \"tests/test_hook_h2.py::test_h2_server_only\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1f17b0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_only\"}\n16: {\"test\": \"tests/test_hook_h2.py::test_h2_server\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c1474dba0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server\"}\n17: {\"test\": \"tests/test_hook_h2.py::test_h2_request\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c50ee0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_request\"}\n18: {\"test\": \"tests/test_hook_h2.py::test_h2_client_asyncclient\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c53100>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_asyncclient\"}\n\n(End of file - total 18 lines)\n</content>",
+            "metadata": {
+              "preview": "{\"test\": \"tests/test_hook_h2.py::test_h2\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25ec2800>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_initiator\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c52980>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_initiator\"}\n{\"test\": \"tests/test_server_hook_flask.py::test_flask_not_found\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_not_found\"}\n{\"test\": \"tests/test_server_hook_flask.py::test_flask_endpoint\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_endpoint\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_cookies\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a0baf0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_cookies\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_get_empty_request_content\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e0ac0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_get_empty_request_content\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_many_requests\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e21a0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_many_requests\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server_request\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e3a60>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_request\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_response\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a096f0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_response\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server_response\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a09ea0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_response\"}\n{\"test\": \"tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_endpoint_with_parameters\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_not_found\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e1240>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_not_found\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_many_requests_session\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e2440>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_many_requests_session\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_redirect\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e38e0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_redirect\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server_only\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1f17b0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_only\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c1474dba0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_request\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c50ee0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_request\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_asyncclient\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c53100>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_asyncclient\"}",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/non-passed/summary.jsonl",
+                "text": "{\"test\": \"tests/test_hook_h2.py::test_h2\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25ec2800>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_initiator\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c52980>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_initiator\"}\n{\"test\": \"tests/test_server_hook_flask.py::test_flask_not_found\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_not_found\"}\n{\"test\": \"tests/test_server_hook_flask.py::test_flask_endpoint\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_endpoint\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_cookies\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a0baf0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_cookies\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_get_empty_request_content\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e0ac0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_get_empty_request_content\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_many_requests\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e21a0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_many_requests\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server_request\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e3a60>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_request\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_response\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a096f0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_response\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server_response\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c22a09ea0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_response\"}\n{\"test\": \"tests/test_server_hook_flask.py::test_flask_endpoint_with_parameters\", \"description\": \"Test failed at call stage. Reason: E   NameError: name 'bufsize' is not defined. Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_server_hook_flask.py__test_flask_endpoint_with_parameters\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_not_found\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e1240>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_not_found\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_many_requests_session\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e2440>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_many_requests_session\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_redirect\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1e38e0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_redirect\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server_only\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c0f1f17b0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server_only\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_server\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c1474dba0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_server\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_request\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c50ee0>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_request\"}\n{\"test\": \"tests/test_hook_h2.py::test_h2_client_asyncclient\", \"description\": \"Test failed at call stage. Reason: E    +  where 0 = len(<httpdbg.records.HTTPRecords object at 0x7f9c25c53100>). Detailed traceback is recorded in experiments/ab-test__swe-ci__foresight__rows-19-20__ep20/cle-b__httpdbg__83ede4__224597/tmp/non-passed/tests_test_hook_h2.py__test_h2_client_asyncclient\"}",
+                "lineStart": 1,
+                "lineEnd": 18,
+                "totalLines": 18,
+                "truncated": false
+              }
+            },
+            "title": "app/non-passed/summary.jsonl",
+            "time": {
+              "start": 1790039053728,
+              "end": 1790039053797
+            }
+          },
+          "id": "prt_0c6a4558800164uxGBILOasQRr",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45197001SKpJ4dVakvwlfQ"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-ac879e679d12446c",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1790039053786,
+              "end": 1790039054851
+            }
+          },
+          "id": "prt_0c6a455a6001Mbbp5EL6mGGhTV",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45197001SKpJ4dVakvwlfQ"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-9c30d5596fe0d4eb",
+          "state": {
+            "status": "completed",
+            "input": {
+              "pattern": "/app/code/tests/**/*.py"
+            },
+            "output": "No files found",
+            "metadata": {
+              "count": 0,
+              "truncated": false
+            },
+            "title": "app",
+            "time": {
+              "start": 1790039053860,
+              "end": 1790039054846
+            }
+          },
+          "id": "prt_0c6a455ef001GRdyTMK6rHoblj",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45197001SKpJ4dVakvwlfQ"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9714126873911814",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/__init__.py"
+            },
+            "error": "File not found: /app/code/__init__.py",
+            "time": {
+              "start": 1790039053965,
+              "end": 1790039053985
+            }
+          },
+          "id": "prt_0c6a45647001ocwWYLlthYIsrX",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45197001SKpJ4dVakvwlfQ"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a9dec95f3e8fe1cc",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/main.py"
+            },
+            "error": "File not found: /app/code/main.py",
+            "time": {
+              "start": 1790039054053,
+              "end": 1790039054070
+            }
+          },
+          "id": "prt_0c6a456a4001hSOHYKuslD4wJ4",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45197001SKpJ4dVakvwlfQ"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 8853,
+            "input": 8724,
+            "output": 129,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c6a45a08001l02eZfAO5JvmVR",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45197001SKpJ4dVakvwlfQ"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c6a44f2a001ETbC0q6iquP8iq",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 11354,
+          "input": 11208,
+          "output": 146,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790039054869,
+          "completed": 1790039055631
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c6a45a150014OktYMGxUyEA3F",
+        "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c6a45ae50018W5tGKn4EOqbNe",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45a150014OktYMGxUyEA3F"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-bd5a8b7b4f57239d",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/records.py"
+            },
+            "error": "File not found: /app/code/records.py",
+            "time": {
+              "start": 1790039055147,
+              "end": 1790039055152
+            }
+          },
+          "id": "prt_0c6a45ae90014bjONhq3kXKbz5",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45a150014OktYMGxUyEA3F"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-8bcd48c608924be6",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/hook_h2.py"
+            },
+            "error": "File not found: /app/code/hook_h2.py",
+            "time": {
+              "start": 1790039055240,
+              "end": 1790039055259
+            }
+          },
+          "id": "prt_0c6a45b43001rkxK86z1GPvn0q",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45a150014OktYMGxUyEA3F"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9f67ca9c04484200",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/server_hook_flask.py"
+            },
+            "error": "File not found: /app/code/server_hook_flask.py",
+            "time": {
+              "start": 1790039055343,
+              "end": 1790039055347
+            }
+          },
+          "id": "prt_0c6a45baa001S9ZkTK9T1jNKRF",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45a150014OktYMGxUyEA3F"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-a687d733de87a765",
+          "state": {
+            "status": "completed",
+            "input": {
+              "path": "/app/code",
+              "pattern": "*.py"
+            },
+            "output": "/app/code/httpdbg/mode_script.py\n/app/code/httpdbg/utils.py\n/app/code/httpdbg/env.py\n/app/code/httpdbg/records.py\n/app/code/httpdbg/initiator.py\n/app/code/httpdbg/server.py\n/app/code/httpdbg/args.py\n/app/code/httpdbg/__main__.py\n/app/code/tests/test_server.py\n/app/code/tests/test_mode_module_pytest.py\n/app/code/tests/test_server_hook_flask.py\n/app/code/tests/utils.py\n/app/code/tests/demo_order_by.py\n/app/code/tests/test_hook_pytest.py\n/app/code/tests/test_hook_aiohttp.py\n/app/code/tests/test_cli.py\n/app/code/httpdbg/hooks/uvicorn.py\n/app/code/httpdbg/hooks/recordhttp1.py\n/app/code/httpdbg/hooks/template_sitecustomize.py\n/app/code/httpdbg/hooks/utils.py\n/app/code/httpdbg/hooks/external.py\n/app/code/httpdbg/hooks/requests.py\n/app/code/httpdbg/hooks/all.py\n/app/code/httpdbg/hooks/socket.py\n/app/code/httpdbg/hooks/unittest.py\n/app/code/httpdbg/hooks/generic.py\n/app/code/httpdbg/hooks/urllib3.py\n/app/code/httpdbg/hooks/aiohttp.py\n/app/code/httpdbg/hooks/http.py\n/app/code/httpdbg/hooks/record.py\n/app/code/httpdbg/hooks/httpx.py\n/app/code/httpdbg/hooks/__init__.py\n/app/code/httpdbg/hooks/starlette.py\n/app/code/httpdbg/hooks/fastapi.py\n/app/code/httpdbg/hooks/flask.py\n/app/code/httpdbg/hooks/pytest.py\n/app/code/httpdbg/webapp/api.py\n/app/code/httpdbg/__init__.py\n/app/code/tests/test_hook_urllib3.py\n/app/code/tests/__init__.py\n/app/code/tests/test_hook_unittest.py\n/app/code/tests/test_hook_requests.py\n/app/code/tests/test_hook_h2.py\n/app/code/tests/test_initiator.py\n/app/code/tests/demo_run_script.py\n/app/code/tests/test_server_hook_fastapi.py\n/app/code/tests/test_api.py\n/app/code/tests/demo_fastapi.py\n/app/code/tests/demo_run_multiprocess.py\n/app/code/tests/test_preview.py\n/app/code/httpdbg/log.py\n/app/code/httpdbg/exception.py\n/app/code/httpdbg/preview.py\n/app/code/httpdbg/mode_console.py\n/app/code/httpdbg/webapp/__init__.py\n/app/code/httpdbg/mode_module.py\n/app/code/httpdbg/webapp/app.py\n/app/code/tests/test_mode_console.py\n/app/code/tests/test_multiprocess.py\n/app/code/tests/demo_client_load.py\n/app/code/tests/test_mode_script.py\n/app/code/tests/conftest.py\n/app/code/tests/test_context_manager.py\n/app/code/tests/demo_http2.py\n/app/code/tests/demo_run_unittest.py\n/app/code/tests/test_hook_httpx.py\n/app/code/tests/demo_run_multithread.py\n/app/code/tests/demo_run_pytest.py\n/app/code/tests/test_pyhttpdbg_server.py\n/app/code/tests/initiator_pck/__init__.py\n/app/code/tests/initiator_pck/mod1.py\n/app/code/tests/initiator_pck/repr_exception.py\n/app/code/tests/initiator_pck/initiator2/mod2.py\n/app/code/tests/ui/test_web.py\n/app/code/tests/initiator_pck/initiator2/initiator3/__init__.py\n/app/code/tests/ui/web/ui.py",
+            "metadata": {
+              "count": 76,
+              "truncated": false
+            },
+            "title": "app/code",
+            "time": {
+              "start": 1790039055468,
+              "end": 1790039055481
+            }
+          },
+          "id": "prt_0c6a45c10001C10PskReY6Scq2",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45a150014OktYMGxUyEA3F"
+        },
+        {
+          "type": "tool",
+          "tool": "glob",
+          "callID": "chatcmpl-tool-a9bc528658ffb531",
+          "state": {
+            "status": "completed",
+            "input": {
+              "path": "/app/code/tests",
+              "pattern": "*.py"
+            },
+            "output": "/app/code/tests/test_server.py\n/app/code/tests/test_mode_module_pytest.py\n/app/code/tests/test_server_hook_flask.py\n/app/code/tests/utils.py\n/app/code/tests/demo_order_by.py\n/app/code/tests/test_hook_pytest.py\n/app/code/tests/test_hook_aiohttp.py\n/app/code/tests/test_cli.py\n/app/code/tests/initiator_pck/initiator2/mod2.py\n/app/code/tests/test_hook_urllib3.py\n/app/code/tests/__init__.py\n/app/code/tests/test_hook_unittest.py\n/app/code/tests/test_hook_requests.py\n/app/code/tests/test_hook_h2.py\n/app/code/tests/test_initiator.py\n/app/code/tests/demo_run_script.py\n/app/code/tests/test_server_hook_fastapi.py\n/app/code/tests/test_api.py\n/app/code/tests/demo_fastapi.py\n/app/code/tests/demo_run_multiprocess.py\n/app/code/tests/test_preview.py\n/app/code/tests/initiator_pck/initiator2/initiator3/__init__.py\n/app/code/tests/initiator_pck/repr_exception.py\n/app/code/tests/initiator_pck/__init__.py\n/app/code/tests/initiator_pck/mod1.py\n/app/code/tests/test_hook_httpx.py\n/app/code/tests/demo_run_multithread.py\n/app/code/tests/demo_run_pytest.py\n/app/code/tests/test_pyhttpdbg_server.py\n/app/code/tests/test_multiprocess.py\n/app/code/tests/demo_client_load.py\n/app/code/tests/test_mode_script.py\n/app/code/tests/conftest.py\n/app/code/tests/test_context_manager.py\n/app/code/tests/demo_http2.py\n/app/code/tests/demo_run_unittest.py\n/app/code/tests/test_mode_console.py\n/app/code/tests/ui/test_web.py\n/app/code/tests/ui/web/ui.py",
+            "metadata": {
+              "count": 39,
+              "truncated": false
+            },
+            "title": "app/code/tests",
+            "time": {
+              "start": 1790039055586,
+              "end": 1790039055622
+            }
+          },
+          "id": "prt_0c6a45c8c001vw0JZ5DJwl7QUM",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45a150014OktYMGxUyEA3F"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 11354,
+            "input": 11208,
+            "output": 146,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c6a45d09001Ukn784Z0nQrx5Z",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45a150014OktYMGxUyEA3F"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c6a44f2a001ETbC0q6iquP8iq",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 12594,
+          "input": 12454,
+          "output": 140,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790039055635,
+          "completed": 1790039056642
+        },
+        "finish": "tool-calls",
+        "id": "msg_0c6a45d130019w5bNytKkCNeWo",
+        "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c6a45dc7001DnD3HXkATgRSVg",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45d130019w5bNytKkCNeWo"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-a6e6f78445418648",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/httpdbg/records.py"
+            },
+            "output": "<path>/app/code/httpdbg/records.py</path>\n<type>file</type>\n<content>\n1: import datetime\n2: import sys\n3: from typing import Union\n4: \n5: from httpdbg.hooks.record import HTTPRecord\n6: from httpdbg.initiator import Group\n7: from httpdbg.initiator import Initiator\n8: from httpdbg.log import logger\n9: from httpdbg.utils import get_new_uuid\n10: \n11: \n12: class HTTPRecordsSessionInfo:\n13: \n14:     def __init__(self):\n15:         self.id: str = get_new_uuid()\n16:         self.command_line: str = \" \".join(sys.argv[1:]) if sys.argv[1:] else \"console\"\n17:         self.tbegin: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)\n18: \n19: \n20: class HTTPRecords:\n21:     def __init__(\n22:         self,\n23:         client: bool = True,\n24:         server: bool = False,\n25:         ignore: tuple[tuple[str, int], ...] = (),\n26:     ) -> None:\n27:         self.client: bool = client\n28:         self.server: bool = server\n29:         self._ignore: tuple[tuple[str, int], ...] = ignore\n30:         self.reset()\n31: \n32:     def reset(self) -> None:\n33:         from httpdbg.hooks.socket import TracerHTTP1\n34: \n35:         logger().info(\"HTTPRecords.reset\")\n36:         self.session: HTTPRecordsSessionInfo = HTTPRecordsSessionInfo()\n37:         self.requests: dict[str, HTTPRecord] = {}\n38:         self.requests_already_loaded = 0\n39:         self.initiators: dict[str, Initiator] = {}\n40:         self.current_initiator: Union[str, None] = None\n41:         self.groups: dict[str, Group] = {}\n42:         self.current_group: Union[str, None] = None\n43:         self.current_tag: Union[str, None] = None\n44:         self._tracerhttp1: TracerHTTP1 = TracerHTTP1(ignore=self.ignore)\n45: \n46:     @property\n47:     def unread(self) -> int:\n48:         return self.requests_already_loaded < len(self.requests)\n49: \n50:     def __getitem__(self, item: int) -> HTTPRecord:\n51:         return list(self.requests.values())[item]\n52: \n53:     def __len__(self) -> int:\n54:         return len(self.requests)\n55: \n56:     def add_new_record_exception(\n57:         self, initiator: Initiator, group: Group, url: str, exception: Exception\n58:     ) -> HTTPRecord:\n59:         from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record\n60: \n61:         if initiator.id not in self.initiators:\n62:             self.initiators[initiator.id] = initiator\n63:         # Default to HTTP1Record for exceptions, but could potentially be extended to support HTTP2\n64:         # For now, we'll still default to HTTP1Record as we don't have context about protocol\n65:         new_record = HTTP1Record(initiator.id, group.id)\n66:         new_record.url = url\n67:         new_record.exception = exception\n68:         self.requests[new_record.id] = new_record\n69:         return new_record\n70: \n71:     def add_initiator(self, initiator: Initiator):\n72:         self.initiators[initiator.id] = initiator\n73:         self.current_initiator = initiator.id\n74: \n75:     def add_group(self, group: Group):\n76:         self.groups[group.id] = group\n77:         self.current_group = group.id\n78: \n79:     @property\n80:     def ignore(self) -> tuple[tuple[str, int], ...]:\n81:         return self._ignore\n82: \n83:     @ignore.setter\n84:     def ignore(self, value) -> None:\n85:         self._ignore = value\n86:         self._tracerhttp1.ignore = value\n87: \n88:     def _print_for_debug(self):\n89:         for request in self.requests.values():\n90:             print(f\"+ {request.url}\")\n91:             print(f\"  - initiator: {self.initiators[request.initiator_id].label}\")\n92:             print(f\"  - group: {self.groups[request.group_id].label}\")\n\n(End of file - total 92 lines)\n</content>",
+            "metadata": {
+              "preview": "import datetime\nimport sys\nfrom typing import Union\n\nfrom httpdbg.hooks.record import HTTPRecord\nfrom httpdbg.initiator import Group\nfrom httpdbg.initiator import Initiator\nfrom httpdbg.log import logger\nfrom httpdbg.utils import get_new_uuid\n\n\nclass HTTPRecordsSessionInfo:\n\n    def __init__(self):\n        self.id: str = get_new_uuid()\n        self.command_line: str = \" \".join(sys.argv[1:]) if sys.argv[1:] else \"console\"\n        self.tbegin: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)\n\n\nclass HTTPRecords:",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/httpdbg/records.py",
+                "text": "import datetime\nimport sys\nfrom typing import Union\n\nfrom httpdbg.hooks.record import HTTPRecord\nfrom httpdbg.initiator import Group\nfrom httpdbg.initiator import Initiator\nfrom httpdbg.log import logger\nfrom httpdbg.utils import get_new_uuid\n\n\nclass HTTPRecordsSessionInfo:\n\n    def __init__(self):\n        self.id: str = get_new_uuid()\n        self.command_line: str = \" \".join(sys.argv[1:]) if sys.argv[1:] else \"console\"\n        self.tbegin: datetime.datetime = datetime.datetime.now(datetime.timezone.utc)\n\n\nclass HTTPRecords:\n    def __init__(\n        self,\n        client: bool = True,\n        server: bool = False,\n        ignore: tuple[tuple[str, int], ...] = (),\n    ) -> None:\n        self.client: bool = client\n        self.server: bool = server\n        self._ignore: tuple[tuple[str, int], ...] = ignore\n        self.reset()\n\n    def reset(self) -> None:\n        from httpdbg.hooks.socket import TracerHTTP1\n\n        logger().info(\"HTTPRecords.reset\")\n        self.session: HTTPRecordsSessionInfo = HTTPRecordsSessionInfo()\n        self.requests: dict[str, HTTPRecord] = {}\n        self.requests_already_loaded = 0\n        self.initiators: dict[str, Initiator] = {}\n        self.current_initiator: Union[str, None] = None\n        self.groups: dict[str, Group] = {}\n        self.current_group: Union[str, None] = None\n        self.current_tag: Union[str, None] = None\n        self._tracerhttp1: TracerHTTP1 = TracerHTTP1(ignore=self.ignore)\n\n    @property\n    def unread(self) -> int:\n        return self.requests_already_loaded < len(self.requests)\n\n    def __getitem__(self, item: int) -> HTTPRecord:\n        return list(self.requests.values())[item]\n\n    def __len__(self) -> int:\n        return len(self.requests)\n\n    def add_new_record_exception(\n        self, initiator: Initiator, group: Group, url: str, exception: Exception\n    ) -> HTTPRecord:\n        from httpdbg.hooks.recordhttp1 import HTTP1Record, HTTP2Record\n\n        if initiator.id not in self.initiators:\n            self.initiators[initiator.id] = initiator\n        # Default to HTTP1Record for exceptions, but could potentially be extended to support HTTP2\n        # For now, we'll still default to HTTP1Record as we don't have context about protocol\n        new_record = HTTP1Record(initiator.id, group.id)\n        new_record.url = url\n        new_record.exception = exception\n        self.requests[new_record.id] = new_record\n        return new_record\n\n    def add_initiator(self, initiator: Initiator):\n        self.initiators[initiator.id] = initiator\n        self.current_initiator = initiator.id\n\n    def add_group(self, group: Group):\n        self.groups[group.id] = group\n        self.current_group = group.id\n\n    @property\n    def ignore(self) -> tuple[tuple[str, int], ...]:\n        return self._ignore\n\n    @ignore.setter\n    def ignore(self, value) -> None:\n        self._ignore = value\n        self._tracerhttp1.ignore = value\n\n    def _print_for_debug(self):\n        for request in self.requests.values():\n            print(f\"+ {request.url}\")\n            print(f\"  - initiator: {self.initiators[request.initiator_id].label}\")\n            print(f\"  - group: {self.groups[request.group_id].label}\")",
+                "lineStart": 1,
+                "lineEnd": 92,
+                "totalLines": 92,
+                "truncated": false
+              }
+            },
+            "title": "app/code/httpdbg/records.py",
+            "time": {
+              "start": 1790039055897,
+              "end": 1790039055936
+            }
+          },
+          "id": "prt_0c6a45dcd001OwOgiOcacPXTET",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45d130019w5bNytKkCNeWo"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-9ac217044d1b5629",
+          "state": {
+            "status": "error",
+            "input": {
+              "filePath": "/app/code/httpdbg/hooks/h2.py"
+            },
+            "error": "File not found: /app/code/httpdbg/hooks/h2.py",
+            "time": {
+              "start": 1790039055998,
+              "end": 1790039056015
+            }
+          },
+          "id": "prt_0c6a45e38001lyxYqZhXx2ktWt",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45d130019w5bNytKkCNeWo"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-999b7a80ca57cf3d",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests/test_hook_h2.py"
+            },
+            "output": "<path>/app/code/tests/test_hook_h2.py</path>\n<type>file</type>\n<content>\n1: import json\n2: \n3: import httpx\n4: import pytest\n5: \n6: from httpdbg.hooks.all import httprecord\n7: from httpdbg.utils import HTTPDBGCookie\n8: from httpdbg.utils import HTTPDBGHeader\n9: \n10: from tests.demo_http2 import http2_httpbin_server\n11: from tests.utils import get_free_tcp_port\n12: \n13: \n14: @pytest.fixture(scope=\"module\")\n15: def httpbin2():\n16:     host = \"127.0.0.1\"\n17:     port = get_free_tcp_port(host)\n18:     with http2_httpbin_server(host, port) as url:\n19:         yield url\n20: \n21: \n22: @pytest.mark.h2\n23: def test_h2(httpbin2):\n24:     with httprecord() as records:\n25:         client = httpx.Client(http2=True, verify=False)\n26:         client.get(f\"{httpbin2}/get\")\n27: \n28:     assert len(records) == 1\n29:     http_record = records[0]\n30: \n31:     assert http_record.url == f\"{httpbin2}/get\"\n32:     assert http_record.method.upper() == \"GET\"\n33:     assert http_record.status_code == 200\n34:     assert http_record.reason.upper() == \"OK\"\n35:     assert http_record.protocol == \"HTTP/2\"\n36: \n37: \n38: @pytest.mark.initiator\n39: @pytest.mark.h2\n40: def test_h2_initiator(httpbin2, monkeypatch):\n41:     with monkeypatch.context() as m:\n42:         m.delenv(\"PYTEST_CURRENT_TEST\")\n43:         with httprecord() as records:\n44:             client = httpx.Client(http2=True, verify=False)\n45:             client.get(f\"{httpbin2}/get\")\n46: \n47:     assert len(records) == 1\n48:     http_record = records[0]\n49:     assert http_record.protocol == \"HTTP/2\"\n50: \n51:     initiator = records.initiators[records[0].initiator_id]\n52: \n53:     assert initiator.label == 'client.get(f\"{httpbin2}/get\")'\n54:     assert 'client.get(f\"{httpbin2}/get\") <===' in \"\".join(initiator.stack)\n55: \n56: \n57: @pytest.mark.h2\n58: def test_h2_request(httpbin2):\n59:     with httprecord() as records:\n60:         client = httpx.Client(http2=True, verify=False)\n61:         client.post(f\"{httpbin2}/post\", content=\"abc\")\n62: \n63:     assert len(records) == 1\n64:     http_record = records[0]\n65:     assert http_record.protocol == \"HTTP/2\"\n66: \n67:     assert http_record.method.upper() == \"POST\"\n68:     assert http_record.status_code == 200\n69: \n70:     assert HTTPDBGHeader(\"content-length\", \"3\") in http_record.request.headers\n71:     assert http_record.request.cookies == []\n72:     assert http_record.request.content == b\"abc\"\n73: \n74: \n75: @pytest.mark.h2\n76: def test_h2_response(httpbin2):\n77:     with httprecord() as records:\n78:         client = httpx.Client(http2=True, verify=False)\n79:         client.put(f\"{httpbin2}/put?azerty=33\", content=\"def\")\n80: \n81:     assert len(records) == 1\n82:     http_record = records[0]\n83:     assert http_record.protocol == \"HTTP/2\"\n84: \n85:     assert http_record.method.upper() == \"PUT\"\n86:     assert http_record.status_code == 200\n87: \n88:     assert (\n89:         HTTPDBGHeader(\"content-type\", \"application/json\")\n90:         in http_record.response.headers\n91:     )\n92:     assert http_record.response.cookies == []\n93:     assert (\n94:         json.loads(http_record.response.content).get(\"args\", {}).get(\"azerty\") == \"33\"\n95:     )\n96:     assert json.loads(http_record.response.content).get(\"data\") == \"def\"\n97: \n98: \n99: @pytest.mark.h2\n100: def test_h2_cookies(httpbin2):\n101:     with httprecord() as records:\n102:         client = httpx.Client(http2=True, verify=False)\n103:         client.get(\n104:             f\"{httpbin2}/cookies/set/confiture/oignon\", cookies={\"jam\": \"strawberry\"}\n105:         )\n106: \n107:     assert len(records) == 1\n108:     http_record = records[0]\n109:     assert http_record.protocol == \"HTTP/2\"\n110: \n111:     assert HTTPDBGCookie(\"jam\", \"strawberry\") in http_record.request.cookies\n112: \n113:     assert (\n114:         HTTPDBGCookie(\n115:             \"confiture\", \"oignon\", [{\"attr\": \"/\", \"name\": \"path\"}, {\"name\": \"Secure\"}]\n116:         )\n117:         in http_record.response.cookies\n118:     )\n119: \n120: \n121: @pytest.mark.h2\n122: def test_h2_client_redirect(httpbin2):\n123:     redirect_url = f\"{httpbin2}/redirect-to\"\n124:     with httprecord() as records:\n125:         client = httpx.Client(http2=True, verify=False)\n126:         client.get(\n127:             redirect_url,\n128:             follow_redirects=True,\n129:             params={\"url\": f\"{httpbin2}/get\"},\n130:         )\n131: \n132:     assert len(records) == 2\n133:     assert records[0].protocol == \"HTTP/2\"\n134: \n135:     assert records[0].url.startswith(redirect_url)\n136:     assert records[1].url == f\"{httpbin2}/get\"\n137: \n138: \n139: @pytest.mark.h2\n140: def test_h2_client_not_found(httpbin2):\n141:     with httprecord() as records:\n142:         client = httpx.Client(http2=True, verify=False)\n143:         client.get(f\"{httpbin2}/404\")\n144: \n145:     assert len(records) == 1\n146:     http_record = records[0]\n147:     assert http_record.protocol == \"HTTP/2\"\n148: \n149:     assert http_record.url == f\"{httpbin2}/404\"\n150:     assert http_record.method.upper() == \"GET\"\n151:     assert http_record.status_code == 404\n152:     assert http_record.reason.upper() == \"NOT FOUND\"\n153: \n154: \n155: @pytest.mark.h2\n156: def test_h2_client_get_empty_request_content(httpbin2):\n157:     with httprecord() as records:\n158:         client = httpx.Client(http2=True, verify=False)\n159:         client.get(f\"{httpbin2}/get\")\n160: \n161:     assert len(records) == 1\n162:     http_record = records[0]\n163:     assert http_record.protocol == \"HTTP/2\"\n164: \n165:     assert http_record.url == f\"{httpbin2}/get\"\n166:     assert http_record.request.content == b\"\"\n167: \n168: \n169: @pytest.mark.h2\n170: def test_h2_client_many_requests(httpbin2):\n171:     with httprecord() as records:\n172:         client = httpx.Client(http2=True, verify=False)\n173:         client.get(f\"{httpbin2}/get\")\n174:         client.get(f\"{httpbin2}/get/abc\")\n175:         client.post(f\"{httpbin2}/post\", data=\"abc\")\n176:         client.get(f\"{httpbin2}/get\")\n177: \n178:     assert len(records) == 4\n179: \n180:     assert records[0].url == f\"{httpbin2}/get\"\n181:     assert records[0].request.content == b\"\"\n182:     assert records[0].protocol == \"HTTP/2\"\n183:     assert records[1].url == f\"{httpbin2}/get/abc\"\n184:     assert records[1].request.content == b\"\"\n185:     assert records[1].protocol == \"HTTP/2\"\n186:     assert records[2].url == f\"{httpbin2}/post\"\n187:     assert records[2].request.content == b\"abc\"\n188:     assert records[2].protocol == \"HTTP/2\"\n189:     assert records[3].url == f\"{httpbin2}/get\"\n190:     assert records[3].request.content == b\"\"\n191:     assert records[3].protocol == \"HTTP/2\"\n192: \n193: \n194: @pytest.mark.h2\n195: def test_h2_client_many_requests_session(httpbin2):\n196:     with httprecord() as records:\n197:         with httpx.Client(http2=True, verify=False) as session:\n198:             session.get(f\"{httpbin2}/get\")\n199:             session.get(f\"{httpbin2}/get/abc\")\n200:             session.post(f\"{httpbin2}/post\", data=\"abc\")\n201:             session.get(f\"{httpbin2}/get\")\n202: \n203:     assert len(records) == 4\n204: \n205:     assert records[0].url == f\"{httpbin2}/get\"\n206:     assert records[0].request.content == b\"\"\n207:     assert records[0].protocol == \"HTTP/2\"\n208:     assert records[1].url == f\"{httpbin2}/get/abc\"\n209:     assert records[1].request.content == b\"\"\n210:     assert records[1].protocol == \"HTTP/2\"\n211:     assert records[2].url == f\"{httpbin2}/post\"\n212:     assert records[2].request.content == b\"abc\"\n213:     assert records[2].protocol == \"HTTP/2\"\n214:     assert records[3].url == f\"{httpbin2}/get\"\n215:     assert records[3].request.content == b\"\"\n216:     assert records[3].protocol == \"HTTP/2\"\n217: \n218: \n219: @pytest.mark.h2\n220: @pytest.mark.asyncio\n221: async def test_h2_client_asyncclient(httpbin2):\n222:     with httprecord() as records:\n223:         async with httpx.AsyncClient(http2=True, verify=False) as client:\n224:             await client.get(f\"{httpbin2}/get\")\n225: \n226:     assert len(records) == 1\n227:     http_record = records[0]\n228:     assert http_record.protocol == \"HTTP/2\"\n229: \n230:     assert http_record.url == f\"{httpbin2}/get\"\n231:     assert http_record.method.upper() == \"GET\"\n232:     assert http_record.status_code == 200\n233:     assert http_record.reason.upper() == \"OK\"\n234: \n235: \n236: @pytest.mark.server_requests\n237: @pytest.mark.h2\n238: def test_h2_server(httpbin2):\n239:     with httprecord(server=True) as records:\n240:         client = httpx.Client(http2=True, verify=False)\n241:         client.get(f\"{httpbin2}/get\")\n242: \n243:     assert len(records) == 2\n244:     assert records[0].is_client is True\n245:     assert records[1].is_client is False\n246: \n247:     for http_record in records:\n248:         assert http_record.url == f\"{httpbin2}/get\"\n249:         assert http_record.method.upper() == \"GET\"\n250:         assert http_record.status_code == 200\n251:         assert http_record.reason.upper() == \"OK\"\n252:         assert http_record.protocol == \"HTTP/2\"\n253: \n254: \n255: @pytest.mark.server_requests\n256: @pytest.mark.h2\n257: def test_h2_server_only(httpbin2):\n258:     with httprecord(client=False, server=True) as records:\n259:         client = httpx.Client(http2=True, verify=False)\n260:         client.get(f\"{httpbin2}/get\")\n261: \n262:     assert len(records) == 1\n263:     http_record = records[0]\n264:     assert http_record.is_client is False\n265:     assert http_record.url == f\"{httpbin2}/get\"\n266:     assert http_record.method.upper() == \"GET\"\n267:     assert http_record.status_code == 200\n268:     assert http_record.reason.upper() == \"OK\"\n269:     assert http_record.protocol == \"HTTP/2\"\n270: \n271: \n272: @pytest.mark.server_requests\n273: @pytest.mark.h2\n274: def test_h2_server_request(httpbin2):\n275:     with httprecord(client=False, server=True) as records:\n276:         client = httpx.Client(http2=True, verify=False)\n277:         client.post(f\"{httpbin2}/post\", content=\"abc\")\n278: \n279:     assert len(records) == 1\n280:     http_record = records[0]\n281:     assert http_record.is_client is False\n282:     assert http_record.protocol == \"HTTP/2\"\n283: \n284:     assert http_record.method.upper() == \"POST\"\n285:     assert http_record.status_code == 200\n286: \n287:     assert HTTPDBGHeader(\"content-length\", \"3\") in http_record.request.headers\n288:     assert http_record.request.cookies == []\n289:     assert http_record.request.content == b\"abc\"\n290: \n291: \n292: @pytest.mark.server_requests\n293: @pytest.mark.h2\n294: def test_h2_server_response(httpbin2):\n295:     with httprecord(client=False, server=True) as records:\n296:         client = httpx.Client(http2=True, verify=False)\n297:         client.put(f\"{httpbin2}/put?azerty=33\", content=\"def\")\n298: \n299:     assert len(records) == 1\n300:     http_record = records[0]\n301:     assert http_record.is_client is False\n302:     assert http_record.protocol == \"HTTP/2\"\n303: \n304:     assert http_record.method.upper() == \"PUT\"\n305:     assert http_record.status_code == 200\n306: \n307:     assert (\n308:         HTTPDBGHeader(\"content-type\", \"application/json\")\n309:         in http_record.response.headers\n310:     )\n311:     assert http_record.response.cookies == []\n312:     assert (\n313:         json.loads(http_record.response.content).get(\"args\", {}).get(\"azerty\") == \"33\"\n314:     )\n315:     assert json.loads(http_record.response.content).get(\"data\") == \"def\"\n\n(End of file - total 315 lines)\n</content>",
+            "metadata": {
+              "preview": "import json\n\nimport httpx\nimport pytest\n\nfrom httpdbg.hooks.all import httprecord\nfrom httpdbg.utils import HTTPDBGCookie\nfrom httpdbg.utils import HTTPDBGHeader\n\nfrom tests.demo_http2 import http2_httpbin_server\nfrom tests.utils import get_free_tcp_port\n\n\n@pytest.fixture(scope=\"module\")\ndef httpbin2():\n    host = \"127.0.0.1\"\n    port = get_free_tcp_port(host)\n    with http2_httpbin_server(host, port) as url:\n        yield url\n",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/tests/test_hook_h2.py",
+                "text": "import json\n\nimport httpx\nimport pytest\n\nfrom httpdbg.hooks.all import httprecord\nfrom httpdbg.utils import HTTPDBGCookie\nfrom httpdbg.utils import HTTPDBGHeader\n\nfrom tests.demo_http2 import http2_httpbin_server\nfrom tests.utils import get_free_tcp_port\n\n\n@pytest.fixture(scope=\"module\")\ndef httpbin2():\n    host = \"127.0.0.1\"\n    port = get_free_tcp_port(host)\n    with http2_httpbin_server(host, port) as url:\n        yield url\n\n\n@pytest.mark.h2\ndef test_h2(httpbin2):\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 1\n    http_record = records[0]\n\n    assert http_record.url == f\"{httpbin2}/get\"\n    assert http_record.method.upper() == \"GET\"\n    assert http_record.status_code == 200\n    assert http_record.reason.upper() == \"OK\"\n    assert http_record.protocol == \"HTTP/2\"\n\n\n@pytest.mark.initiator\n@pytest.mark.h2\ndef test_h2_initiator(httpbin2, monkeypatch):\n    with monkeypatch.context() as m:\n        m.delenv(\"PYTEST_CURRENT_TEST\")\n        with httprecord() as records:\n            client = httpx.Client(http2=True, verify=False)\n            client.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.protocol == \"HTTP/2\"\n\n    initiator = records.initiators[records[0].initiator_id]\n\n    assert initiator.label == 'client.get(f\"{httpbin2}/get\")'\n    assert 'client.get(f\"{httpbin2}/get\") <===' in \"\".join(initiator.stack)\n\n\n@pytest.mark.h2\ndef test_h2_request(httpbin2):\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.post(f\"{httpbin2}/post\", content=\"abc\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert http_record.method.upper() == \"POST\"\n    assert http_record.status_code == 200\n\n    assert HTTPDBGHeader(\"content-length\", \"3\") in http_record.request.headers\n    assert http_record.request.cookies == []\n    assert http_record.request.content == b\"abc\"\n\n\n@pytest.mark.h2\ndef test_h2_response(httpbin2):\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.put(f\"{httpbin2}/put?azerty=33\", content=\"def\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert http_record.method.upper() == \"PUT\"\n    assert http_record.status_code == 200\n\n    assert (\n        HTTPDBGHeader(\"content-type\", \"application/json\")\n        in http_record.response.headers\n    )\n    assert http_record.response.cookies == []\n    assert (\n        json.loads(http_record.response.content).get(\"args\", {}).get(\"azerty\") == \"33\"\n    )\n    assert json.loads(http_record.response.content).get(\"data\") == \"def\"\n\n\n@pytest.mark.h2\ndef test_h2_cookies(httpbin2):\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(\n            f\"{httpbin2}/cookies/set/confiture/oignon\", cookies={\"jam\": \"strawberry\"}\n        )\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert HTTPDBGCookie(\"jam\", \"strawberry\") in http_record.request.cookies\n\n    assert (\n        HTTPDBGCookie(\n            \"confiture\", \"oignon\", [{\"attr\": \"/\", \"name\": \"path\"}, {\"name\": \"Secure\"}]\n        )\n        in http_record.response.cookies\n    )\n\n\n@pytest.mark.h2\ndef test_h2_client_redirect(httpbin2):\n    redirect_url = f\"{httpbin2}/redirect-to\"\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(\n            redirect_url,\n            follow_redirects=True,\n            params={\"url\": f\"{httpbin2}/get\"},\n        )\n\n    assert len(records) == 2\n    assert records[0].protocol == \"HTTP/2\"\n\n    assert records[0].url.startswith(redirect_url)\n    assert records[1].url == f\"{httpbin2}/get\"\n\n\n@pytest.mark.h2\ndef test_h2_client_not_found(httpbin2):\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(f\"{httpbin2}/404\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert http_record.url == f\"{httpbin2}/404\"\n    assert http_record.method.upper() == \"GET\"\n    assert http_record.status_code == 404\n    assert http_record.reason.upper() == \"NOT FOUND\"\n\n\n@pytest.mark.h2\ndef test_h2_client_get_empty_request_content(httpbin2):\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert http_record.url == f\"{httpbin2}/get\"\n    assert http_record.request.content == b\"\"\n\n\n@pytest.mark.h2\ndef test_h2_client_many_requests(httpbin2):\n    with httprecord() as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(f\"{httpbin2}/get\")\n        client.get(f\"{httpbin2}/get/abc\")\n        client.post(f\"{httpbin2}/post\", data=\"abc\")\n        client.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 4\n\n    assert records[0].url == f\"{httpbin2}/get\"\n    assert records[0].request.content == b\"\"\n    assert records[0].protocol == \"HTTP/2\"\n    assert records[1].url == f\"{httpbin2}/get/abc\"\n    assert records[1].request.content == b\"\"\n    assert records[1].protocol == \"HTTP/2\"\n    assert records[2].url == f\"{httpbin2}/post\"\n    assert records[2].request.content == b\"abc\"\n    assert records[2].protocol == \"HTTP/2\"\n    assert records[3].url == f\"{httpbin2}/get\"\n    assert records[3].request.content == b\"\"\n    assert records[3].protocol == \"HTTP/2\"\n\n\n@pytest.mark.h2\ndef test_h2_client_many_requests_session(httpbin2):\n    with httprecord() as records:\n        with httpx.Client(http2=True, verify=False) as session:\n            session.get(f\"{httpbin2}/get\")\n            session.get(f\"{httpbin2}/get/abc\")\n            session.post(f\"{httpbin2}/post\", data=\"abc\")\n            session.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 4\n\n    assert records[0].url == f\"{httpbin2}/get\"\n    assert records[0].request.content == b\"\"\n    assert records[0].protocol == \"HTTP/2\"\n    assert records[1].url == f\"{httpbin2}/get/abc\"\n    assert records[1].request.content == b\"\"\n    assert records[1].protocol == \"HTTP/2\"\n    assert records[2].url == f\"{httpbin2}/post\"\n    assert records[2].request.content == b\"abc\"\n    assert records[2].protocol == \"HTTP/2\"\n    assert records[3].url == f\"{httpbin2}/get\"\n    assert records[3].request.content == b\"\"\n    assert records[3].protocol == \"HTTP/2\"\n\n\n@pytest.mark.h2\n@pytest.mark.asyncio\nasync def test_h2_client_asyncclient(httpbin2):\n    with httprecord() as records:\n        async with httpx.AsyncClient(http2=True, verify=False) as client:\n            await client.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert http_record.url == f\"{httpbin2}/get\"\n    assert http_record.method.upper() == \"GET\"\n    assert http_record.status_code == 200\n    assert http_record.reason.upper() == \"OK\"\n\n\n@pytest.mark.server_requests\n@pytest.mark.h2\ndef test_h2_server(httpbin2):\n    with httprecord(server=True) as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 2\n    assert records[0].is_client is True\n    assert records[1].is_client is False\n\n    for http_record in records:\n        assert http_record.url == f\"{httpbin2}/get\"\n        assert http_record.method.upper() == \"GET\"\n        assert http_record.status_code == 200\n        assert http_record.reason.upper() == \"OK\"\n        assert http_record.protocol == \"HTTP/2\"\n\n\n@pytest.mark.server_requests\n@pytest.mark.h2\ndef test_h2_server_only(httpbin2):\n    with httprecord(client=False, server=True) as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.get(f\"{httpbin2}/get\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.is_client is False\n    assert http_record.url == f\"{httpbin2}/get\"\n    assert http_record.method.upper() == \"GET\"\n    assert http_record.status_code == 200\n    assert http_record.reason.upper() == \"OK\"\n    assert http_record.protocol == \"HTTP/2\"\n\n\n@pytest.mark.server_requests\n@pytest.mark.h2\ndef test_h2_server_request(httpbin2):\n    with httprecord(client=False, server=True) as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.post(f\"{httpbin2}/post\", content=\"abc\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.is_client is False\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert http_record.method.upper() == \"POST\"\n    assert http_record.status_code == 200\n\n    assert HTTPDBGHeader(\"content-length\", \"3\") in http_record.request.headers\n    assert http_record.request.cookies == []\n    assert http_record.request.content == b\"abc\"\n\n\n@pytest.mark.server_requests\n@pytest.mark.h2\ndef test_h2_server_response(httpbin2):\n    with httprecord(client=False, server=True) as records:\n        client = httpx.Client(http2=True, verify=False)\n        client.put(f\"{httpbin2}/put?azerty=33\", content=\"def\")\n\n    assert len(records) == 1\n    http_record = records[0]\n    assert http_record.is_client is False\n    assert http_record.protocol == \"HTTP/2\"\n\n    assert http_record.method.upper() == \"PUT\"\n    assert http_record.status_code == 200\n\n    assert (\n        HTTPDBGHeader(\"content-type\", \"application/json\")\n        in http_record.response.headers\n    )\n    assert http_record.response.cookies == []\n    assert (\n        json.loads(http_record.response.content).get(\"args\", {}).get(\"azerty\") == \"33\"\n    )\n    assert json.loads(http_record.response.content).get(\"data\") == \"def\"",
+                "lineStart": 1,
+                "lineEnd": 315,
+                "totalLines": 315,
+                "truncated": false
+              }
+            },
+            "title": "app/code/tests/test_hook_h2.py",
+            "time": {
+              "start": 1790039056109,
+              "end": 1790039056206
+            }
+          },
+          "id": "prt_0c6a45ea3001vhWpMHasJKSu33",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45d130019w5bNytKkCNeWo"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-8e9113bdd546e5ea",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/tests/test_server_hook_flask.py"
+            },
+            "output": "<path>/app/code/tests/test_server_hook_flask.py</path>\n<type>file</type>\n<content>\n1: import contextlib\n2: import platform\n3: import threading\n4: import time\n5: \n6: from flask import Flask\n7: import pytest\n8: import requests\n9: \n10: from httpdbg.hooks.all import httprecord\n11: \n12: \n13: def create_app():\n14:     app = Flask(__name__)\n15: \n16:     @app.route(\"/\")\n17:     def hello_world():\n18:         return \"Hello, World!\"\n19: \n20:     @app.route(\"/hello/<xxxx>/<yyyy>\")\n21:     def hello_custom(xxxx, yyyy):\n22:         return f\"{xxxx}, {yyyy}!\"\n23: \n24:     @app.route(\"/withclientrequest/<port>\")\n25:     def do_client_request(port):\n26:         requests.get(f\"http://localhost:{port}/\")\n27:         return \"ok\"\n28: \n29:     @app.errorhandler(404)\n30:     def not_found(e):\n31:         return (\"404-not found\", 404)\n32: \n33:     @app.route(\"/boum\")\n34:     def boum():\n35:         1 / 0\n36: \n37:     return app\n38: \n39: \n40: class ServerThread(threading.Thread):\n41:     def __init__(self, app, port):\n42:         super().__init__()\n43:         self.app = app\n44:         self.host = \"localhost\"\n45:         self.port = port\n46:         self.server = None\n47: \n48:     def run(self):\n49:         from werkzeug.serving import make_server\n50: \n51:         self.server = make_server(self.host, self.port, self.app)\n52:         self.server.serve_forever()\n53: \n54:     def shutdown(self):\n55:         if self.server:\n56:             self.server.shutdown()\n57: \n58: \n59: @contextlib.contextmanager\n60: def flaskapp(port):\n61:     app = create_app()\n62:     server_thread = ServerThread(app, port)\n63:     server_thread.start()\n64:     time.sleep(1)\n65:     try:\n66:         yield\n67:     finally:\n68:         server_thread.shutdown()\n69:         server_thread.join(timeout=5)\n70: \n71: \n72: @pytest.mark.server_requests\n73: @pytest.mark.flask\n74: def test_flask_endpoint(httpdbg_port):\n75: \n76:     with httprecord(client=False, server=True) as records:\n77:         with flaskapp(httpdbg_port):\n78:             requests.get(f\"http://localhost:{httpdbg_port}/\")\n79: \n80:     assert len(records) == 1\n81:     record = records[0]\n82:     group = records.groups[record.group_id]\n83: \n84:     assert record.is_client is False\n85:     assert record.response.content == b\"Hello, World!\"\n86:     assert group.label == '@app.route(\"/\")'\n87:     assert \"hello_world()\" in group.full_label\n88: \n89: \n90: @pytest.mark.server_requests\n91: @pytest.mark.flask\n92: def test_flask_endpoint_with_parameters(httpdbg_port):\n93: \n94:     with httprecord(client=False, server=True) as records:\n95:         with flaskapp(httpdbg_port):\n96:             requests.get(f\"http://localhost:{httpdbg_port}/hello/Salut/toi\")\n97: \n98:     assert len(records) == 1\n99:     record = records[0]\n100:     group = records.groups[record.group_id]\n101: \n102:     assert record.is_client is False\n103:     assert record.response.content == b\"Salut, toi!\"\n104:     assert group.label == '@app.route(\"/hello/<xxxx>/<yyyy>\")'\n105:     full_label = group.full_label.replace(\" \", \"\").replace(\"\\t\", \"\").replace(\"\\n\", \"\")\n106:     assert 'hello_custom(xxxx=\"Salut\",yyyy=\"toi\",)' in full_label\n107: \n108: \n109: @pytest.mark.server_requests\n110: @pytest.mark.flask\n111: def test_flask_not_found(httpdbg_port):\n112: \n113:     with httprecord(client=False, server=True) as records:\n114:         with flaskapp(httpdbg_port):\n115:             requests.get(f\"http://localhost:{httpdbg_port}/abcdef\")\n116: \n117:     assert len(records) == 1\n118:     record = records[0]\n119:     group = records.groups[record.group_id]\n120: \n121:     assert record.is_client is False\n122:     assert record.status_code == 404\n123:     assert record.response.content == b\"404-not found\"\n124:     assert group.label == \"@app.errorhandler(404)\"\n125:     full_label = group.full_label.replace(\" \", \"\").replace(\"\\t\", \"\").replace(\"\\n\", \"\")\n126:     assert \"not_found(e=\" in full_label\n127: \n128: \n129: @pytest.mark.xfail(\n130:     platform.system().lower() == \"windows\",\n131:     reason=\"[#189] on Windows, the group label is empty in case of Internal Server Error in a Flask endpoint\",\n132: )\n133: @pytest.mark.server_requests\n134: @pytest.mark.flask\n135: def test_flask_internal_server_error(httpdbg_port):\n136: \n137:     with httprecord(client=False, server=True) as records:\n138:         with flaskapp(httpdbg_port):\n139:             requests.get(f\"http://localhost:{httpdbg_port}/boum\")\n140: \n141:     assert len(records) == 1\n142:     record = records[0]\n143:     group = records.groups[record.group_id]\n144: \n145:     assert record.is_client is False\n146:     assert record.status_code == 500\n147:     assert b\"Internal Server Error\" in record.response.content\n148:     assert \"def handle_exception\" in group.label, records._print_for_debug()\n149:     assert \"division by zero\" in group.full_label\n150: \n151: \n152: @pytest.mark.server_requests\n153: @pytest.mark.flask\n154: def test_flask_client_request_in_endpoint(httpdbg_port, httpbin):\n155: \n156:     with httprecord(\n157:         client=True,\n158:         server=True,\n159:         ignore=[\n160:             (httpbin.host, httpbin.port),\n161:         ],\n162:     ) as records:\n163:         with flaskapp(httpdbg_port):\n164:             requests.get(\n165:                 f\"http://localhost:{httpdbg_port}/withclientrequest/{httpbin.port}\"\n166:             )\n167: \n168:     assert len(records) == 3  # 2 + 1\n169: \n170:     assert records[0].is_client is True  # the client request to /withclientrequest\n171:     assert records[1].is_client is False  # the same request, received by the server\n172:     assert records[2].is_client is True  # the request made inside the endpoint method\n173:     assert records[0].group_id == records[1].group_id\n174:     assert records[1].group_id == records[2].group_id\n\n(End of file - total 174 lines)\n</content>",
+            "metadata": {
+              "preview": "import contextlib\nimport platform\nimport threading\nimport time\n\nfrom flask import Flask\nimport pytest\nimport requests\n\nfrom httpdbg.hooks.all import httprecord\n\n\ndef create_app():\n    app = Flask(__name__)\n\n    @app.route(\"/\")\n    def hello_world():\n        return \"Hello, World!\"\n\n    @app.route(\"/hello/<xxxx>/<yyyy>\")",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/tests/test_server_hook_flask.py",
+                "text": "import contextlib\nimport platform\nimport threading\nimport time\n\nfrom flask import Flask\nimport pytest\nimport requests\n\nfrom httpdbg.hooks.all import httprecord\n\n\ndef create_app():\n    app = Flask(__name__)\n\n    @app.route(\"/\")\n    def hello_world():\n        return \"Hello, World!\"\n\n    @app.route(\"/hello/<xxxx>/<yyyy>\")\n    def hello_custom(xxxx, yyyy):\n        return f\"{xxxx}, {yyyy}!\"\n\n    @app.route(\"/withclientrequest/<port>\")\n    def do_client_request(port):\n        requests.get(f\"http://localhost:{port}/\")\n        return \"ok\"\n\n    @app.errorhandler(404)\n    def not_found(e):\n        return (\"404-not found\", 404)\n\n    @app.route(\"/boum\")\n    def boum():\n        1 / 0\n\n    return app\n\n\nclass ServerThread(threading.Thread):\n    def __init__(self, app, port):\n        super().__init__()\n        self.app = app\n        self.host = \"localhost\"\n        self.port = port\n        self.server = None\n\n    def run(self):\n        from werkzeug.serving import make_server\n\n        self.server = make_server(self.host, self.port, self.app)\n        self.server.serve_forever()\n\n    def shutdown(self):\n        if self.server:\n            self.server.shutdown()\n\n\n@contextlib.contextmanager\ndef flaskapp(port):\n    app = create_app()\n    server_thread = ServerThread(app, port)\n    server_thread.start()\n    time.sleep(1)\n    try:\n        yield\n    finally:\n        server_thread.shutdown()\n        server_thread.join(timeout=5)\n\n\n@pytest.mark.server_requests\n@pytest.mark.flask\ndef test_flask_endpoint(httpdbg_port):\n\n    with httprecord(client=False, server=True) as records:\n        with flaskapp(httpdbg_port):\n            requests.get(f\"http://localhost:{httpdbg_port}/\")\n\n    assert len(records) == 1\n    record = records[0]\n    group = records.groups[record.group_id]\n\n    assert record.is_client is False\n    assert record.response.content == b\"Hello, World!\"\n    assert group.label == '@app.route(\"/\")'\n    assert \"hello_world()\" in group.full_label\n\n\n@pytest.mark.server_requests\n@pytest.mark.flask\ndef test_flask_endpoint_with_parameters(httpdbg_port):\n\n    with httprecord(client=False, server=True) as records:\n        with flaskapp(httpdbg_port):\n            requests.get(f\"http://localhost:{httpdbg_port}/hello/Salut/toi\")\n\n    assert len(records) == 1\n    record = records[0]\n    group = records.groups[record.group_id]\n\n    assert record.is_client is False\n    assert record.response.content == b\"Salut, toi!\"\n    assert group.label == '@app.route(\"/hello/<xxxx>/<yyyy>\")'\n    full_label = group.full_label.replace(\" \", \"\").replace(\"\\t\", \"\").replace(\"\\n\", \"\")\n    assert 'hello_custom(xxxx=\"Salut\",yyyy=\"toi\",)' in full_label\n\n\n@pytest.mark.server_requests\n@pytest.mark.flask\ndef test_flask_not_found(httpdbg_port):\n\n    with httprecord(client=False, server=True) as records:\n        with flaskapp(httpdbg_port):\n            requests.get(f\"http://localhost:{httpdbg_port}/abcdef\")\n\n    assert len(records) == 1\n    record = records[0]\n    group = records.groups[record.group_id]\n\n    assert record.is_client is False\n    assert record.status_code == 404\n    assert record.response.content == b\"404-not found\"\n    assert group.label == \"@app.errorhandler(404)\"\n    full_label = group.full_label.replace(\" \", \"\").replace(\"\\t\", \"\").replace(\"\\n\", \"\")\n    assert \"not_found(e=\" in full_label\n\n\n@pytest.mark.xfail(\n    platform.system().lower() == \"windows\",\n    reason=\"[#189] on Windows, the group label is empty in case of Internal Server Error in a Flask endpoint\",\n)\n@pytest.mark.server_requests\n@pytest.mark.flask\ndef test_flask_internal_server_error(httpdbg_port):\n\n    with httprecord(client=False, server=True) as records:\n        with flaskapp(httpdbg_port):\n            requests.get(f\"http://localhost:{httpdbg_port}/boum\")\n\n    assert len(records) == 1\n    record = records[0]\n    group = records.groups[record.group_id]\n\n    assert record.is_client is False\n    assert record.status_code == 500\n    assert b\"Internal Server Error\" in record.response.content\n    assert \"def handle_exception\" in group.label, records._print_for_debug()\n    assert \"division by zero\" in group.full_label\n\n\n@pytest.mark.server_requests\n@pytest.mark.flask\ndef test_flask_client_request_in_endpoint(httpdbg_port, httpbin):\n\n    with httprecord(\n        client=True,\n        server=True,\n        ignore=[\n            (httpbin.host, httpbin.port),\n        ],\n    ) as records:\n        with flaskapp(httpdbg_port):\n            requests.get(\n                f\"http://localhost:{httpdbg_port}/withclientrequest/{httpbin.port}\"\n            )\n\n    assert len(records) == 3  # 2 + 1\n\n    assert records[0].is_client is True  # the client request to /withclientrequest\n    assert records[1].is_client is False  # the same request, received by the server\n    assert records[2].is_client is True  # the request made inside the endpoint method\n    assert records[0].group_id == records[1].group_id\n    assert records[1].group_id == records[2].group_id",
+                "lineStart": 1,
+                "lineEnd": 174,
+                "totalLines": 174,
+                "truncated": false
+              }
+            },
+            "title": "app/code/tests/test_server_hook_flask.py",
+            "time": {
+              "start": 1790039056213,
+              "end": 1790039056478
+            }
+          },
+          "id": "prt_0c6a45f05001bsdeo0M1BbTtdu",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45d130019w5bNytKkCNeWo"
+        },
+        {
+          "type": "tool",
+          "tool": "read",
+          "callID": "chatcmpl-tool-b930d31dd0bff2b2",
+          "state": {
+            "status": "completed",
+            "input": {
+              "filePath": "/app/code/httpdbg/hooks/flask.py"
+            },
+            "output": "<path>/app/code/httpdbg/hooks/flask.py</path>\n<type>file</type>\n<content>\n1: # -*- coding: utf-8 -*-\n2: from collections.abc import Callable\n3: from contextlib import contextmanager\n4: import functools\n5: from functools import wraps\n6: from typing import Generator\n7: \n8: \n9: from httpdbg.hooks.utils import getcallargs\n10: from httpdbg.hooks.utils import decorate\n11: from httpdbg.hooks.utils import undecorate\n12: from httpdbg.initiator import httpdbg_endpoint\n13: from httpdbg.records import HTTPRecords\n14: \n15: \n16: def set_hook_flask_endpoint(records: HTTPRecords, method: Callable):\n17: \n18:     @wraps(\n19:         method\n20:     )  # to avoid AssertionError: View function mapping is overwriting an existing endpoint function: hook\n21:     def hook(*args, **kwargs):\n22: \n23:         with httpdbg_endpoint(\n24:             records,\n25:             method,\n26:             *args,\n27:             **kwargs,\n28:         ):\n29:             ret = method(*args, **kwargs)\n30:         return ret\n31: \n32:     return hook\n33: \n34: \n35: def set_hook_flask_add_url_rule(\n36:     records: HTTPRecords,\n37:     method: Callable,\n38:     already_mapped: dict[Callable, Callable],\n39: ):\n40: \n41:     def hook(*args, **kwargs):\n42: \n43:         callargs = getcallargs(method, *args, **kwargs)\n44: \n45:         param = \"view_func\"\n46: \n47:         if param in callargs:\n48:             original_view_func = callargs[param]\n49:             if original_view_func not in already_mapped:\n50:                 callargs[param] = decorate(\n51:                     records, callargs[param], set_hook_flask_endpoint\n52:                 )\n53:                 already_mapped[original_view_func] = callargs[param]\n54:             else:\n55:                 callargs[param] = already_mapped[original_view_func]\n56: \n57:             args = tuple(\n58:                 callargs[param] if x == original_view_func else x for x in args\n59:             )\n60:             if param in kwargs:\n61:                 kwargs[param] = callargs[param]\n62: \n63:         return method(*args, **kwargs)\n64: \n65:     return hook\n66: \n67: \n68: def set_hook_flask_register_error_handler(\n69:     records: HTTPRecords,\n70:     method: Callable,\n71:     already_mapped: dict[Callable, Callable],\n72: ):\n73: \n74:     def hook(*args, **kwargs):\n75: \n76:         callargs = getcallargs(method, *args, **kwargs)\n77: \n78:         param = \"f\"\n79: \n80:         if param in callargs:\n81:             original_view_func = callargs[param]\n82:             if original_view_func not in already_mapped:\n83:                 callargs[param] = decorate(\n84:                     records, callargs[param], set_hook_flask_endpoint\n85:                 )\n86:                 already_mapped[original_view_func] = callargs[param]\n87:             else:\n88:                 callargs[param] = already_mapped[original_view_func]\n89: \n90:             args = tuple(\n91:                 callargs[param] if x == original_view_func else x for x in args\n92:             )\n93:             if param in kwargs:\n94:                 kwargs[param] = callargs[param]\n95: \n96:         return method(*args, **kwargs)\n97: \n98:     return hook\n99: \n100: \n101: @contextmanager\n102: def hook_flask(records: HTTPRecords) -> Generator[None, None, None]:\n103:     hooks = False\n104:     try:\n105:         import flask\n106: \n107:         # we must not apply the hook more than once on a mapped endpoint function\n108:         # AssertionError: View function mapping is overwriting an existing endpoint function: xxxx\n109:         already_mapped: dict[Callable, Callable] = {}\n110: \n111:         set_hook_flask_add_url_rule_with_already_mapped = functools.partial(\n112:             set_hook_flask_add_url_rule, already_mapped=already_mapped\n113:         )\n114: \n115:         flask.Flask.add_url_rule = decorate(\n116:             records,\n117:             flask.Flask.add_url_rule,\n118:             set_hook_flask_add_url_rule_with_already_mapped,\n119:         )\n120: \n121:         set_hook_flask_register_error_handler_with_already_mapped = functools.partial(\n122:             set_hook_flask_register_error_handler, already_mapped=already_mapped\n123:         )\n124: \n125:         flask.Flask.register_error_handler = decorate(\n126:             records,\n127:             flask.Flask.register_error_handler,\n128:             set_hook_flask_register_error_handler_with_already_mapped,\n129:         )\n130:         flask.Flask.handle_exception = decorate(\n131:             records, flask.Flask.handle_exception, set_hook_flask_endpoint\n132:         )\n133:         flask.Flask.handle_http_exception = decorate(\n134:             records, flask.Flask.handle_http_exception, set_hook_flask_endpoint\n135:         )\n136:         flask.Flask.handle_user_exception = decorate(\n137:             records, flask.Flask.handle_user_exception, set_hook_flask_endpoint\n138:         )\n139: \n140:         hooks = True\n141:     except ImportError:\n142:         pass\n143: \n144:     yield\n145: \n146:     if hooks:\n147:         flask.Flask.add_url_rule = undecorate(flask.Flask.add_url_rule)\n148:         flask.Flask.register_error_handler = undecorate(\n149:             flask.Flask.register_error_handler\n150:         )\n151:         flask.Flask.handle_exception = undecorate(flask.Flask.handle_exception)\n152:         flask.Flask.handle_http_exception = undecorate(\n153:             flask.Flask.handle_http_exception\n154:         )\n155:         flask.Flask.handle_user_exception = undecorate(\n156:             flask.Flask.handle_user_exception\n157:         )\n\n(End of file - total 157 lines)\n</content>",
+            "metadata": {
+              "preview": "# -*- coding: utf-8 -*-\nfrom collections.abc import Callable\nfrom contextlib import contextmanager\nimport functools\nfrom functools import wraps\nfrom typing import Generator\n\n\nfrom httpdbg.hooks.utils import getcallargs\nfrom httpdbg.hooks.utils import decorate\nfrom httpdbg.hooks.utils import undecorate\nfrom httpdbg.initiator import httpdbg_endpoint\nfrom httpdbg.records import HTTPRecords\n\n\ndef set_hook_flask_endpoint(records: HTTPRecords, method: Callable):\n\n    @wraps(\n        method\n    )  # to avoid AssertionError: View function mapping is overwriting an existing endpoint function: hook",
+              "truncated": false,
+              "loaded": [],
+              "display": {
+                "type": "file",
+                "path": "/app/code/httpdbg/hooks/flask.py",
+                "text": "# -*- coding: utf-8 -*-\nfrom collections.abc import Callable\nfrom contextlib import contextmanager\nimport functools\nfrom functools import wraps\nfrom typing import Generator\n\n\nfrom httpdbg.hooks.utils import getcallargs\nfrom httpdbg.hooks.utils import decorate\nfrom httpdbg.hooks.utils import undecorate\nfrom httpdbg.initiator import httpdbg_endpoint\nfrom httpdbg.records import HTTPRecords\n\n\ndef set_hook_flask_endpoint(records: HTTPRecords, method: Callable):\n\n    @wraps(\n        method\n    )  # to avoid AssertionError: View function mapping is overwriting an existing endpoint function: hook\n    def hook(*args, **kwargs):\n\n        with httpdbg_endpoint(\n            records,\n            method,\n            *args,\n            **kwargs,\n        ):\n            ret = method(*args, **kwargs)\n        return ret\n\n    return hook\n\n\ndef set_hook_flask_add_url_rule(\n    records: HTTPRecords,\n    method: Callable,\n    already_mapped: dict[Callable, Callable],\n):\n\n    def hook(*args, **kwargs):\n\n        callargs = getcallargs(method, *args, **kwargs)\n\n        param = \"view_func\"\n\n        if param in callargs:\n            original_view_func = callargs[param]\n            if original_view_func not in already_mapped:\n                callargs[param] = decorate(\n                    records, callargs[param], set_hook_flask_endpoint\n                )\n                already_mapped[original_view_func] = callargs[param]\n            else:\n                callargs[param] = already_mapped[original_view_func]\n\n            args = tuple(\n                callargs[param] if x == original_view_func else x for x in args\n            )\n            if param in kwargs:\n                kwargs[param] = callargs[param]\n\n        return method(*args, **kwargs)\n\n    return hook\n\n\ndef set_hook_flask_register_error_handler(\n    records: HTTPRecords,\n    method: Callable,\n    already_mapped: dict[Callable, Callable],\n):\n\n    def hook(*args, **kwargs):\n\n        callargs = getcallargs(method, *args, **kwargs)\n\n        param = \"f\"\n\n        if param in callargs:\n            original_view_func = callargs[param]\n            if original_view_func not in already_mapped:\n                callargs[param] = decorate(\n                    records, callargs[param], set_hook_flask_endpoint\n                )\n                already_mapped[original_view_func] = callargs[param]\n            else:\n                callargs[param] = already_mapped[original_view_func]\n\n            args = tuple(\n                callargs[param] if x == original_view_func else x for x in args\n            )\n            if param in kwargs:\n                kwargs[param] = callargs[param]\n\n        return method(*args, **kwargs)\n\n    return hook\n\n\n@contextmanager\ndef hook_flask(records: HTTPRecords) -> Generator[None, None, None]:\n    hooks = False\n    try:\n        import flask\n\n        # we must not apply the hook more than once on a mapped endpoint function\n        # AssertionError: View function mapping is overwriting an existing endpoint function: xxxx\n        already_mapped: dict[Callable, Callable] = {}\n\n        set_hook_flask_add_url_rule_with_already_mapped = functools.partial(\n            set_hook_flask_add_url_rule, already_mapped=already_mapped\n        )\n\n        flask.Flask.add_url_rule = decorate(\n            records,\n            flask.Flask.add_url_rule,\n            set_hook_flask_add_url_rule_with_already_mapped,\n        )\n\n        set_hook_flask_register_error_handler_with_already_mapped = functools.partial(\n            set_hook_flask_register_error_handler, already_mapped=already_mapped\n        )\n\n        flask.Flask.register_error_handler = decorate(\n            records,\n            flask.Flask.register_error_handler,\n            set_hook_flask_register_error_handler_with_already_mapped,\n        )\n        flask.Flask.handle_exception = decorate(\n            records, flask.Flask.handle_exception, set_hook_flask_endpoint\n        )\n        flask.Flask.handle_http_exception = decorate(\n            records, flask.Flask.handle_http_exception, set_hook_flask_endpoint\n        )\n        flask.Flask.handle_user_exception = decorate(\n            records, flask.Flask.handle_user_exception, set_hook_flask_endpoint\n        )\n\n        hooks = True\n    except ImportError:\n        pass\n\n    yield\n\n    if hooks:\n        flask.Flask.add_url_rule = undecorate(flask.Flask.add_url_rule)\n        flask.Flask.register_error_handler = undecorate(\n            flask.Flask.register_error_handler\n        )\n        flask.Flask.handle_exception = undecorate(flask.Flask.handle_exception)\n        flask.Flask.handle_http_exception = undecorate(\n            flask.Flask.handle_http_exception\n        )\n        flask.Flask.handle_user_exception = undecorate(\n            flask.Flask.handle_user_exception\n        )",
+                "lineStart": 1,
+                "lineEnd": 157,
+                "totalLines": 157,
+                "truncated": false
+              }
+            },
+            "title": "app/code/httpdbg/hooks/flask.py",
+            "time": {
+              "start": 1790039056472,
+              "end": 1790039056593
+            }
+          },
+          "id": "prt_0c6a45f7b001b3MlsN30wlxBWH",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45d130019w5bNytKkCNeWo"
+        },
+        {
+          "reason": "tool-calls",
+          "type": "step-finish",
+          "tokens": {
+            "total": 12594,
+            "input": 12454,
+            "output": 140,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c6a460d7001FPUNFTfrD6PtW5",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a45d130019w5bNytKkCNeWo"
+        }
+      ]
+    },
+    {
+      "info": {
+        "parentID": "msg_0c6a44f2a001ETbC0q6iquP8iq",
+        "role": "assistant",
+        "mode": "build",
+        "agent": "build",
+        "path": {
+          "cwd": "/app",
+          "root": "/"
+        },
+        "cost": 0,
+        "tokens": {
+          "total": 21328,
+          "input": 20952,
+          "output": 376,
+          "reasoning": 0,
+          "cache": {
+            "write": 0,
+            "read": 0
+          }
+        },
+        "modelID": "aux-model",
+        "providerID": "custom",
+        "time": {
+          "created": 1790039056647,
+          "completed": 1790039058444
+        },
+        "finish": "stop",
+        "id": "msg_0c6a461070017dIXJi6mVVGlBZ",
+        "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC"
+      },
+      "parts": [
+        {
+          "type": "step-start",
+          "id": "prt_0c6a4628b001Wu0UdtoRwn8sil",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a461070017dIXJi6mVVGlBZ"
+        },
+        {
+          "type": "text",
+          "text": "Based on my analysis of the Python project structure and the failing tests, here are 3 to 5 plausible future tasks:\n\n1. **Implement HTTP/2 hook support** - The tests in `/app/code/tests/test_hook_h2.py` are failing because the HTTP/2 hook implementation is missing or incomplete. The core issue is that `HTTPRecords` objects are empty (length 0) when HTTP/2 requests are made, indicating that the h2 hook isn't properly capturing requests. This would involve implementing or fixing the hook in `/app/code/httpdbg/hooks/h2.py`.\n\n2. **Fix Flask hook undefined variable issue** - Tests in `/app/code/tests/test_server_hook_flask.py` are failing with `NameError: name 'bufsize' is not defined`. This suggests that the Flask hook implementation in `/app/code/httpdbg/hooks/flask.py` has a reference to an undefined variable `bufsize` that needs to be resolved.\n\n3. **Complete HTTP/2 record handling** - The HTTP/2 tests show that HTTP/2 records are not being captured properly. Looking at the `HTTPRecords` class in `/app/code/httpdbg/records.py`, there's likely missing logic to handle HTTP/2-specific record creation and storage that would be needed to make the h2 tests pass.\n\n4. **Fix Flask error handler decoration** - The Flask hook tests indicate that the Flask error handler decoration logic in `/app/code/httpdbg/hooks/flask.py` is not working correctly, causing the `bufsize` name error. This involves examining the error handler decoration mechanism.\n\n5. **Implement missing HTTP/2 record classes** - The `HTTPRecords` class references `HTTP1Record` and `HTTP2Record` but there might be missing or incomplete HTTP/2 record implementation that prevents proper recording of HTTP/2 requests.",
+          "time": {
+            "start": 1790039057039,
+            "end": 1790039058435
+          },
+          "id": "prt_0c6a4628f001y4WTmZ89TTFFyA",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a461070017dIXJi6mVVGlBZ"
+        },
+        {
+          "reason": "stop",
+          "type": "step-finish",
+          "tokens": {
+            "total": 21328,
+            "input": 20952,
+            "output": 376,
+            "reasoning": 0,
+            "cache": {
+              "write": 0,
+              "read": 0
+            }
+          },
+          "cost": 0,
+          "id": "prt_0c6a46807001bMbyP3Wr5BgiMG",
+          "sessionID": "ses_f395bb127ffelb7JBTbvJsYJpC",
+          "messageID": "msg_0c6a461070017dIXJi6mVVGlBZ"
+        }
+      ]
+    }
+  ]
+}

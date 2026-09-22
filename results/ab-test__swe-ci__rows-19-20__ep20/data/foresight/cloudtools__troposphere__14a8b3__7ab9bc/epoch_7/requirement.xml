@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/troposphere/rds.py:305-338</location>
+        <description>The RDS DBInstance validation logic in the validate() method has incorrect logic for checking credential requirements. It doesn't properly validate that either (MasterUsername and either MasterUserPassword or ManageMasterUserPassword) or DBSnapshotIdentifier are required. The current implementation allows instances without credentials to pass validation when they shouldn't.</description>
+        <contract>
+            <description>The validate() method for DBInstance should ensure that when DBSnapshotIdentifier, DBClusterIdentifier, or SourceDBInstanceIdentifier are not provided, either MasterUsername with either MasterUserPassword or ManageMasterUserPassword must be provided. When DBSnapshotIdentifier is provided, credentials are not required.</description>
+            <inputs>DBInstance properties including MasterUsername, MasterUserPassword, ManageMasterUserPassword, DBSnapshotIdentifier, DBClusterIdentifier, SourceDBInstanceIdentifier</inputs>
+            <outputs>Should raise ValueError with appropriate message when validation fails</outputs>
+            <exceptions>ValueError with specific message when validation fails</exceptions>
+        </contract>
+        <acceptance>test_it_rds_instances_require_either_a_snapshot_or_credentials</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/validators/cloudfront.py:18-24</location>
+        <description>The validate_tags_or_list validator in cloudfront.py does not properly handle the structure validation for Tags in AnycastIpList. The Tags property should accept a dict with only an "Items" key containing a list of Tag objects, but the current implementation doesn't validate this properly and falls through to the generic validator that rejects it.</description>
+        <contract>
+            <description>The validate_tags_or_list function should accept Tags structure for CloudFront AnycastIpList that is a dict with only an "Items" key containing a list of Tag objects or dicts with Key/Value pairs.</description>
+            <inputs>Tags value passed to AnycastIpList</inputs>
+            <outputs>Should accept valid CloudFront Tags structure</outputs>
+            <exceptions>ValueError for invalid structure</exceptions>
+        </contract>
+        <acceptance>test_tags_items_array</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/__init__.py:1133-1137</location>
+        <description>The Parameter class validation logic incorrectly rejects AllowedPattern for CommaDelimitedList parameter types. According to AWS CloudFormation requirements, AllowedPattern should be allowed for both String and CommaDelimitedList types.</description>
+        <contract>
+            <description>The validate() method in Parameter class should allow AllowedPattern for both "String" and "CommaDelimitedList" parameter types. Currently it only allows it for "String" type.</description>
+            <inputs>Parameter properties including Type and AllowedPattern</inputs>
+            <outputs>Should not raise ValueError for CommaDelimitedList with AllowedPattern</outputs>
+            <exceptions>ValueError only for invalid combinations</exceptions>
+        </contract>
+        <acceptance>test_allowed_pattern_for_comma_delimited_list_and_string</acceptance>
+    </requirement>
+</requirements>

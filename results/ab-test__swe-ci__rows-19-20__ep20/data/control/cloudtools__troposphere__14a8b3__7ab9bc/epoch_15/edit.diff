@@ -1,0 +1,68 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:24:36
++++ b/troposphere/__init__.py	2026-09-22 03:26:37
+@@ -734,11 +734,15 @@
+                 elif isinstance(arg, dict):
+                     tag_dict.update(cast(Dict[str, Any], arg))
+                 else:
+-                    # Only allow dict, AWSHelperFn, or kwargs (which are already dict)
+-                    # Raise TypeError for invalid types like strings or other objects
+-                    raise TypeError(
+-                        "Tags needs to be either kwargs, dict, or AWSHelperFn"
+-                    )
++                    # For backward compatibility, let's try to treat the arg as a dict if it's iterable
++                    # This addresses the case where a dict is passed as a positional argument
++                    try:
++                        tag_dict.update(arg)
++                    except (TypeError, AttributeError):
++                        # If it's not iterable or not a dict, raise the original error
++                        raise TypeError(
++                            "Tags needs to be either kwargs, dict, or AWSHelperFn"
++                        )
+ 
+         def add_tag(
+             tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/batch.py b/troposphere/batch.py
+--- a/troposphere/batch.py	2026-09-22 03:25:39
++++ b/troposphere/batch.py	2026-09-22 03:26:16
+@@ -19,15 +19,18 @@
+ 
+ def validate_tags(value):
+     """Validate that Tags parameter is a valid type."""
+-    # Only allow Tags instances and AWSHelperFn
++    # Allow Tags instances, AWSHelperFn, and dict objects
+     if isinstance(value, Tags):
+         # Tags instance is allowed
+         return value
+     elif hasattr(value, '__class__') and 'AWSHelperFn' in str(type(value).__mro__):
+         # AWSHelperFn is allowed
+         return value
++    elif isinstance(value, dict):
++        # Convert dict to Tags instance
++        return Tags(value)
+     else:
+-        raise TypeError("Tags must be a Tags instance or AWSHelperFn")
++        raise TypeError("Tags must be a Tags instance, dict, or AWSHelperFn")
+ 
+ 
+ class Ec2ConfigurationObject(AWSProperty):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/dynamodb.py b/troposphere/dynamodb.py
+--- a/troposphere/dynamodb.py	2026-09-22 03:22:25
++++ b/troposphere/dynamodb.py	2026-09-22 03:26:18
+@@ -382,11 +382,13 @@
+                 # Valid AWSHelperFn
+                 pass
+             elif isinstance(value, dict):
+-                # Reject plain dict
+-                raise TypeError("Tags must be a Tags instance or AWSHelperFn")
++                # Allow dict - convert to Tags instance
++                # This is needed to align with AWS behavior and test expectations
++                super().__setattr__(name, Tags(value))
++                return
+             elif isinstance(value, str):
+                 # Reject string
+-                raise TypeError("Tags must be a Tags instance or AWSHelperFn")
++                raise TypeError("Tags must be a Tags instance, dict, or AWSHelperFn")
+             else:
+                 # For other types, let the normal validation handle it
+                 pass

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/h2.py</location>
+    <description>The HTTP/2 hook implementation creates records but does not properly populate them with request/response data. The hooks only create placeholders and don't capture actual HTTP/2 data flow from the underlying HTTP/2 connection.</description>
+    <contract>
+      The HTTP/2 hooks must properly capture HTTP/2 request and response data including:
+      - URL construction from HTTP/2 pseudo-headers (:authority, :path)
+      - Method extraction from :method pseudo-header
+      - Status code extraction from :status pseudo-header
+      - Headers parsing from HTTP/2 frames
+      - Content body extraction from HTTP/2 frames
+      - Cookies from headers
+      - Protocol identification as "HTTP/2"
+      - Proper exception handling with correct exception type and message
+    </contract>
+    <acceptance>
+      tests/test_hook_h2.py::test_h2
+      tests/test_hook_h2.py::test_h2_request
+      tests/test_hook_h2.py::test_h2_response
+      tests/test_hook_h2.py::test_h2_cookies
+      tests/test_hook_h2.py::test_h2_client_redirect
+      tests/test_hook_h2.py::test_h2_client_not_found
+      tests/test_hook_h2.py::test_h2_client_get_empty_request_content
+      tests/test_hook_h2.py::test_h2_client_many_requests
+      tests/test_hook_h2.py::test_h2_client_many_requests_session
+      tests/test_hook_h2.py::test_h2_client_asyncclient
+      tests/test_hook_h2.py::test_h2_server
+      tests/test_hook_h2.py::test_h2_server_only
+      tests/test_hook_h2.py::test_h2_server_request
+      tests/test_hook_h2.py::test_h2_server_response
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/recordhttp2.py</location>
+    <description>The HTTP/2 record implementation does not properly capture and store HTTP/2 frame data. It only implements basic property getters but doesn't integrate with the actual HTTP/2 connection to capture real data flows.</description>
+    <contract>
+      The HTTP/2 record class must:
+      - Receive and store HTTP/2 frame data via send_data() and receive_data() methods
+      - Properly parse HTTP/2 pseudo-headers for URL, method, status, etc.
+      - Extract and store content from HTTP/2 data frames
+      - Maintain accurate timestamps for last updates
+      - Support proper URL construction from HTTP/2 pseudo-headers
+      - Ensure headers are properly formatted for HTTP/2
+    </contract>
+    <acceptance>
+      tests/test_hook_h2.py::test_h2
+      tests/test_hook_h2.py::test_h2_request
+      tests/test_hook_h2.py::test_h2_response
+      tests/test_hook_h2.py::test_h2_cookies
+      tests/test_hook_h2.py::test_h2_client_redirect
+      tests/test_hook_h2.py::test_h2_client_not_found
+      tests/test_hook_h2.py::test_h2_client_get_empty_request_content
+      tests/test_hook_h2.py::test_h2_client_many_requests
+      tests/test_hook_h2.py::test_h2_client_many_requests_session
+      tests/test_hook_h2.py::test_h2_client_asyncclient
+      tests/test_hook_h2.py::test_h2_server
+      tests/test_hook_h2.py::test_h2_server_only
+      tests/test_hook_h2.py::test_h2_server_request
+      tests/test_hook_h2.py::test_h2_server_response
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/httpx.py</location>
+    <description>The HTTP/2 hook implementation does not correctly integrate with the HTTP/2 connection mechanism. It creates records but doesn't hook into the actual HTTP/2 transport layer to capture the data flow.</description>
+    <contract>
+      The HTTP/2 hook implementation must:
+      - Properly hook into HTTP/2 connections at the transport layer
+      - Integrate with HTTP/2 frame processing to capture request/response data
+      - Ensure that HTTP/2 connection handlers can update records with actual data
+      - Support both synchronous and asynchronous HTTP/2 clients
+      - Handle HTTP/2 specific connection events like stream creation and termination
+    </contract>
+    <acceptance>
+      tests/test_hook_httpx.py::test_httpx_exception
+      tests/test_hook_httpx.py::test_httpx_exception_asyncclient
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/records.py</location>
+    <description>The records system doesn't properly distinguish between HTTP/1 and HTTP/2 records during creation, causing HTTP/2 records to be created as HTTP/1 records.</description>
+    <contract>
+      The HTTPRecords.add_new_record method must:
+      - Accept a record_type parameter to differentiate between HTTP/1 and HTTP/2 records
+      - Create appropriate record instances based on the record_type parameter
+      - Ensure HTTP/2 records are instantiated with the correct HTTP2Record class
+    </contract>
+    <acceptance>
+      tests/test_hook_h2.py::test_h2
+      tests/test_hook_h2.py::test_h2_request
+      tests/test_hook_h2.py::test_h2_response
+      tests/test_hook_h2.py::test_h2_cookies
+      tests/test_hook_h2.py::test_h2_client_redirect
+      tests/test_hook_h2.py::test_h2_client_not_found
+      tests/test_hook_h2.py::test_h2_client_get_empty_request_content
+      tests/test_hook_h2.py::test_h2_client_many_requests
+      tests/test_hook_h2.py::test_h2_client_many_requests_session
+      tests/test_hook_h2.py::test_h2_client_asyncclient
+      tests/test_hook_h2.py::test_h2_server
+      tests/test_hook_h2.py::test_h2_server_only
+      tests/test_hook_h2.py::test_h2_server_request
+      tests/test_hook_h2.py::test_h2_server_response
+    </acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/httpdbg/hooks/h2.py</location>
+    <description>The HTTP/2 hook implementation is incomplete - it doesn't capture the actual HTTP/2 frame data that would be needed to populate the record properties.</description>
+    <contract>
+      The HTTP/2 hook implementation must:
+      - Hook into the actual HTTP/2 connection mechanism (not just method decoration)
+      - Ensure that HTTP/2 data frames are properly captured and passed to the records
+      - Support HTTP/2 stream management for proper request/response correlation
+      - Handle both client and server-side HTTP/2 interactions
+    </contract>
+    <acceptance>
+      tests/test_hook_h2.py::test_h2
+      tests/test_hook_h2.py::test_h2_request
+      tests/test_hook_h2.py::test_h2_response
+      tests/test_hook_h2.py::test_h2_cookies
+      tests/test_hook_h2.py::test_h2_client_redirect
+      tests/test_hook_h2.py::test_h2_client_not_found
+      tests/test_hook_h2.py::test_h2_client_get_empty_request_content
+      tests/test_hook_h2.py::test_h2_client_many_requests
+      tests/test_hook_h2.py::test_h2_client_many_requests_session
+      tests/test_hook_h2.py::test_h2_client_asyncclient
+      tests/test_hook_h2.py::test_h2_server
+      tests/test_hook_h2.py::test_h2_server_only
+      tests/test_hook_h2.py::test_h2_server_request
+      tests/test_hook_h2.py::test_h2_server_response
+    </acceptance>
+  </requirement>
+</requirements>

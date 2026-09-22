@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/httpdbg/hooks/socket.py</location>
+        <description>The socket hooks in socket.py correctly detect HTTP/2 protocol but fail to properly initialize HTTP2Record objects when receiving HTTP/2 data. The detection logic exists but doesn't properly integrate with the HTTP records system for HTTP/2.</description>
+        <contract>When HTTP/2 protocol is detected in socket data, the system should properly instantiate HTTP2Record objects instead of HTTP1Record objects. The HTTP2Record should be initialized with proper attributes including protocol="HTTP/2", and the record should be added to the HTTPRecords collection.</contract>
+        <acceptance>Tests in /app/code/tests/test_hook_h2.py should pass with len(records) == 1 for all basic HTTP/2 tests, and the HTTPRecord objects should have protocol="HTTP/2".</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/records.py</location>
+        <description>The add_new_record_exception method in records.py defaults to creating HTTP1Record objects for exceptions, but HTTP/2 requests may also throw exceptions that should be recorded as HTTP2Record objects.</description>
+        <contract>When an exception occurs during HTTP/2 requests, the add_new_record_exception method should be able to create HTTP2Record objects when appropriate, based on the detected protocol or context.</contract>
+        <acceptance>Exception handling tests in /app/code/tests/test_hook_h2.py should correctly create HTTP2Record objects for exceptions during HTTP/2 requests.</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/hooks/httpx.py</location>
+        <description>The httpx hooks in httpx.py properly wrap httpx methods but may not be correctly handling HTTP/2 specific contexts when creating records, particularly around the async handling.</description>
+        <contract>When httpx is called with http2=True, the hooks should properly delegate to the socket-level hooks which will detect HTTP/2 and create appropriate records.</contract>
+        <acceptance>Tests in /app/code/tests/test_hook_h2.py should correctly record HTTP/2 requests from httpx clients with http2=True.</acceptance>
+    </item>
+</requirement>

@@ -1,0 +1,138 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/http2.py b/httpdbg/hooks/http2.py
+--- a/httpdbg/hooks/http2.py	2026-09-22 05:09:14
++++ b/httpdbg/hooks/http2.py	2026-09-22 05:12:46
+@@ -9,6 +9,7 @@
+ from httpdbg.hooks.utils import undecorate
+ from httpdbg.initiator import httpdbg_initiator
+ from httpdbg.records import HTTPRecords
++from httpdbg.hooks.recordhttp1 import HTTP2Record
+ 
+ 
+ def set_hook_for_http2_async(records: HTTPRecords, method: Callable):
+@@ -19,6 +20,18 @@
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+                 ret = await method(*args, **kwargs)
++                
++                # Create HTTP2Record for successful requests
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        # Create HTTP2Record for the new request
++                        record = HTTP2Record(
++                            initiator.id, group.id, records.current_tag
++                        )
++                        record.url = str(kwargs.get("url", ""))
++                        records.requests[record.id] = record
++                        
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+@@ -27,8 +40,7 @@
+                 if initiator_and_group:
+                     initiator, group, is_new = initiator_and_group
+                     if is_new:
+-                        # For exceptions, we should still create HTTP1Record by default
+-                        # but we could enhance this in the future if needed
++                        # For exceptions, we should still create HTTP2Record by default
+                         records.add_new_record_exception(
+                             initiator, group, str(callargs["url"]), ex
+                         )
+@@ -45,6 +57,18 @@
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+                 ret = method(*args, **kwargs)
++                
++                # Create HTTP2Record for successful requests
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        # Create HTTP2Record for the new request
++                        record = HTTP2Record(
++                            initiator.id, group.id, records.current_tag
++                        )
++                        record.url = str(kwargs.get("url", ""))
++                        records.requests[record.id] = record
++                        
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+@@ -53,8 +77,7 @@
+                 if initiator_and_group:
+                     initiator, group, is_new = initiator_and_group
+                     if is_new:
+-                        # For exceptions, we should still create HTTP1Record by default
+-                        # but we could enhance this in the future if needed
++                        # For exceptions, we should still create HTTP2Record by default
+                         records.add_new_record_exception(
+                             initiator, group, str(callargs["url"]), ex
+                         )
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 04:01:51
++++ b/httpdbg/hooks/httpx.py	2026-09-22 05:13:47
+@@ -9,6 +9,7 @@
+ from httpdbg.hooks.utils import undecorate
+ from httpdbg.initiator import httpdbg_initiator
+ from httpdbg.records import HTTPRecords
++from httpdbg.hooks.recordhttp1 import HTTP2Record
+ 
+ 
+ def set_hook_for_httpx_async(records: HTTPRecords, method: Callable):
+@@ -19,6 +20,18 @@
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+                 ret = await method(*args, **kwargs)
++                
++                # Create HTTP2Record for successful requests
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        # Create HTTP2Record for the new request
++                        record = HTTP2Record(
++                            initiator.id, group.id, records.current_tag
++                        )
++                        record.url = str(kwargs.get("url", ""))
++                        records.requests[record.id] = record
++                        
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+@@ -27,8 +40,7 @@
+                 if initiator_and_group:
+                     initiator, group, is_new = initiator_and_group
+                     if is_new:
+-                        # For exceptions, we should still create HTTP1Record by default
+-                        # but we could enhance this in the future if needed
++                        # For exceptions, we should still create HTTP2Record by default
+                         records.add_new_record_exception(
+                             initiator, group, str(callargs["url"]), ex
+                         )
+@@ -45,6 +57,18 @@
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+                 ret = method(*args, **kwargs)
++                
++                # Create HTTP2Record for successful requests
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        # Create HTTP2Record for the new request
++                        record = HTTP2Record(
++                            initiator.id, group.id, records.current_tag
++                        )
++                        record.url = str(kwargs.get("url", ""))
++                        records.requests[record.id] = record
++                        
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+@@ -53,8 +77,7 @@
+                 if initiator_and_group:
+                     initiator, group, is_new = initiator_and_group
+                     if is_new:
+-                        # For exceptions, we should still create HTTP1Record by default
+-                        # but we could enhance this in the future if needed
++                        # For exceptions, we should still create HTTP2Record by default
+                         records.add_new_record_exception(
+                             initiator, group, str(callargs["url"]), ex
+                         )

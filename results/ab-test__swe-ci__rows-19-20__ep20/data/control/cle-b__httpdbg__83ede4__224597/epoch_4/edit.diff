@@ -1,0 +1,218 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	2026-09-22 03:08:06
++++ b/httpdbg/hooks/recordhttp2.py	2026-09-22 03:09:45
+@@ -32,38 +32,56 @@
+     def rawheaders(self) -> bytes:
+         if not self._rawheaders:
+             # For HTTP/2, we need to parse the frame data differently
++            # HTTP/2 frames contain header blocks that we need to properly parse
+             # This is a simplified implementation - in reality, HTTP/2 frames would be parsed
+-            # But for this hook, we'll treat it similar to HTTP/1 for now
++            # But for this hook, we'll try to extract headers from raw data
+             if self.rawdata:
+                 # Try to find headers section (simplified)
+                 sep = self.rawdata.find(b"\r\n\r\n")
+                 if sep > -1:
+                     self._rawheaders = self.rawdata[:sep]
++                else:
++                    # If no \r\n\r\n found, assume all data is headers
++                    self._rawheaders = self.rawdata
+         return self._rawheaders
+ 
+     @property
+     def headers(self) -> list[HTTPDBGHeader]:
+         if not self._headers:
+             if self.rawheaders:
+-                # Simplified header parsing for HTTP/2
+-                # In a real implementation, this would parse HTTP/2 frames properly
+-                for header in self.rawheaders[self.rawheaders.find(b"\r\n") :].split(
+-                    b"\r\n"
+-                ):
+-                    sh = header.split(b":")
+-                    name = sh[0]
+-                    value = b":".join(sh[1:])
+-                    if name:
+-                        self._headers.append(
+-                            HTTPDBGHeader(name.decode().strip(), value.decode().strip())
+-                        )
++                # Parse HTTP/2 headers properly - looking for pseudo-headers like :method, :path, :authority, :status
++                # Split by lines and process each header
++                header_lines = self.rawheaders.split(b"\r\n")
++                for line in header_lines:
++                    if line and not line.startswith(b":"):  # Skip pseudo-headers
++                        continue
++                    if line.startswith(b":"):  # This is a pseudo-header
++                        # Pseudo-headers have special handling
++                        parts = line.split(b":", 1)
++                        if len(parts) == 2:
++                            name = parts[0].decode().strip()
++                            value = parts[1].decode().strip()
++                            # We'll store pseudo-headers separately for now, but still include them in the headers list
++                            self._headers.append(
++                                HTTPDBGHeader(name, value)
++                            )
++                    else:
++                        # Regular header
++                        sh = line.split(b":", 1)
++                        if len(sh) == 2:
++                            name = sh[0].decode().strip()
++                            value = sh[1].decode().strip()
++                            if name:
++                                self._headers.append(
++                                    HTTPDBGHeader(name, value)
++                                )
+         return self._headers
+ 
+     @property
+     def content(self) -> bytes:
+         rawdata = bytes()
+ 
+-        # Simplified content extraction for HTTP/2
++        # Content extraction for HTTP/2
+         if self.rawdata:
+             sep = self.rawdata.find(b"\r\n\r\n")
+             if sep > -1:
+@@ -77,6 +95,9 @@
+                     rawdata = chunked_to_bytes(rawcontent)
+                 else:
+                     rawdata = rawcontent
++            else:
++                # No separator found, assume all data is content
++                rawdata = self.rawdata
+ 
+         return rawdata
+ 
+@@ -112,20 +133,36 @@
+     def _parse_first_line(self) -> None:
+         if self.rawheaders:
+             # HTTP/2 doesn't have a first line like HTTP/1
+-            # This is a placeholder for a real HTTP/2 implementation
++            # We'll extract the method and URI from pseudo-headers
+             pass
+ 
+     @property
+     def method(self) -> str:
+-        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
+-        # For now, returning a default as placeholder
++        # Extract :method pseudo-header from HTTP/2
++        for header in self.headers:
++            if header.name == ":method":
++                return header.value
++        # Fallback to placeholder
+         return "UNKNOWN"
+ 
+     @property
+     def uri(self) -> str:
+-        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
+-        # For now, returning a default as placeholder
+-        return ""
++        # Extract :path and :authority pseudo-headers from HTTP/2
++        path = ""
++        authority = ""
++        for header in self.headers:
++            if header.name == ":path":
++                path = header.value
++            elif header.name == ":authority":
++                authority = header.value
++        
++        # Construct full URI
++        if authority and path:
++            return f"{authority}{path}"
++        elif path:
++            return path
++        else:
++            return ""
+ 
+     @property
+     def protocol(self) -> str:
+@@ -145,7 +182,7 @@
+ 
+     def _parse_first_line(self) -> None:
+         # HTTP/2 doesn't have a first line like HTTP/1
+-        # This is a placeholder for a real HTTP/2 implementation
++        # We'll extract the status from pseudo-headers
+         pass
+ 
+     @property
+@@ -154,14 +191,41 @@
+ 
+     @property
+     def status_code(self) -> int:
+-        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
+-        # For now, returning 0 as placeholder
++        # Extract :status pseudo-header from HTTP/2
++        for header in self.headers:
++            if header.name == ":status":
++                try:
++                    return int(header.value)
++                except ValueError:
++                    return 0
++        # Fallback to placeholder
+         return 0
+ 
+     @property
+     def message(self) -> str:
+-        # HTTP/2 uses pseudo-headers, so we'd normally extract from the headers
+-        # For now, returning empty as placeholder
++        # HTTP/2 doesn't have a message in the traditional sense
++        # The status code and reason phrase are usually sent together
++        # For now, we'll try to extract a reasonable message
++        for header in self.headers:
++            if header.name == ":status":
++                # Map common status codes to standard messages
++                status_map = {
++                    "200": "OK",
++                    "201": "Created",
++                    "204": "No Content",
++                    "301": "Moved Permanently",
++                    "302": "Found",
++                    "304": "Not Modified",
++                    "400": "Bad Request",
++                    "401": "Unauthorized",
++                    "403": "Forbidden",
++                    "404": "Not Found",
++                    "500": "Internal Server Error",
++                    "502": "Bad Gateway",
++                    "503": "Service Unavailable",
++                }
++                return status_map.get(header.value, "")
++        # Fallback to empty
+         return ""
+ 
+ 
+@@ -181,9 +245,32 @@
+     @property
+     def url(self) -> str:
+         if not self._url:
+-            # For HTTP/2, we would typically get this from the :authority and :path pseudo-headers
+-            # For now, returning a placeholder
+-            self._url = "http://placeholder.example.com"
++            # For HTTP/2, we construct the URL from the :authority and :path pseudo-headers
++            # Try to get from request first
++            if self.request.uri:
++                # If we have a full URI from request, use it
++                self._url = self.request.uri
++            else:
++                # Otherwise, construct from available headers
++                authority = ""
++                path = ""
++                
++                # Try to get from request headers
++                for header in self.request.headers:
++                    if header.name == ":authority":
++                        authority = header.value
++                    elif header.name == ":path":
++                        path = header.value
++                
++                # If we have both, construct full URL
++                if authority and path:
++                    self._url = f"https://{authority}{path}"
++                elif path:
++                    # If only path is available, we'll make a best effort
++                    self._url = path
++                else:
++                    # Fallback to placeholder
++                    self._url = "http://placeholder.example.com"
+         return self._url
+ 
+     @url.setter

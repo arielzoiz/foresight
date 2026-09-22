@@ -1,0 +1,26 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/batch.py b/troposphere/batch.py
+--- a/troposphere/batch.py	2026-09-22 03:18:21
++++ b/troposphere/batch.py	2026-09-22 03:20:08
+@@ -17,10 +17,19 @@
+ 
+ 
+ def validate_tags(value):
+-    """Validate that Tags parameter is not a plain dict."""
++    """Validate that Tags parameter is a valid type."""
++    # Allow plain dicts, Tags instances, and AWSHelperFn
+     if isinstance(value, dict) and not isinstance(value, Tags):
+-        raise TypeError("Tags must be a Tags instance or AWSHelperFn, not a plain dict")
+-    return value
++        # Plain dict is allowed - it will be converted to Tags internally
++        return value
++    elif isinstance(value, Tags):
++        # Tags instance is allowed
++        return value
++    elif hasattr(value, '__class__') and 'AWSHelperFn' in str(type(value).__mro__):
++        # AWSHelperFn is allowed
++        return value
++    else:
++        raise TypeError("Tags must be a Tags instance, plain dict, or AWSHelperFn")
+ 
+ 
+ class Ec2ConfigurationObject(AWSProperty):

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/http2.py</location>
+    <description>The HTTP/2 hook implementation attempts to set the method property on HTTP2RecordRequest objects, but this fails with "AttributeError: can't set attribute 'method'" because the method property in HTTP2RecordRequest is implemented with a setter that doesn't properly handle assignment.</description>
+    <contract>The HTTP2RecordRequest class should properly initialize with a method value and allow setting the method property via its setter. The HTTP/2 hook functions (set_hook_for_http2 and set_hook_for_http2_async) should be able to set the method property on HTTP2RecordRequest objects without raising AttributeError.</contract>
+    <acceptance>Tests in /app/code/tests/test_hook_h2.py should pass, specifically all tests that call httpx methods with HTTP/2 enabled (test_h2, test_h2_initiator, test_h2_request, etc.)</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/recordhttp1.py</location>
+    <description>The HTTP2RecordRequest class constructor does not properly handle the method parameter initialization, and the method setter may not be correctly implemented to support assignment.</description>
+    <contract>The HTTP2RecordRequest.__init__ method should accept a method parameter and store it properly. The method property setter should properly assign the method value to the internal storage without raising AttributeError.</contract>
+    <acceptance>Tests in /app/code/tests/test_hook_h2.py should pass, particularly those checking method properties on HTTP2Record objects.</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/httpdbg/hooks/http2.py</location>
+    <description>The HTTP/2 hook implementation incorrectly tries to set record.request.method directly instead of using the HTTP2RecordRequest constructor to initialize with method.</description>
+    <contract>The HTTP/2 hook functions should create HTTP2Record objects with method parameter in constructor, and should not attempt to set the method property after creation.</contract>
+    <acceptance>Tests in /app/code/tests/test_hook_h2.py should pass without AttributeError when accessing method properties.</acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,142 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-22 03:08:11
++++ b/httpdbg/hooks/all.py	2026-09-22 03:44:05
+@@ -40,8 +40,8 @@
+                 with hook_starlette(records):
+                     with hook_uvicorn(records):
+                         with hook_http(records):
+-                            with hook_httpx(records):
+-                                with hook_h2(records):
++                            with hook_h2(records):
++                                with hook_httpx(records):
+                                     with hook_requests(records):
+                                         with hook_urllib3(records):
+                                             with hook_aiohttp(records):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:42:39
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:44:35
+@@ -35,6 +35,10 @@
+                     record_type="http2"
+                 )
+                 
++                # Set the initial URL for HTTP/2 records
++                if hasattr(record, 'set_initial_url'):
++                    record.set_initial_url(url)
++                
+                 # Store the record reference for later population with data
+                 # This will be accessed by HTTP/2 connection handlers
+                 record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
+@@ -106,6 +110,10 @@
+                     is_client=True,
+                     record_type="http2"
+                 )
++                
++                # Set the initial URL for HTTP/2 records
++                if hasattr(record, 'set_initial_url'):
++                    record.set_initial_url(url)
+                 
+                 # Store the record reference for later population with data
+                 # This will be accessed by HTTP/2 connection handlers
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 03:31:37
++++ b/httpdbg/hooks/httpx.py	2026-09-22 03:44:12
+@@ -49,6 +49,7 @@
+             url = callargs.get("url", "")
+             
+             if "url" in callargs:
++                # Make sure we have proper context for exception handling
+                 records.add_new_record_exception(
+                     initiator, 
+                     group, 
+@@ -95,6 +96,7 @@
+             url = callargs.get("url", "")
+             
+             if "url" in callargs:
++                # Make sure we have proper context for exception handling
+                 records.add_new_record_exception(
+                     initiator, 
+                     group, 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	2026-09-22 03:42:42
++++ b/httpdbg/hooks/recordhttp2.py	2026-09-22 03:44:37
+@@ -52,31 +52,36 @@
+                 # In practice, HTTP/2 headers would be parsed from binary frames
+                 # For now, we'll assume they've been captured in the raw headers format
+                 try:
+-                    header_lines = self.rawheaders.split(b"\r\n")
+-                    for line in header_lines:
+-                        if not line:
+-                            continue
+-                        # Process each header line
+-                        if line.startswith(b":"):  # This is a pseudo-header
+-                            # Pseudo-headers have special handling
+-                            parts = line.split(b":", 1)
+-                            if len(parts) == 2:
+-                                name = parts[0].decode().strip()[1:]  # Remove the leading ':'
+-                                value = parts[1].decode().strip()
+-                                # Store pseudo-headers in the headers list
+-                                self._headers.append(
+-                                    HTTPDBGHeader(name, value)
+-                                )
+-                        else:
+-                            # Regular header
+-                            sh = line.split(b":", 1)
+-                            if len(sh) == 2:
+-                                name = sh[0].decode().strip()
+-                                value = sh[1].decode().strip()
+-                                if name:
++                    # If we have a list of headers, use them directly
++                    if hasattr(self, '_headers_list') and self._headers_list:
++                        self._headers = self._headers_list
++                    else:
++                        # If not, try to parse from raw data
++                        header_lines = self.rawheaders.split(b"\r\n")
++                        for line in header_lines:
++                            if not line:
++                                continue
++                            # Process each header line
++                            if line.startswith(b":"):  # This is a pseudo-header
++                                # Pseudo-headers have special handling
++                                parts = line.split(b":", 1)
++                                if len(parts) == 2:
++                                    name = parts[0].decode().strip()[1:]  # Remove the leading ':'
++                                    value = parts[1].decode().strip()
++                                    # Store pseudo-headers in the headers list
+                                     self._headers.append(
+                                         HTTPDBGHeader(name, value)
+                                     )
++                            else:
++                                # Regular header
++                                sh = line.split(b":", 1)
++                                if len(sh) == 2:
++                                    name = sh[0].decode().strip()
++                                    value = sh[1].decode().strip()
++                                    if name:
++                                        self._headers.append(
++                                            HTTPDBGHeader(name, value)
++                                        )
+                 except Exception:
+                     # If parsing fails, return empty headers to avoid breaking
+                     self._headers = []
+@@ -239,6 +244,21 @@
+         self.response: HTTP2RecordResponse = HTTP2RecordResponse()
+         # Initialize URL from the initial URL passed during creation
+         self._url = ""
++        
++    def set_initial_url(self, url: str):
++        """Set the initial URL for this record."""
++        self._url = url
++        # Also set it on the request object if needed
++        if hasattr(self.request, 'uri') and not self.request.uri:
++            # Try to set it from the URL if we can parse it
++            try:
++                from urllib.parse import urlparse
++                parsed = urlparse(url)
++                if parsed.scheme and parsed.netloc:
++                    # This is a full URL, we can use it directly
++                    pass
++            except Exception:
++                pass
+ 
+     @property
+     def url(self) -> str:

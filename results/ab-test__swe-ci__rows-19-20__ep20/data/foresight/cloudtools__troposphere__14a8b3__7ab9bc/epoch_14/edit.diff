@@ -1,0 +1,33 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 06:07:10
++++ b/troposphere/__init__.py	2026-09-22 06:09:54
+@@ -710,6 +710,19 @@
+     def __init__(self, *args: object, **kwargs: Any):
+         self.tags = []
+         tag_dict: Dict[Any, Any]
++        
++        # Validate that no positional arguments are integers or strings
++        for i, arg in enumerate(args):
++            if isinstance(arg, (int, str)):
++                raise TypeError(f"Tags constructor argument {i+1} must not be an integer or string")
++        
++        # Validate that there's only one positional argument if it's a dict
++        if len(args) > 1:
++            # Check if it's a valid structure - if first arg is a dict and others are valid, it's okay
++            # But if there are multiple positional args that aren't valid structures, it's not allowed
++            if not (len(args) == 2 and isinstance(args[0], dict) and isinstance(args[1], dict)):
++                raise TypeError("Tags constructor accepts at most one dict argument and any number of other valid arguments")
++        
+         if not args:
+             # Assume kwargs variant
+             tag_dict = kwargs
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/dynamodb.py b/troposphere/dynamodb.py
+--- a/troposphere/dynamodb.py	2026-09-22 06:03:45
++++ b/troposphere/dynamodb.py	2026-09-22 06:09:58
+@@ -378,3 +378,6 @@
+                 # If it has a "Key" and "Value" fields, it's likely wrong usage
+                 if "Key" in tags and "Value" in tags:
+                     raise TypeError("Tags property in Table must be a Tags object, not a dict")
++                # Check if it's a simple dict with string keys and values (not a Tags object)
++                if all(isinstance(k, str) and isinstance(v, str) for k, v in tags.items()):
++                    raise TypeError("Tags property in Table must be a Tags object, not a dict")

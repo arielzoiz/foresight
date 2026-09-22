@@ -1,0 +1,148 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:11:06
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:14:44
+@@ -14,23 +14,43 @@
+ 
+ def set_hook_for_httpx_async_h2(records: HTTPRecords, method: Callable):
+     async def hook(*args, **kwargs):
+-        initiator_and_group = None
++        # Create a new HTTP2Record for this request before the call
++        # This ensures proper integration with the records system
+         try:
++            callargs = getcallargs(method, *args, **kwargs)
++            url = callargs.get("url", "")
++            # Create a new record for this request
++            record = records.add_new_record(
++                "httpx.AsyncClient", 
++                method.__name__, 
++                url, 
++                is_client=True
++            )
++            # Set the record to be an HTTP2Record
++            if isinstance(record, HTTP2Record):
++                # We'll use the record's URL setter to ensure it gets the correct URL
++                # The actual URL construction happens during the HTTP exchange
++                pass
++            
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+                 ret = await method(*args, **kwargs)
++            
++            # Now we need to properly populate the record with data
++            # This will happen through the HTTP/2 connection handling
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+-
++            url = callargs.get("url", "")
++            
+             if "url" in callargs:
+-                if initiator_and_group:
+-                    initiator, group, is_new = initiator_and_group
+-                    if is_new:
+-                        records.add_new_record_exception(
+-                            initiator, group, str(callargs["url"]), ex
+-                        )
++                records.add_new_record_exception(
++                    "httpx.AsyncClient", 
++                    method.__name__, 
++                    str(url), 
++                    ex
++                )
+             raise
+ 
+     return hook
+@@ -38,23 +58,43 @@
+ 
+ def set_hook_for_httpx_h2(records: HTTPRecords, method: Callable):
+     def hook(*args, **kwargs):
+-        initiator_and_group = None
++        # Create a new HTTP2Record for this request before the call
++        # This ensures proper integration with the records system
+         try:
++            callargs = getcallargs(method, *args, **kwargs)
++            url = callargs.get("url", "")
++            # Create a new record for this request
++            record = records.add_new_record(
++                "httpx.Client", 
++                method.__name__, 
++                url, 
++                is_client=True
++            )
++            # Set the record to be an HTTP2Record
++            if isinstance(record, HTTP2Record):
++                # We'll use the record's URL setter to ensure it gets the correct URL
++                # The actual URL construction happens during the HTTP exchange
++                pass
++                
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+                 ret = method(*args, **kwargs)
++            
++            # Now we need to properly populate the record with data
++            # This will happen through the HTTP/2 connection handling
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+-
++            url = callargs.get("url", "")
++            
+             if "url" in callargs:
+-                if initiator_and_group:
+-                    initiator, group, is_new = initiator_and_group
+-                    if is_new:
+-                        records.add_new_record_exception(
+-                            initiator, group, str(callargs["url"]), ex
+-                        )
++                records.add_new_record_exception(
++                    "httpx.Client", 
++                    method.__name__, 
++                    str(url), 
++                    ex
++                )
+             raise
+ 
+     return hook
+@@ -66,16 +106,6 @@
+     try:
+         import httpx
+ 
+-        # Create a custom wrapper to track HTTP/2 requests and create records
+-        def create_http2_record_wrapper(original_method, is_async=False):
+-            def wrapper(*args, **kwargs):
+-                # Create a new HTTP2Record for this request
+-                # We need to create the record before the call to capture the request
+-                # For now, we'll let the original method handle the record creation
+-                # but we'll ensure proper integration
+-                return original_method(*args, **kwargs)
+-            return wrapper
+-        
+         # Apply hooks to async methods
+         httpx.AsyncClient.get = decorate(
+             records, httpx.AsyncClient.get, set_hook_for_httpx_async_h2
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	2026-09-22 03:12:34
++++ b/httpdbg/hooks/recordhttp2.py	2026-09-22 03:14:50
+@@ -263,11 +263,15 @@
+             path = ""
+             
+             # Try to get from request headers
+-            for header in self.request.headers:
+-                if header.name == ":authority":
+-                    authority = header.value
+-                elif header.name == ":path":
+-                    path = header.value
++            try:
++                for header in self.request.headers:
++                    if header.name == ":authority":
++                        authority = header.value
++                    elif header.name == ":path":
++                        path = header.value
++            except Exception:
++                # If there's any issue accessing headers, fall back to a safe default
++                pass
+             
+             # If we have both, construct full URL
+             if authority and path:

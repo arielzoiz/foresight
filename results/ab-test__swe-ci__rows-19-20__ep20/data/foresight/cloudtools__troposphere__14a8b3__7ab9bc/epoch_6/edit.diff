@@ -1,0 +1,70 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 05:53:47
++++ b/troposphere/__init__.py	2026-09-22 05:55:06
+@@ -424,7 +424,11 @@
+         if hasattr(other, '__class__') and hasattr(other.__class__, '__name__'):
+             # If other is a TypeComparator or similar, check if it's compatible
+             if hasattr(other, 'valid_types'):
+-                return isinstance(self, other.valid_types)
++                # Check if other.valid_types includes the current object's type
++                if hasattr(other, 'valid_types') and isinstance(other.valid_types, (list, tuple)):
++                    return any(isinstance(self, t) for t in other.valid_types)
++                elif hasattr(other, 'valid_types'):
++                    return isinstance(self, other.valid_types)
+         return False
+ 
+     def __ne__(self, other: object) -> bool:
+@@ -708,7 +712,26 @@
+                     self.tags.append(arg)
+                 # Validate argument passed in is a dict
+                 elif isinstance(arg, dict):
+-                    tag_dict.update(cast(Dict[str, Any], arg))
++                    # Special handling for dict with "Items" key (used by CloudFront)
++                    if "Items" in arg and isinstance(arg["Items"], list):
++                        # Validate that dict contains only the "Items" key
++                        if len(arg) == 1:
++                            # Process each item in the Items list
++                            for item in arg["Items"]:
++                                if isinstance(item, Tag):
++                                    self.tags.append(item)
++                                elif isinstance(item, dict) and "Key" in item and "Value" in item:
++                                    self.tags.append(item)
++                                else:
++                                    raise TypeError(
++                                        "Items in Tags dict must contain Tag objects or dicts with Key/Value"
++                                    )
++                        else:
++                            raise ValueError(
++                                "Tags dict with Items key must contain only the 'Items' key"
++                            )
++                    else:
++                        tag_dict.update(cast(Dict[str, Any], arg))
+                 # Validate argument passed in is a Tag object
+                 elif isinstance(arg, Tag):
+                     self.tags.append(arg)
+@@ -1107,11 +1130,8 @@
+                     raise ValueError(
+                         "%s can only be used with parameters of " "the Number type." % p
+                     )
+-        # Allow AllowedPattern for CommaDelimitedList and String types
++        # Allow AllowedPattern for String and CommaDelimitedList types
+         if param_type in ["String", "CommaDelimitedList"] and "AllowedPattern" in self.properties:
+             # Validation for AllowedPattern is already handled by the validator
+             # We just need to allow it for these types
+-            pass
+-        elif param_type == "CommaDelimitedList" and "AllowedPattern" in self.properties:
+-            # This is a special case for CommaDelimitedList type to allow AllowedPattern validation
+             pass
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/rds.py b/troposphere/rds.py
+--- a/troposphere/rds.py	2026-09-22 05:53:41
++++ b/troposphere/rds.py	2026-09-22 05:55:02
+@@ -328,7 +328,8 @@
+                 )
+                 
+             # Check if either password or management is provided
+-            if not master_user_password and not manage_master_user_password:
++            # Allow either (MasterUsername and MasterUserPassword) OR (MasterUsername and ManageMasterUserPassword) OR (DBSnapshotIdentifier)
++            if not (master_user_password or manage_master_user_password or "DBSnapshotIdentifier" in self.properties):
+                 raise ValueError(
+                     r"Either \(MasterUsername and either MasterUserPassword or ManageMasterUserPassword\) or"
+                     r" DBSnapshotIdentifier are required in type "

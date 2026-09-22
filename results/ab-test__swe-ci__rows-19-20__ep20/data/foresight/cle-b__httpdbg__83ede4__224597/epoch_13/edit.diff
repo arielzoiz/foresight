@@ -1,0 +1,60 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/http2.py b/httpdbg/hooks/http2.py
+--- a/httpdbg/hooks/http2.py	2026-09-22 05:23:11
++++ b/httpdbg/hooks/http2.py	2026-09-22 05:27:44
+@@ -28,9 +28,15 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag
+                         )
+-                        # Set URL from kwargs
++                        # Set URL and method from kwargs
+                         callargs = getcallargs(method, *args, **kwargs)
+                         record.url = str(callargs.get("url", ""))
++                        # Extract HTTP method from the call arguments
++                        method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
++                        # For httpx, method is typically passed as a keyword argument, but for direct calls it might be the first positional argument
++                        if not isinstance(method_name, str):
++                            method_name = "GET"
++                        record.request._method = method_name.encode()
+                         records.requests[record.id] = record
+                         
+             return ret
+@@ -73,9 +79,15 @@
+                         record = HTTP2Record(
+                             initiator.id, group.id, records.current_tag
+                         )
+-                        # Set URL from kwargs
++                        # Set URL and method from kwargs
+                         callargs = getcallargs(method, *args, **kwargs)
+                         record.url = str(callargs.get("url", ""))
++                        # Extract HTTP method from the call arguments
++                        method_name = callargs.get("method", "GET") if "method" in callargs else "GET"
++                        # For httpx, method is typically passed as a keyword argument, but for direct calls it might be the first positional argument
++                        if not isinstance(method_name, str):
++                            method_name = "GET"
++                        record.request._method = method_name.encode()
+                         records.requests[record.id] = record
+                         
+             return ret
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp1.py b/httpdbg/hooks/recordhttp1.py
+--- a/httpdbg/hooks/recordhttp1.py	2026-09-22 03:57:46
++++ b/httpdbg/hooks/recordhttp1.py	2026-09-22 05:28:01
+@@ -385,15 +385,15 @@
+ 
+     def receive_data(self, data: bytes):
+         if self.is_client:
+-            self.response.rawdata += data
+-        else:
+             self.request.rawdata += data
++        else:
++            self.response.rawdata += data
+ 
+     def send_data(self, data: bytes):
+         if self.is_client:
+-            self.request.rawdata += data
+-        else:
+             self.response.rawdata += data
++        else:
++            self.request.rawdata += data
+ 
+     @property
+     def protocol(self) -> str:

@@ -1,0 +1,175 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:34:03
++++ b/httpdbg/hooks/h2.py	2026-09-22 03:42:39
+@@ -43,18 +43,44 @@
+             
+             ret = await method(*args, **kwargs)
+             
++            # Clean up the hook context after successful completion
++            if record.id in _hook_contexts:
++                del _hook_contexts[record.id]
++            
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+             url = callargs.get("url", "")
+             
++            # Make sure we have proper context for exception handling
+             if "url" in callargs:
+-                records.add_new_record_exception(
+-                    initiator, 
+-                    group, 
+-                    str(url), 
+-                    ex
+-                )
++                # Try to get the record from global context if available
++                record_id = None
++                try:
++                    # Look for the record in the hook contexts
++                    for rid, rec in _hook_contexts.items():
++                        if rec._hook_context.get('method') == method:
++                            record_id = rid
++                            break
++                except Exception:
++                    pass
++                
++                if record_id:
++                    # Add exception to existing record
++                    record = _hook_contexts.get(record_id)
++                    if record:
++                        record.exception = ex
++                        # Clean up the hook context after exception
++                        if record_id in _hook_contexts:
++                            del _hook_contexts[record_id]
++                else:
++                    # Create a new record for the exception
++                    records.add_new_record_exception(
++                        initiator, 
++                        group, 
++                        str(url), 
++                        ex
++                    )
+             raise
+ 
+     return hook
+@@ -89,18 +115,44 @@
+             
+             ret = method(*args, **kwargs)
+             
++            # Clean up the hook context after successful completion
++            if record.id in _hook_contexts:
++                del _hook_contexts[record.id]
++            
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+             url = callargs.get("url", "")
+             
++            # Make sure we have proper context for exception handling
+             if "url" in callargs:
+-                records.add_new_record_exception(
+-                    initiator, 
+-                    group, 
+-                    str(url), 
+-                    ex
+-                )
++                # Try to get the record from global context if available
++                record_id = None
++                try:
++                    # Look for the record in the hook contexts
++                    for rid, rec in _hook_contexts.items():
++                        if rec._hook_context.get('method') == method:
++                            record_id = rid
++                            break
++                except Exception:
++                    pass
++                
++                if record_id:
++                    # Add exception to existing record
++                    record = _hook_contexts.get(record_id)
++                    if record:
++                        record.exception = ex
++                        # Clean up the hook context after exception
++                        if record_id in _hook_contexts:
++                            del _hook_contexts[record_id]
++                else:
++                    # Create a new record for the exception
++                    records.add_new_record_exception(
++                        initiator, 
++                        group, 
++                        str(url), 
++                        ex
++                    )
+             raise
+ 
+     return hook
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	2026-09-22 03:40:59
++++ b/httpdbg/hooks/recordhttp2.py	2026-09-22 03:42:42
+@@ -51,31 +51,35 @@
+                 # Try to parse headers from raw data - this is a simplified approach
+                 # In practice, HTTP/2 headers would be parsed from binary frames
+                 # For now, we'll assume they've been captured in the raw headers format
+-                header_lines = self.rawheaders.split(b"\r\n")
+-                for line in header_lines:
+-                    if not line:
+-                        continue
+-                    # Process each header line
+-                    if line.startswith(b":"):  # This is a pseudo-header
+-                        # Pseudo-headers have special handling
+-                        parts = line.split(b":", 1)
+-                        if len(parts) == 2:
+-                            name = parts[0].decode().strip()[1:]  # Remove the leading ':'
+-                            value = parts[1].decode().strip()
+-                            # Store pseudo-headers in the headers list
+-                            self._headers.append(
+-                                HTTPDBGHeader(name, value)
+-                            )
+-                    else:
+-                        # Regular header
+-                        sh = line.split(b":", 1)
+-                        if len(sh) == 2:
+-                            name = sh[0].decode().strip()
+-                            value = sh[1].decode().strip()
+-                            if name:
++                try:
++                    header_lines = self.rawheaders.split(b"\r\n")
++                    for line in header_lines:
++                        if not line:
++                            continue
++                        # Process each header line
++                        if line.startswith(b":"):  # This is a pseudo-header
++                            # Pseudo-headers have special handling
++                            parts = line.split(b":", 1)
++                            if len(parts) == 2:
++                                name = parts[0].decode().strip()[1:]  # Remove the leading ':'
++                                value = parts[1].decode().strip()
++                                # Store pseudo-headers in the headers list
+                                 self._headers.append(
+                                     HTTPDBGHeader(name, value)
+                                 )
++                        else:
++                            # Regular header
++                            sh = line.split(b":", 1)
++                            if len(sh) == 2:
++                                name = sh[0].decode().strip()
++                                value = sh[1].decode().strip()
++                                if name:
++                                    self._headers.append(
++                                        HTTPDBGHeader(name, value)
++                                    )
++                except Exception:
++                    # If parsing fails, return empty headers to avoid breaking
++                    self._headers = []
+         return self._headers
+ 
+     @property
+@@ -278,7 +282,7 @@
+             else:
+                 # Fallback to the URL that was passed to the constructor
+                 # This ensures we have a valid URL even if we can't construct it properly
+-                self._url = "http://placeholder.example.com"
++                self._url = self._url or "http://placeholder.example.com"
+         return self._url
+ 
+     @url.setter

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/httpdbg/hooks/httpx.py</location>
+        <description>The HTTPX hooks are not properly detecting when to create HTTP2Record objects. The current implementation creates HTTP2Record instances but doesn't ensure they are correctly populated with HTTP/2 specific data and properly tracked for subsequent processing. Tests show that HTTP2Record objects are being created but with incorrect data or properties.</description>
+        <contract>Modify the HTTPX hook functions to ensure HTTP2Record objects are created with correct URL, method, and protocol information when HTTP/2 requests are made. The hook should detect HTTP/2 context and ensure the correct record type is used for both successful requests and exceptions.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_cookies, test_h2_client_not_found, test_h2_client_many_requests, test_h2_client_many_requests_session, test_h2_client_redirect, test_h2_server, test_h2_server_only, test_h2_server_request, test_h2_server_response</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/records.py</location>
+        <description>The add_new_record_exception method doesn't reliably determine if a request should be classified as HTTP/2. It looks for existing records with same initiator/group but this logic fails when the record hasn't been created yet. This leads to wrong record types being created for exceptions.</description>
+        <contract>Update the add_new_record_exception method to properly detect HTTP/2 requests based on context and ensure that HTTP2Record objects are created for HTTP/2 exceptions, not HTTP1Record objects.</contract>
+        <acceptance>test_h2_client_not_found, test_h2_client_redirect, test_h2_server_request, test_h2_server_response</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/hooks/http2.py</location>
+        <description>The HTTP/2 hooks are not properly integrated with the HTTPX hooks. There's a conflict in the hooking process where both HTTPX and HTTP/2 hooks are trying to intercept the same calls, leading to incorrect record creation or overwriting.</description>
+        <contract>Ensure that HTTP/2 hooks properly integrate with HTTPX hooks by detecting HTTP/2 requests and creating appropriate HTTP2Record objects. The hook order should be correct to avoid conflicts and ensure proper HTTP/2 detection.</contract>
+        <acceptance>test_h2, test_h2_client_asyncclient, test_h2_server, test_h2_server_only</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/hooks/recordhttp1.py</location>
+        <description>HTTP2RecordRequest and HTTP2RecordResponse classes need proper initialization and property handling for HTTP/2 specific data. The current implementation has incomplete HTTP/2 parsing capabilities compared to HTTP/1 equivalents.</description>
+        <contract>Improve HTTP2RecordRequest and HTTP2RecordResponse classes to properly handle HTTP/2 specific headers, content, and metadata. Ensure they correctly populate properties like method, uri, protocol, status_code, and message.</contract>
+        <acceptance>test_h2_request, test_h2_response, test_h2_server_request, test_h2_server_response</acceptance>
+    </item>
+    <item>
+        <location>/app/code/httpdbg/hooks/httpx.py</location>
+        <description>The HTTPX hooks don't properly extract and set HTTP method and URL for HTTP/2 requests. This causes issues when creating HTTP2Record objects because essential fields are not populated correctly.</description>
+        <contract>Modify HTTPX hooks to correctly extract URL and HTTP method from arguments when creating HTTP2Record objects. Ensure that method information is properly stored in the record's request object.</contract>
+        <acceptance>test_h2, test_h2_request, test_h2_response, test_h2_client_not_found</acceptance>
+    </item>
+</requirement>

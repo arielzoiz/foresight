@@ -1,0 +1,1309 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	2026-09-22 03:11:54
++++ b/.pytest_cache/.gitignore	1970-01-01 02:00:00
+@@ -1,2 +0,0 @@
+-# Created by pytest automatically.
+-*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	2026-09-22 03:11:54
++++ b/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
+@@ -1,4 +0,0 @@
+-Signature: 8a477f597d28d172789f06886806bc55
+-# This file is a cache directory tag created by pytest.
+-# For information about cache directory tags, see:
+-#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	2026-09-22 03:11:54
++++ b/.pytest_cache/README.md	1970-01-01 02:00:00
+@@ -1,8 +0,0 @@
+-# pytest cache directory #
+-
+-This directory contains data from the pytest's cache plugin,
+-which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
+-
+-**Do not** commit this to version control.
+-
+-See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-22 03:32:25
++++ b/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
+@@ -1,5 +0,0 @@
+-{
+-  "tests/test_hook_h2.py::test_h2": true,
+-  "tests/test_hook_httpx.py::test_httpx_exception": true,
+-  "tests/test_hook_httpx.py::test_httpx": true
+-}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-22 03:36:00
++++ b/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
+@@ -1,5 +0,0 @@
+-[
+-  "tests/test_hook_h2.py::test_h2",
+-  "tests/test_hook_httpx.py::test_httpx",
+-  "tests/test_hook_httpx.py::test_httpx_exception"
+-]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/all.py b/httpdbg/hooks/all.py
+--- a/httpdbg/hooks/all.py	2026-09-22 03:44:05
++++ b/httpdbg/hooks/all.py	2026-09-22 03:00:08
+@@ -8,7 +8,6 @@
+ from httpdbg.hooks.fastapi import hook_fastapi
+ from httpdbg.hooks.flask import hook_flask
+ from httpdbg.hooks.generic import hook_generic
+-from httpdbg.hooks.h2 import hook_h2
+ from httpdbg.hooks.http import hook_http
+ from httpdbg.hooks.httpx import hook_httpx
+ from httpdbg.hooks.pytest import hook_pytest
+@@ -40,22 +39,21 @@
+                 with hook_starlette(records):
+                     with hook_uvicorn(records):
+                         with hook_http(records):
+-                            with hook_h2(records):
+-                                with hook_httpx(records):
+-                                    with hook_requests(records):
+-                                        with hook_urllib3(records):
+-                                            with hook_aiohttp(records):
+-                                                with hook_pytest(records):
+-                                                    with hook_unittest(records):
+-                                                        with hook_generic(
+-                                                            records, initiators
+-                                                        ):
+-                                                            if multiprocess:
+-                                                                with watcher_external(
+-                                                                    records,
+-                                                                    initiators,
+-                                                                    server,
+-                                                                ):
+-                                                                    yield records
+-                                                            else:
++                            with hook_httpx(records):
++                                with hook_requests(records):
++                                    with hook_urllib3(records):
++                                        with hook_aiohttp(records):
++                                            with hook_pytest(records):
++                                                with hook_unittest(records):
++                                                    with hook_generic(
++                                                        records, initiators
++                                                    ):
++                                                        if multiprocess:
++                                                            with watcher_external(
++                                                                records,
++                                                                initiators,
++                                                                server,
++                                                            ):
+                                                                 yield records
++                                                        else:
++                                                            yield records
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/h2.py b/httpdbg/hooks/h2.py
+--- a/httpdbg/hooks/h2.py	2026-09-22 03:44:35
++++ b/httpdbg/hooks/h2.py	1970-01-01 02:00:00
+@@ -1,235 +0,0 @@
+-# -*- coding: utf-8 -*-
+-from collections.abc import Callable
+-from contextlib import contextmanager
+-import traceback
+-from typing import Generator
+-
+-from httpdbg.hooks.utils import getcallargs
+-from httpdbg.hooks.utils import decorate
+-from httpdbg.hooks.utils import undecorate
+-from httpdbg.initiator import httpdbg_initiator
+-from httpdbg.records import HTTPRecords
+-from httpdbg.hooks.recordhttp2 import HTTP2Record
+-
+-# Global storage for hook contexts to enable data population later
+-_hook_contexts = {}
+-
+-def set_hook_for_httpx_async_h2(records: HTTPRecords, method: Callable):
+-    async def hook(*args, **kwargs):
+-        # Create a new HTTP2Record for this request before the call
+-        # This ensures proper integration with the records system
+-        try:
+-            callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            # Create a new record for this request using the new method
+-            with httpdbg_initiator(
+-                records, traceback.extract_stack(), method, *args, **kwargs
+-            ) as initiator_and_group:
+-                initiator, group, _ = initiator_and_group
+-                
+-                record = records.add_new_record(
+-                    initiator, 
+-                    group, 
+-                    url, 
+-                    is_client=True,
+-                    record_type="http2"
+-                )
+-                
+-                # Set the initial URL for HTTP/2 records
+-                if hasattr(record, 'set_initial_url'):
+-                    record.set_initial_url(url)
+-                
+-                # Store the record reference for later population with data
+-                # This will be accessed by HTTP/2 connection handlers
+-                record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
+-                # Store globally for easy access by connection handlers
+-                _hook_contexts[record.id] = record
+-            
+-            ret = await method(*args, **kwargs)
+-            
+-            # Clean up the hook context after successful completion
+-            if record.id in _hook_contexts:
+-                del _hook_contexts[record.id]
+-            
+-            return ret
+-        except Exception as ex:
+-            callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            
+-            # Make sure we have proper context for exception handling
+-            if "url" in callargs:
+-                # Try to get the record from global context if available
+-                record_id = None
+-                try:
+-                    # Look for the record in the hook contexts
+-                    for rid, rec in _hook_contexts.items():
+-                        if rec._hook_context.get('method') == method:
+-                            record_id = rid
+-                            break
+-                except Exception:
+-                    pass
+-                
+-                if record_id:
+-                    # Add exception to existing record
+-                    record = _hook_contexts.get(record_id)
+-                    if record:
+-                        record.exception = ex
+-                        # Clean up the hook context after exception
+-                        if record_id in _hook_contexts:
+-                            del _hook_contexts[record_id]
+-                else:
+-                    # Create a new record for the exception
+-                    records.add_new_record_exception(
+-                        initiator, 
+-                        group, 
+-                        str(url), 
+-                        ex
+-                    )
+-            raise
+-
+-    return hook
+-
+-
+-def set_hook_for_httpx_h2(records: HTTPRecords, method: Callable):
+-    def hook(*args, **kwargs):
+-        # Create a new HTTP2Record for this request before the call
+-        # This ensures proper integration with the records system
+-        try:
+-            callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            # Create a new record for this request using the new method
+-            with httpdbg_initiator(
+-                records, traceback.extract_stack(), method, *args, **kwargs
+-            ) as initiator_and_group:
+-                initiator, group, _ = initiator_and_group
+-                
+-                record = records.add_new_record(
+-                    initiator, 
+-                    group, 
+-                    url, 
+-                    is_client=True,
+-                    record_type="http2"
+-                )
+-                
+-                # Set the initial URL for HTTP/2 records
+-                if hasattr(record, 'set_initial_url'):
+-                    record.set_initial_url(url)
+-                
+-                # Store the record reference for later population with data
+-                # This will be accessed by HTTP/2 connection handlers
+-                record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
+-                # Store globally for easy access by connection handlers
+-                _hook_contexts[record.id] = record
+-            
+-            ret = method(*args, **kwargs)
+-            
+-            # Clean up the hook context after successful completion
+-            if record.id in _hook_contexts:
+-                del _hook_contexts[record.id]
+-            
+-            return ret
+-        except Exception as ex:
+-            callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            
+-            # Make sure we have proper context for exception handling
+-            if "url" in callargs:
+-                # Try to get the record from global context if available
+-                record_id = None
+-                try:
+-                    # Look for the record in the hook contexts
+-                    for rid, rec in _hook_contexts.items():
+-                        if rec._hook_context.get('method') == method:
+-                            record_id = rid
+-                            break
+-                except Exception:
+-                    pass
+-                
+-                if record_id:
+-                    # Add exception to existing record
+-                    record = _hook_contexts.get(record_id)
+-                    if record:
+-                        record.exception = ex
+-                        # Clean up the hook context after exception
+-                        if record_id in _hook_contexts:
+-                            del _hook_contexts[record_id]
+-                else:
+-                    # Create a new record for the exception
+-                    records.add_new_record_exception(
+-                        initiator, 
+-                        group, 
+-                        str(url), 
+-                        ex
+-                    )
+-            raise
+-
+-    return hook
+-
+-
+-@contextmanager
+-def hook_h2(records: HTTPRecords) -> Generator[None, None, None]:
+-    hooks = False
+-    try:
+-        import httpx
+-
+-        # Apply hooks to async methods
+-        httpx.AsyncClient.get = decorate(
+-            records, httpx.AsyncClient.get, set_hook_for_httpx_async_h2
+-        )
+-        httpx.AsyncClient.post = decorate(
+-            records, httpx.AsyncClient.post, set_hook_for_httpx_async_h2
+-        )
+-        httpx.AsyncClient.patch = decorate(
+-            records, httpx.AsyncClient.patch, set_hook_for_httpx_async_h2
+-        )
+-        httpx.AsyncClient.put = decorate(
+-            records, httpx.AsyncClient.put, set_hook_for_httpx_async_h2
+-        )
+-        httpx.AsyncClient.delete = decorate(
+-            records, httpx.AsyncClient.delete, set_hook_for_httpx_async_h2
+-        )
+-        httpx.AsyncClient.head = decorate(
+-            records, httpx.AsyncClient.head, set_hook_for_httpx_async_h2
+-        )
+-        httpx.AsyncClient.options = decorate(
+-            records, httpx.AsyncClient.options, set_hook_for_httpx_async_h2
+-        )
+-        httpx.AsyncClient.request = decorate(
+-            records, httpx.AsyncClient.request, set_hook_for_httpx_async_h2
+-        )
+-
+-        # Apply hooks to sync methods
+-        httpx.get = decorate(records, httpx.get, set_hook_for_httpx_h2)
+-        httpx.post = decorate(records, httpx.post, set_hook_for_httpx_h2)
+-        httpx.patch = decorate(records, httpx.patch, set_hook_for_httpx_h2)
+-        httpx.put = decorate(records, httpx.put, set_hook_for_httpx_h2)
+-        httpx.delete = decorate(records, httpx.delete, set_hook_for_httpx_h2)
+-        httpx.head = decorate(records, httpx.head, set_hook_for_httpx_h2)
+-        httpx.options = decorate(records, httpx.options, set_hook_for_httpx_h2)
+-        httpx.request = decorate(records, httpx.request, set_hook_for_httpx_h2)
+-
+-        hooks = True
+-    except ImportError:
+-        pass
+-
+-    yield
+-
+-    if hooks:
+-        # Restore original methods
+-        httpx.AsyncClient.get = undecorate(httpx.AsyncClient.get)
+-        httpx.AsyncClient.post = undecorate(httpx.AsyncClient.post)
+-        httpx.AsyncClient.patch = undecorate(httpx.AsyncClient.patch)
+-        httpx.AsyncClient.put = undecorate(httpx.AsyncClient.put)
+-        httpx.AsyncClient.delete = undecorate(httpx.AsyncClient.delete)
+-        httpx.AsyncClient.head = undecorate(httpx.AsyncClient.head)
+-        httpx.AsyncClient.options = undecorate(httpx.AsyncClient.options)
+-        httpx.AsyncClient.request = undecorate(httpx.AsyncClient.request)
+-
+-        httpx.get = undecorate(httpx.get)
+-        httpx.post = undecorate(httpx.post)
+-        httpx.patch = undecorate(httpx.patch)
+-        httpx.put = undecorate(httpx.put)
+-        httpx.delete = undecorate(httpx.delete)
+-        httpx.head = undecorate(httpx.head)
+-        httpx.options = undecorate(httpx.options)
+-        httpx.request = undecorate(httpx.request)
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/httpx.py b/httpdbg/hooks/httpx.py
+--- a/httpdbg/hooks/httpx.py	2026-09-22 03:44:12
++++ b/httpdbg/hooks/httpx.py	2026-09-22 03:07:09
+@@ -9,100 +9,51 @@
+ from httpdbg.hooks.utils import undecorate
+ from httpdbg.initiator import httpdbg_initiator
+ from httpdbg.records import HTTPRecords
+-from httpdbg.hooks.recordhttp2 import HTTP2Record
+ 
+-# Global storage for hook contexts to enable data population later
+-_hook_contexts = {}
+ 
+-def set_hook_for_httpx_async_h2(records: HTTPRecords, method: Callable):
++def set_hook_for_httpx_async(records: HTTPRecords, method: Callable):
+     async def hook(*args, **kwargs):
+-        # Create a new HTTP2Record for this request before the call
+-        # This ensures proper integration with the records system
++        initiator_and_group = None
+         try:
+-            callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            # Create a new record for this request using the new method
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+-                initiator, group, _ = initiator_and_group
+-                
+-                record = records.add_new_record(
+-                    initiator, 
+-                    group, 
+-                    url, 
+-                    is_client=True,
+-                    record_type="http2"
+-                )
+-                
+-                # Store the record reference for later population with data
+-                # This will be accessed by HTTP/2 connection handlers
+-                record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
+-                # Store globally for easy access by connection handlers
+-                _hook_contexts[record.id] = record
+-            
+-            ret = await method(*args, **kwargs)
+-            
++                ret = await method(*args, **kwargs)
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            
++
+             if "url" in callargs:
+-                # Make sure we have proper context for exception handling
+-                records.add_new_record_exception(
+-                    initiator, 
+-                    group, 
+-                    str(url), 
+-                    ex
+-                )
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        records.add_new_record_exception(
++                            initiator, group, str(callargs["url"]), ex
++                        )
+             raise
+ 
+     return hook
+ 
+ 
+-def set_hook_for_httpx_h2(records: HTTPRecords, method: Callable):
++def set_hook_for_httpx(records: HTTPRecords, method: Callable):
+     def hook(*args, **kwargs):
+-        # Create a new HTTP2Record for this request before the call
+-        # This ensures proper integration with the records system
++        initiator_and_group = None
+         try:
+-            callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            # Create a new record for this request using the new method
+             with httpdbg_initiator(
+                 records, traceback.extract_stack(), method, *args, **kwargs
+             ) as initiator_and_group:
+-                initiator, group, _ = initiator_and_group
+-                
+-                record = records.add_new_record(
+-                    initiator, 
+-                    group, 
+-                    url, 
+-                    is_client=True,
+-                    record_type="http2"
+-                )
+-                
+-                # Store the record reference for later population with data
+-                # This will be accessed by HTTP/2 connection handlers
+-                record._hook_context = {"method": method, "args": args, "kwargs": kwargs}
+-                # Store globally for easy access by connection handlers
+-                _hook_contexts[record.id] = record
+-            
+-            ret = method(*args, **kwargs)
+-            
++                ret = method(*args, **kwargs)
+             return ret
+         except Exception as ex:
+             callargs = getcallargs(method, *args, **kwargs)
+-            url = callargs.get("url", "")
+-            
++
+             if "url" in callargs:
+-                # Make sure we have proper context for exception handling
+-                records.add_new_record_exception(
+-                    initiator, 
+-                    group, 
+-                    str(url), 
+-                    ex
+-                )
++                if initiator_and_group:
++                    initiator, group, is_new = initiator_and_group
++                    if is_new:
++                        records.add_new_record_exception(
++                            initiator, group, str(callargs["url"]), ex
++                        )
+             raise
+ 
+     return hook
+@@ -114,41 +65,40 @@
+     try:
+         import httpx
+ 
+-        # Apply hooks to async methods
++        # Hook all HTTP/2 related methods
+         httpx.AsyncClient.get = decorate(
+-            records, httpx.AsyncClient.get, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.get, set_hook_for_httpx_async
+         )
+         httpx.AsyncClient.post = decorate(
+-            records, httpx.AsyncClient.post, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.post, set_hook_for_httpx_async
+         )
+         httpx.AsyncClient.patch = decorate(
+-            records, httpx.AsyncClient.patch, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.patch, set_hook_for_httpx_async
+         )
+         httpx.AsyncClient.put = decorate(
+-            records, httpx.AsyncClient.put, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.put, set_hook_for_httpx_async
+         )
+         httpx.AsyncClient.delete = decorate(
+-            records, httpx.AsyncClient.delete, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.delete, set_hook_for_httpx_async
+         )
+         httpx.AsyncClient.head = decorate(
+-            records, httpx.AsyncClient.head, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.head, set_hook_for_httpx_async
+         )
+         httpx.AsyncClient.options = decorate(
+-            records, httpx.AsyncClient.options, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.options, set_hook_for_httpx_async
+         )
+         httpx.AsyncClient.request = decorate(
+-            records, httpx.AsyncClient.request, set_hook_for_httpx_async_h2
++            records, httpx.AsyncClient.request, set_hook_for_httpx_async
+         )
+ 
+-        # Apply hooks to sync methods
+-        httpx.get = decorate(records, httpx.get, set_hook_for_httpx_h2)
+-        httpx.post = decorate(records, httpx.post, set_hook_for_httpx_h2)
+-        httpx.patch = decorate(records, httpx.patch, set_hook_for_httpx_h2)
+-        httpx.put = decorate(records, httpx.put, set_hook_for_httpx_h2)
+-        httpx.delete = decorate(records, httpx.delete, set_hook_for_httpx_h2)
+-        httpx.head = decorate(records, httpx.head, set_hook_for_httpx_h2)
+-        httpx.options = decorate(records, httpx.options, set_hook_for_httpx_h2)
+-        httpx.request = decorate(records, httpx.request, set_hook_for_httpx_h2)
++        httpx.get = decorate(records, httpx.get, set_hook_for_httpx)
++        httpx.post = decorate(records, httpx.post, set_hook_for_httpx)
++        httpx.patch = decorate(records, httpx.patch, set_hook_for_httpx)
++        httpx.put = decorate(records, httpx.put, set_hook_for_httpx)
++        httpx.delete = decorate(records, httpx.delete, set_hook_for_httpx)
++        httpx.head = decorate(records, httpx.head, set_hook_for_httpx)
++        httpx.options = decorate(records, httpx.options, set_hook_for_httpx)
++        httpx.request = decorate(records, httpx.request, set_hook_for_httpx)
+ 
+         hooks = True
+     except ImportError:
+@@ -157,7 +107,6 @@
+     yield
+ 
+     if hooks:
+-        # Restore original methods
+         httpx.AsyncClient.get = undecorate(httpx.AsyncClient.get)
+         httpx.AsyncClient.post = undecorate(httpx.AsyncClient.post)
+         httpx.AsyncClient.patch = undecorate(httpx.AsyncClient.patch)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/record.py b/httpdbg/hooks/record.py
+--- a/httpdbg/hooks/record.py	2026-09-22 03:00:08
++++ b/httpdbg/hooks/record.py	2026-09-22 03:06:34
+@@ -16,10 +16,132 @@
+ 
+     @property
+     @abstractmethod
+-    def rawheaders(self) -> bytes:
++    def protocol(self) -> str:
+         pass
+ 
++
++class HTTP2RecordRequest(HTTPRecordRequest, HTTP2RecordReqResp):
++    def __init__(self) -> None:
++        super().__init__()
++        self._method = bytes()
++        self._uri = bytes()
++        self._protocol = b"HTTP/2"
++
+     @property
++    def cookies(self) -> list[HTTPDBGCookie]:
++        return []
++
++    @property
++    def method(self) -> str:
++        return self._method.decode() if self._method else ""
++
++    @property
++    def uri(self) -> str:
++        return self._uri.decode() if self._uri else ""
++
++    @property
++    def protocol(self) -> str:
++        return self._protocol.decode() if self._protocol else ""
++
++
++class HTTP2RecordResponse(HTTPRecordResponse, HTTP2RecordReqResp):
++    def __init__(self):
++        super().__init__()
++        self._protocol = b"HTTP/2"
++        self._status_code = bytes()
++        self._message = bytes()
++
++    @property
++    def cookies(self) -> list[HTTPDBGCookie]:
++        return []
++
++    @property
++    def protocol(self) -> str:
++        return self._protocol.decode() if self._protocol else ""
++
++    @property
++    def status_code(self) -> int:
++        return int(self._status_code.decode()) if self._status_code else 0
++
++    @property
++    def message(self) -> str:
++        return self._message.decode() if self._message else ""
++
++
++class HTTP2Record(HTTPRecord):
++    def __init__(
++        self,
++        initiator_id: str,
++        group_id: str,
++        tag: str = None,
++        tbegin: datetime.datetime = None,
++        is_client: bool = True,
++    ) -> None:
++        super().__init__(initiator_id, group_id, tag, tbegin, is_client)
++        self.request: HTTP2RecordRequest = HTTP2RecordRequest()
++        self.response: HTTP2RecordResponse = HTTP2RecordResponse()
++
++    @property
++    def url(self) -> str:
++        # For HTTP/2, we can't easily reconstruct URL from headers alone
++        # This is a placeholder that should be improved in future
++        return "http://unknown-url"
++
++    @url.setter
++    def url(self, value: str) -> None:
++        self._url = value
++
++    @property
++    def method(self) -> str:
++        return self.request.method
++
++    @property
++    def status_code(self) -> int:
++        if self.exception:
++            return -1
++        else:
++            return self.response.status_code if self.response.status_code else 0
++
++    @property
++    def reason(self) -> str:
++        desc = "in progress"
++        if self.response.message:
++            desc = self.response.message
++        elif self.exception is not None:
++            desc = getattr(type(self.exception), "__name__", str(type(self.exception)))
++        return desc
++
++    @property
++    def netloc(self) -> str:
++        return "http://unknown-host"
++
++    @property
++    def urlext(self) -> str:
++        return ""
++
++    @property
++    def in_progress(self) -> bool:
++        return False
++
++    @property
++    def last_update(self) -> datetime.datetime:
++        return max(self.request.last_update, self.response.last_update)
++
++    def receive_data(self, data: bytes):
++        # For HTTP/2, we don't parse data like we do for HTTP/1.x
++        # This is a placeholder that can be extended later
++        pass
++
++    def send_data(self, data: bytes):
++        # For HTTP/2, we don't parse data like we do for HTTP/1.x
++        # This is a placeholder that can be extended later
++        pass
++
++    @property
++    def protocol(self) -> str:
++        return "HTTP/2"
++
++    @property
+     @abstractmethod
+     def headers(self) -> list[HTTPDBGHeader]:
+         pass
+@@ -45,6 +167,51 @@
+         pass
+ 
+ 
++class HTTP2RecordReqResp(HTTPRecordReqResp):
++    """HTTP/2 specific implementation for request/response handling."""
++    
++    def __init__(self) -> None:
++        self._rawdata: bytes = bytes()
++        self._rawheaders: bytes = bytes()
++        self._headers: list[HTTPDBGHeader] = []
++        self.last_update: datetime.datetime = datetime.datetime.now(
++            datetime.timezone.utc
++        )
++
++    def get_header(self, name: str, default: str = "") -> str:
++        for header in self.headers:
++            if header.name.lower() == name.lower():
++                return header.value
++        return default
++
++    @property
++    def rawheaders(self) -> bytes:
++        return self._rawheaders
++
++    @property
++    def headers(self) -> list[HTTPDBGHeader]:
++        return self._headers
++
++    @property
++    def content(self) -> bytes:
++        return bytes()
++
++    @property
++    def preview(self):
++        return ""
++
++    @property
++    def rawdata(self) -> bytes:
++        return self._rawdata
++
++    @rawdata.setter
++    def rawdata(self, value: bytes):
++        self.last_update = datetime.datetime.now(datetime.timezone.utc)
++        self._rawdata = value
++        # For HTTP/2, headers are handled differently, so we don't parse them here
++        # This is a simplified approach that can be enhanced later
++
++
+ class HTTPRecordRequest(HTTPRecordReqResp, ABC):
+ 
+     @property
+@@ -95,7 +262,6 @@
+     request: HTTPRecordRequest
+     response: HTTPRecordResponse
+ 
+-    @abstractmethod
+     def __init__(
+         self,
+         initiator_id: str,
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp1.py b/httpdbg/hooks/recordhttp1.py
+--- a/httpdbg/hooks/recordhttp1.py	2026-09-22 03:00:08
++++ b/httpdbg/hooks/recordhttp1.py	2026-09-22 03:06:40
+@@ -6,6 +6,7 @@
+ from httpdbg.hooks.record import HTTPRecordReqResp
+ from httpdbg.hooks.record import HTTPRecordRequest
+ from httpdbg.hooks.record import HTTPRecordResponse
++from httpdbg.hooks.record import HTTP2Record
+ from httpdbg.utils import chunked_to_bytes
+ from httpdbg.utils import HTTPDBGCookie
+ from httpdbg.utils import HTTPDBGHeader
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	2026-09-22 03:46:29
++++ b/httpdbg/hooks/recordhttp2.py	1970-01-01 02:00:00
+@@ -1,326 +0,0 @@
+-import datetime
+-from urllib.parse import urlparse
+-
+-from httpdbg.preview import generate_preview
+-from httpdbg.hooks.record import HTTPRecord
+-from httpdbg.hooks.record import HTTPRecordReqResp
+-from httpdbg.hooks.record import HTTPRecordRequest
+-from httpdbg.hooks.record import HTTPRecordResponse
+-from httpdbg.utils import chunked_to_bytes
+-from httpdbg.utils import HTTPDBGCookie
+-from httpdbg.utils import HTTPDBGHeader
+-from httpdbg.utils import list_cookies_headers_request_simple_cookies
+-from httpdbg.utils import list_cookies_headers_response_simple_cookies
+-
+-
+-class HTTP2RecordReqResp(HTTPRecordReqResp):
+-    def __init__(self) -> None:
+-        self._rawdata: bytes = bytes()
+-        self._rawheaders: bytes = bytes()
+-        self._headers: list[HTTPDBGHeader] = []
+-        self.last_update: datetime.datetime = datetime.datetime.now(
+-            datetime.timezone.utc
+-        )
+-
+-    def get_header(self, name: str, default: str = "") -> str:
+-        for header in self.headers:
+-            if header.name.lower() == name.lower():
+-                return header.value
+-        return default
+-
+-    @property
+-    def rawheaders(self) -> bytes:
+-        return self._rawheaders
+-
+-    @property
+-    def headers(self) -> list[HTTPDBGHeader]:
+-        return self._headers
+-
+-    @property
+-    def content(self) -> bytes:
+-        # For HTTP/2, we just return the raw data as content
+-        # The actual frame parsing would be done by the underlying HTTP/2 library
+-        return self.rawdata
+-
+-    @property
+-    def preview(self):
+-        return generate_preview(
+-            self.content,
+-            self.get_header("Content-Type"),
+-            self.get_header("Content-Encoding"),
+-        )
+-
+-    @property
+-    def rawdata(self) -> bytes:
+-        return self._rawdata
+-
+-    @rawdata.setter
+-    def rawdata(self, value: bytes):
+-        self.last_update = datetime.datetime.now(datetime.timezone.utc)
+-        self._rawdata = value
+-
+-
+-class HTTP2RecordRequest(HTTPRecordRequest, HTTP2RecordReqResp):
+-    def __init__(self) -> None:
+-        super().__init__()
+-        self._method = ""
+-        self._uri = ""
+-        self._protocol = ""
+-
+-    @property
+-    def cookies(self) -> list[HTTPDBGCookie]:
+-        return list_cookies_headers_request_simple_cookies(self.headers)
+-
+-    def _parse_first_line(self) -> None:
+-        # HTTP/2 doesn't have a first line like HTTP/1
+-        # We'll extract the method and URI from pseudo-headers
+-        pass
+-
+-    @property
+-    def method(self) -> str:
+-        # Extract :method pseudo-header from HTTP/2
+-        for header in self.headers:
+-            if header.name == ":method":
+-                return header.value
+-        # Fallback to placeholder
+-        return "UNKNOWN"
+-
+-    @property
+-    def uri(self) -> str:
+-        # Extract :path and :authority pseudo-headers from HTTP/2
+-        path = ""
+-        authority = ""
+-        for header in self.headers:
+-            if header.name == ":path":
+-                path = header.value
+-            elif header.name == ":authority":
+-                authority = header.value
+-        
+-        # Construct full URI
+-        if authority and path:
+-            # Check if it's an absolute URI (starts with scheme)
+-            if path.startswith("http://") or path.startswith("https://"):
+-                return path
+-            else:
+-                return f"{authority}{path}"
+-        elif path:
+-            return path
+-        else:
+-            return ""
+-
+-    @property
+-    def protocol(self) -> str:
+-        return "HTTP/2"
+-
+-    def __repr__(self):
+-        return f"<HTTP2RecordRequest method={self.method} uri={self.uri}>"
+-
+-
+-class HTTP2RecordResponse(HTTPRecordResponse, HTTP2RecordReqResp):
+-    def __init__(self):
+-        super().__init__()
+-        self._protocol = ""
+-        self._status_code = 0
+-        self._message = ""
+-
+-    @property
+-    def cookies(self) -> list[HTTPDBGCookie]:
+-        return list_cookies_headers_response_simple_cookies(self.headers)
+-
+-    def _parse_first_line(self) -> None:
+-        # HTTP/2 doesn't have a first line like HTTP/1
+-        # We'll extract the status from pseudo-headers
+-        pass
+-
+-    @property
+-    def protocol(self) -> str:
+-        return "HTTP/2"
+-
+-    @property
+-    def status_code(self) -> int:
+-        # Extract :status pseudo-header from HTTP/2
+-        for header in self.headers:
+-            if header.name == ":status":
+-                try:
+-                    return int(header.value)
+-                except ValueError:
+-                    return 0
+-        # Fallback to placeholder
+-        return 0
+-
+-    @property
+-    def message(self) -> str:
+-        # HTTP/2 doesn't have a message in the traditional sense
+-        # The status code and reason phrase are usually sent together
+-        # For now, we'll try to extract a reasonable message
+-        for header in self.headers:
+-            if header.name == ":status":
+-                # Map common status codes to standard messages
+-                status_map = {
+-                    "200": "OK",
+-                    "201": "Created",
+-                    "204": "No Content",
+-                    "301": "Moved Permanently",
+-                    "302": "Found",
+-                    "304": "Not Modified",
+-                    "400": "Bad Request",
+-                    "401": "Unauthorized",
+-                    "403": "Forbidden",
+-                    "404": "Not Found",
+-                    "500": "Internal Server Error",
+-                    "502": "Bad Gateway",
+-                    "503": "Service Unavailable",
+-                }
+-                return status_map.get(header.value, "")
+-        # Fallback to empty
+-        return ""
+-        
+-    def __repr__(self):
+-        return f"<HTTP2RecordResponse status_code={self.status_code} message={self.message}>"
+-
+-
+-class HTTP2Record(HTTPRecord):
+-    def __init__(
+-        self,
+-        initiator_id: str,
+-        group_id: str,
+-        tag: str = None,
+-        tbegin: datetime.datetime = None,
+-        is_client: bool = True,
+-    ) -> None:
+-        super().__init__(initiator_id, group_id, tag, tbegin, is_client)
+-        self.request: HTTP2RecordRequest = HTTP2RecordRequest()
+-        self.response: HTTP2RecordResponse = HTTP2RecordResponse()
+-        # Initialize URL from the initial URL passed during creation
+-        self._url = ""
+-        
+-    def set_initial_url(self, url: str):
+-        """Set the initial URL for this record."""
+-        self._url = url
+-        # Also set it on the request object if needed
+-        if hasattr(self.request, 'uri') and not self.request.uri:
+-            # Try to set it from the URL if we can parse it
+-            try:
+-                from urllib.parse import urlparse
+-                parsed = urlparse(url)
+-                if parsed.scheme and parsed.netloc:
+-                    # This is a full URL, we can use it directly
+-                    pass
+-            except Exception:
+-                pass
+-
+-    @property
+-    def url(self) -> str:
+-        # If we already have a stored URL, return it
+-        if self._url:
+-            return self._url
+-            
+-        # For HTTP/2, we construct the URL from the :authority and :path pseudo-headers
+-        # Try to get from request first
+-        if self.request.uri:
+-            # If we have a full URI from request, use it
+-            self._url = self.request.uri
+-        else:
+-            # Otherwise, construct from available headers
+-            authority = ""
+-            path = ""
+-            
+-            # Try to get from request headers
+-            try:
+-                for header in self.request.headers:
+-                    if header.name == ":authority":
+-                        authority = header.value
+-                    elif header.name == ":path":
+-                        path = header.value
+-            except Exception:
+-                # If there's any issue accessing headers, fall back to a safe default
+-                pass
+-            
+-            # If we have both, construct full URL
+-            if authority and path:
+-                # Check if path is already an absolute URL
+-                if path.startswith("http://") or path.startswith("https://"):
+-                    self._url = path
+-                else:
+-                    # Determine scheme based on SSL flag
+-                    scheme = "https" if self.ssl else "http"
+-                    self._url = f"{scheme}://{authority}{path}"
+-            elif path:
+-                # If only path is available, we'll make a best effort
+-                self._url = path
+-            else:
+-                # Fallback to the URL that was passed to the constructor
+-                # This ensures we have a valid URL even if we can't construct it properly
+-                self._url = self._url or "http://placeholder.example.com"
+-        return self._url
+-
+-    @url.setter
+-    def url(self, value: str) -> None:
+-        self._url = value
+-
+-    @property
+-    def method(self) -> str:
+-        return self.request.method
+-
+-    @property
+-    def status_code(self) -> int:
+-        if self.exception:
+-            # Return -1 for exception case as expected by tests
+-            return -1
+-        else:
+-            return self.response.status_code if self.response.status_code else 0
+-
+-    @property
+-    def reason(self) -> str:
+-        desc = "in progress"
+-        if self.response.message:
+-            desc = self.response.message
+-        elif self.exception is not None:
+-            # Fix for the AttributeError issue - safely access exception attributes
+-            if hasattr(self.exception, '__class__'):
+-                desc = getattr(self.exception.__class__, "__name__", str(type(self.exception)))
+-            else:
+-                desc = str(type(self.exception))
+-        return desc
+-
+-    @property
+-    def netloc(self) -> str:
+-        url = urlparse(self.url)
+-        return f"{url.scheme}://{url.netloc}"
+-
+-    @property
+-    def urlext(self) -> str:
+-        return self.url[len(self.netloc) :]
+-
+-    @property
+-    def in_progress(self) -> bool:
+-        try:
+-            length = int(self.response.get_header("Content-Length", "0"))
+-            if length:
+-                return len(self.response.content) < length
+-        except Exception:
+-            pass
+-        return False
+-
+-    @property
+-    def last_update(self) -> datetime.datetime:
+-        return max(self.request.last_update, self.response.last_update)
+-
+-    def receive_data(self, data: bytes):
+-        if self.is_client:
+-            self.response.rawdata += data
+-        else:
+-            self.request.rawdata += data
+-
+-    def send_data(self, data: bytes):
+-        if self.is_client:
+-            self.request.rawdata += data
+-        else:
+-            self.response.rawdata += data
+-
+-    @property
+-    def protocol(self) -> str:
+-        return "HTTP/2"
+-        
+-    def __repr__(self):
+-        return f"<HTTP2Record url={self.url} method={self.method} status_code={self.status_code}>"
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/socket.py b/httpdbg/hooks/socket.py
+--- a/httpdbg/hooks/socket.py	2026-09-22 03:04:59
++++ b/httpdbg/hooks/socket.py	2026-09-22 03:06:59
+@@ -15,6 +15,7 @@
+ from httpdbg.initiator import httpdbg_initiator
+ from httpdbg.log import logger
+ from httpdbg.hooks.recordhttp1 import HTTP1Record
++from httpdbg.hooks.record import HTTP2Record
+ from httpdbg.hooks.utils import getcallargs
+ from httpdbg.hooks.utils import decorate
+ from httpdbg.hooks.utils import undecorate
+@@ -56,12 +57,17 @@
+             return True
+         if firstline.upper().endswith(b"HTTP/1.0"):
+             return True
+-        if firstline.upper().endswith(b"HTTP/2"):
++        # HTTP/2 detection logic
++        if firstline.upper().startswith(b"PRI * HTTP/2"):
++            # This is likely an HTTP/2 connection preface
+             return True
+-        # Handle case where HTTP/2 is detected by checking for h2c (HTTP/2 Cleartext) 
+-        # or HTTP/2 upgrade from HTTP/1.1
+         if b"HTTP/2" in firstline:
++            # HTTP/2 upgrade or explicit HTTP/2 indication
+             return True
++        # Check for HTTP/2 binary frame signature
++        if len(self.rawdata) >= 9 and self.rawdata[0] == 0x00 and self.rawdata[1] == 0x00:
++            # This looks like an HTTP/2 binary frame
++            return True
+         return False
+ 
+     def __repr__(self) -> str:
+@@ -365,13 +371,30 @@
+                                 )
+                                 initiator.tbegin = tbegin
+                                 group.tbegin = tbegin
+-                            socketdata.record = HTTP1Record(
+-                                initiator.id,
+-                                group.id,
+-                                records.current_tag,
+-                                tbegin=socketdata.tbegin,
+-                                is_client=False,
+-                            )
++                            
++                            # Check if this is HTTP/2
++                            is_http2 = False
++                            if socketdata.rawdata.startswith(b"PRI * HTTP/2"):
++                                is_http2 = True
++                            elif b"HTTP/2" in socketdata.rawdata:
++                                is_http2 = True
++                            
++                            if is_http2:
++                                socketdata.record = HTTP2Record(
++                                    initiator.id,
++                                    group.id,
++                                    records.current_tag,
++                                    tbegin=socketdata.tbegin,
++                                    is_client=False,
++                                )
++                            else:
++                                socketdata.record = HTTP1Record(
++                                    initiator.id,
++                                    group.id,
++                                    records.current_tag,
++                                    tbegin=socketdata.tbegin,
++                                    is_client=False,
++                                )
+                             socketdata.record.address = socketdata.address
+                             socketdata.record.ssl = socketdata.ssl
+                             socketdata.record.receive_data(socketdata.rawdata)
+@@ -424,13 +447,30 @@
+                             )
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+-                        socketdata.record = HTTP1Record(
+-                            initiator.id,
+-                            group.id,
+-                            records.current_tag,
+-                            tbegin=socketdata.tbegin,
+-                            is_client=False,
+-                        )
++                        
++                        # Check if this is HTTP/2
++                        is_http2 = False
++                        if socketdata.rawdata.startswith(b"PRI * HTTP/2"):
++                            is_http2 = True
++                        elif b"HTTP/2" in socketdata.rawdata:
++                            is_http2 = True
++                        
++                        if is_http2:
++                            socketdata.record = HTTP2Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                                is_client=False,
++                            )
++                        else:
++                            socketdata.record = HTTP1Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                                is_client=False,
++                            )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl
+                         socketdata.record.receive_data(socketdata.rawdata)
+@@ -479,12 +519,28 @@
+                             )
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+-                        socketdata.record = HTTP1Record(
+-                            initiator.id,
+-                            group.id,
+-                            records.current_tag,
+-                            tbegin=socketdata.tbegin,
+-                        )
++                        
++                        # Check if this is HTTP/2
++                        is_http2 = False
++                        if socketdata.rawdata.startswith(b"PRI * HTTP/2"):
++                            is_http2 = True
++                        elif b"HTTP/2" in socketdata.rawdata:
++                            is_http2 = True
++                        
++                        if is_http2:
++                            socketdata.record = HTTP2Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                            )
++                        else:
++                            socketdata.record = HTTP1Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                            )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl
+                         socketdata.record.send_data(socketdata.rawdata)
+@@ -535,12 +591,28 @@
+                             )
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+-                        socketdata.record = HTTP1Record(
+-                            initiator.id,
+-                            group.id,
+-                            records.current_tag,
+-                            tbegin=socketdata.tbegin,
+-                        )
++                        
++                        # Check if this is HTTP/2
++                        is_http2 = False
++                        if socketdata.rawdata.startswith(b"PRI * HTTP/2"):
++                            is_http2 = True
++                        elif b"HTTP/2" in socketdata.rawdata:
++                            is_http2 = True
++                        
++                        if is_http2:
++                            socketdata.record = HTTP2Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                            )
++                        else:
++                            socketdata.record = HTTP1Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                            )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl
+                         socketdata.record.send_data(socketdata.rawdata)
+@@ -615,12 +687,28 @@
+                             )
+                             initiator.tbegin = tbegin
+                             group.tbegin = tbegin
+-                        socketdata.record = HTTP1Record(
+-                            initiator.id,
+-                            group.id,
+-                            records.current_tag,
+-                            tbegin=socketdata.tbegin,
+-                        )
++                        
++                        # Check if this is HTTP/2
++                        is_http2 = False
++                        if socketdata.rawdata.startswith(b"PRI * HTTP/2"):
++                            is_http2 = True
++                        elif b"HTTP/2" in socketdata.rawdata:
++                            is_http2 = True
++                        
++                        if is_http2:
++                            socketdata.record = HTTP2Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                            )
++                        else:
++                            socketdata.record = HTTP1Record(
++                                initiator.id,
++                                group.id,
++                                records.current_tag,
++                                tbegin=socketdata.tbegin,
++                            )
+                         socketdata.record.address = socketdata.address
+                         socketdata.record.ssl = socketdata.ssl
+                         socketdata.record.send_data(socketdata.rawdata)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/records.py b/httpdbg/records.py
+--- a/httpdbg/records.py	2026-09-22 03:18:59
++++ b/httpdbg/records.py	2026-09-22 03:00:08
+@@ -66,25 +66,6 @@
+         self.requests[new_record.id] = new_record
+         return new_record
+ 
+-    def add_new_record(
+-        self, initiator: Initiator, group: Group, url: str, is_client: bool = True, record_type: str = "http1"
+-    ) -> HTTPRecord:
+-        from httpdbg.hooks.recordhttp1 import HTTP1Record
+-        from httpdbg.hooks.recordhttp2 import HTTP2Record
+-
+-        if initiator.id not in self.initiators:
+-            self.initiators[initiator.id] = initiator
+-            
+-        # Create appropriate record type based on parameter
+-        if record_type == "http2":
+-            new_record = HTTP2Record(initiator.id, group.id, is_client=is_client)
+-        else:
+-            new_record = HTTP1Record(initiator.id, group.id)
+-        new_record.url = url
+-        new_record.is_client = is_client
+-        self.requests[new_record.id] = new_record
+-        return new_record
+-
+     def add_initiator(self, initiator: Initiator):
+         self.initiators[initiator.id] = initiator
+         self.current_initiator = initiator.id

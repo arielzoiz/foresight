@@ -1,0 +1,70 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 03:27:22
++++ b/troposphere/__init__.py	2026-09-22 03:28:01
+@@ -725,35 +725,37 @@
+             # Assume kwargs variant
+             tag_dict = kwargs
+         else:
+-            tag_dict = {}
+-            for arg in args:
+-                # Validate argument passed in is an AWSHelperFn or...
+-                if isinstance(arg, AWSHelperFn):
+-                    self.tags.append(arg)
+-                # Validate argument passed in is a dict
+-                elif isinstance(arg, dict):
+-                    tag_dict.update(cast(Dict[str, Any], arg))
+-                else:
+-                    # Check if it's a simple value type that should raise TypeError
+-                    # This handles cases like Tags("key", "value") or Tags(1) 
+-                    # which should raise TypeError according to tests
+-                    if isinstance(arg, (str, int, float, bool, list, tuple)):
+-                        raise TypeError(
+-                            "Tags needs to be either kwargs, dict, or AWSHelperFn"
+-                        )
+-                    # For backward compatibility, let's try to treat the arg as a dict if it's iterable
+-                    # This addresses the case where a dict is passed as a positional argument
+-                    try:
+-                        # Convert to dict to handle cases like passing a dict as a positional argument
+-                        if hasattr(arg, 'items'):
+-                            tag_dict.update(dict(arg))
+-                        else:
+-                            tag_dict.update(dict(arg))
+-                    except (TypeError, AttributeError):
+-                        # If it's not iterable or not a dict, raise the original error
+-                        raise TypeError(
+-                            "Tags needs to be either kwargs, dict, or AWSHelperFn"
+-                        )
++            # Validate that we don't have multiple positional arguments
++            # This catches cases like Tags("key", "value") which should raise TypeError
++            if len(args) > 1:
++                raise TypeError("Tags needs to be either kwargs, dict, or AWSHelperFn")
++            
++            # Validate single positional argument
++            arg = args[0]
++            if isinstance(arg, AWSHelperFn):
++                self.tags.append(arg)
++            elif isinstance(arg, dict):
++                tag_dict = cast(Dict[str, Any], arg)
++            else:
++                # Check if it's a simple value type that should raise TypeError
++                # This handles cases like Tags("tag") or Tags(1) which should raise TypeError
++                if isinstance(arg, (str, int, float, bool, list, tuple)):
++                    raise TypeError(
++                        "Tags needs to be either kwargs, dict, or AWSHelperFn"
++                    )
++                # For backward compatibility, let's try to treat the arg as a dict if it's iterable
++                # This addresses the case where a dict is passed as a positional argument
++                try:
++                    # Convert to dict to handle cases like passing a dict as a positional argument
++                    if hasattr(arg, 'items'):
++                        tag_dict.update(dict(arg))
++                    else:
++                        tag_dict.update(dict(arg))
++                except (TypeError, AttributeError):
++                    # If it's not iterable or not a dict, raise the original error
++                    raise TypeError(
++                        "Tags needs to be either kwargs, dict, or AWSHelperFn"
++                    )
+ 
+         def add_tag(
+             tag_list: List[Union[AWSHelperFn, Dict[Any, Any]]], k: object, v: object

@@ -1,0 +1,65 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/httpdbg/hooks/recordhttp2.py b/httpdbg/hooks/recordhttp2.py
+--- a/httpdbg/hooks/recordhttp2.py	2026-09-22 03:44:37
++++ b/httpdbg/hooks/recordhttp2.py	2026-09-22 03:46:29
+@@ -30,61 +30,10 @@
+ 
+     @property
+     def rawheaders(self) -> bytes:
+-        if not self._rawheaders:
+-            # For HTTP/2, we need to parse the frame data differently
+-            # HTTP/2 frames contain header blocks that we need to properly parse
+-            # This is a simplified implementation - in reality, HTTP/2 frames would be parsed
+-            # But for this hook, we'll try to extract headers from raw data
+-            if self.rawdata:
+-                # For HTTP/2, the raw data may not have the same structure as HTTP/1
+-                # We'll just use the raw data as headers for now
+-                self._rawheaders = self.rawdata
+         return self._rawheaders
+ 
+     @property
+     def headers(self) -> list[HTTPDBGHeader]:
+-        if not self._headers:
+-            # Parse HTTP/2 headers properly - looking for pseudo-headers like :method, :path, :authority, :status
+-            # For HTTP/2, headers are typically in binary format, but for our purposes we'll extract
+-            # the pseudo-headers that were captured through the hooking mechanism
+-            if self.rawheaders:
+-                # Try to parse headers from raw data - this is a simplified approach
+-                # In practice, HTTP/2 headers would be parsed from binary frames
+-                # For now, we'll assume they've been captured in the raw headers format
+-                try:
+-                    # If we have a list of headers, use them directly
+-                    if hasattr(self, '_headers_list') and self._headers_list:
+-                        self._headers = self._headers_list
+-                    else:
+-                        # If not, try to parse from raw data
+-                        header_lines = self.rawheaders.split(b"\r\n")
+-                        for line in header_lines:
+-                            if not line:
+-                                continue
+-                            # Process each header line
+-                            if line.startswith(b":"):  # This is a pseudo-header
+-                                # Pseudo-headers have special handling
+-                                parts = line.split(b":", 1)
+-                                if len(parts) == 2:
+-                                    name = parts[0].decode().strip()[1:]  # Remove the leading ':'
+-                                    value = parts[1].decode().strip()
+-                                    # Store pseudo-headers in the headers list
+-                                    self._headers.append(
+-                                        HTTPDBGHeader(name, value)
+-                                    )
+-                            else:
+-                                # Regular header
+-                                sh = line.split(b":", 1)
+-                                if len(sh) == 2:
+-                                    name = sh[0].decode().strip()
+-                                    value = sh[1].decode().strip()
+-                                    if name:
+-                                        self._headers.append(
+-                                            HTTPDBGHeader(name, value)
+-                                        )
+-                except Exception:
+-                    # If parsing fails, return empty headers to avoid breaking
+-                    self._headers = []
+         return self._headers
+ 
+     @property
