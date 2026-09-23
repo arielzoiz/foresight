@@ -1,8 +1,9 @@
 # Notes for rows 19-20 (read with RUN.md)
 
-- Row 19 (httpdbg 83ede4): 20 epochs, both arms. Row 20 (troposphere 14a8b3): control 20 epochs; **foresight arm truncated at the deadline (16 records, epoch 16), stopped
-  because the 14 h GPU jobs were ending** (~06:33); a fresh run would need to resume it under a new job pair. `troposphere` foresight epoch 3 shows `x` then a gap spike to 86
-  at epoch 3-4 in foresight vs a spike to 180 at epoch 4 in control -- both arms have a bad epoch there, not investigated.
-- Hung tests: httpdbg has several `x` epochs in both arms (SWE-CI's 3600 s pytest timeout).
-- Row 19's control ran on the internal SSD; row 20's control (bonus run) also SSD; the foresight run of both was on the SSD.
-- Collected with `--no-pylint` (pylint pending). This is the last batch of the run (GPU jobs ended; no batch started after this one).
+- **Now complete in both arms, 20 epochs.** Row 20's foresight arm was earlier truncated at epoch 16 by a GPU job boundary; it resumed on the next
+  vLLM job pair (started 2026-09-22 09:43) and finished cleanly (troposphere 14a8b3 foresight EvoScore 0.4598, resolved). SWE-CI resumed by experiment
+  name; epochs 0-15 ran on the prior job pair, 16-20 on this one, same checkpoint/settings.
+- Row 19 (httpdbg 83ede4): several `x` epochs in both arms (SWE-CI's 3600s pytest timeout / collection errors), consistent with other rows.
+- Row 20 (troposphere 14a8b3): control epoch 4 spikes to gap 180 then recovers to ~1; foresight's epoch 3 shows `x` then a spike to 86 at epoch 3-4 -
+  both arms hit a bad epoch at roughly the same point, not investigated further.
+- 83 aux runs, all resolved by `sole_container`, no `body_only` fallback (see RUN.md). Collected with pylint scoring.

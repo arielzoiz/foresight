@@ -20,7 +20,7 @@ Gap per epoch (starting state first; lower is better; `x` = pytest could not run
 | Task | control gaps | foresight gaps |
 |---|---|---|
 | httpdbg 83ede4 | 15, 15, x, 15, 15, 15, 17, 17, 17, 17, 17, x, 17, 17, 17, 17, 17, 17, 17, 17, 17 | 15, 15, x, 18, x, x, 15, 15, 15, 15, 15, 13, x, 13, 13, 13, 15, 15, 15, 13, 13 |
-| troposphere 14a8b3 | 12, 6, 1, x, 180, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 3, 3, 4, 4 | 12, 8, x, 86, 7, 6, 6, 5, 4, 3, 3, 13, 1, 1, 2, 2 |
+| troposphere 14a8b3 | 12, 6, 1, x, 180, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 3, 3, 4, 4 | 12, 8, x, 86, 7, 6, 6, 5, 4, 3, 3, 13, 1, 1, 2, 2, 2, x, 2, 2, 2 |
 
 ## Code change per epoch
 
@@ -29,21 +29,14 @@ Gap per epoch (starting state first; lower is better; `x` = pytest could not run
 | Task | control | foresight |
 |---|---|---|
 | httpdbg 83ede4 | +717/-53, +346/-748!, +393/-16, +115/-28, +87/-38, +65/-31, +44/-15, +22/-35, +75/-36, +153/-97, +73/-300!, +12/-0, +24/-13, +9/-11, +14/-33, +0/-0, +10/-1, +91/-35, +54/-24, +0/-51 | +731/-41, +77/-474!, +480/-80, +72/-446!, +87/-445!, +16/-11, +151/-16, +54/-8, +11/-4, +36/-20, +214/-47, +41/-175!, +18/-6, +4/-2, +38/-7, +26/-6, +17/-18, +30/-30, +6/-4, +112/-44 |
-| troposphere 14a8b3 | +38/-14, +1483/-85, +45/-1284!, +16/-1, +45/-15, +16/-2, +1/-8, +0/-0, +12/-3, +2/-0, +51/-6, +2/-2, +1137/-0, +1/-6, +19/-10, +12/-1, +31/-29, +13/-8, +74/-52, +28/-74 | +0/-0, +0/-0!, +31/-8, +9/-8, +17/-3, +28/-7, +38/-14, +28/-7, +38/-9, +21/-4, +147/-13, +19/-9, +7/-26, +16/-0, +0/-0 |
+| troposphere 14a8b3 | +38/-14, +1483/-85, +45/-1284!, +16/-1, +45/-15, +16/-2, +1/-8, +0/-0, +12/-3, +2/-0, +51/-6, +2/-2, +1137/-0, +1/-6, +19/-10, +12/-1, +31/-29, +13/-8, +74/-52, +28/-74 | +439/-57, +84/-384!, +31/-8, +9/-8, +17/-3, +28/-7, +38/-14, +28/-7, +38/-9, +21/-4, +147/-13, +19/-9, +7/-26, +16/-0, +81/-78, +56/-10, +93/-98!, +23/-4, +30/-4, +10/-9 |
 
 ## Maintainability index after each epoch (0 = start; higher is better)
 
 | Task | control | foresight |
 |---|---|---|
 | httpdbg 83ede4 | 52.3, 52.5, 52.5, 52.0, 51.5, 51.8, 52.0, 52.0, 51.9, 52.4, 52.5, 52.5, 52.4, 52.4, 52.4, 52.7, 52.7, 52.7, 52.5, 52.4, 52.5 | 52.3, 48.4, 48.4, 48.4, 48.4, 48.4, 48.7, 49.2, 49.3, 49.2, 50.4, 48.4, 48.4, 49.2, 49.2, 48.9, 48.9, 48.8, 48.8, 48.7, 48.4 |
-| troposphere 14a8b3 | 91.6, 91.6, 91.2, 91.2, 91.5, 91.5, 91.3, 91.4, 91.4, 91.3, 91.3, 91.2, 91.2, 91.2, 91.2, 91.2, 91.2, 91.2, 91.2, 91.1, 91.2 | 91.6, 91.6, 91.6, 91.3, 91.3, 91.3, 91.3, 91.3, 91.2, 91.2, 91.0, 90.9, 90.8, 90.9, 90.9, 90.9 |
-
-## pylint note after each epoch (0 = start; 0-10, higher is better)
-
-| Task | control | foresight |
-|---|---|---|
-| httpdbg 83ede4 | 4.52, 4.67, 4.67, 4.73, 4.77, 4.78, 4.75, 4.73, 4.74, 4.70, 4.67, 4.67, 4.70, 4.70, 4.70, 4.68, 4.68, 4.68, 4.69, 4.68, 4.67 | 4.52, 4.87, 4.87, 4.87, 4.87, 4.87, 4.72, 4.79, 4.79, 4.80, 4.80, 4.87, 4.87, 4.81, 4.81, 4.83, 4.84, 4.83, 4.84, 4.84, 4.87 |
-| troposphere 14a8b3 | 6.23, 6.24, 6.23, 6.23, 6.24, 6.23, 6.23, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.23, 6.24, 6.24, 6.23, 6.23 | 6.23, 6.23, 6.23, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24, 6.24 |
+| troposphere 14a8b3 | 91.6, 91.6, 91.2, 91.2, 91.5, 91.5, 91.3, 91.4, 91.4, 91.3, 91.3, 91.2, 91.2, 91.2, 91.2, 91.2, 91.2, 91.2, 91.2, 91.1, 91.2 | 91.6, 90.4, 90.4, 91.3, 91.3, 91.3, 91.3, 91.3, 91.2, 91.2, 91.0, 90.9, 90.8, 90.9, 90.9, 90.9, 90.4, 90.4, 90.5, 90.4, 90.4 |
 
 Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; both exclude `tests/`. Only the change between epochs is meaningful, not the absolute value (see `tools/swe_ci_score_helper.py`).
 
@@ -52,27 +45,27 @@ Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; bo
 | Arm | Start | End | Elapsed |
 |---|---|---|---|
 | control | 2026-09-22 03:00:07 | 2026-09-22 03:47:20 | 0:47:13 |
-| foresight | 2026-09-22 03:54:14 | 2026-09-22 06:15:10 | 2:20:56 |
+| foresight | 2026-09-22 03:54:14 | 2026-09-23 11:09:09 | 1 day, 7:14:55 |
 
 ## SWE-CI cost (from iteration.jsonl)
 
 | Arm | architect in/out tokens | programmer in/out tokens | agent seconds |
 |---|---|---|---|
 | control | 17,390,261 / 97,326 | 30,280,505 / 344,513 | 3046 |
-| foresight | 15,597,228 / 71,207 | 28,935,040 / 209,737 | 3604 |
+| foresight | 20,905,084 / 101,157 | 33,198,511 / 244,602 | 4209 |
 
 ## Foresight / aux provenance (foresight)
 
-- trace rows: 5,191; aux runs: 73; joined to a task and epoch: 72
-- resolved_by: {'sole_container': 73}
-- fallback: {None: 73} (any `body_only` run must be excluded from analysis)
-- usable: {True: 73}; guard: {'intact': 73}
-- aux run time: mean 10.5 s, max 28.5 s
-- prompt growth: mean 1604 chars, max 2548
-- aux model calls in trace: 651, prompt tokens 10,313,823, completion tokens 58,458
-- target model calls in trace: 4,540, prompt tokens 126,487,397, completion tokens 494,461
-- target replies logged: 4,535 of 4,540 target rows (text and tool calls, in the trace)
-- aux transcripts exported: 73 session(s), 0 export error(s)
+- trace rows: 5,587; aux runs: 83; joined to a task and epoch: 82
+- resolved_by: {'sole_container': 83}
+- fallback: {None: 83} (any `body_only` run must be excluded from analysis)
+- usable: {True: 83}; guard: {'intact': 83}
+- aux run time: mean 10.3 s, max 28.5 s
+- prompt growth: mean 1640 chars, max 2805
+- aux model calls in trace: 723, prompt tokens 11,398,799, completion tokens 65,105
+- target model calls in trace: 4,864, prompt tokens 136,073,414, completion tokens 559,361
+- target replies logged: 4,859 of 4,864 target rows (text and tool calls, in the trace)
+- aux transcripts exported: 83 session(s), 0 export error(s)
 
 ## Incidents (warnings, errors, retries, early exits from task.log)
 
@@ -88,6 +81,7 @@ Scores: `mi` is SWE-CI's `mi_score` (radon), `pylint` a corrected pylint run; bo
 - `foresight` troposphere 14a8b3: 2026-09-22 05:50:01 | WARNING | cloudtools__troposphere__14a8b3__7ab9bc | (4/7) ⚠️ pytest was not executed correctly. returncode=2, has_report=True
 - `foresight` troposphere 14a8b3: 2026-09-22 06:05:50 | ERROR | cloudtools__troposphere__14a8b3__7ab9bc | (2/7) (Attempt 1/3) ⚠️ Error occurred when calling architect agent: FileNotFoundError('File not found: /app/requirement.xml')
 - `foresight` troposphere 14a8b3: 2026-09-22 06:06:37 | INFO | cloudtools__troposphere__14a8b3__7ab9bc | (2/7) (Attempt 2/3) ✅ The architect agent has generated the requirements.
+- `foresight` troposphere 14a8b3: 2026-09-23 11:01:32 | WARNING | cloudtools__troposphere__14a8b3__7ab9bc | (4/7) ⚠️ pytest was not executed correctly. returncode=2, has_report=True
 
 ## Collector notes
 

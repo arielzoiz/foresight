@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/troposphere/__init__.py:Tags</location>
+        <description>The Tags class constructor does not properly validate input types for JobDefinition and Table resources. Currently, it accepts dict and string inputs that should be rejected according to test expectations.</description>
+        <contract>The Tags constructor should reject direct dict or string inputs when used in contexts like JobDefinition or Table resources. It should only accept Tags objects, AWSHelperFn objects, or properly formatted dict inputs with "Items" key for CloudFront AnycastIpList.</contract>
+        <acceptance>tests/test_tags.py::TestTags::test_json_tags and tests/test_tags.py::TestTags::test_object_tags</acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/batch.py:JobDefinition.validate</location>
+        <description>The JobDefinition.validate method doesn't properly reject Tags objects passed to the Tags property. Tests expect TypeError to be raised when Tags object is used in JobDefinition.</description>
+        <contract>The validate method in JobDefinition should raise TypeError when Tags object is passed to the Tags property, ensuring only dict or AWSHelperFn objects are accepted.</contract>
+        <acceptance>tests/test_tags.py::TestTags::test_json_tags</acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/dynamodb.py:Table.validate</location>
+        <description>The Table.validate method doesn't properly reject direct dict inputs for Tags property. Tests expect TypeError to be raised when a simple dict is used in Table resources.</description>
+        <contract>The validate method in Table should raise TypeError when a simple dict is passed to the Tags property, requiring a proper Tags object instead.</contract>
+        <acceptance>tests/test_tags.py::TestTags::test_object_tags</acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/cloudfront.py:AnycastIpList.props</location>
+        <description>The AnycastIpList resource uses validate_tags_or_list validator which has incorrect validation logic for Tags input.</description>
+        <contract>The Tags property in AnycastIpList should properly validate that when a dict is passed, it must have only an "Items" key containing a list of Tag objects or dicts with Key/Value fields.</contract>
+        <acceptance>tests/test_tags.py::TestTags::test_tags_items_array</acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/validators/__init__.py:tags_or_list</location>
+        <description>The tags_or_list validator doesn't correctly validate CloudFront AnycastIpList Tags format. It should require the "Items" key to be the only key in the dict.</description>
+        <contract>The tags_or_list validator should ensure that when a dict with "Items" key is passed, it contains only that key and the Items value is a list of valid tag objects.</contract>
+        <acceptance>tests/test_tags.py::TestTags::test_tags_items_array</acceptance>
+    </item>
+</requirement>

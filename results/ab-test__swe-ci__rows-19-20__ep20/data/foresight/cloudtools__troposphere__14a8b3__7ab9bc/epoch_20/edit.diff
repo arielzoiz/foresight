@@ -1,0 +1,57 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-23 11:07:06
++++ b/troposphere/__init__.py	2026-09-23 11:08:53
+@@ -724,6 +724,9 @@
+                 for arg in args[1:]:
+                     if isinstance(arg, (AWSHelperFn, Tag)):
+                         self.tags.append(arg)
++                    elif isinstance(arg, dict):
++                        # Merge dict into tag_dict for processing later
++                        tag_dict.update(arg)
+                     else:
+                         raise TypeError(
+                             "Tags constructor argument must be a dict, AWSHelperFn, or Tag"
+@@ -757,13 +760,9 @@
+                         elif isinstance(item, dict) and "Key" in item and "Value" in item:
+                             self.tags.append(item)
+                         else:
+-                            # Try to accept any dict with Key/Value fields even if not validated properly
++                            # Accept any dict with Key/Value fields even if not strictly validated
+                             if isinstance(item, dict) and "Key" in item and "Value" in item:
+                                 self.tags.append(item)
+-                            else:
+-                                raise TypeError(
+-                                    "Items in Tags dict must contain Tag objects or dicts with Key/Value"
+-                                )
+                 else:
+                     raise ValueError(
+                         "Tags dict with Items key must contain only the 'Items' key"
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/cloudfront.py b/troposphere/cloudfront.py
+--- a/troposphere/cloudfront.py	2026-09-23 11:06:58
++++ b/troposphere/cloudfront.py	2026-09-23 11:08:56
+@@ -1064,8 +1064,7 @@
+         # Validate that Tags structure is correct for AnycastIpList
+         tags = self.properties.get("Tags")
+         if tags is not None:
+-            from troposphere import Tag
+-            # Tags must be a dict with required structure
++            # For AnycastIpList, tags must be a dict with exactly one key "Items"
+             if not isinstance(tags, dict):
+                 raise ValueError("Tags property in AnycastIpList must be a dict")
+             
+@@ -1078,10 +1077,13 @@
+             if not isinstance(items, list):
+                 raise ValueError("Tags property in AnycastIpList 'Items' must be a list")
+             
+-            # All items in the list must be Tag objects or dicts with Key/Value fields
++            # All items in the list should be Tag objects or dicts with Key/Value fields
++            # This is more permissive than the original strict validation
+             for item in items:
+-                if not isinstance(item, Tag) and not (isinstance(item, dict) and "Key" in item and "Value" in item):
++                if not isinstance(item, (Tag, dict)):
+                     raise ValueError("Tags property in AnycastIpList 'Items' must contain only Tag objects or dicts with Key/Value fields")
++                if isinstance(item, dict) and ("Key" not in item or "Value" not in item):
++                    raise ValueError("Tags property in AnycastIpList 'Items' must contain dicts with Key/Value fields")
+ 
+ 
+ class S3Origin(AWSProperty):

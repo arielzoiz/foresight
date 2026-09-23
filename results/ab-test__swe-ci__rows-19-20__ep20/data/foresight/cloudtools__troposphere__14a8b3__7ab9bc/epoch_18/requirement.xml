@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/troposphere/batch.py</location>
+        <description>The JobDefinition.Tags property should reject Tags and Tag objects but allow dicts and AWSHelperFn objects. Currently, it allows Tags objects to be passed which should raise a TypeError.</description>
+        <contract>
+            <description>The Tags property in JobDefinition should validate that it's not a Tags or Tag object. When a Tags object is passed to JobDefinition.Tags, it should raise TypeError with message "Tags property in JobDefinition cannot be a Tag or Tags object". When a dict or AWSHelperFn is passed, it should be accepted.</description>
+            <input>Type: Tags, Tag, dict, AWSHelperFn</input>
+            <output>Accept valid inputs (dict, AWSHelperFn), raise TypeError for invalid inputs (Tags, Tag)</output>
+            <exception>TypeError when Tags or Tag objects are passed</exception>
+        </contract>
+        <acceptance>tests/test_tags.py::TestTags::test_json_tags</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/dynamodb.py</location>
+        <description>The Table.Tags property should reject simple dicts but accept Tags objects. Currently, it allows simple dicts to be passed which should raise a TypeError.</description>
+        <contract>
+            <description>The Tags property in Table should validate that it's a Tags object, not a simple dict. When a simple dict is passed to Table.Tags, it should raise TypeError with message "Tags property in Table must be a Tags object, not a dict". When a Tags object is passed, it should be accepted.</description>
+            <input>Type: dict, Tags, AWSHelperFn</input>
+            <output>Accept valid inputs (Tags, AWSHelperFn), raise TypeError for invalid inputs (simple dict)</output>
+            <exception>TypeError when simple dicts are passed</exception>
+        </contract>
+        <acceptance>tests/test_tags.py::TestTags::test_object_tags</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/troposphere/cloudfront.py</location>
+        <description>The AnycastIpList.Tags property should properly validate that Tags structure is correct. Currently, it doesn't validate the required "Items" key structure properly.</description>
+        <contract>
+            <description>The Tags property in AnycastIpList should validate that it's a dict with required structure. When passed a dict that doesn't conform to the required structure (missing "Items" key, wrong number of keys, or invalid Items content), it should raise ValueError. When passed a valid structure, it should be accepted.</description>
+            <input>Type: dict, AWSHelperFn</input>
+            <output>Accept valid inputs (properly structured dict), raise ValueError for invalid inputs</output>
+            <exception>ValueError when Tags dict doesn't meet requirements</exception>
+        </contract>
+        <acceptance>tests/test_tags.py::TestTags::test_tags_items_array</acceptance>
+    </requirement>
+</requirements>

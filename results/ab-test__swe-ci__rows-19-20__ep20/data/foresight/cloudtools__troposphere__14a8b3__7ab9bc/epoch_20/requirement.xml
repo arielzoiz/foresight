@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/troposphere/__init__.py:Tags</location>
+        <description>The Tags class has incomplete validation logic that doesn't properly handle various input types like dicts, lists, or AWSHelperFn objects, causing TypeError exceptions in test_json_tags and test_object_tags test cases. The current implementation incorrectly raises TypeError for valid inputs that should be accepted.</description>
+        <contract>
+            The Tags class constructor must properly validate and accept:
+            1. Keyword arguments as a single dictionary
+            2. Single dict argument
+            3. Mixed arguments including dicts and Tag objects
+            4. AWSHelperFn objects
+            5. Tag objects
+            6. Lists of tag dictionaries with Key/Value fields
+            7. Properly validate that invalid inputs raise TypeError as expected by tests
+            
+            The validation should:
+            - Accept valid inputs without raising TypeError
+            - Raise TypeError for invalid inputs like integers, strings, or improper argument combinations
+            - Support proper inheritance from AWSHelperFn
+            - Maintain backward compatibility with existing usage patterns
+        </contract>
+        <acceptance>
+            - test_json_tags in tests/test_tags.py should pass without AssertionError: TypeError not raised
+            - test_object_tags in tests/test_tags.py should pass without AssertionError: TypeError not raised
+            - test_tags_items_array in tests/test_tags.py should pass for all validation cases
+        </acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/cloudfront.py:AnycastIpList</location>
+        <description>The AnycastIpList class has overly restrictive validation logic in its validate method that prevents valid tag structures from passing. The validation is too strict and doesn't properly align with the expected behavior of the Tags class.</description>
+        <contract>
+            The AnycastIpList Tags validation should:
+            1. Accept valid tag structures that follow CloudFront's specific format (dict with "Items" key containing a list of Tag objects or dicts with Key/Value fields)
+            2. Properly delegate validation to the standard tags_or_list validator
+            3. Only reject clearly invalid structures
+            4. Allow all valid inputs that would be accepted by the Tags class
+        </contract>
+        <acceptance>
+            - test_tags_items_array in tests/test_tags.py should pass completely
+            - AnycastIpList should accept valid tag structures without raising ValueError
+        </acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/__init__.py:Tag</location>
+        <description>The Tag class constructor needs better handling of edge cases and validation to prevent TypeError exceptions in various tag-related tests. The current implementation lacks proper validation for inputs.</description>
+        <contract>
+            The Tag class constructor should:
+            1. Properly accept key-value pairs as arguments
+            2. Generate valid tag data structure with "Key" and "Value" fields
+            3. Be compatible with the Tags class when used in tag collections
+            4. Maintain consistency with AWS CloudFormation tag structure requirements
+        </contract>
+        <acceptance>
+            - All Tag-related functionality in test_tags.py should work correctly
+            - Tag objects should be properly integrated into Tags collections
+        </acceptance>
+    </item>
+    <item>
+        <location>/app/code/troposphere/validators/cloudfront.py:validate_tags_or_list</location>
+        <description>The validate_tags_or_list function has incorrect logic for handling AnycastIpList Tags validation, which conflicts with the expected behavior in the test suite.</description>
+        <contract>
+            The validate_tags_or_list function should:
+            1. Properly handle the special case for AnycastIpList Tags (dict with "Items" key)
+            2. Validate that Items contains only valid Tag objects or dicts with Key/Value fields
+            3. Return valid inputs without raising exceptions when they conform to expected structure
+            4. Maintain compatibility with standard tags_or_list validation for other resources
+        </contract>
+        <acceptance>
+            - test_tags_items_array in tests/test_tags.py should pass completely
+            - AnycastIpList should properly validate tags according to CloudFront specifications
+        </acceptance>
+    </item>
+</requirement>

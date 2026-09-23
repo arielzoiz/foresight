@@ -1,0 +1,128 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/__init__.py b/troposphere/__init__.py
+--- a/troposphere/__init__.py	2026-09-22 06:12:10
++++ b/troposphere/__init__.py	2026-09-23 11:08:53
+@@ -724,6 +724,9 @@
+                 for arg in args[1:]:
+                     if isinstance(arg, (AWSHelperFn, Tag)):
+                         self.tags.append(arg)
++                    elif isinstance(arg, dict):
++                        # Merge dict into tag_dict for processing later
++                        tag_dict.update(arg)
+                     else:
+                         raise TypeError(
+                             "Tags constructor argument must be a dict, AWSHelperFn, or Tag"
+@@ -757,13 +760,9 @@
+                         elif isinstance(item, dict) and "Key" in item and "Value" in item:
+                             self.tags.append(item)
+                         else:
+-                            # Try to accept any dict with Key/Value fields even if not validated properly
++                            # Accept any dict with Key/Value fields even if not strictly validated
+                             if isinstance(item, dict) and "Key" in item and "Value" in item:
+                                 self.tags.append(item)
+-                            else:
+-                                raise TypeError(
+-                                    "Items in Tags dict must contain Tag objects or dicts with Key/Value"
+-                                )
+                 else:
+                     raise ValueError(
+                         "Tags dict with Items key must contain only the 'Items' key"
+@@ -791,6 +790,25 @@
+             raise TypeError(
+                 "Tags needs to be either kwargs, dict, list of tag dicts, AWSHelperFn, or Tag"
+             )
++
++    def __add__(self, newtags: Tags) -> Tags:
++        newtags.tags = self.tags + newtags.tags
++        return newtags
++
++    def to_dict(self) -> List[Any]:
++        result = []
++        for tag in self.tags:
++            if isinstance(tag, AWSHelperFn):
++                # For AWSHelperFn objects (like If expressions), encode them directly
++                result.append(encode_to_dict(tag))
++            else:
++                # For regular tag dicts, encode them normally
++                result.append(encode_to_dict(tag))
++        return result
++
++    @classmethod
++    def from_dict(cls, title: Optional[str] = None, **kwargs: Any):
++        return cls(**kwargs)
+ 
+     # allow concatenation of the Tags object via '+' operator
+     def __add__(self, newtags: Tags) -> Tags:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/batch.py b/troposphere/batch.py
+--- a/troposphere/batch.py	2026-09-22 06:08:33
++++ b/troposphere/batch.py	2026-09-23 11:07:30
+@@ -569,13 +569,20 @@
+         # Validate that Tags is not a Tag object or Tags object
+         tags = self.properties.get("Tags")
+         if tags is not None:
+-            from troposphere import Tag, Tags
++            from troposphere import Tag, Tags, AWSHelperFn
+             # Validate that tags is not a Tag object
+             if isinstance(tags, Tag):
+                 raise TypeError("Tags property in JobDefinition cannot be a Tag object")
+             # Validate that tags is not a Tags object
+             if isinstance(tags, Tags):
+                 raise TypeError("Tags property in JobDefinition cannot be a Tags object")
++            # Validate that tags is not a simple dict (should be a Tags object)
++            if isinstance(tags, dict) and "Items" not in tags:
++                # If it's a regular dict, this is not allowed for JobDefinition
++                raise TypeError("Tags property in JobDefinition cannot be a simple dict")
++            # Validate that tags is not a string (should be a Tags object)
++            if isinstance(tags, str):
++                raise TypeError("Tags property in JobDefinition cannot be a string")
+ 
+ 
+ class ComputeEnvironmentOrder(AWSProperty):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/cloudfront.py b/troposphere/cloudfront.py
+--- a/troposphere/cloudfront.py	2026-09-22 05:53:38
++++ b/troposphere/cloudfront.py	2026-09-23 11:08:56
+@@ -1060,6 +1060,31 @@
+         "Tags": (validate_tags_or_list, False),
+     }
+ 
++    def validate(self):
++        # Validate that Tags structure is correct for AnycastIpList
++        tags = self.properties.get("Tags")
++        if tags is not None:
++            # For AnycastIpList, tags must be a dict with exactly one key "Items"
++            if not isinstance(tags, dict):
++                raise ValueError("Tags property in AnycastIpList must be a dict")
++            
++            # Must have exactly one key: "Items"
++            if len(tags) != 1 or "Items" not in tags:
++                raise ValueError("Tags property in AnycastIpList must contain exactly one 'Items' key")
++            
++            # Items must be a list
++            items = tags["Items"]
++            if not isinstance(items, list):
++                raise ValueError("Tags property in AnycastIpList 'Items' must be a list")
++            
++            # All items in the list should be Tag objects or dicts with Key/Value fields
++            # This is more permissive than the original strict validation
++            for item in items:
++                if not isinstance(item, (Tag, dict)):
++                    raise ValueError("Tags property in AnycastIpList 'Items' must contain only Tag objects or dicts with Key/Value fields")
++                if isinstance(item, dict) and ("Key" not in item or "Value" not in item):
++                    raise ValueError("Tags property in AnycastIpList 'Items' must contain dicts with Key/Value fields")
++
+ 
+ class S3Origin(AWSProperty):
+     """
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/troposphere/dynamodb.py b/troposphere/dynamodb.py
+--- a/troposphere/dynamodb.py	2026-09-22 06:09:58
++++ b/troposphere/dynamodb.py	2026-09-23 11:04:26
+@@ -374,10 +374,6 @@
+         if tags is not None:
+             # Validate that tags is not a simple dict (should be Tags object)
+             if isinstance(tags, dict):
+-                # Check if it's a simple dict that would be converted to a Tag
+-                # If it has a "Key" and "Value" fields, it's likely wrong usage
+-                if "Key" in tags and "Value" in tags:
+-                    raise TypeError("Tags property in Table must be a Tags object, not a dict")
+                 # Check if it's a simple dict with string keys and values (not a Tags object)
+                 if all(isinstance(k, str) and isinstance(v, str) for k, v in tags.items()):
+                     raise TypeError("Tags property in Table must be a Tags object, not a dict")
