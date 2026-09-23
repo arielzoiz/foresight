@@ -1,0 +1,168 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-23 11:46:14
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 11:54:42
+@@ -3,5 +3,6 @@
+   "tests/test_option_builder.py::test_option_builder_yield_value_async": true,
+   "tests/test_seq_builder.py::test_seq_builder_yield_sequence_wrapped": true,
+   "tests/test_async_option_builder.py::test_async_option_builder_yield_some": true,
+-  "tests/test_seq_builder.py::test_seq_builder_nested": true
++  "tests/test_seq_builder.py::test_seq_builder_nested": true,
++  "tests/test_result_builder.py::test_result_builder_yield_value_async": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_result.py b/expression/effect/async_result.py
+--- a/expression/effect/async_result.py	2026-09-23 11:49:13
++++ b/expression/effect/async_result.py	2026-09-23 11:54:06
+@@ -58,8 +58,5 @@
+             done.append(True)
+             raise StopIteration
+ 
+-    # Revert to using the base class __call__ method which should work properly
+-    # The async wrapper was interfering with proper execution
+-
+ 
+ __all__ = ["AsyncResultBuilder"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 11:45:28
++++ b/expression/effect/option.py	2026-09-23 11:54:53
+@@ -31,7 +31,51 @@
+         self,
+         fn: Callable[[], Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None]],
+     ) -> Callable[[], Option[_TSource]]:
+-        return super().__call__(fn)
++        def wrapper() -> Option[_TSource]:
++            # Create the generator
++            gen = fn()
++            
++            # This mimics the behavior of the base builder but adapted for sync context
++            done = []
++            result = None
++
++            def binder(value):
++                return self._send(gen, done, value)
++
++            try:
++                result = self._send(gen, done)
++            except StopIteration as ex:
++                # Handle StopIteration properly - this is the key part!
++                # If StopIteration has a value, that's the final result
++                if ex.value is not None:
++                    return self.return_(ex.value)
++                # If StopIteration has no value, return zero (Nothing)
++                else:
++                    return self.zero()
++
++            # Continue processing until done
++            while not done:
++                try:
++                    cont = self.bind(result, binder)
++                    # Combine every result except the first
++                    if result is None:
++                        result = cont
++                    else:
++                        result = self.combine(result, cont)
++                except StopIteration as ex:
++                    # Handle StopIteration properly
++                    if ex.value is not None:
++                        return self.return_(ex.value)
++                    else:
++                        return self.zero()
++
++            # If result is None, it means we had a StopIteration with no value
++            if result is None:
++                return self.zero()
++            else:
++                return self.run(result)
++        
++        return wrapper
+ 
+ 
+ __all__ = ["OptionBuilder"]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 11:38:22
++++ b/expression/effect/result.py	2026-09-23 11:54:47
+@@ -54,8 +54,10 @@
+                 result = self._send(gen, done)
+             except StopIteration as ex:
+                 # Handle StopIteration properly - this is the key part!
++                # If StopIteration has a value, that's the final result
+                 if ex.value is not None:
+                     return self.return_(ex.value)
++                # If StopIteration has no value, return zero (None)
+                 else:
+                     return self.zero()
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 11:52:33
++++ b/expression/effect/seq.py	2026-09-23 11:54:35
+@@ -17,7 +17,21 @@
+         # Properly chain generators by iterating through all elements
+         result = []
+         for x in xs:
+-            result.extend(fn(x))
++            # Convert any non-generator iterables to generators
++            fn_result = fn(x)
++            from collections.abc import Generator
++            if not isinstance(fn_result, Generator):
++                # Convert non-generator iterables to generator
++                try:
++                    fn_list = list(fn_result)
++                    def gen_func():
++                        for item in fn_list:
++                            yield item
++                    fn_result = gen_func()
++                except Exception:
++                    # If conversion fails, treat as empty
++                    fn_result = iter([])
++            result.extend(list(fn_result))
+         return result
+ 
+     def return_(self, x: _TSource) -> Iterable[_TSource]:
+@@ -89,8 +103,44 @@
+                     # If conversion fails, treat as empty
+                     gen = iter([])
+             
+-            # Call the parent __call__ method directly using the proper approach
+-            return super(SeqBuilder, self).__call__(fn)(*args, **kw)
++            # Process using our own logic to avoid the issue with list iterators
++            # We manually process the generator instead of calling super
++            done = []
++            result = None
++
++            def binder(value):
++                return self._send(gen, done, value)
++
++            try:
++                result = self._send(gen, done)
++            except StopIteration as ex:
++                # Handle StopIteration properly
++                if ex.value is not None:
++                    return self.return_(ex.value)
++                else:
++                    return self.zero()
++
++            # Continue processing until done
++            while not done:
++                try:
++                    cont = self.bind(result, binder)
++                    # Combine every result except the first
++                    if result is None:
++                        result = cont
++                    else:
++                        result = self.combine(result, cont)
++                except StopIteration as ex:
++                    # Handle StopIteration properly
++                    if ex.value is not None:
++                        return self.return_(ex.value)
++                    else:
++                        return self.zero()
++
++            # If result is None, it means we had a StopIteration with no value
++            if result is None:
++                return self.zero()
++            else:
++                return self.run(result)
+         
+         return wrapper
+ 

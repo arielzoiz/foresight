@@ -1,0 +1,98 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:09:36
++++ b/expression/effect/option.py	2026-09-23 12:11:46
+@@ -92,22 +92,22 @@
+ 
+             result: Option[_TSource] | None = None
+ 
+-            def binder(value: Any) -> Option[_TSource]:
++            async def binder(value: Any) -> Option[_TSource]:
+                 ret = self._send(gen, done, value)
+-                # We need to handle the async nature of _send
+-                return ret
++                # We need to await the async nature of _send
++                return await ret
+ 
+             try:
+-                result = self._send(gen, done)
++                result = await self._send(gen, done)
+                 
+                 while not done:
+-                    cont = self.bind(result, binder)
++                    cont = await self.bind(result, binder)
+                     
+                     # Combine every result except the first
+                     if result is None:
+                         result = cont
+                     else:
+-                        result = self.combine(result, cont)
++                        result = await self.combine(result, cont)
+             except StopIteration:
+                 pass
+ 
+@@ -116,7 +116,7 @@
+             if result is None:
+                 result = self.zero()
+ 
+-            return self.run(result)
++            return await self.run(result)
+ 
+         return async_wrapper
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:09:40
++++ b/expression/effect/result.py	2026-09-23 12:11:48
+@@ -97,22 +97,22 @@
+ 
+             result: Result[_TSource, _TError] | None = None
+ 
+-            def binder(value: Any) -> Result[_TSource, _TError]:
++            async def binder(value: Any) -> Result[_TSource, _TError]:
+                 ret = self._send(gen, done, value)
+-                # We need to handle the async nature of _send
+-                return ret
++                # We need to await the async nature of _send
++                return await ret
+ 
+             try:
+-                result = self._send(gen, done)
++                result = await self._send(gen, done)
+                 
+                 while not done:
+-                    cont = self.bind(result, binder)
++                    cont = await self.bind(result, binder)
+                     
+                     # Combine every result except the first
+                     if result is None:
+                         result = cont
+                     else:
+-                        result = self.combine(result, cont)
++                        result = await self.combine(result, cont)
+             except StopIteration:
+                 pass
+ 
+@@ -121,7 +121,7 @@
+             if result is None:
+                 result = self.zero()
+ 
+-            return self.run(result)
++            return await self.run(result)
+ 
+         return async_wrapper
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 12:08:12
++++ b/expression/effect/seq.py	2026-09-23 12:11:50
+@@ -11,9 +11,10 @@
+ 
+ class SeqBuilder(Builder[_TSource, Iterable[Any]]):
+     def bind(self, xs: Iterable[_TSource], fn: Callable[[_TSource], Iterable[_TResult]]) -> Iterable[_TResult]:
++        result = []
+         for x in xs:
+-            return fn(x)
+-        return seq.empty
++            result.extend(fn(x))
++        return result if result else seq.empty
+ 
+     def return_(self, x: _TSource) -> Iterable[_TSource]:
+         return seq.singleton(x)

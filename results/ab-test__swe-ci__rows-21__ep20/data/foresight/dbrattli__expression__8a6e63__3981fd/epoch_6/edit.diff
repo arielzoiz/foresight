@@ -1,0 +1,38 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:17:18
++++ b/expression/effect/option.py	2026-09-23 12:19:12
+@@ -50,10 +50,12 @@
+             yielded = gen.send(value)
+             return self.return_(yielded)
+         except AttributeError as ex:
+-            # Handle async generators that don't support send method
+             error_msg = str(ex)
+-            if "object is not an iterator" in error_msg or "'async_generator' object is not an iterator" in error_msg:
+-                # For async generators, we need to use __anext__
++            # Check if this is specifically an async generator error
++            if ("object is not an iterator" in error_msg or 
++                "'async_generator' object is not an iterator" in error_msg or
++                "'async_generator' object has no attribute 'send'" in error_msg):
++                # This is an async generator, so use __anext__ instead of send
+                 try:
+                     # Try to detect if it's an async generator and handle it properly
+                     if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:17:12
++++ b/expression/effect/result.py	2026-09-23 12:19:16
+@@ -56,10 +56,12 @@
+             yielded = gen.send(value)
+             return self.return_(yielded)
+         except AttributeError as ex:
+-            # Handle async generators that don't support send method
+             error_msg = str(ex)
+-            if "object is not an iterator" in error_msg or "'async_generator' object is not an iterator" in error_msg:
+-                # For async generators, we need to use __anext__
++            # Check if this is specifically an async generator error
++            if ("object is not an iterator" in error_msg or 
++                "'async_generator' object is not an iterator" in error_msg or
++                "'async_generator' object has no attribute 'send'" in error_msg):
++                # This is an async generator, so use __anext__ instead of send
+                 try:
+                     # Try to detect if it's an async generator and handle it properly
+                     if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):

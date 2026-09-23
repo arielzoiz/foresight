@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder class has incorrect handling of StopIteration exceptions, causing None values to be improperly processed and resulting in TypeError when trying to perform arithmetic operations on None values.</description>
+    <contract>The _send method in the Builder class must correctly process StopIteration exceptions to handle both cases where StopIteration contains a value and where it doesn't. When StopIteration has a value, it should return that value via return_(). When it doesn't have a value, it should return the zero() value.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_evaluation_order, tests/test_async_option_builder.py::test_async_option_builder_nested, tests/test_async_option_builder.py::test_async_option_builder_with_async_option_functions, tests/test_async_result_builder.py::test_async_result_builder_evaluation_order, tests/test_async_result_builder.py::test_async_result_builder_nested, tests/test_async_result_builder.py::test_async_result_builder_with_nested_async_generators</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/effect/async_option.py</location>
+    <description>The AsyncOptionBuilder.__call__ method incorrectly handles generator execution flow, particularly in the synchronous context processing path. It's not properly managing the result flow from the base builder and can cause None values to be returned instead of proper Option values.</description>
+    <contract>The async_wrapper in AsyncOptionBuilder must properly execute generators and return appropriate Option values. When generators complete normally, it should return Some(value) where value is the final yielded value or the return value. When generators are interrupted by Nothing, it should return Nothing.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_short_circuit, tests/test_async_option_builder.py::test_async_option_builder_yield_nothing, tests/test_async_option_builder.py::test_async_option_builder_return_from, tests/test_async_option_builder.py::test_async_option_builder_yield_some, tests/test_async_option_builder.py::test_async_option_builder_multiple_operations, tests/test_async_option_builder.py::test_async_option_builder_nested, tests/test_async_option_builder.py::test_async_option_builder_yield_nothing_short_circuit, tests/test_async_option_builder.py::test_async_option_builder_with_async_functions, tests/test_async_option_builder.py::test_async_option_builder_with_async_option_functions, tests/test_async_option_builder.py::test_async_option_builder_with_nested_async_generators</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/effect/async_result.py</location>
+    <description>The AsyncResultBuilder.__call__ method has similar issues to AsyncOptionBuilder regarding generator execution flow and result handling. It's not properly managing the execution of generators and can return None instead of proper Result values.</description>
+    <contract>The async_wrapper in AsyncResultBuilder must properly execute generators and return appropriate Result values. When generators complete normally, it should return Ok(value) where value is the final yielded value or the return value. When generators are interrupted by Error, it should return Error.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_short_circuit, tests/test_async_result_builder.py::test_async_result_builder_yield_ok, tests/test_async_result_builder.py::test_async_result_builder_yield_error, tests/test_async_result_builder.py::test_async_result_builder_multiple_operations, tests/test_async_result_builder.py::test_async_result_builder_nested, tests/test_async_result_builder.py::test_async_result_builder_yield_error_short_circuit, tests/test_async_result_builder.py::test_async_result_builder_with_async_functions, tests/test_async_result_builder.py::test_async_result_builder_with_async_result_functions, tests/test_async_result_builder.py::test_async_result_builder_with_nested_async_generators</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/effect/seq.py</location>
+    <description>The SeqBuilder.__call__ method has incorrect handling of generator execution. It doesn't properly convert generator objects to their final iterable results and can return None instead of proper sequences.</description>
+    <contract>The wrapper in SeqBuilder must properly execute generators and return appropriate sequences. When generators complete, it should collect all yielded values and return them as a sequence. When generators are interrupted, it should handle those cases properly.</contract>
+    <acceptance>tests/test_seq_builder.py::test_seq_builder_yield_sequence_wrapped, tests/test_seq_builder.py::test_seq_builder_return_from, tests/test_seq_builder.py::test_seq_builder_nested, tests/test_seq_builder.py::test_seq_builder_throws</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder class has a flawed logic in the main execution loop where the condition for combining results is incorrect, causing the first result to be lost in the combination process.</description>
+    <contract>The execution loop in the Builder.__call__ method should properly handle result combination. When result is None (indicating the first iteration), it should set the result to the computed continuation. Otherwise, it should combine the current result with the continuation.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_combine, tests/test_async_option_builder.py::test_async_option_builder_return_some, tests/test_async_result_builder.py::test_async_result_builder_combine, tests/test_result_builder.py::test_result_builder_yield_value_async</acceptance>
+  </requirement>
+</requirement_document>

@@ -1,0 +1,180 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/builder.py b/expression/core/builder.py
+--- a/expression/core/builder.py	2026-09-23 12:35:18
++++ b/expression/core/builder.py	2026-09-23 12:44:32
+@@ -68,18 +68,14 @@
+                     done.append(True)
+                     # Return of a value in the generator produces StopAsyncIteration with a value
+                     # We need to be careful about how we access the value attribute
+-                    try:
+-                        if hasattr(stop_ex, 'value') and stop_ex.value is not None:
++                    if hasattr(stop_ex, 'value'):
++                        if stop_ex.value is not None:
+                             return self.return_(stop_ex.value)
+-                        elif hasattr(stop_ex, 'value') and stop_ex.value is None:
++                        elif stop_ex.value is None:
+                             # StopAsyncIteration with None value should call zero() to handle empty computation
+                             return self.zero()
+-                        # If no 'value' attribute, re-raise as-is
+-                        raise
+-                    except AttributeError:
+-                        # Handle case where StopAsyncIteration doesn't have 'value' attribute
+-                        # In this case, treat as if no value was yielded (call zero())
+-                        return self.zero()
++                    # If no 'value' attribute or no value, treat as normal completion (call zero())
++                    return self.zero()
+             else:
+                 # For sync generators, we use send()
+                 yielded = gen.send(value)
+@@ -100,18 +96,14 @@
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+             # We need to be careful about how we access the value attribute
+-            try:
+-                if hasattr(ex, 'value') and ex.value is not None:
++            if hasattr(ex, 'value'):
++                if ex.value is not None:
+                     return self.return_(ex.value)
+-                elif hasattr(ex, 'value') and ex.value is None:
++                elif ex.value is None:
+                     # StopIteration with None value should call zero() to handle empty computation
+                     return self.zero()
+-                # If no 'value' attribute, re-raise as-is
+-                raise
+-            except AttributeError:
+-                # Handle case where StopIteration doesn't have 'value' attribute
+-                # In this case, treat as if no value was yielded (call zero())
+-                return self.zero()
++            # If no 'value' attribute or no value, treat as normal completion (call zero())
++            return self.zero()
+         except RuntimeError:
+             done.append(True)
+             raise StopIteration
+@@ -164,13 +156,13 @@
+             except StopIteration as ex:
+                 # This catches StopIteration that was raised during processing
+                 # We should check if we actually got a value or not
+-                try:
+-                    if hasattr(ex, 'value') and ex.value is not None:
++                if hasattr(ex, 'value'):
++                    if ex.value is not None:
+                         result = self.return_(ex.value)
+-                    elif hasattr(ex, 'value') and ex.value is None:
++                    elif ex.value is None:
+                         # StopIteration with None value should trigger zero() handling
+                         result = self.zero()
+-                except AttributeError:
++                else:
+                     # If no 'value' attribute, treat as no value (call zero())
+                     result = self.zero()
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:39:18
++++ b/expression/effect/option.py	2026-09-23 12:44:36
+@@ -58,12 +58,13 @@
+                         result = self.combine(result, cont)
+             except StopIteration as ex:
+                 # Handle StopIteration properly - extract return value if available
+-                if hasattr(ex, 'value') and ex.value is not None:
+-                    # If we got a value, return it as Some
+-                    return self.return_(ex.value)
+-                elif hasattr(ex, 'value') and ex.value is None:
+-                    # If we got None value, this means we should use zero() 
+-                    result = self.zero()
++                if hasattr(ex, 'value'):
++                    if ex.value is not None:
++                        # If we got a value, return it as Some
++                        return self.return_(ex.value)
++                    elif ex.value is None:
++                        # If we got None value, this means we should use zero() 
++                        result = self.zero()
+                 else:
+                     # Default case - re-raise if no value
+                     raise
+@@ -117,10 +118,9 @@
+                         if stop_ex.value is not None:
+                             return self.return_(stop_ex.value)
+                         elif stop_ex.value is None:
+-                            # StopAsyncIteration with None value should not raise, 
+-                            # but should return zero() equivalent
++                            # StopAsyncIteration with None value should call zero() to handle empty computation
+                             return self.zero()
+-                    # If no 'value' attribute or no value, treat as normal completion
++                    # If no 'value' attribute or no value, treat as normal completion (call zero())
+                     return self.zero()
+             else:
+                 yielded = gen.send(value)
+@@ -147,9 +147,9 @@
+                 if ex.value is not None:
+                     return self.return_(ex.value)
+                 elif ex.value is None:
+-                    # StopIteration with None value should return zero() equivalent
++                    # StopIteration with None value should call zero() to handle empty computation
+                     return self.zero()
+-            # If no 'value' attribute or no value, treat as normal completion
++            # If no 'value' attribute or no value, treat as normal completion (call zero())
+             return self.zero()
+         except RuntimeError as ex:
+             # Handle RuntimeError that may occur with async generators
+@@ -191,12 +191,13 @@
+                         result = await self.combine(result, cont)
+             except StopIteration as ex:
+                 # Handle StopIteration properly - extract return value if available
+-                if hasattr(ex, 'value') and ex.value is not None:
+-                    # If we got a value, return it as Some
+-                    return self.return_(ex.value)
+-                elif hasattr(ex, 'value') and ex.value is None:
+-                    # If we got None value, this means we should use zero() 
+-                    result = self.zero()
++                if hasattr(ex, 'value'):
++                    if ex.value is not None:
++                        # If we got a value, return it as Some
++                        return self.return_(ex.value)
++                    elif ex.value is None:
++                        # If we got None value, this means we should use zero() 
++                        result = self.zero()
+                 else:
+                     # Default case - re-raise if no value
+                     raise
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:39:20
++++ b/expression/effect/result.py	2026-09-23 12:44:42
+@@ -64,12 +64,13 @@
+                         result = self.combine(result, cont)
+             except StopIteration as ex:
+                 # Handle StopIteration properly - extract return value if available
+-                if hasattr(ex, 'value') and ex.value is not None:
+-                    # If we got a value, return it as Ok
+-                    return self.return_(ex.value)
+-                elif hasattr(ex, 'value') and ex.value is None:
+-                    # If we got None value, this means we should use zero() 
+-                    result = self.zero()
++                if hasattr(ex, 'value'):
++                    if ex.value is not None:
++                        # If we got a value, return it as Ok
++                        return self.return_(ex.value)
++                    elif ex.value is None:
++                        # If we got None value, this means we should use zero() 
++                        result = self.zero()
+                 else:
+                     # Default case - re-raise if no value
+                     raise
+@@ -198,12 +199,13 @@
+                         result = await self.combine(result, cont)
+             except StopIteration as ex:
+                 # Handle StopIteration properly - extract return value if available
+-                if hasattr(ex, 'value') and ex.value is not None:
+-                    # If we got a value, return it as Ok
+-                    return self.return_(ex.value)
+-                elif hasattr(ex, 'value') and ex.value is None:
+-                    # If we got None value, this means we should use zero() 
+-                    result = self.zero()
++                if hasattr(ex, 'value'):
++                    if ex.value is not None:
++                        # If we got a value, return it as Ok
++                        return self.return_(ex.value)
++                    elif ex.value is None:
++                        # If we got None value, this means we should use zero() 
++                        result = self.zero()
+                 else:
+                     # Default case - re-raise if no value
+                     raise

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/expression/core/builder.py</location>
+        <description>The _send method in Builder class incorrectly handles StopIteration exceptions when yielding None values. The current implementation raises StopIteration for None values instead of properly delegating to zero() method. This leads to "RuntimeError: Task got bad yield" and "coroutine raised StopIteration" errors in async contexts.</description>
+        <contract>The _send method must properly distinguish between StopIteration with values vs. StopIteration with None. When StopIteration is raised with a None value, it should trigger the zero() method to handle the empty computation, rather than raising the StopIteration exception. When StopIteration has a value, it should return that value via return_().</contract>
+        <acceptance>Tests: test_async_result_builder_yield_ok, test_result_builder_yield_from_ok, test_async_option_builder_yield_some_wrapped, test_async_result_builder_zero, test_async_option_builder_zero</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/core/builder.py</location>
+        <description>The _send method does not properly handle awaitable values returned from generators. When a generator yields an awaitable (like Result or Option objects), the current implementation doesn't await them before returning, causing "Task got bad yield" errors.</description>
+        <contract>The _send method must properly await awaitable values when they are yielded by generators. When a yielded value has an __await__ method, it should be awaited and the result should be passed to return_() instead of the awaitable itself.</contract>
+        <acceptance>Tests: test_async_result_builder_with_async_functions, test_async_option_builder_with_async_functions, test_async_result_builder_yield_value_async, test_async_option_builder_yield_value_async</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/core/builder.py</location>
+        <description>The __call__ method's handling of StopIteration exceptions is incomplete. It catches StopIteration but doesn't properly handle the case where StopIteration is raised during the initial send(), leading to incorrect return values.</description>
+        <contract>The __call__ method should properly handle StopIteration exceptions raised during the initial send() call, ensuring that when a generator completes with a value, that value is correctly returned, and when it completes without a value, zero() is called.</contract>
+        <acceptance>Tests: test_result_builder_yield_from_ok, test_option_builder_multiple_operations, test_result_builder_multiple_operations</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/core/builder.py</location>
+        <description>Async generators are not properly handled in the _send method. The current implementation doesn't correctly handle StopAsyncIteration exceptions and doesn't await async values properly.</description>
+        <contract>The _send method must properly handle async generators by awaiting their __anext__() calls and handling StopAsyncIteration appropriately. When an async generator yields an awaitable value, it should be awaited before returning.</contract>
+        <acceptance>Tests: test_async_result_builder_return_ok, test_async_option_builder_while, test_async_result_builder_with_async_functions</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/core/builder.py</location>
+        <description>The _send method does not correctly handle the difference between generators that support send() vs those that don't (like list iterators), leading to AttributeErrors and incorrect behavior.</description>
+        <contract>The _send method should gracefully handle generators that don't support send() by falling back to next() iteration when send() fails with AttributeError.</contract>
+        <acceptance>Tests: test_seq_yield_for_in, test_seq_builder_yield_from_sequence</acceptance>
+    </item>
+</requirement>

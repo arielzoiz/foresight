@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/expression/effect/result.py</location>
+    <description>The AsyncResultBuilder._send method incorrectly handles StopIteration exceptions when dealing with async generators. The method raises StopIteration inappropriately instead of properly converting it to a return value, causing "Task got bad yield" errors. Additionally, the async result builder doesn't properly handle awaitable values like Result objects when they are yielded.</description>
+    <contract>When an async generator yields a Result value, the AsyncResultBuilder._send method should properly await the Result and return the unwrapped value. When a StopIteration exception occurs (either normally or due to RuntimeError conversion), it should be properly converted to a return value instead of being re-raised.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_return_ok, tests/test_async_result_builder.py::test_async_result_builder_yield_ok, tests/test_async_result_builder.py::test_async_result_builder_with_async_functions</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/effect/option.py</location>
+    <description>The AsyncOptionBuilder._send method has similar issues to AsyncResultBuilder with StopIteration handling and incorrect processing of awaitable values. It also fails to properly handle the "Nothing" case when awaiting async Option values.</description>
+    <contract>When an async generator yields an Option value, the AsyncOptionBuilder._send method should properly await the Option and return the unwrapped value. When a StopIteration exception occurs, it should be properly converted to a return value instead of being re-raised.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_while, tests/test_async_option_builder.py::test_async_option_builder_yield_some_wrapped</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/effect/seq.py</location>
+    <description>The SeqBuilder._send method incorrectly tries to handle async generators in a synchronous context, leading to attribute errors. It also has issues with proper StopIteration handling that causes assertion failures in tests.</description>
+    <contract>The SeqBuilder._send method should correctly process generators in a synchronous context without attempting to call async-specific methods like __anext__(). It should properly handle StopIteration exceptions to return appropriate values.</contract>
+    <acceptance>tests/test_seq_builder.py::test_seq_builder_projection_int_str, tests/test_seq_builder.py::test_seq_builder_yield_from_empty_sequence_short_circuit</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder._send method has incorrect handling of StopIteration for async generators, and the overall flow in the __call__ method doesn't properly handle the case where StopIteration is raised during initial send or subsequent processing.</description>
+    <contract>The base Builder._send method should correctly differentiate between StopIteration with values vs StopIteration without values, and should properly handle async generators by detecting them and dispatching to the appropriate handling logic.</contract>
+    <acceptance>tests/test_result_builder.py::test_result_builder_yield_from_ok, tests/test_option_builder.py::test_option_builder_multiple_operations</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/effect/result.py</location>
+    <description>The AsyncResultBuilder._send method has issues with handling exceptions when awaiting values. Specifically, TypeError: exceptions must derive from BaseException errors occur when trying to raise exceptions that are not valid exception instances.</description>
+    <contract>When awaiting a Result that raises an exception in the async context, the AsyncResultBuilder should properly handle the exception and convert it to an Error result rather than raising invalid exceptions.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_yield_error, tests/test_async_result_builder.py::test_async_result_builder_yield_error_short_circuit</acceptance>
+  </item>
+</requirement>

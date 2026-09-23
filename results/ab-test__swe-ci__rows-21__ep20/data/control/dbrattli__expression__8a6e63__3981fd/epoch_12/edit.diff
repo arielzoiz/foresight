@@ -1,0 +1,179 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_option.py b/expression/effect/async_option.py
+--- a/expression/effect/async_option.py	2026-09-23 11:45:24
++++ b/expression/effect/async_option.py	2026-09-23 11:49:17
+@@ -53,53 +53,8 @@
+             done.append(True)
+             raise StopIteration
+ 
+-    def __call__(
+-        self,  # Ignored self parameter
+-        fn: Callable[
+-            _P,
+-            Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
+-        ],
+-    ) -> Callable[_P, Option[_TSource]]:
+-        async def async_wrapper(*args: _P.args, **kw: _P.kwargs) -> Option[_TSource]:
+-            # Create the generator
+-            gen = fn(*args, **kw)
+-            
+-            try:
+-                # Process the generator using the base implementation pattern
+-                done = []
+-                
+-                def binder(value):
+-                    return self._send(gen, done, value)
+-
+-                # Process the first value
+-                try:
+-                    result = self._send(gen, done)
+-                except StopIteration as ex:
+-                    # Handle StopIteration properly
+-                    if ex.value is not None:
+-                        return self.return_(ex.value)
+-                    else:
+-                        return self.zero()
+-
+-                # Continue processing until done
+-                while not done:
+-                    try:
+-                        cont = self.bind(result, binder)
+-                        result = self.combine(result, cont)
+-                    except StopIteration as ex:
+-                        # Handle StopIteration properly
+-                        if ex.value is not None:
+-                            return self.return_(ex.value)
+-                        else:
+-                            return self.zero()
+-
+-                # Return the final result
+-                return result
+-            except Exception:
+-                # If there's an issue, return zero
+-                return self.zero()
+-        
+-        return async_wrapper
++    # Revert to using the base class __call__ method which should work properly
++    # The async wrapper was interfering with proper execution
+ 
+ 
+ __all__ = ["AsyncOptionBuilder"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_result.py b/expression/effect/async_result.py
+--- a/expression/effect/async_result.py	2026-09-23 11:45:27
++++ b/expression/effect/async_result.py	2026-09-23 11:49:13
+@@ -58,53 +58,8 @@
+             done.append(True)
+             raise StopIteration
+ 
+-    def __call__(
+-        self,  # Ignored self parameter
+-        fn: Callable[
+-            _P,
+-            Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
+-        ],
+-    ) -> Callable[_P, Result[_TSource, _TError]]:
+-        async def async_wrapper(*args: _P.args, **kw: _P.kwargs) -> Result[_TSource, _TError]:
+-            # Create the generator
+-            gen = fn(*args, **kw)
+-            
+-            try:
+-                # Process the generator using the base implementation pattern
+-                done = []
+-                
+-                def binder(value):
+-                    return self._send(gen, done, value)
+-
+-                # Process the first value
+-                try:
+-                    result = self._send(gen, done)
+-                except StopIteration as ex:
+-                    # Handle StopIteration properly
+-                    if ex.value is not None:
+-                        return self.return_(ex.value)
+-                    else:
+-                        return self.zero()
+-
+-                # Continue processing until done
+-                while not done:
+-                    try:
+-                        cont = self.bind(result, binder)
+-                        result = self.combine(result, cont)
+-                    except StopIteration as ex:
+-                        # Handle StopIteration properly
+-                        if ex.value is not None:
+-                            return self.return_(ex.value)
+-                        else:
+-                            return self.zero()
+-
+-                # Return the final result
+-                return result
+-            except Exception:
+-                # If there's an issue, return zero
+-                return self.zero()
+-        
+-        return async_wrapper
++    # Revert to using the base class __call__ method which should work properly
++    # The async wrapper was interfering with proper execution
+ 
+ 
+ __all__ = ["AsyncResultBuilder"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 11:46:10
++++ b/expression/effect/seq.py	2026-09-23 11:49:07
+@@ -1,12 +1,15 @@
+ from collections.abc import Callable, Generator, Iterable
+ from typing import Any, TypeVar
+ 
++from typing_extensions import ParamSpec
++
+ from expression.collections import seq
+ from expression.core import Builder, EffectError
+ 
+ 
+ _TSource = TypeVar("_TSource")
+ _TResult = TypeVar("_TResult")
++_P = ParamSpec("_P")
+ 
+ 
+ class SeqBuilder(Builder[_TSource, Iterable[Any]]):
+@@ -57,8 +60,36 @@
+             done.append(True)
+             raise StopIteration
+ 
+-    # Remove the custom __call__ method - use the base class implementation
+-    # The base class __call__ should work correctly for generators
++    # Override the __call__ method to properly handle list iterators
++    def __call__(
++        self,
++        fn: Callable[
++            _P,
++            Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
++        ],
++    ) -> Callable[_P, Iterable[_TSource]]:
++        def wrapper(*args: _P.args, **kw: _P.kwargs) -> Iterable[_TSource]:
++            gen = fn(*args, **kw)
++            
++            # Handle case where generator becomes a list iterator (from Seq.empty())
++            # Check if it's a list iterator (has __iter__ but not send)
++            if hasattr(gen, '__iter__') and not hasattr(gen, 'send'):
++                # If it's a list iterator or similar, convert it to a generator
++                try:
++                    # Try to convert to a proper generator
++                    gen_list = list(gen)
++                    def gen_func():
++                        for item in gen_list:
++                            yield item
++                    gen = gen_func()
++                except Exception:
++                    # If conversion fails, treat as empty
++                    gen = iter([])
++            
++            # Use the base class implementation
++            return super().__call__(fn)(*args, **kw)
++        
++        return wrapper
+ 
+ 
+ __all__ = ["SeqBuilder"]
+\ No newline at end of file

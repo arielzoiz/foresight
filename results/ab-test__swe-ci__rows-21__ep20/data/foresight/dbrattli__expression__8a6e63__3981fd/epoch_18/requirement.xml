@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The _send method has incorrect StopIteration/StopAsyncIteration handling that causes "Task got bad yield" and "coroutine raised StopIteration" errors. The method doesn't properly distinguish between yielded values and return values, and doesn't correctly invoke zero() for empty computations.</description>
+    <contract>Fix the _send method to properly handle StopIteration and StopAsyncIteration:
+      1. Distinguish between yielded values and return values from generators
+      2. Ensure zero() is called when generators complete with None values
+      3. Properly extract values from StopIteration/StopAsyncIteration exceptions
+      4. Maintain consistent behavior between sync and async code paths</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_return_ok, tests/test_async_option_builder.py::test_async_option_builder_while, tests/test_async_result_builder.py::test_async_result_builder_yield_ok</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The zero() method invocation is inconsistent in the builder's execution flow, causing failures when computations complete without yielding values.</description>
+    <contract>Ensure proper zero() method usage in builder execution flow:
+      1. Call zero() when generators complete without yielding values
+      2. Handle None return values from generators correctly
+      3. Ensure zero() is invoked at appropriate points in execution</contract>
+    <acceptance>tests/test_option_builder.py::test_option_builder_zero, tests/test_async_option_builder.py::test_async_option_builder_zero</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/effect/option.py</location>
+    <description>AsyncOptionBuilder._send method doesn't properly handle awaitable Option values, particularly Nothing values that should short-circuit computations.</description>
+    <contract>Improve AsyncOptionBuilder._send to properly handle awaitable Option values:
+      1. Correctly await Option values yielded from async generators
+      2. Handle Nothing values that should short-circuit computation
+      3. Maintain consistency with sync Option handling</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_yield_nothing_short_circuit, tests/test_async_option_builder.py::test_async_option_builder_yield_nothing</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/core/option.py</location>
+    <description>Option.__await__ raises ValueError for Nothing, but async builders don't handle this correctly for short-circuiting.</description>
+    <contract>Ensure proper handling of Nothing in async contexts:
+      1. Allow await on Nothing to raise ValueError as intended
+      2. Enable async builders to detect and properly handle this for short-circuiting
+      3. Maintain backward compatibility for sync usage</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_yield_nothing_short_circuit, tests/test_async_option_builder.py::test_async_option_builder_zero</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>Inconsistent return value handling causes assertion failures like assert 42 == 43 due to improper value extraction from generators.</description>
+    <contract>Fix return value extraction from generators:
+      1. Properly extract values from StopIteration exceptions
+      2. Ensure consistent return value processing for both sync and async contexts
+      3. Fix assertion failures by ensuring correct value propagation</contract>
+    <acceptance>tests/test_result_builder.py::test_result_builder_yield_from_ok, tests/test_option_builder.py::test_option_builder_multiple_operations</acceptance>
+  </item>
+</requirement>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+  <item>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The _send method in the base Builder class incorrectly handles async generators and StopIteration exceptions. It has improper handling of async generator yields and doesn't properly distinguish between StopIteration with values vs. StopIteration without values, leading to "Task got bad yield" and "coroutine raised StopIteration" errors.</description>
+    <contract>Fix the _send method to properly handle async generators by correctly awaiting async values, properly differentiate between StopIteration with and without values, and correctly process async generator results.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_return_ok, tests/test_async_result_builder.py::test_async_result_builder_yield_ok, tests/test_async_option_builder.py::test_async_option_builder_while</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder class does not properly handle StopIteration exceptions that occur during synchronous generator processing, causing assertion failures in tests like test_result_builder_yield_from_ok and test_option_builder_yield_from_some.</description>
+    <contract>Improve StopIteration handling in the _send method to correctly distinguish between StopIteration with values and StopIteration without values, and ensure proper propagation of values from StopIteration exceptions.</contract>
+    <acceptance>tests/test_result_builder.py::test_result_builder_yield_from_ok, tests/test_option_builder.py::test_option_builder_yield_from_some</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/effect/result.py</location>
+    <description>The ResultBuilder class implements a zero() method that returns Ok(None), but there are inconsistencies in how it's used and tested. Tests expect zero() to return specific values, but the implementation is incomplete.</description>
+    <contract>Ensure the zero() method in ResultBuilder returns Ok(None) consistently and correctly handles empty generator scenarios in async contexts.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_zero</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/effect/option.py</location>
+    <description>The AsyncOptionBuilder class has issues with StopAsyncIteration handling that leads to AttributeError when trying to access .value attribute on StopAsyncIteration exceptions.</description>
+    <contract>Fix StopAsyncIteration handling in AsyncOptionBuilder._send to properly handle the absence of .value attribute and correctly process generator termination.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_zero</acceptance>
+  </item>
+  <item>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder class doesn't properly handle the case where generators return None (StopIteration without a value) in the main execution loop, causing it to call zero() incorrectly.</description>
+    <contract>Improve the main execution loop in the __call__ method to properly detect when a generator has yielded None and should call zero() instead of attempting to bind/combine results.</contract>
+    <acceptance>tests/test_result_builder.py::test_result_builder_yield_from_ok, tests/test_option_builder.py::test_option_builder_yield_from_some</acceptance>
+  </item>
+</requirement>

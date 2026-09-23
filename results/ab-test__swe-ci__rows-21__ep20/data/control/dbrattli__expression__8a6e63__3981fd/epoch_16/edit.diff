@@ -1,0 +1,217 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_option.py b/expression/effect/async_option.py
+--- a/expression/effect/async_option.py	2026-09-23 11:52:25
++++ b/expression/effect/async_option.py	2026-09-23 11:56:38
+@@ -1,4 +1,4 @@
+-from collections.abc import Callable, Generator
++from collections.abc import Callable, Generator, AsyncGenerator
+ from functools import wraps
+ from typing import Any, TypeVar
+ 
+@@ -27,32 +27,66 @@
+     def zero(self) -> Option[_TSource]:
+         return Nothing
+ 
+-    def _send(
++    def __call__(
+         self,
+-        gen: Generator[Any, Any, Any],
+-        done: list[bool],
+-        value: _TSource | None = None,
+-    ) -> Option[_TSource]:
+-        try:
+-            yielded = gen.send(value)
+-            return self.return_(yielded)
+-        except EffectError as error:
+-            # Effect errors (Nothing, Error, etc) short circuits the processing so we
+-            # set `done` to `True` here.
+-            done.append(True)
+-            # get value from exception
+-            value = error.args[0]
+-            return self.return_from(value)
+-        except StopIteration as ex:
+-            done.append(True)
+-            # Return of a value in the generator produces StopIteration with a value
+-            if ex.value is not None:
+-                return self.return_(ex.value)
+-            # If StopIteration has no value, we should return the zero value
+-            return self.zero()
+-        except RuntimeError:
+-            done.append(True)
+-            raise StopIteration
++        fn: Callable[
++            _P,
++            Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
++        ],
++    ) -> Callable[_P, Option[_TSource]]:
++        def wrapper(*args: _P.args, **kw: _P.kwargs) -> Option[_TSource]:
++            # Check if the function returns an async generator - if so, raise an error
++            # This prevents accidental use of async generators with sync builders
++            gen = fn(*args, **kw)
++            if isinstance(gen, AsyncGenerator):
++                raise TypeError("Async generators are not supported in synchronous builders. "
++                              "Use async_option builder for async generators.")
++            
++            # Otherwise, proceed with normal processing
++            # Create the generator
++            gen = fn(*args, **kw)
++            
++            # This mimics the behavior of the base builder but adapted for sync context
++            done = []
++            result = None
++
++            def binder(value):
++                return self._send(gen, done, value)
++
++            try:
++                result = self._send(gen, done)
++            except StopIteration as ex:
++                # Handle StopIteration properly - this is the key part!
++                # If StopIteration has a value, that's the final result
++                if ex.value is not None:
++                    return self.return_(ex.value)
++                # If StopIteration has no value, return zero (Nothing)
++                else:
++                    return self.zero()
++
++            # Continue processing until done
++            while not done:
++                try:
++                    cont = self.bind(result, binder)
++                    # Combine every result except the first
++                    if result is None:
++                        result = cont
++                    else:
++                        result = self.combine(result, cont)
++                except StopIteration as ex:
++                    # Handle StopIteration properly
++                    if ex.value is not None:
++                        return self.return_(ex.value)
++                    else:
++                        return self.zero()
++
++            # If result is None, it means we had a StopIteration with no value
++            if result is None:
++                return self.zero()
++            else:
++                return self.run(result)
++        
++        return wrapper
+ 
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_result.py b/expression/effect/async_result.py
+--- a/expression/effect/async_result.py	2026-09-23 11:54:06
++++ b/expression/effect/async_result.py	2026-09-23 11:56:44
+@@ -1,4 +1,4 @@
+-from collections.abc import Callable, Generator
++from collections.abc import Callable, Generator, AsyncGenerator
+ from typing import Any, TypeVar
+ 
+ from typing_extensions import ParamSpec
+@@ -57,6 +57,67 @@
+         except RuntimeError:
+             done.append(True)
+             raise StopIteration
++
++    def __call__(
++        self,
++        fn: Callable[
++            _P,
++            Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
++        ],
++    ) -> Callable[_P, Result[_TSource, _TError]]:
++        def wrapper(*args: _P.args, **kw: _P.kwargs) -> Result[_TSource, _TError]:
++            # Check if the function returns an async generator - if so, raise an error
++            # This prevents accidental use of async generators with sync builders
++            gen = fn(*args, **kw)
++            if isinstance(gen, AsyncGenerator):
++                raise TypeError("Async generators are not supported in synchronous builders. "
++                              "Use async_result builder for async generators.")
++            
++            # Otherwise, proceed with normal processing
++            # Create the generator
++            gen = fn(*args, **kw)
++            
++            # This mimics the behavior of the base builder but adapted for sync context
++            done = []
++            result = None
++
++            def binder(value):
++                return self._send(gen, done, value)
++
++            try:
++                result = self._send(gen, done)
++            except StopIteration as ex:
++                # Handle StopIteration properly - this is the key part!
++                # If StopIteration has a value, that's the final result
++                if ex.value is not None:
++                    return self.return_(ex.value)
++                # If StopIteration has no value, return zero (None)
++                else:
++                    return self.zero()
++
++            # Continue processing until done
++            while not done:
++                try:
++                    cont = self.bind(result, binder)
++                    # Combine every result except the first
++                    if result is None:
++                        result = cont
++                    else:
++                        result = self.combine(result, cont)
++                except StopIteration as ex:
++                    # Handle StopIteration properly
++                    if ex.value is not None:
++                        return self.return_(ex.value)
++                    else:
++                        return self.zero()
++
++            # If result is None, it means we had a StopIteration with no value
++            if result is None:
++                return self.zero()
++            else:
++                return self.run(result)
++        
++        return wrapper
+ 
+ 
+ __all__ = ["AsyncResultBuilder"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 11:54:53
++++ b/expression/effect/option.py	2026-09-23 11:56:10
+@@ -30,8 +30,8 @@
+     def __call__(
+         self,
+         fn: Callable[[], Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None]],
+-    ) -> Callable[[], Option[_TSource]]:
+-        def wrapper() -> Option[_TSource]:
++    ) -> Callable[..., Option[_TSource]]:
++        def wrapper(*args, **kwargs) -> Option[_TSource]:
+             # Create the generator
+             gen = fn()
+             
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 11:54:47
++++ b/expression/effect/result.py	2026-09-23 11:56:54
+@@ -1,4 +1,4 @@
+-from collections.abc import Callable, Generator
++from collections.abc import Callable, Generator, AsyncGenerator
+ from typing import Any, TypeVar
+ 
+ from typing_extensions import ParamSpec
+@@ -40,6 +40,14 @@
+         ],
+     ) -> Callable[_P, Result[_TSource, _TError]]:
+         def wrapper(*args: _P.args, **kw: _P.kwargs) -> Result[_TSource, _TError]:
++            # Check if the function returns an async generator - if so, raise an error
++            # This prevents accidental use of async generators with sync builders
++            gen = fn(*args, **kw)
++            if isinstance(gen, AsyncGenerator):
++                raise TypeError("Async generators are not supported in synchronous builders. "
++                              "Use async_result builder for async generators.")
++            
++            # Otherwise, proceed with normal processing
+             # Create the generator
+             gen = fn(*args, **kw)
+             

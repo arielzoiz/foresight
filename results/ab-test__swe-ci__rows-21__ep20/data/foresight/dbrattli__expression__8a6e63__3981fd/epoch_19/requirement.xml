@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder class has incomplete async generator handling in the _send method. It incorrectly handles StopAsyncIteration exceptions and doesn't properly manage the flow of async generators, causing "Task got bad yield" and "coroutine raised StopIteration" errors.</description>
+    <contract>
+      <behavior>The _send method must properly handle async generators by:
+      1. Correctly catching and handling StopAsyncIteration exceptions
+      2. Properly managing awaitable values yielded from async generators
+      3. Returning appropriate values for async generator completion
+      4. Maintaining consistent behavior between sync and async generator handling</behavior>
+      <inputs>Generator object (sync or async), done list, optional value</inputs>
+      <outputs>Properly handled result or awaitable for async context</outputs>
+      <exceptions>StopAsyncIteration should be caught and converted to appropriate return values</exceptions>
+    </contract>
+    <acceptance>
+      <test>tests/test_async_result_builder.py::test_async_result_builder_yield_ok</test>
+      <test>tests/test_async_option_builder.py::test_async_option_builder_yield_some_wrapped</test>
+      <test>tests/test_async_result_builder.py::test_async_result_builder_with_async_functions</test>
+    </acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/effect/result.py</location>
+    <description>The ResultBuilder and AsyncResultBuilder classes have incorrect handling of StopIteration and StopAsyncIteration exceptions in their _send methods. The return values are inconsistent with expected test outcomes.</description>
+    <contract>
+      <behavior>The _send method in both ResultBuilder and AsyncResultBuilder must:
+      1. Correctly extract values from StopIteration and StopAsyncIteration exceptions
+      2. Return appropriate Ok/Result values based on the yielded values
+      3. Handle the case where None values should invoke zero() method
+      4. Ensure that yield from operations correctly propagate values</behavior>
+      <inputs>Generator object, done list, optional value</inputs>
+      <outputs>Properly wrapped Result values</outputs>
+      <exceptions>StopIteration and StopAsyncIteration should be handled consistently</exceptions>
+    </contract>
+    <acceptance>
+      <test>tests/test_result_builder.py::test_result_builder_yield_from_ok</test>
+      <test>tests/test_result_builder.py::test_result_builder_multiple_operations</test>
+      <test>tests/test_async_result_builder.py::test_async_result_builder_return_ok</test>
+    </acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/effect/option.py</location>
+    <description>The OptionBuilder and AsyncOptionBuilder classes have incorrect handling of Nothing values in async contexts. The "Cannot await Nothing" error indicates improper handling of awaitable Nothing values.</description>
+    <contract>
+      <behavior>The _send method in both OptionBuilder and AsyncOptionBuilder must:
+      1. Properly detect and handle Nothing values in async contexts
+      2. Short-circuit properly when Nothing is yielded or returned
+      3. Return appropriate Some/Option values for normal yields
+      4. Handle awaitable Nothing values correctly</behavior>
+      <inputs>Generator object, done list, optional value</inputs>
+      <outputs>Properly wrapped Option values</outputs>
+      <exceptions>Nothing values should trigger early termination</exceptions>
+    </contract>
+    <acceptance>
+      <test>tests/test_async_option_builder.py::test_async_option_builder_yield_nothing_short_circuit</test>
+      <test>tests/test_async_option_builder.py::test_async_option_builder_zero</test>
+      <test>tests/test_async_option_builder.py::test_async_option_builder_yield_nothing</test>
+    </acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/effect/seq.py</location>
+    <description>The SeqBuilder class has incomplete async generator support and incorrect handling of StopIteration exceptions, causing failures in sequence generation tests.</description>
+    <contract>
+      <behavior>The _send method in SeqBuilder must:
+      1. Properly handle both sync and async generators
+      2. Correctly convert StopIteration exceptions to appropriate return values
+      3. Maintain consistency in how values are yielded and collected
+      4. Support async generators without breaking sync functionality</behavior>
+      <inputs>Generator object, done list, optional value</inputs>
+      <outputs>Iterable sequence of values</outputs>
+      <exceptions>StopIteration should be handled gracefully</exceptions>
+    </contract>
+    <acceptance>
+      <test>tests/test_seq.py::test_seq_yield_for_in</test>
+      <test>tests/test_seq_builder.py::test_seq_builder_yield_from_empty_sequence_short_circuit</test>
+      <test>tests/test_seq_builder.py::test_seq_builder_projection_int_str</test>
+    </acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder class has incorrect handling of StopIteration in the main call method, which affects all derived builders. The StopIteration exception handling in the main execution loop is flawed.</description>
+    <contract>
+      <behavior>The main __call__ method must:
+      1. Properly handle StopIteration exceptions that occur during execution
+      2. Extract values correctly from StopIteration exceptions
+      3. Ensure that zero() is called appropriately when no value is returned
+      4. Maintain consistent behavior across sync and async contexts</behavior>
+      <inputs>Function that returns a generator</inputs>
+      <outputs>Evaluated result from the generator</outputs>
+      <exceptions>StopIteration should be caught and handled properly to extract return values</exceptions>
+    </contract>
+    <acceptance>
+      <test>tests/test_result_builder.py::test_result_builder_evaluation_order</test>
+      <test>tests/test_result_builder.py::test_result_builder_short_circuit</test>
+      <test>tests/test_option_builder.py::test_option_builder_multiple_operations</test>
+    </acceptance>
+  </requirement>
+</requirement_document>

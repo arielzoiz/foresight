@@ -1,0 +1,62 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/builder.py b/expression/core/builder.py
+--- a/expression/core/builder.py	2026-09-23 12:23:14
++++ b/expression/core/builder.py	2026-09-23 12:26:54
+@@ -68,7 +68,7 @@
+                 except StopAsyncIteration as stop_ex:
+                     done.append(True)
+                     # Return of a value in the generator produces StopAsyncIteration with a value
+-                    if stop_ex.value is not None:
++                    if hasattr(stop_ex, 'value') and stop_ex.value is not None:
+                         return self.return_(stop_ex.value)
+                     raise
+             else:
+@@ -87,7 +87,7 @@
+                         except StopIteration as stop_ex:
+                             done.append(True)
+                             # Return of a value in the generator produces StopIteration with a value
+-                            if stop_ex.value is not None:
++                            if hasattr(stop_ex, 'value') and stop_ex.value is not None:
+                                 return self.return_(stop_ex.value)
+                             raise
+                     raise  # Re-raise if it's a different AttributeError
+@@ -101,7 +101,7 @@
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+-            if ex.value is not None:
++            if hasattr(ex, 'value') and ex.value is not None:
+                 return self.return_(ex.value)
+             raise
+         except RuntimeError:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:25:12
++++ b/expression/effect/result.py	2026-09-23 12:26:50
+@@ -78,6 +78,10 @@
+ class AsyncResultBuilder(ResultBuilder[_TSource, _TError]):
+     """Async version of ResultBuilder for async computations."""
+     
++    def Error(self, error: _TError) -> Result[_TSource, _TError]:
++        """Create a Result.Error instance."""
++        return Result[_TSource, _TError].Error(error)
++    
+     async def _send(
+         self,
+         gen: Generator[Any, Any, Any],
+@@ -103,7 +107,7 @@
+                 except StopAsyncIteration as stop_ex:
+                     done.append(True)
+                     # Return of a value in the generator produces StopAsyncIteration with a value
+-                    if stop_ex.value is not None:
++                    if hasattr(stop_ex, 'value') and stop_ex.value is not None:
+                         return self.return_(stop_ex.value)
+                     raise
+             else:
+@@ -121,7 +125,7 @@
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+-            if ex.value is not None:
++            if hasattr(ex, 'value') and ex.value is not None:
+                 return self.return_(ex.value)
+             raise
+         except RuntimeError:

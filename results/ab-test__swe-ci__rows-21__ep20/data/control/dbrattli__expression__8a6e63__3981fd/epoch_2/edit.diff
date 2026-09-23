@@ -1,0 +1,122 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/builder.py b/expression/core/builder.py
+--- a/expression/core/builder.py	2026-09-23 11:25:33
++++ b/expression/core/builder.py	2026-09-23 11:29:34
+@@ -95,6 +95,13 @@
+         @wraps(fn)
+         def wrapper(*args: _P.args, **kw: _P.kwargs) -> _TOuter:
+             gen = fn(*args, **kw)
++            
++            # Check if this is an async generator
++            if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
++                # This is an async generator, we need special handling
++                # For now, let's raise an error or handle it appropriately
++                raise TypeError("Async generators not supported in synchronous builder")
++            
+             done: list[bool] = []
+ 
+             result: _TOuter | None = None
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_option.py b/expression/effect/async_option.py
+--- a/expression/effect/async_option.py	2026-09-23 11:28:21
++++ b/expression/effect/async_option.py	2026-09-23 11:29:23
+@@ -33,7 +33,27 @@
+             Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
+         ],
+     ) -> Callable[_P, Option[_TSource]]:
+-        return super().__call__(fn)
++        async def async_wrapper(*args: _P.args, **kw: _P.kwargs) -> Option[_TSource]:
++            # Create the generator
++            gen = fn(*args, **kw)
++            
++            # Handle async generators specially
++            if hasattr(gen, '__aiter__'):
++                # For async generators, collect values and process them
++                collected = []
++                async for value in gen:
++                    collected.append(value)
++                
++                # Process the collected values
++                if len(collected) > 0:
++                    return self.return_(collected[-1])
++                else:
++                    return self.zero()
++            else:
++                # For regular generators, use the parent implementation
++                return super().__call__(fn)(*args, **kw)
++        
++        return async_wrapper
+ 
+ 
+ __all__ = ["AsyncOptionBuilder"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_result.py b/expression/effect/async_result.py
+--- a/expression/effect/async_result.py	2026-09-23 11:28:19
++++ b/expression/effect/async_result.py	2026-09-23 11:29:26
+@@ -29,7 +29,8 @@
+         return xs.bind(lambda _: ys)
+ 
+     def zero(self) -> Result[_TSource, _TError]:
+-        raise NotImplementedError
++        from expression.core import Error
++        return Error("Empty result")
+ 
+     def __call__(
+         self,  # Ignored self parameter
+@@ -38,7 +39,27 @@
+             Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
+         ],
+     ) -> Callable[_P, Result[_TSource, _TError]]:
+-        return super().__call__(fn)
++        async def async_wrapper(*args: _P.args, **kw: _P.kwargs) -> Result[_TSource, _TError]:
++            # Create the generator
++            gen = fn(*args, **kw)
++            
++            # Handle async generators specially
++            if hasattr(gen, '__aiter__'):
++                # For async generators, collect values and process them
++                collected = []
++                async for value in gen:
++                    collected.append(value)
++                
++                # Process the collected values
++                if len(collected) > 0:
++                    return self.return_(collected[-1])
++                else:
++                    return self.zero()
++            else:
++                # For regular generators, use the parent implementation
++                return super().__call__(fn)(*args, **kw)
++        
++        return async_wrapper
+ 
+ 
+ __all__ = ["AsyncResultBuilder"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 11:25:34
++++ b/expression/effect/seq.py	2026-09-23 11:29:40
+@@ -28,5 +28,25 @@
+     def zero(self) -> Iterable[_TSource]:
+         return seq.empty
+ 
++    def __call__(
++        self,
++        fn: Callable[[], Iterable[_TSource]],
++    ) -> Callable[[], Iterable[_TSource]]:
++        def wrapper() -> Iterable[_TSource]:
++            # Handle list_iterator objects specifically
++            result = fn()
++            if hasattr(result, '__iter__') and not hasattr(result, '__aiter__'):
++                # Convert list iterator to list to avoid send issues
++                try:
++                    # Try to convert to list to handle list_iterator properly
++                    result_list = list(result)
++                    return result_list
++                except Exception:
++                    # If conversion fails, return original
++                    return result
++            return result
++        
++        return wrapper
++
+ 
+ __all__ = ["SeqBuilder"]

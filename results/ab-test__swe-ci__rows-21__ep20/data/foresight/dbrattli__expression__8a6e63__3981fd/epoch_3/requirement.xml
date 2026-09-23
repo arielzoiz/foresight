@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>expression/effect/option.py:AsyncOptionBuilder._send</location>
+    <description>The AsyncOptionBuilder._send method is returning a coroutine object instead of awaiting it, causing AttributeError when trying to call .bind() on the coroutine.</description>
+    <contract>The _send method should properly await the generator send operation and return the correct Option type. The method should handle both synchronous and asynchronous generator yields appropriately.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_while, tests/test_async_option_builder.py::test_async_option_builder_throws, etc.</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>expression/effect/result.py:AsyncResultBuilder._send</location>
+    <description>The AsyncResultBuilder._send method has the same issue as AsyncOptionBuilder - it returns a coroutine instead of awaiting it.</description>
+    <contract>The _send method should properly await the generator send operation and return the correct Result type. The method should handle both synchronous and asynchronous generator yields appropriately.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_return_ok, tests/test_async_result_builder.py::test_async_result_builder_yield_ok, etc.</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>expression/effect/option.py:AsyncOptionBuilder.__call__</location>
+    <description>The async wrapper in AsyncOptionBuilder doesn't properly await the coroutine returned by _send, causing bind() to be called on a coroutine object instead of a resolved value.</description>
+    <contract>The async_wrapper should await the result of _send before passing it to bind operations. The binder function should handle async results properly.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_return_some, tests/test_async_option_builder.py::test_async_option_builder_yield_some_wrapped, etc.</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>expression/effect/result.py:AsyncResultBuilder.__call__</location>
+    <description>The async wrapper in AsyncResultBuilder doesn't properly await the coroutine returned by _send, causing bind() to be called on a coroutine object instead of a resolved value.</description>
+    <contract>The async_wrapper should await the result of _send before passing it to bind operations. The binder function should handle async results properly.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_with_async_functions, tests/test_async_result_builder.py::test_async_result_builder_with_async_result_functions, etc.</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>expression/effect/seq.py:SeqBuilder.bind</location>
+    <description>The SeqBuilder.bind method incorrectly implements bind semantics - it returns only the first element instead of applying the function to all elements.</description>
+    <contract>The bind method should properly apply the function to all elements in the iterable and return a new iterable with the transformed elements.</contract>
+    <acceptance>tests/test_seq_builder.py::test_seq_builder_projection_int_str, tests/test_seq_builder.py::test_seq_builder_combine, etc.</acceptance>
+  </requirement>
+</requirement_document>

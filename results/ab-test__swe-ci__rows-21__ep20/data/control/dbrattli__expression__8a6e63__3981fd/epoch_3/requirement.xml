@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/expression/effect/async_option.py</location>
+        <description>The async_option builder has incorrect implementation for handling generators. The current implementation doesn't properly handle async generators or regular generators in the context of computational expressions, causing several test failures related to evaluation order, short circuiting, and yield operations.</description>
+        <contract>The async_option builder should properly support both sync and async generators. It should correctly process yield expressions and handle effect short-circuiting (Nothing values) properly. When a generator yields a Nothing value, it should immediately terminate and return Nothing. When a generator completes normally, it should return the last yielded value wrapped in Some.</contract>
+        <acceptance>tests/test_async_option_builder.py::test_async_option_builder_evaluation_order, tests/test_async_option_builder.py::test_async_option_builder_short_circuit, tests/test_async_option_builder.py::test_async_option_builder_nested, tests/test_async_option_builder.py::test_async_option_builder_with_async_option_functions</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/expression/effect/async_result.py</location>
+        <description>The async_result builder has incorrect implementation for handling generators. Similar to async_option, it fails to properly handle both sync and async generators in computational expressions, leading to failures in evaluation order, short circuiting, and yield operations.</description>
+        <contract>The async_result builder should properly support both sync and async generators. It should correctly process yield expressions and handle effect short-circuiting (Error values) properly. When a generator yields an Error value, it should immediately terminate and return Error. When a generator completes normally, it should return the last yielded value wrapped in Ok.</contract>
+        <acceptance>tests/test_async_result_builder.py::test_async_result_builder_evaluation_order, tests/test_async_result_builder.py::test_async_result_builder_short_circuit, tests/test_async_result_builder.py::test_async_result_builder_nested, tests/test_async_result_builder.py::test_async_result_builder_with_async_result_functions</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/expression/effect/seq.py</location>
+        <description>The seq builder implementation has several issues with handling generators. It incorrectly processes yield expressions and doesn't properly handle the combination of values from generators. The bind operation is also incorrectly implemented, returning only the first value instead of properly chaining generators.</description>
+        <contract>The seq builder should correctly process generators with yield expressions, properly implementing the bind operation to chain values correctly, and handle yield from operations. It should properly combine sequences and return the expected sequence of values.</contract>
+        <acceptance>tests/test_seq_builder.py::test_seq_builder_empty_sequence, tests/test_seq_builder.py::test_seq_builder_yield_sequence_wrapped, tests/test_seq_builder.py::test_seq_builder_yield_from_empty_sequence_short_circuit, tests/test_seq_builder.py::test_seq_builder_multiple_operations, tests/test_seq_builder.py::test_seq_builder_evaluation_order, tests/test_seq_builder.py::test_seq_builder_return_from, tests/test_seq_builder.py::test_seq_builder_while</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/expression/core/builder.py</location>
+        <description>The base Builder class has incorrect logic for handling generators. The _send method doesn't properly handle the case when a generator yields None, and the __call__ method doesn't correctly process generators that may have multiple yields or return values. The binder function has a bug where it doesn't properly check for the result being None.</description>
+        <contract>The base Builder class should correctly handle generator execution including yield expressions, StopIteration exceptions, and proper binding of values. The _send method should properly handle yielded values and exceptions, and the __call__ method should correctly manage the generator flow.</contract>
+        <acceptance>All failing tests related to generator execution and binding</acceptance>
+    </requirement>
+    
+    <requirement>
+        <location>/app/code/expression/effect/async_option.py</location>
+        <description>The async_option builder's __call__ method incorrectly handles regular generators by delegating to the parent class instead of properly implementing async-specific behavior. This leads to failures in tests involving async operations.</description>
+        <contract>The async_option builder's __call__ method should properly distinguish between sync and async generators and handle them appropriately. For async generators, it should await their completion and return the final value wrapped in Option. For sync generators, it should process them using the standard builder logic.</contract>
+        <acceptance>tests/test_async_option_builder.py::test_async_option_builder_with_async_functions, tests/test_async_option_builder.py::test_async_option_builder_with_nested_async_generators</acceptance>
+    </requirement>
+</requirements>

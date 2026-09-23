@@ -1,0 +1,182 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/option.py b/expression/core/option.py
+--- a/expression/core/option.py	2026-09-23 12:03:50
++++ b/expression/core/option.py	2026-09-23 12:20:42
+@@ -286,6 +286,15 @@
+             case _:
+                 raise EffectError(Nothing)
+ 
++    def __await__(self) -> Generator[Any, Any, _TSourceOut]:
++        """Make Option awaitable."""
++        match self:
++            case Option(tag="some", some=value):
++                yield value
++                return value
++            case _:
++                raise ValueError("Cannot await Nothing")
++
+     def __str__(self) -> str:
+         match self:
+             case Option(tag="some", some=some):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/result.py b/expression/core/result.py
+--- a/expression/core/result.py	2026-09-23 12:03:50
++++ b/expression/core/result.py	2026-09-23 12:20:40
+@@ -255,6 +255,15 @@
+             case _:
+                 raise EffectError(self)
+ 
++    def __await__(self) -> Generator[Any, Any, _TSourceOut]:
++        """Make Result awaitable."""
++        match self:
++            case Result(tag="ok", ok=value):
++                yield value
++                return value
++            case Result(error=error):
++                raise error
++
+     def __str__(self) -> str:
+         match self:
+             case Result(tag="ok", ok=value):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:19:12
++++ b/expression/effect/option.py	2026-09-23 12:20:52
+@@ -48,7 +48,17 @@
+     ) -> Option[_TSource]:
+         try:
+             yielded = gen.send(value)
+-            return self.return_(yielded)
++            # Check if the yielded value is awaitable (Option)
++            if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
++                # Handle awaitable values (like Option)
++                try:
++                    awaited = await yielded
++                    return self.return_(awaited)
++                except Exception as ex:
++                    # Handle error case for awaitable Option
++                    return Nothing
++            else:
++                return self.return_(yielded)
+         except AttributeError as ex:
+             error_msg = str(ex)
+             # Check if this is specifically an async generator error
+@@ -61,7 +71,17 @@
+                     if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+                         # It's an async generator, use __anext__
+                         yielded = await gen.__anext__()
+-                        return self.return_(yielded)
++                        # Check if the yielded value is awaitable (Option)
++                        if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
++                            # Handle awaitable values (like Option)
++                            try:
++                                awaited = await yielded
++                                return self.return_(awaited)
++                            except Exception as ex:
++                                # Handle error case for awaitable Option
++                                return Nothing
++                        else:
++                            return self.return_(yielded)
+                     else:
+                         # Fall back to original behavior if needed
+                         raise
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:19:16
++++ b/expression/effect/result.py	2026-09-23 12:20:46
+@@ -54,7 +54,16 @@
+     ) -> Result[_TSource, _TError]:
+         try:
+             yielded = gen.send(value)
+-            return self.return_(yielded)
++            # Check if the yielded value is awaitable (Result)
++            if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
++                # Handle awaitable values (like Result)
++                try:
++                    awaited = await yielded
++                    return self.return_(awaited)
++                except Exception as ex:
++                    return self.Error(ex)
++            else:
++                return self.return_(yielded)
+         except AttributeError as ex:
+             error_msg = str(ex)
+             # Check if this is specifically an async generator error
+@@ -67,7 +76,16 @@
+                     if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+                         # It's an async generator, use __anext__
+                         yielded = await gen.__anext__()
+-                        return self.return_(yielded)
++                        # Check if the yielded value is awaitable (Result)
++                        if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
++                            # Handle awaitable values (like Result)
++                            try:
++                                awaited = await yielded
++                                return self.return_(awaited)
++                            except Exception as ex:
++                                return self.Error(ex)
++                        else:
++                            return self.return_(yielded)
+                     else:
+                         # Fall back to original behavior if needed
+                         raise
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 12:17:28
++++ b/expression/effect/seq.py	2026-09-23 12:21:12
+@@ -72,5 +72,60 @@
+         
+         return wrapper
+ 
++    def _send(
++        self,
++        gen: Generator[Any, Any, Any],
++        done: list[bool],
++        value: _TSource | None = None,
++    ) -> Iterable[_TSource]:
++        """Handle sending values to generators, with special handling for async generators."""
++        try:
++            yielded = gen.send(value)
++            # Check if the yielded value is awaitable (like Result or Option)
++            if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
++                # Handle awaitable values (like Result or Option) - this is tricky in sync context
++                # For now, we'll treat them as regular values
++                return self.return_(yielded)
++            else:
++                return self.return_(yielded)
++        except AttributeError as ex:
++            error_msg = str(ex)
++            # Check if this is specifically an async generator error
++            if ("object is not an iterator" in error_msg or 
++                "'async_generator' object is not an iterator" in error_msg or
++                "'async_generator' object has no attribute 'send'" in error_msg):
++                # This is an async generator, but we're in a sync context, so we can't use __anext__
++                # Just fall through to default behavior - let the caller handle this appropriately
++                try:
++                    yielded = next(gen)
++                    return self.return_(yielded)
++                except StopIteration as stop_ex:
++                    done.append(True)
++                    # Return of a value in the generator produces StopIteration with a value
++                    if stop_ex.value is not None:
++                        return self.return_(stop_ex.value)
++                    raise
++            elif "'object' object has no attribute 'send'" in error_msg or "has no attribute 'send'" in error_msg:
++                # Handle iterators that don't support send (like list_iterator)
++                try:
++                    yielded = next(gen)
++                    return self.return_(yielded)
++                except StopIteration as stop_ex:
++                    done.append(True)
++                    # Return of a value in the generator produces StopIteration with a value
++                    if stop_ex.value is not None:
++                        return self.return_(stop_ex.value)
++                    raise
++            raise  # Re-raise if it's a different AttributeError
++        except StopIteration as ex:
++            done.append(True)
++            # Return of a value in the generator produces StopIteration with a value
++            if ex.value is not None:
++                return self.return_(ex.value)
++            raise
++        except RuntimeError:
++            done.append(True)
++            raise StopIteration
++
+ 
+ __all__ = ["SeqBuilder"]

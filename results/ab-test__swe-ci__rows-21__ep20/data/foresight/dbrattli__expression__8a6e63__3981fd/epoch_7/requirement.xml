@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/expression/effect/result.py</location>
+        <description>AsyncResultBuilder class does not properly handle async generators and awaitable Result objects. Tests fail with "TypeError: object Result can't be used in 'await' expression" and "TypeError: 'async_generator' object is not an iterator". The implementation attempts to handle async generators but has flawed logic in the _send method.</description>
+        <contract>AsyncResultBuilder must properly handle async generators by detecting when a generator is actually an async generator and using __anext__() instead of send(). It must also support awaiting Result objects when they are yielded, properly unwrapping their values. The builder should return a Result type when awaited.</contract>
+        <acceptance>tests/test_async_result_builder.py::test_async_result_builder_return_ok, tests/test_async_result_builder.py::test_async_result_builder_while, tests/test_async_result_builder.py::test_async_result_builder_with_async_functions, tests/test_async_result_builder.py::test_async_result_builder_evaluation_order</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/effect/option.py</location>
+        <description>AsyncOptionBuilder class has the same async generator handling issues as AsyncResultBuilder. Tests fail with "TypeError: object Option can't be used in 'await' expression" and "TypeError: 'async_generator' object is not an iterator". The implementation has flawed logic for detecting and handling async generators.</description>
+        <contract>AsyncOptionBuilder must properly handle async generators by detecting when a generator is actually an async generator and using __anext__() instead of send(). It must also support awaiting Option objects when they are yielded, properly unwrapping their values. The builder should return an Option type when awaited.</contract>
+        <acceptance>tests/test_async_option_builder.py::test_async_option_builder_while, tests/test_async_option_builder.py::test_async_option_builder_throws, tests/test_async_option_builder.py::test_async_option_builder_return_some</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/effect/seq.py</location>
+        <description>SeqBuilder class has incomplete implementation that doesn't properly handle async sequences and generators. The implementation doesn't account for async generators in the _send method, causing failures in tests that use async sequences.</description>
+        <contract>SeqBuilder must properly detect and handle async generators by using __anext__() instead of send(). It should also support proper async sequence operations and projections.</contract>
+        <acceptance>tests/test_seq_builder.py::test_seq_builder_projection_int_str, tests/test_seq_builder.py::test_seq_builder_yield_from_empty_sequence_short_circuit</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/core/result.py</location>
+        <description>Result class does not implement proper async/await support. When Result objects are yielded in async contexts, they should be awaitable.</description>
+        <contract>Result class must implement __await__ method to make it awaitable when used in async contexts. This allows Result objects to be awaited in async generators and properly unwrapped.</contract>
+        <acceptance>tests/test_async_result_builder.py::test_async_result_builder_return_ok, tests/test_async_result_builder.py::test_async_result_builder_while</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/core/option.py</location>
+        <description>Option class does not implement proper async/await support. When Option objects are yielded in async contexts, they should be awaitable.</description>
+        <contract>Option class must implement __await__ method to make it awaitable when used in async contexts. This allows Option objects to be awaited in async generators and properly unwrapped.</contract>
+        <acceptance>tests/test_async_option_builder.py::test_async_option_builder_while, tests/test_async_option_builder.py::test_async_option_builder_return_some</acceptance>
+    </item>
+</requirement>

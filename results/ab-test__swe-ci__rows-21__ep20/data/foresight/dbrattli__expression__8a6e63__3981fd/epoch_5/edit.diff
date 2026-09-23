@@ -1,0 +1,255 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/collections/asyncseq.py b/expression/collections/asyncseq.py
+--- a/expression/collections/asyncseq.py	2026-09-23 12:03:50
++++ b/expression/collections/asyncseq.py	2026-09-23 12:17:24
+@@ -4,6 +4,7 @@
+ from typing import Any, TypeVar, overload
+ 
+ from expression.core import pipe
++import asyncio
+ 
+ 
+ TSource = TypeVar("TSource")
+@@ -39,6 +40,10 @@
+ 
+     def __aiter__(self) -> AsyncIterator[TSource]:
+         return self._ai.__aiter__()
++    
++    async def __anext__(self) -> TSource:
++        """Provide async next iteration support."""
++        return await self._ai.__anext__()
+ 
+ 
+ def append(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:14:50
++++ b/expression/effect/option.py	2026-09-23 12:17:18
+@@ -47,40 +47,25 @@
+         value: _TSource | None = None,
+     ) -> Option[_TSource]:
+         try:
+-            # Check if the generator supports send method (i.e. is a true generator)
+-            # If it doesn't support send, it's likely an iterator (like list_iterator) 
+-            # that we should handle with next() instead
+-            try:
+-                yielded = gen.send(value)
+-                return self.return_(yielded)
+-            except AttributeError as ex:
+-                # Handle async generators that don't support send method
+-                if "object is not an iterator" in str(ex) or "'async_generator' object is not an iterator" in str(ex):
+-                    # For async generators, we need to use different mechanism
+-                    # Convert to async iterator and await __anext__
++            yielded = gen.send(value)
++            return self.return_(yielded)
++        except AttributeError as ex:
++            # Handle async generators that don't support send method
++            error_msg = str(ex)
++            if "object is not an iterator" in error_msg or "'async_generator' object is not an iterator" in error_msg:
++                # For async generators, we need to use __anext__
++                try:
++                    # Try to detect if it's an async generator and handle it properly
++                    if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
++                        # It's an async generator, use __anext__
++                        yielded = await gen.__anext__()
++                        return self.return_(yielded)
++                    else:
++                        # Fall back to original behavior if needed
++                        raise
++                except Exception:
++                    # If we couldn't handle it as async generator, fall back to original logic
+                     try:
+-                        # Try to detect if it's an async generator
+-                        if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+-                            # It's an async generator, use __anext__
+-                            yielded = await gen.__anext__()
+-                            return self.return_(yielded)
+-                        else:
+-                            # Fall back to original behavior if needed
+-                            raise
+-                    except Exception:
+-                        # If we couldn't handle it as async generator, fall back to original logic
+-                        try:
+-                            yielded = next(gen)
+-                            return self.return_(yielded)
+-                        except StopIteration as stop_ex:
+-                            done.append(True)
+-                            # Return of a value in the generator produces StopIteration with a value
+-                            if stop_ex.value is not None:
+-                                return self.return_(stop_ex.value)
+-                            raise
+-                elif "'object' object has no attribute 'send'" in str(ex) or "has no attribute 'send'" in str(ex):
+-                    # Handle iterators that don't support send (like list_iterator)
+-                    try:
+                         yielded = next(gen)
+                         return self.return_(yielded)
+                     except StopIteration as stop_ex:
+@@ -89,7 +74,18 @@
+                         if stop_ex.value is not None:
+                             return self.return_(stop_ex.value)
+                         raise
+-                raise  # Re-raise if it's a different AttributeError
++            elif "'object' object has no attribute 'send'" in error_msg or "has no attribute 'send'" in error_msg:
++                # Handle iterators that don't support send (like list_iterator)
++                try:
++                    yielded = next(gen)
++                    return self.return_(yielded)
++                except StopIteration as stop_ex:
++                    done.append(True)
++                    # Return of a value in the generator produces StopIteration with a value
++                    if stop_ex.value is not None:
++                        return self.return_(stop_ex.value)
++                    raise
++            raise  # Re-raise if it's a different AttributeError
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:14:46
++++ b/expression/effect/result.py	2026-09-23 12:17:12
+@@ -4,6 +4,7 @@
+ from typing_extensions import ParamSpec
+ 
+ from expression.core import Builder, Ok, Result, pipe, result
++import asyncio
+ 
+ 
+ _TSource = TypeVar("_TSource")
+@@ -52,40 +53,25 @@
+         value: _TSource | None = None,
+     ) -> Result[_TSource, _TError]:
+         try:
+-            # Check if the generator supports send method (i.e. is a true generator)
+-            # If it doesn't support send, it's likely an iterator (like list_iterator) 
+-            # that we should handle with next() instead
+-            try:
+-                yielded = gen.send(value)
+-                return self.return_(yielded)
+-            except AttributeError as ex:
+-                # Handle async generators that don't support send method
+-                if "object is not an iterator" in str(ex) or "'async_generator' object is not an iterator" in str(ex):
+-                    # For async generators, we need to use different mechanism
+-                    # Convert to async iterator and await __anext__
++            yielded = gen.send(value)
++            return self.return_(yielded)
++        except AttributeError as ex:
++            # Handle async generators that don't support send method
++            error_msg = str(ex)
++            if "object is not an iterator" in error_msg or "'async_generator' object is not an iterator" in error_msg:
++                # For async generators, we need to use __anext__
++                try:
++                    # Try to detect if it's an async generator and handle it properly
++                    if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
++                        # It's an async generator, use __anext__
++                        yielded = await gen.__anext__()
++                        return self.return_(yielded)
++                    else:
++                        # Fall back to original behavior if needed
++                        raise
++                except Exception:
++                    # If we couldn't handle it as async generator, fall back to original logic
+                     try:
+-                        # Try to detect if it's an async generator
+-                        if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+-                            # It's an async generator, use __anext__
+-                            yielded = await gen.__anext__()
+-                            return self.return_(yielded)
+-                        else:
+-                            # Fall back to original behavior if needed
+-                            raise
+-                    except Exception:
+-                        # If we couldn't handle it as async generator, fall back to original logic
+-                        try:
+-                            yielded = next(gen)
+-                            return self.return_(yielded)
+-                        except StopIteration as stop_ex:
+-                            done.append(True)
+-                            # Return of a value in the generator produces StopIteration with a value
+-                            if stop_ex.value is not None:
+-                                return self.return_(stop_ex.value)
+-                            raise
+-                elif "'object' object has no attribute 'send'" in str(ex) or "has no attribute 'send'" in str(ex):
+-                    # Handle iterators that don't support send (like list_iterator)
+-                    try:
+                         yielded = next(gen)
+                         return self.return_(yielded)
+                     except StopIteration as stop_ex:
+@@ -94,7 +80,18 @@
+                         if stop_ex.value is not None:
+                             return self.return_(stop_ex.value)
+                         raise
+-                raise  # Re-raise if it's a different AttributeError
++            elif "'object' object has no attribute 'send'" in error_msg or "has no attribute 'send'" in error_msg:
++                # Handle iterators that don't support send (like list_iterator)
++                try:
++                    yielded = next(gen)
++                    return self.return_(yielded)
++                except StopIteration as stop_ex:
++                    done.append(True)
++                    # Return of a value in the generator produces StopIteration with a value
++                    if stop_ex.value is not None:
++                        return self.return_(stop_ex.value)
++                    raise
++            raise  # Re-raise if it's a different AttributeError
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 12:14:34
++++ b/expression/effect/seq.py	2026-09-23 12:17:28
+@@ -1,8 +1,9 @@
+-from collections.abc import Callable, Iterable
++from collections.abc import Callable, Iterable, Generator
+ from typing import Any, TypeVar
+ 
+ from expression.collections import seq
+ from expression.core import Builder
++import asyncio
+ 
+ 
+ _TSource = TypeVar("_TSource")
+@@ -30,6 +31,46 @@
+ 
+     def zero(self) -> Iterable[_TSource]:
+         return seq.empty
++
++    def __call__(
++        self,  # Ignored self parameter
++        fn: Callable[
++            ...,  # Use ... instead of ParamSpec to avoid import issues
++            Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
++        ],
++    ) -> Callable[..., Iterable[_TSource]]:
++        """Sync seq builder."""
++        def wrapper(*args, **kwargs):
++            gen = fn(*args, **kwargs)
++            done: list[bool] = []
++            result: Iterable[_TSource] | None = None
++            
++            def binder(value: Any) -> Iterable[_TSource]:
++                ret = self._send(gen, done, value)
++                return ret
++            
++            try:
++                result = self._send(gen, done)
++                
++                while not done:
++                    cont = self.bind(result, binder)
++                    
++                    # Combine every result except the first
++                    if result is None:
++                        result = cont
++                    else:
++                        result = self.combine(result, cont)
++            except StopIteration:
++                pass
++
++            # If anything returns `None` (i.e raises StopIteration without a value) then
++            # we expect the effect to have a zero method implemented.
++            if result is None:
++                result = self.zero()
++
++            return result
++        
++        return wrapper
+ 
+ 
+ __all__ = ["SeqBuilder"]

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement>
+    <item>
+        <location>/app/code/expression/effect/result.py</location>
+        <description>The AsyncResultBuilder incorrectly handles async_generator objects. The current implementation assumes all generators support the 'send' method, but async generators don't support send() and will raise AttributeError when attempted. This causes TypeError: 'async_generator' object is not an iterator in all async result builder tests.</description>
+        <contract>Modify AsyncResultBuilder._send method to properly detect and handle async generators vs regular generators. When an async generator is detected, it should use different iteration mechanisms (like awaiting __anext__ or using async for loops) rather than attempting to use send().</contract>
+        <acceptance>tests/test_async_result_builder.py tests should pass without TypeError: 'async_generator' object is not an iterator</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/effect/option.py</location>
+        <description>The AsyncOptionBuilder suffers from the same async generator handling issue as AsyncResultBuilder. It also incorrectly attempts to use send() method on async generators, causing TypeError: 'async_generator' object is not an iterator in all async option builder tests.</description>
+        <contract>Modify AsyncOptionBuilder._send method to properly detect and handle async generators vs regular generators. When an async generator is detected, it should use different iteration mechanisms rather than attempting to use send().</contract>
+        <acceptance>tests/test_async_option_builder.py tests should pass without TypeError: 'async_generator' object is not an iterator</acceptance>
+    </item>
+    <item>
+        <location>/app/code/expression/effect/seq.py</location>
+        <description>The test_seq_yield_for_in test is failing due to an issue with sequence handling. The test shows that when generating [0, 0, 0] as input, the output is [0, 0] instead of [0, 0, 0]. This suggests that the seq builder has an issue with handling sequences containing duplicate elements or specific iteration patterns.</description>
+        <contract>Investigate and fix the seq builder's handling of sequences with duplicate elements and ensure proper iteration behavior for all sequence types.</contract>
+        <acceptance>test_seq_yield_for_in in tests/test_seq.py should pass with expected behavior</acceptance>
+    </item>
+</requirement>

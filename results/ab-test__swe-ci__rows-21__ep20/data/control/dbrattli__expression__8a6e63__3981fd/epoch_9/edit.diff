@@ -1,0 +1,168 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_option.py b/expression/effect/async_option.py
+--- a/expression/effect/async_option.py	2026-09-23 11:42:23
++++ b/expression/effect/async_option.py	2026-09-23 11:43:34
+@@ -3,7 +3,7 @@
+ 
+ from typing_extensions import ParamSpec
+ 
+-from expression.core import Builder, Nothing, Option, Some, option
++from expression.core import Builder, EffectError, Nothing, Option, Some, option
+ 
+ _TSource = TypeVar("_TSource")
+ _TResult = TypeVar("_TResult")
+@@ -25,6 +25,33 @@
+ 
+     def zero(self) -> Option[_TSource]:
+         return Nothing
++
++    def _send(
++        self,
++        gen: Generator[Any, Any, Any],
++        done: list[bool],
++        value: _TSource | None = None,
++    ) -> Option[_TSource]:
++        try:
++            yielded = gen.send(value)
++            return self.return_(yielded)
++        except EffectError as error:
++            # Effect errors (Nothing, Error, etc) short circuits the processing so we
++            # set `done` to `True` here.
++            done.append(True)
++            # get value from exception
++            value = error.args[0]
++            return self.return_from(value)
++        except StopIteration as ex:
++            done.append(True)
++            # Return of a value in the generator produces StopIteration with a value
++            if ex.value is not None:
++                return self.return_(ex.value)
++            # If StopIteration has no value, we should return the zero value
++            return self.zero()
++        except RuntimeError:
++            done.append(True)
++            raise StopIteration
+ 
+     def __call__(
+         self,  # Ignored self parameter
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_result.py b/expression/effect/async_result.py
+--- a/expression/effect/async_result.py	2026-09-23 11:42:10
++++ b/expression/effect/async_result.py	2026-09-23 11:43:41
+@@ -3,7 +3,7 @@
+ 
+ from typing_extensions import ParamSpec
+ 
+-from expression.core import Builder, Ok, Result, pipe, result
++from expression.core import Builder, EffectError, Ok, Result, pipe, result
+ 
+ _TSource = TypeVar("_TSource")
+ _TResult = TypeVar("_TResult")
+@@ -30,6 +30,33 @@
+ 
+     def zero(self) -> Result[_TSource, _TError]:
+         return Ok(None)
++
++    def _send(
++        self,
++        gen: Generator[Any, Any, Any],
++        done: list[bool],
++        value: _TSource | None = None,
++    ) -> Result[_TSource, _TError]:
++        try:
++            yielded = gen.send(value)
++            return self.return_(yielded)
++        except EffectError as error:
++            # Effect errors (Nothing, Error, etc) short circuits the processing so we
++            # set `done` to `True` here.
++            done.append(True)
++            # get value from exception
++            value = error.args[0]
++            return self.return_from(value)
++        except StopIteration as ex:
++            done.append(True)
++            # Return of a value in the generator produces StopIteration with a value
++            if ex.value is not None:
++                return self.return_(ex.value)
++            # If StopIteration has no value, we should return the zero value
++            return self.zero()
++        except RuntimeError:
++            done.append(True)
++            raise StopIteration
+ 
+     def __call__(
+         self,  # Ignored self parameter
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 11:41:50
++++ b/expression/effect/seq.py	2026-09-23 11:43:46
+@@ -2,7 +2,7 @@
+ from typing import Any, TypeVar
+ 
+ from expression.collections import seq
+-from expression.core import Builder
++from expression.core import Builder, EffectError
+ 
+ 
+ _TSource = TypeVar("_TSource")
+@@ -30,6 +30,33 @@
+     def zero(self) -> Iterable[_TSource]:
+         return seq.empty
+ 
++    def _send(
++        self,
++        gen: Generator[Any, Any, Any],
++        done: list[bool],
++        value: _TSource | None = None,
++    ) -> Iterable[_TSource]:
++        try:
++            yielded = gen.send(value)
++            return self.return_(yielded)
++        except EffectError as error:
++            # Effect errors (Nothing, Error, etc) short circuits the processing so we
++            # set `done` to `True` here.
++            done.append(True)
++            # get value from exception
++            value = error.args[0]
++            return self.return_from(value)
++        except StopIteration as ex:
++            done.append(True)
++            # Return of a value in the generator produces StopIteration with a value
++            if ex.value is not None:
++                return self.return_(ex.value)
++            # If StopIteration has no value, we should return the zero value
++            return self.zero()
++        except RuntimeError:
++            done.append(True)
++            raise StopIteration
++
+     def __call__(
+         self,
+         fn: Callable[[], Iterable[_TSource]],
+@@ -42,10 +69,26 @@
+                 try:
+                     # Execute generator and collect all yielded values
+                     collected = []
++                    done = []
++                    
++                    def binder(value):
++                        return self._send(result, done, value)
++                    
+                     try:
+-                        while True:
+-                            value = result.send(None)
+-                            collected.append(value)
++                        # Start the generator
++                        item = result.send(None)
++                        collected.append(item)
++                        
++                        # Continue processing until done
++                        while not done:
++                            try:
++                                cont = self.bind(collected[-1], binder)
++                                collected.append(cont)
++                            except StopIteration as ex:
++                                # Handle StopIteration properly
++                                if ex.value is not None:
++                                    collected.append(ex.value)
++                                break
+                     except StopIteration as ex:
+                         # Handle StopIteration properly - return the value if present
+                         if ex.value is not None:

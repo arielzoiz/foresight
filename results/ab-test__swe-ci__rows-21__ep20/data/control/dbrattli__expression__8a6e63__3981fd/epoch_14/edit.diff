@@ -1,0 +1,86 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/builder.py b/expression/core/builder.py
+--- a/expression/core/builder.py	2026-09-23 11:50:26
++++ b/expression/core/builder.py	2026-09-23 11:52:33
+@@ -1,5 +1,5 @@
+ from abc import ABC
+-from collections.abc import Callable, Generator
++from collections.abc import Callable, Generator, AsyncGenerator
+ from functools import wraps
+ from typing import Any, Generic, TypeVar, cast
+ 
+@@ -97,8 +97,9 @@
+         def wrapper(*args: _P.args, **kw: _P.kwargs) -> _TOuter:
+             gen = fn(*args, **kw)
+             
+-            # Check if this is an async generator
+-            if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
++            # Check if this is an async generator using proper isinstance check
++            from collections.abc import AsyncGenerator
++            if isinstance(gen, AsyncGenerator):
+                 # This is an async generator, raise a more informative error
+                 raise TypeError("Async generators are not supported in synchronous builders. "
+                               "Use async_option builder for async generators.")
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_option.py b/expression/effect/async_option.py
+--- a/expression/effect/async_option.py	2026-09-23 11:50:35
++++ b/expression/effect/async_option.py	2026-09-23 11:52:25
+@@ -54,32 +54,7 @@
+             done.append(True)
+             raise StopIteration
+ 
+-    # Override __call__ to properly handle async generators
+-    def __call__(
+-        self,
+-        fn: Callable[
+-            _P,
+-            Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
+-        ],
+-    ) -> Callable[_P, Option[_TSource]]:
+-        """Async option builder.
+-        
+-        Handles async generators properly by detecting them and providing clear error messages.
+-        """
+-        @wraps(fn)
+-        def wrapper(*args: _P.args, **kw: _P.kwargs) -> Option[_TSource]:
+-            gen = fn(*args, **kw)
+-            
+-            # Check if this is an async generator
+-            if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+-                # This is an async generator, we should let it pass through to be handled by the async wrapper
+-                # But we need to ensure it's handled properly by the async infrastructure
+-                pass
+-            
+-            # Use the base class implementation
+-            return super().__call__(fn)(*args, **kw)
+-        
+-        return wrapper
++
+ 
+ 
+ __all__ = ["AsyncOptionBuilder"]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 11:50:45
++++ b/expression/effect/seq.py	2026-09-23 11:52:33
+@@ -1,4 +1,4 @@
+-from collections.abc import Callable, Generator, Iterable
++from collections.abc import Callable, Generator, Iterable, AsyncGenerator
+ from typing import Any, TypeVar
+ 
+ from typing_extensions import ParamSpec
+@@ -74,11 +74,12 @@
+             gen = fn(*args, **kw)
+             
+             # Handle case where generator becomes a list iterator (from Seq.empty())
+-            # Check if it's a list iterator (has __iter__ but not send)
+-            if hasattr(gen, '__iter__') and not hasattr(gen, 'send'):
+-                # If it's a list iterator or similar, convert it to a generator
++            # Check if it's a list iterator or other non-generator iterable
++            from collections.abc import Generator
++            if not isinstance(gen, Generator):
++                # If it's not a generator, we need to handle it differently
+                 try:
+-                    # Try to convert to a proper generator
++                    # Convert to a list to check if it's iterable
+                     gen_list = list(gen)
+                     def gen_func():
+                         for item in gen_list:

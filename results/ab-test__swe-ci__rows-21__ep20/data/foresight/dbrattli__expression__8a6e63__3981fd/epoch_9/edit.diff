@@ -1,0 +1,257 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:23:24
++++ b/expression/effect/option.py	2026-09-23 12:24:58
+@@ -1,5 +1,6 @@
+ from collections.abc import Callable, Generator
+ from typing import Any, TypeVar
++import inspect
+ 
+ from typing_extensions import ParamSpec
+ 
+@@ -51,14 +52,14 @@
+             if inspect.isasyncgen(gen):
+                 # For async generators, we need to use __anext__() instead of send()
+                 try:
+-                    yielded = gen.__anext__()
+-                    # If yielded is awaitable, we should await it
+-                    if hasattr(yielded, '__await__'):
++                    yielded = await gen.__anext__()
++                    # Check if the yielded value is awaitable (Option)
++                    if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
+                         # Handle awaitable values (like Option)
+                         try:
+                             awaited = await yielded
+                             return self.return_(awaited)
+-                        except Exception as ex:
++                        except Exception:
+                             # Handle error case for awaitable Option
+                             return Nothing
+                     else:
+@@ -77,60 +78,11 @@
+                     try:
+                         awaited = await yielded
+                         return self.return_(awaited)
+-                    except Exception as ex:
++                    except Exception:
+                         # Handle error case for awaitable Option
+                         return Nothing
+                 else:
+                     return self.return_(yielded)
+-        except AttributeError as ex:
+-            error_msg = str(ex)
+-            # Check if this is specifically an async generator error
+-            if ("object is not an iterator" in error_msg or 
+-                "'async_generator' object is not an iterator" in error_msg or
+-                "'async_generator' object has no attribute 'send'" in error_msg):
+-                # This is an async generator, so use __anext__ instead of send
+-                try:
+-                    # Try to detect if it's an async generator and handle it properly
+-                    if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+-                        # It's an async generator, use __anext__
+-                        yielded = await gen.__anext__()
+-                        # Check if the yielded value is awaitable (Option)
+-                        if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
+-                            # Handle awaitable values (like Option)
+-                            try:
+-                                awaited = await yielded
+-                                return self.return_(awaited)
+-                            except Exception as ex:
+-                                # Handle error case for awaitable Option
+-                                return Nothing
+-                        else:
+-                            return self.return_(yielded)
+-                    else:
+-                        # Fall back to original behavior if needed
+-                        raise
+-                except Exception:
+-                    # If we couldn't handle it as async generator, fall back to original logic
+-                    try:
+-                        yielded = next(gen)
+-                        return self.return_(yielded)
+-                    except StopIteration as stop_ex:
+-                        done.append(True)
+-                        # Return of a value in the generator produces StopIteration with a value
+-                        if stop_ex.value is not None:
+-                            return self.return_(stop_ex.value)
+-                        raise
+-            elif "'object' object has no attribute 'send'" in error_msg or "has no attribute 'send'" in error_msg:
+-                # Handle iterators that don't support send (like list_iterator)
+-                try:
+-                    yielded = next(gen)
+-                    return self.return_(yielded)
+-                except StopIteration as stop_ex:
+-                    done.append(True)
+-                    # Return of a value in the generator produces StopIteration with a value
+-                    if stop_ex.value is not None:
+-                        return self.return_(stop_ex.value)
+-                    raise
+-            raise  # Re-raise if it's a different AttributeError
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:23:16
++++ b/expression/effect/result.py	2026-09-23 12:25:12
+@@ -1,5 +1,6 @@
+ from collections.abc import Callable, Generator
+ from typing import Any, TypeVar
++import inspect
+ 
+ from typing_extensions import ParamSpec
+ 
+@@ -40,9 +41,40 @@
+             Generator[_TSource | None, _TSource, _TSource | None] | Generator[_TSource | None, None, _TSource | None],
+         ],
+     ) -> Callable[_P, Result[_TSource, _TError]]:
+-        return super().__call__(fn)
++        def sync_wrapper(*args: _P.args, **kw: _P.kwargs) -> Result[_TSource, _TError]:
++            gen = fn(*args, **kw)
++            done: list[bool] = []
+ 
++            result: Result[_TSource, _TError] | None = None
+ 
++            def binder(value: Any) -> Result[_TSource, _TError]:
++                ret = self._send(gen, done, value)
++                return ret
++
++            try:
++                result = self._send(gen, done)
++                
++                while not done[0] if done else False:
++                    cont = self.bind(result, binder)
++                    
++                    # Combine every result except the first
++                    if result is None:
++                        result = cont
++                    else:
++                        result = self.combine(result, cont)
++            except StopIteration:
++                pass
++
++            # If anything returns `None` (i.e raises StopIteration without a value) then
++            # we expect the effect to have a zero method implemented.
++            if result is None:
++                result = self.zero()
++
++            return self.run(result)
++
++        return sync_wrapper
++
++
+ class AsyncResultBuilder(ResultBuilder[_TSource, _TError]):
+     """Async version of ResultBuilder for async computations."""
+     
+@@ -53,65 +85,39 @@
+         value: _TSource | None = None,
+     ) -> Result[_TSource, _TError]:
+         try:
+-            yielded = gen.send(value)
+-            # Check if the yielded value is awaitable (Result)
+-            if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
+-                # Handle awaitable values (like Result)
++            # Check if this is an async generator
++            if inspect.isasyncgen(gen):
++                # For async generators, we need to use __anext__() instead of send()
+                 try:
+-                    awaited = await yielded
+-                    return self.return_(awaited)
+-                except Exception as ex:
+-                    return self.Error(ex)
+-            else:
+-                return self.return_(yielded)
+-        except AttributeError as ex:
+-            error_msg = str(ex)
+-            # Check if this is specifically an async generator error
+-            if ("object is not an iterator" in error_msg or 
+-                "'async_generator' object is not an iterator" in error_msg or
+-                "'async_generator' object has no attribute 'send'" in error_msg):
+-                # This is an async generator, so use __anext__ instead of send
+-                try:
+-                    # Try to detect if it's an async generator and handle it properly
+-                    if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+-                        # It's an async generator, use __anext__
+-                        yielded = await gen.__anext__()
+-                        # Check if the yielded value is awaitable (Result)
+-                        if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
+-                            # Handle awaitable values (like Result)
+-                            try:
+-                                awaited = await yielded
+-                                return self.return_(awaited)
+-                            except Exception as ex:
+-                                return self.Error(ex)
+-                        else:
+-                            return self.return_(yielded)
++                    yielded = await gen.__anext__()
++                    # Check if the yielded value is awaitable (Result)
++                    if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
++                        # Handle awaitable values (like Result)
++                        try:
++                            awaited = await yielded
++                            return self.return_(awaited)
++                        except Exception as ex:
++                            return self.Error(ex)
+                     else:
+-                        # Fall back to original behavior if needed
+-                        raise
+-                except Exception:
+-                    # If we couldn't handle it as async generator, fall back to original logic
+-                    try:
+-                        yielded = next(gen)
+                         return self.return_(yielded)
+-                    except StopIteration as stop_ex:
+-                        done.append(True)
+-                        # Return of a value in the generator produces StopIteration with a value
+-                        if stop_ex.value is not None:
+-                            return self.return_(stop_ex.value)
+-                        raise
+-            elif "'object' object has no attribute 'send'" in error_msg or "has no attribute 'send'" in error_msg:
+-                # Handle iterators that don't support send (like list_iterator)
+-                try:
+-                    yielded = next(gen)
+-                    return self.return_(yielded)
+-                except StopIteration as stop_ex:
++                except StopAsyncIteration as stop_ex:
+                     done.append(True)
+-                    # Return of a value in the generator produces StopIteration with a value
++                    # Return of a value in the generator produces StopAsyncIteration with a value
+                     if stop_ex.value is not None:
+                         return self.return_(stop_ex.value)
+                     raise
+-            raise  # Re-raise if it's a different AttributeError
++            else:
++                yielded = gen.send(value)
++                # Check if the yielded value is awaitable (Result)
++                if hasattr(yielded, '__await__') and not isinstance(yielded, type(gen)):
++                    # Handle awaitable values (like Result)
++                    try:
++                        awaited = await yielded
++                        return self.return_(awaited)
++                    except Exception as ex:
++                        return self.Error(ex)
++                else:
++                    return self.return_(yielded)
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+@@ -144,10 +150,10 @@
+                 return await ret
+ 
+             try:
+-                result = self._send(gen, done)
++                result = await self._send(gen, done)
+                 
+                 while not done[0] if done else False:
+-                    cont = self.bind(result, binder)
++                    cont = await self.bind(result, binder)
+                     
+                     # Combine every result except the first
+                     if result is None:
+@@ -162,7 +168,7 @@
+             if result is None:
+                 result = self.zero()
+ 
+-            return self.run(result)
++            return await self.run(result)
+ 
+         return async_wrapper
+ 

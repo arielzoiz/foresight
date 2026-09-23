@@ -1,0 +1,71 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:44:36
++++ b/expression/effect/option.py	2026-09-23 12:46:26
+@@ -66,8 +66,8 @@
+                         # If we got None value, this means we should use zero() 
+                         result = self.zero()
+                 else:
+-                    # Default case - re-raise if no value
+-                    raise
++                    # Default case - treat as no value (call zero())
++                    result = self.zero()
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
+@@ -199,8 +199,8 @@
+                         # If we got None value, this means we should use zero() 
+                         result = self.zero()
+                 else:
+-                    # Default case - re-raise if no value
+-                    raise
++                    # Default case - treat as no value (call zero())
++                    result = self.zero()
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:44:42
++++ b/expression/effect/result.py	2026-09-23 12:46:20
+@@ -72,8 +72,8 @@
+                         # If we got None value, this means we should use zero() 
+                         result = self.zero()
+                 else:
+-                    # Default case - re-raise if no value
+-                    raise
++                    # Default case - treat as no value (call zero())
++                    result = self.zero()
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
+@@ -207,8 +207,8 @@
+                         # If we got None value, this means we should use zero() 
+                         result = self.zero()
+                 else:
+-                    # Default case - re-raise if no value
+-                    raise
++                    # Default case - treat as no value (call zero())
++                    result = self.zero()
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 12:35:24
++++ b/expression/effect/seq.py	2026-09-23 12:46:12
+@@ -120,9 +120,14 @@
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+-            if ex.value is not None:
+-                return self.return_(ex.value)
+-            raise
++            if hasattr(ex, 'value'):
++                if ex.value is not None:
++                    return self.return_(ex.value)
++                elif ex.value is None:
++                    # StopIteration with None value should call zero() to handle empty computation
++                    return self.zero()
++            # If no 'value' attribute or no value, treat as normal completion (call zero())
++            return self.zero()
+         except RuntimeError as ex:
+             done.append(True)
+             # Convert RuntimeError to StopIteration to maintain compatibility

@@ -1,0 +1,231 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/builder.py b/expression/core/builder.py
+--- a/expression/core/builder.py	2026-09-23 12:26:54
++++ b/expression/core/builder.py	2026-09-23 12:29:22
+@@ -68,9 +68,18 @@
+                 except StopAsyncIteration as stop_ex:
+                     done.append(True)
+                     # Return of a value in the generator produces StopAsyncIteration with a value
+-                    if hasattr(stop_ex, 'value') and stop_ex.value is not None:
+-                        return self.return_(stop_ex.value)
+-                    raise
++                    # We need to be careful about how we access the value attribute
++                    try:
++                        if hasattr(stop_ex, 'value') and stop_ex.value is not None:
++                            return self.return_(stop_ex.value)
++                        elif hasattr(stop_ex, 'value') and stop_ex.value is None:
++                            # StopAsyncIteration with None value should raise to trigger zero() handling
++                            raise
++                        # If no 'value' attribute, re-raise as-is
++                        raise
++                    except AttributeError:
++                        # Handle case where StopAsyncIteration doesn't have 'value' attribute
++                        raise
+             else:
+                 # Check if the generator supports send method (i.e. is a true generator)
+                 # If it doesn't support send, it's likely an iterator (like list_iterator) 
+@@ -87,9 +96,18 @@
+                         except StopIteration as stop_ex:
+                             done.append(True)
+                             # Return of a value in the generator produces StopIteration with a value
+-                            if hasattr(stop_ex, 'value') and stop_ex.value is not None:
+-                                return self.return_(stop_ex.value)
+-                            raise
++                            # We need to be careful about how we access the value attribute
++                            try:
++                                if hasattr(stop_ex, 'value') and stop_ex.value is not None:
++                                    return self.return_(stop_ex.value)
++                                elif hasattr(stop_ex, 'value') and stop_ex.value is None:
++                                    # StopIteration with None value should raise to trigger zero() handling
++                                    raise
++                                # If no 'value' attribute, re-raise as-is
++                                raise
++                            except AttributeError:
++                                # Handle case where StopIteration doesn't have 'value' attribute
++                                raise
+                     raise  # Re-raise if it's a different AttributeError
+         except EffectError as error:
+             # Effect errors (Nothing, Error, etc) short circuits the processing so we
+@@ -101,9 +119,18 @@
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+-            if hasattr(ex, 'value') and ex.value is not None:
+-                return self.return_(ex.value)
+-            raise
++            # We need to be careful about how we access the value attribute
++            try:
++                if hasattr(ex, 'value') and ex.value is not None:
++                    return self.return_(ex.value)
++                elif hasattr(ex, 'value') and ex.value is None:
++                    # StopIteration with None value should raise to trigger zero() handling
++                    raise
++                # If no 'value' attribute, re-raise as-is
++                raise
++            except AttributeError:
++                # Handle case where StopIteration doesn't have 'value' attribute
++                raise
+         except RuntimeError:
+             done.append(True)
+             raise StopIteration
+@@ -156,10 +183,13 @@
+                     else:
+                         result = self.combine(result, cont)
+             except StopIteration:
++                # This catches StopIteration that was raised by our own code
++                # We should check if we actually got a value or not
+                 pass
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
++            # But we also need to check if we got StopIteration with no value
+             if result is None:
+                 result = self.zero()
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:24:58
++++ b/expression/effect/option.py	2026-09-23 12:29:18
+@@ -67,9 +67,18 @@
+                 except StopAsyncIteration as stop_ex:
+                     done.append(True)
+                     # Return of a value in the generator produces StopAsyncIteration with a value
+-                    if stop_ex.value is not None:
+-                        return self.return_(stop_ex.value)
+-                    raise
++                    # We need to be careful about how we access the value attribute
++                    try:
++                        if hasattr(stop_ex, 'value') and stop_ex.value is not None:
++                            return self.return_(stop_ex.value)
++                        elif hasattr(stop_ex, 'value') and stop_ex.value is None:
++                            # StopAsyncIteration with None value should raise to trigger zero() handling
++                            raise
++                        # If no 'value' attribute, re-raise as-is
++                        raise
++                    except AttributeError:
++                        # Handle case where StopAsyncIteration doesn't have 'value' attribute
++                        raise
+             else:
+                 yielded = gen.send(value)
+                 # Check if the yielded value is awaitable (Option)
+@@ -86,9 +95,18 @@
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+-            if ex.value is not None:
+-                return self.return_(ex.value)
+-            raise
++            # We need to be careful about how we access the value attribute
++            try:
++                if hasattr(ex, 'value') and ex.value is not None:
++                    return self.return_(ex.value)
++                elif hasattr(ex, 'value') and ex.value is None:
++                    # StopIteration with None value should raise to trigger zero() handling
++                    raise
++                # If no 'value' attribute, re-raise as-is
++                raise
++            except AttributeError:
++                # Handle case where StopIteration doesn't have 'value' attribute
++                raise
+         except RuntimeError:
+             done.append(True)
+             raise StopIteration
+@@ -117,7 +135,7 @@
+             try:
+                 result = await self._send(gen, done)
+                 
+-                while not done:
++                while not done[0] if done else False:
+                     cont = await self.bind(result, binder)
+                     
+                     # Combine every result except the first
+@@ -126,10 +144,14 @@
+                     else:
+                         result = await self.combine(result, cont)
+             except StopIteration:
++                # Check if we had a proper StopIteration with a value
++                # If we got here without setting done to True, it means we had a StopIteration without a value
++                # In that case, we should call zero()
+                 pass
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
++            # But we also need to check if we got StopIteration with no value
+             if result is None:
+                 result = self.zero()
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:26:50
++++ b/expression/effect/result.py	2026-09-23 12:29:12
+@@ -63,10 +63,14 @@
+                     else:
+                         result = self.combine(result, cont)
+             except StopIteration:
++                # Check if we had a proper StopIteration with a value
++                # If we got here without setting done to True, it means we had a StopIteration without a value
++                # In that case, we should call zero()
+                 pass
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
++            # But we also need to check if we got StopIteration with no value
+             if result is None:
+                 result = self.zero()
+ 
+@@ -107,9 +111,18 @@
+                 except StopAsyncIteration as stop_ex:
+                     done.append(True)
+                     # Return of a value in the generator produces StopAsyncIteration with a value
+-                    if hasattr(stop_ex, 'value') and stop_ex.value is not None:
+-                        return self.return_(stop_ex.value)
+-                    raise
++                    # We need to be careful about how we access the value attribute
++                    try:
++                        if hasattr(stop_ex, 'value') and stop_ex.value is not None:
++                            return self.return_(stop_ex.value)
++                        elif hasattr(stop_ex, 'value') and stop_ex.value is None:
++                            # StopAsyncIteration with None value should raise to trigger zero() handling
++                            raise
++                        # If no 'value' attribute, re-raise as-is
++                        raise
++                    except AttributeError:
++                        # Handle case where StopAsyncIteration doesn't have 'value' attribute
++                        raise
+             else:
+                 yielded = gen.send(value)
+                 # Check if the yielded value is awaitable (Result)
+@@ -125,9 +138,18 @@
+         except StopIteration as ex:
+             done.append(True)
+             # Return of a value in the generator produces StopIteration with a value
+-            if hasattr(ex, 'value') and ex.value is not None:
+-                return self.return_(ex.value)
+-            raise
++            # We need to be careful about how we access the value attribute
++            try:
++                if hasattr(ex, 'value') and ex.value is not None:
++                    return self.return_(ex.value)
++                elif hasattr(ex, 'value') and ex.value is None:
++                    # StopIteration with None value should raise to trigger zero() handling
++                    raise
++                # If no 'value' attribute, re-raise as-is
++                raise
++            except AttributeError:
++                # Handle case where StopIteration doesn't have 'value' attribute
++                raise
+         except RuntimeError:
+             done.append(True)
+             raise StopIteration
+@@ -165,10 +187,14 @@
+                     else:
+                         result = await self.combine(result, cont)
+             except StopIteration:
++                # Check if we had a proper StopIteration with a value
++                # If we got here without setting done to True, it means we had a StopIteration without a value
++                # In that case, we should call zero()
+                 pass
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
++            # But we also need to check if we got StopIteration with no value
+             if result is None:
+                 result = self.zero()
+ 

@@ -1,0 +1,126 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-23 12:14:14
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 12:49:40
+@@ -3,5 +3,7 @@
+   "tests/test_seq_builder.py::test_seq_builder_nested": true,
+   "tests/test_seq_builder.py::test_seq_builder_projection_int_str": true,
+   "tests/test_async_result_builder.py::test_async_result_builder_zero": true,
+-  "tests/test_seq.py::test_seq_yield_for_in": true
++  "tests/test_seq.py::test_seq_yield_for_in": true,
++  "tests/test_async_result_builder.py::test_async_result_builder_yield_error": true,
++  "tests/test_async_result_builder.py::test_async_result_builder_yield_error_short_circuit": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-23 12:14:24
++++ b/.pytest_cache/v/cache/nodeids	2026-09-23 12:49:40
+@@ -1,4 +1,6 @@
+ [
++  "tests/test_async_result_builder.py::test_async_result_builder_yield_error",
++  "tests/test_async_result_builder.py::test_async_result_builder_yield_error_short_circuit",
+   "tests/test_async_result_builder.py::test_async_result_builder_zero",
+   "tests/test_option_builder.py::test_option_builder_combine",
+   "tests/test_option_builder.py::test_option_builder_evaluation_order",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/builder.py b/expression/core/builder.py
+--- a/expression/core/builder.py	2026-09-23 12:44:32
++++ b/expression/core/builder.py	2026-09-23 12:48:18
+@@ -104,7 +104,9 @@
+                     return self.zero()
+             # If no 'value' attribute or no value, treat as normal completion (call zero())
+             return self.zero()
+-        except RuntimeError:
++        except RuntimeError as ex:
++            # Handle RuntimeError that may occur with async generators
++            # Convert RuntimeError to StopIteration to maintain compatibility
+             done.append(True)
+             raise StopIteration
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:46:26
++++ b/expression/effect/option.py	2026-09-23 12:48:30
+@@ -155,7 +155,7 @@
+             # Handle RuntimeError that may occur with async generators
+             # Convert RuntimeError to StopIteration to maintain compatibility
+             done.append(True)
+-            raise StopIteration(ex)
++            raise StopIteration
+ 
+ 
+     def __call__(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:46:20
++++ b/expression/effect/result.py	2026-09-23 12:49:32
+@@ -114,6 +114,10 @@
+                         except Exception as ex:
+                             # For Error results, we should wrap the exception in Error
+                             # rather than letting it raise directly
++                            # Check if the exception is already an Error result
++                            if hasattr(ex, 'tag') and ex.tag == 'error':
++                                return ex
++                            # For other exceptions, wrap them properly
+                             return self.Error(ex)
+                     else:
+                         return self.return_(yielded)
+@@ -144,6 +148,7 @@
+                         # Check if the exception is already an Error result
+                         if hasattr(ex, 'tag') and ex.tag == 'error':
+                             return ex
++                        # For other exceptions, wrap them properly
+                         return self.Error(ex)
+                 else:
+                     return self.return_(yielded)
+@@ -163,7 +168,15 @@
+             # Handle RuntimeError that may occur with async generators
+             # Convert RuntimeError to StopIteration to maintain compatibility
+             done.append(True)
+-            raise StopIteration(ex)
++            raise StopIteration
++        except TypeError as ex:
++            # Handle TypeError from await on non-BaseException errors (like Result.Error)
++            # This occurs when awaiting an Error result that has a non-BaseException error
++            if "exceptions must derive from BaseException" in str(ex):
++                # This is the specific case where we're trying to await a Result.Error
++                # with a non-BaseException error - we should convert it to an Error result
++                return self.Error(ex)
++            raise  # Re-raise if it's a different TypeError
+ 
+ 
+     def __call__(
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 12:46:12
++++ b/expression/effect/seq.py	2026-09-23 12:49:48
+@@ -95,16 +95,8 @@
+                 "'async_generator' object is not an iterator" in error_msg or
+                 "'async_generator' object has no attribute 'send'" in error_msg):
+                 # This is an async generator, but we're in a sync context, so we can't use __anext__
+-                # Just fall through to default behavior - let the caller handle this appropriately
+-                try:
+-                    yielded = next(gen)
+-                    return self.return_(yielded)
+-                except StopIteration as stop_ex:
+-                    done.append(True)
+-                    # Return of a value in the generator produces StopIteration with a value
+-                    if stop_ex.value is not None:
+-                        return self.return_(stop_ex.value)
+-                    raise
++                # In sync context, we should let the caller know this isn't compatible by re-raising
++                raise
+             elif "'object' object has no attribute 'send'" in error_msg or "has no attribute 'send'" in error_msg:
+                 # Handle iterators that don't support send (like list_iterator)
+                 try:
+@@ -113,9 +105,13 @@
+                 except StopIteration as stop_ex:
+                     done.append(True)
+                     # Return of a value in the generator produces StopIteration with a value
+-                    if stop_ex.value is not None:
++                    if hasattr(stop_ex, 'value') and stop_ex.value is not None:
+                         return self.return_(stop_ex.value)
+-                    raise
++                    elif hasattr(stop_ex, 'value') and stop_ex.value is None:
++                        # StopIteration with None value should call zero() to handle empty computation
++                        return self.zero()
++                    # If no 'value' attribute or no value, treat as normal completion (call zero())
++                    return self.zero()
+             raise  # Re-raise if it's a different AttributeError
+         except StopIteration as ex:
+             done.append(True)

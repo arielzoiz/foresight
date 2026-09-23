@@ -1,0 +1,109 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-23 12:10:10
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 12:14:14
+@@ -2,5 +2,6 @@
+   "tests/test_seq_builder.py::test_seq_builder_combine": true,
+   "tests/test_seq_builder.py::test_seq_builder_nested": true,
+   "tests/test_seq_builder.py::test_seq_builder_projection_int_str": true,
+-  "tests/test_async_result_builder.py::test_async_result_builder_zero": true
++  "tests/test_async_result_builder.py::test_async_result_builder_zero": true,
++  "tests/test_seq.py::test_seq_yield_for_in": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-23 12:10:10
++++ b/.pytest_cache/v/cache/nodeids	2026-09-23 12:14:24
+@@ -34,6 +34,7 @@
+   "tests/test_result_builder.py::test_result_builder_yield_ok_wrapped",
+   "tests/test_result_builder.py::test_result_builder_yield_value_async",
+   "tests/test_result_builder.py::test_result_builder_zero",
++  "tests/test_seq.py::test_seq_yield_for_in",
+   "tests/test_seq_builder.py::test_seq_builder_combine",
+   "tests/test_seq_builder.py::test_seq_builder_empty_sequence",
+   "tests/test_seq_builder.py::test_seq_builder_evaluation_order",
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:11:46
++++ b/expression/effect/option.py	2026-09-23 12:14:50
+@@ -54,7 +54,31 @@
+                 yielded = gen.send(value)
+                 return self.return_(yielded)
+             except AttributeError as ex:
+-                if "'object' object has no attribute 'send'" in str(ex) or "has no attribute 'send'" in str(ex):
++                # Handle async generators that don't support send method
++                if "object is not an iterator" in str(ex) or "'async_generator' object is not an iterator" in str(ex):
++                    # For async generators, we need to use different mechanism
++                    # Convert to async iterator and await __anext__
++                    try:
++                        # Try to detect if it's an async generator
++                        if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
++                            # It's an async generator, use __anext__
++                            yielded = await gen.__anext__()
++                            return self.return_(yielded)
++                        else:
++                            # Fall back to original behavior if needed
++                            raise
++                    except Exception:
++                        # If we couldn't handle it as async generator, fall back to original logic
++                        try:
++                            yielded = next(gen)
++                            return self.return_(yielded)
++                        except StopIteration as stop_ex:
++                            done.append(True)
++                            # Return of a value in the generator produces StopIteration with a value
++                            if stop_ex.value is not None:
++                                return self.return_(stop_ex.value)
++                            raise
++                elif "'object' object has no attribute 'send'" in str(ex) or "has no attribute 'send'" in str(ex):
+                     # Handle iterators that don't support send (like list_iterator)
+                     try:
+                         yielded = next(gen)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:11:48
++++ b/expression/effect/result.py	2026-09-23 12:14:46
+@@ -59,7 +59,31 @@
+                 yielded = gen.send(value)
+                 return self.return_(yielded)
+             except AttributeError as ex:
+-                if "'object' object has no attribute 'send'" in str(ex) or "has no attribute 'send'" in str(ex):
++                # Handle async generators that don't support send method
++                if "object is not an iterator" in str(ex) or "'async_generator' object is not an iterator" in str(ex):
++                    # For async generators, we need to use different mechanism
++                    # Convert to async iterator and await __anext__
++                    try:
++                        # Try to detect if it's an async generator
++                        if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
++                            # It's an async generator, use __anext__
++                            yielded = await gen.__anext__()
++                            return self.return_(yielded)
++                        else:
++                            # Fall back to original behavior if needed
++                            raise
++                    except Exception:
++                        # If we couldn't handle it as async generator, fall back to original logic
++                        try:
++                            yielded = next(gen)
++                            return self.return_(yielded)
++                        except StopIteration as stop_ex:
++                            done.append(True)
++                            # Return of a value in the generator produces StopIteration with a value
++                            if stop_ex.value is not None:
++                                return self.return_(stop_ex.value)
++                            raise
++                elif "'object' object has no attribute 'send'" in str(ex) or "has no attribute 'send'" in str(ex):
+                     # Handle iterators that don't support send (like list_iterator)
+                     try:
+                         yielded = next(gen)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 12:11:50
++++ b/expression/effect/seq.py	2026-09-23 12:14:34
+@@ -13,7 +13,9 @@
+     def bind(self, xs: Iterable[_TSource], fn: Callable[[_TSource], Iterable[_TResult]]) -> Iterable[_TResult]:
+         result = []
+         for x in xs:
+-            result.extend(fn(x))
++            # Make sure we process all items correctly
++            items = list(fn(x))
++            result.extend(items)
+         return result if result else seq.empty
+ 
+     def return_(self, x: _TSource) -> Iterable[_TSource]:

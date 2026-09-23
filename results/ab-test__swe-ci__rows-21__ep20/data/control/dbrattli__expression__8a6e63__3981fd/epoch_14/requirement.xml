@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/expression/effect/async_option.py</location>
+    <description>The AsyncOptionBuilder incorrectly overrides the __call__ method, causing RuntimeError: super(): no arguments. This happens because the override doesn't properly invoke the parent constructor with required arguments.</description>
+    <contract>Remove the problematic __call__ method override from AsyncOptionBuilder. The class should inherit the properly functioning __call__ method from the parent Builder class, which correctly handles synchronous generators.</contract>
+    <acceptance>tests/test_async_option_builder.py::test_async_option_builder_evaluation_order, tests/test_async_option_builder.py::test_async_option_builder_nested, tests/test_async_option_builder.py::test_async_option_builder_with_async_option_functions, tests/test_async_option_builder.py::test_async_option_builder_yield_nothing</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/expression/core/builder.py</location>
+    <description>The base Builder.__call__ method uses unreliable attribute checking to detect async generators, causing incorrect classification of generators and inappropriate TypeError messages.</description>
+    <contract>Replace the unreliable attribute-based detection in Builder.__call__ with proper isinstance() checking using collections.abc.AsyncGenerator to accurately distinguish between async and sync generators.</contract>
+    <acceptance>tests/test_async_result_builder.py::test_async_result_builder_zero, tests/test_async_result_builder.py::test_async_result_builder_short_circuit, tests/test_async_result_builder.py::test_async_result_builder_evaluation_order</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/expression/effect/seq.py</location>
+    <description>The SeqBuilder.__call__ method fails when processing list iterators (from Seq.empty()) because it tries to pass them to the parent's __call__ method which expects generators with send() method.</description>
+    <contract>Fix SeqBuilder.__call__ to properly handle list iterators and other non-generator iterables by converting them to proper generators before processing, or implement direct handling for such cases instead of delegating to parent.</contract>
+    <acceptance>tests/test_seq_builder.py::test_seq_builder_nested, tests/test_seq_builder.py::test_seq_builder_combine, tests/test_seq_builder.py::test_seq_builder_projection_int_str</acceptance>
+  </requirement>
+</requirement_document>

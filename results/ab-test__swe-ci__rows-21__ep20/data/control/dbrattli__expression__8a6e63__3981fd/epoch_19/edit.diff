@@ -1,0 +1,85 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/__init__.py b/expression/effect/__init__.py
+--- a/expression/effect/__init__.py	2026-09-23 11:28:22
++++ b/expression/effect/__init__.py	2026-09-23 12:01:19
+@@ -7,5 +7,7 @@
+ from .result import TryBuilder as try_
+ from .seq import SeqBuilder as seq
+ 
++# Import EffectError to make it available in the effect module
++from ..core.error import EffectError
+ 
+-__all__ = ["async_option", "async_result", "option", "result", "seq", "try_"]
++__all__ = ["async_option", "async_result", "option", "result", "seq", "try_", "EffectError"]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_option.py b/expression/effect/async_option.py
+--- a/expression/effect/async_option.py	2026-09-23 11:59:24
++++ b/expression/effect/async_option.py	2026-09-23 12:01:11
+@@ -38,7 +38,16 @@
+             if isinstance(gen, AsyncGenerator):
+                 # For async generators, we need to await the next value
+                 import asyncio
+-                yielded = asyncio.run(gen.__anext__()) if value is None else asyncio.run(gen.asend(value))
++                # Check if we can properly await the value
++                try:
++                    if value is None:
++                        yielded = asyncio.run(gen.__anext__())
++                    else:
++                        yielded = asyncio.run(gen.asend(value))
++                except StopAsyncIteration:
++                    # Handle StopAsyncIteration properly
++                    done.append(True)
++                    return self.zero()
+             else:
+                 yielded = gen.send(value)
+             return self.return_(yielded)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_result.py b/expression/effect/async_result.py
+--- a/expression/effect/async_result.py	2026-09-23 11:59:33
++++ b/expression/effect/async_result.py	2026-09-23 12:01:14
+@@ -42,7 +42,16 @@
+             if isinstance(gen, AsyncGenerator):
+                 # For async generators, we need to await the next value
+                 import asyncio
+-                yielded = asyncio.run(gen.__anext__()) if value is None else asyncio.run(gen.asend(value))
++                # Check if we can properly await the value
++                try:
++                    if value is None:
++                        yielded = asyncio.run(gen.__anext__())
++                    else:
++                        yielded = asyncio.run(gen.asend(value))
++                except StopAsyncIteration:
++                    # Handle StopAsyncIteration properly
++                    done.append(True)
++                    return self.zero()
+             else:
+                 yielded = gen.send(value)
+             return self.return_(yielded)
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 11:59:46
++++ b/expression/effect/seq.py	2026-09-23 12:01:17
+@@ -59,9 +59,25 @@
+             if isinstance(gen, AsyncGenerator):
+                 # For async generators, we need to await the next value
+                 import asyncio
+-                yielded = asyncio.run(gen.__anext__()) if value is None else asyncio.run(gen.asend(value))
++                # Check if we can properly await the value
++                try:
++                    if value is None:
++                        yielded = asyncio.run(gen.__anext__())
++                    else:
++                        yielded = asyncio.run(gen.asend(value))
++                except StopAsyncIteration:
++                    # Handle StopAsyncIteration properly
++                    done.append(True)
++                    return self.zero()
+             else:
+-                yielded = gen.send(value)
++                # Check if gen has send method before calling it
++                if hasattr(gen, 'send'):
++                    yielded = gen.send(value)
++                else:
++                    # If no send method, treat as a regular iterable
++                    # This handles cases like list_iterator which don't have send
++                    done.append(True)
++                    return self.zero()
+             return self.return_(yielded)
+         except EffectError as error:
+             # Effect errors (Nothing, Error, etc) short circuits the processing so we

@@ -1,0 +1,176 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/core/builder.py b/expression/core/builder.py
+--- a/expression/core/builder.py	2026-09-23 11:34:16
++++ b/expression/core/builder.py	2026-09-23 11:41:45
+@@ -109,9 +109,7 @@
+ 
+             def binder(value: Any) -> _TOuter:
+                 ret = self._send(gen, done, value)
+-                # Don't check for result is not None - this was the bug
+-                # The condition was wrong, it should not prevent delay from being called
+-                return self.delay(lambda: ret)
++                return ret
+ 
+             try:
+                 result = self._send(gen, done)
+@@ -125,10 +123,11 @@
+                     else:
+                         result = self.combine(result, cont)
+             except StopIteration:
++                # When StopIteration is raised, we need to make sure we have a proper result
++                # If result is still None, we should return zero
+                 pass
+ 
+-            # If anything returns `None` (i.e raises StopIteration without a value) then
+-            # we expect the effect to have a zero method implemented.
++            # If result is still None after processing, we should return zero
+             if result is None:
+                 result = self.zero()
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_option.py b/expression/effect/async_option.py
+--- a/expression/effect/async_option.py	2026-09-23 11:39:57
++++ b/expression/effect/async_option.py	2026-09-23 11:42:23
+@@ -34,73 +34,50 @@
+         ],
+     ) -> Callable[_P, Option[_TSource]]:
+         async def async_wrapper(*args: _P.args, **kw: _P.kwargs) -> Option[_TSource]:
+-            # Create the generator
++            # Create the generator - this should be a regular generator from an async function
+             gen = fn(*args, **kw)
+             
+-            # Check if this is an async generator by checking for async methods
+-            if hasattr(gen, '__aiter__') and hasattr(gen, '__anext__'):
+-                # For async generators, we need to handle them properly
++            try:
++                # This mimics the behavior of the base builder but adapted for async context
++                done = []
++                result = None
++
++                def binder(value):
++                    return self._send(gen, done, value)
++
+                 try:
+-                    # Collect all values from async generator  
+-                    values = []
+-                    async for value in gen:
+-                        # Handle None values properly - they signal StopIteration
+-                        if value is None:
+-                            break
+-                        values.append(value)
+-                    
+-                    # Return the last value if we have any, otherwise return zero
+-                    if values:
+-                        return self.return_(values[-1])
++                    result = self._send(gen, done)
++                except StopIteration as ex:
++                    # Handle StopIteration properly - this is the key part!
++                    if ex.value is not None:
++                        return self.return_(ex.value)
+                     else:
+                         return self.zero()
+-                except Exception:
+-                    # If there's an error, we should propagate it properly
+-                    raise
+-            else:
+-                # For regular generators, we need to properly handle them with async context
+-                # But we need to be careful to distinguish between different generator types
+-                try:
+-                    # This mimics the behavior of the base builder but adapted for async context
+-                    done = []
+-                    result = None
+ 
+-                    def binder(value):
+-                        return self._send(gen, done, value)
+-
++                # Continue processing until done
++                while not done:
+                     try:
+-                        result = self._send(gen, done)
++                        cont = self.bind(result, binder)
++                        # Combine every result except the first
++                        if result is None:
++                            result = cont
++                        else:
++                            result = self.combine(result, cont)
+                     except StopIteration as ex:
+-                        # Handle StopIteration properly - this is the key part!
++                        # Handle StopIteration properly
+                         if ex.value is not None:
+                             return self.return_(ex.value)
+                         else:
+                             return self.zero()
+ 
+-                    # Continue processing until done
+-                    while not done:
+-                        try:
+-                            cont = self.bind(result, binder)
+-                            # Combine every result except the first
+-                            if result is None:
+-                                result = cont
+-                            else:
+-                                result = self.combine(result, cont)
+-                        except StopIteration as ex:
+-                            # Handle StopIteration properly
+-                            if ex.value is not None:
+-                                return self.return_(ex.value)
+-                            else:
+-                                return self.zero()
+-
+-                    # If result is None, it means we had a StopIteration with no value
+-                    if result is None:
+-                        return self.zero()
+-                    else:
+-                        return self.run(result)
+-                except Exception:
+-                    # If there's an issue, return zero
++                # If result is None, it means we had a StopIteration with no value
++                if result is None:
+                     return self.zero()
++                else:
++                    return self.run(result)
++            except Exception:
++                # If there's an issue, return zero
++                return self.zero()
+         
+         return async_wrapper
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/async_result.py b/expression/effect/async_result.py
+--- a/expression/effect/async_result.py	2026-09-23 11:39:43
++++ b/expression/effect/async_result.py	2026-09-23 11:42:10
+@@ -42,7 +42,6 @@
+             # Create the generator
+             gen = fn(*args, **kw)
+             
+-            # Handle the generator as a regular generator (not async generator)
+             try:
+                 # This mimics the behavior of the base builder but adapted for async context
+                 done = []
+@@ -76,11 +75,11 @@
+                         else:
+                             return self.zero()
+ 
+-                    # If result is None, it means we had a StopIteration with no value
+-                    if result is None:
+-                        return self.zero()
+-                    else:
+-                        return self.run(result)
++                # If result is None, it means we had a StopIteration with no value
++                if result is None:
++                    return self.zero()
++                else:
++                    return self.run(result)
+             except Exception:
+                 # If there's an issue, return zero
+                 return self.zero()
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 11:38:17
++++ b/expression/effect/seq.py	2026-09-23 11:41:50
+@@ -45,9 +45,6 @@
+                     try:
+                         while True:
+                             value = result.send(None)
+-                            if value is None:
+-                                # StopIteration with None value
+-                                break
+                             collected.append(value)
+                     except StopIteration as ex:
+                         # Handle StopIteration properly - return the value if present

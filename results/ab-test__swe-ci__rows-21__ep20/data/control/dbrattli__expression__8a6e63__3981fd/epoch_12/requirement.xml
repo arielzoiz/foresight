@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+    <requirement>
+        <location>/app/code/expression/effect/async_result.py</location>
+        <description>The async_result builder implementation has issues with handling StopIteration properly, causing several tests to fail with None returns instead of expected values. The current implementation doesn't correctly process the generator flow, particularly around the binding and combination logic.</description>
+        <contract>Fix the async_result builder's __call__ method to properly handle generator execution, including correct binding and combination of values, proper handling of StopIteration exceptions, and correct return values for both successful completion and short-circuits.</contract>
+        <acceptance>tests/test_async_result_builder.py::test_async_result_builder_multiple_operations, tests/test_async_result_builder.py::test_async_result_builder_yield_value_async, tests/test_async_result_builder.py::test_async_result_builder_return_ok, tests/test_async_result_builder.py::test_async_result_builder_yield_ok_wrapped, tests/test_async_result_builder.py::test_async_result_builder_return_error_wrapped</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/expression/effect/async_option.py</location>
+        <description>The async_option builder implementation suffers from similar generator execution issues as async_result, particularly with handling StopIteration and binding operations. Several tests are failing due to incorrect handling of the generator flow.</description>
+        <contract>Fix the async_option builder's __call__ method to properly execute generators, handle StopIteration correctly, and ensure proper binding and combination of values to produce correct Option results.</contract>
+        <acceptance>tests/test_async_option_builder.py::test_async_option_builder_evaluation_order, tests/test_async_option_builder.py::test_async_option_builder_nested, tests/test_async_option_builder.py::test_async_option_builder_with_async_option_functions</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/expression/effect/seq.py</location>
+        <description>The seq builder fails because it tries to call the send method on a list_iterator object (from Seq.empty()) which doesn't support send. This happens when trying to yield from empty sequences or when handling certain generator patterns.</description>
+        <contract>Modify the seq builder to properly handle the case where generators may be converted to list iterators, ensuring that the _send method works correctly with all types of generators and iterables.</contract>
+        <acceptance>tests/test_seq_builder.py::test_seq_builder_nested, tests/test_seq_builder.py::test_seq_builder_combine</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/expression/effect/async_result.py</location>
+        <description>The async_result builder doesn't properly handle exception raising in generators, specifically failing to raise expected exceptions like CustomException when they occur.</description>
+        <contract>Ensure the async_result builder properly propagates exceptions from generators instead of silently returning zero values or None.</contract>
+        <acceptance>tests/test_async_result_builder.py::test_async_result_builder_throws</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/expression/effect/async_option.py</location>
+        <description>The async_option builder doesn't properly handle exception raising in generators, specifically failing to raise expected exceptions like CustomException when they occur.</description>
+        <contract>Ensure the async_option builder properly propagates exceptions from generators instead of silently returning zero values or None.</contract>
+        <acceptance>tests/test_async_option_builder.py::test_async_option_builder_throws</acceptance>
+    </requirement>
+</requirement_document>

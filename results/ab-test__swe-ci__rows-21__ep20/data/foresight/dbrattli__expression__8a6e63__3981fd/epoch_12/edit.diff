@@ -1,0 +1,113 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/option.py b/expression/effect/option.py
+--- a/expression/effect/option.py	2026-09-23 12:29:18
++++ b/expression/effect/option.py	2026-09-23 12:31:26
+@@ -107,8 +107,10 @@
+             except AttributeError:
+                 # Handle case where StopIteration doesn't have 'value' attribute
+                 raise
+-        except RuntimeError:
++        except RuntimeError as ex:
++            # Handle RuntimeError that may occur with async generators
+             done.append(True)
++            # Convert RuntimeError to StopIteration to maintain compatibility
+             raise StopIteration
+ 
+ 
+@@ -143,11 +145,17 @@
+                         result = cont
+                     else:
+                         result = await self.combine(result, cont)
+-            except StopIteration:
+-                # Check if we had a proper StopIteration with a value
+-                # If we got here without setting done to True, it means we had a StopIteration without a value
+-                # In that case, we should call zero()
+-                pass
++            except StopIteration as ex:
++                # Handle StopIteration properly - extract return value if available
++                if hasattr(ex, 'value') and ex.value is not None:
++                    # If we got a value, return it as Some
++                    return self.return_(ex.value)
++                elif hasattr(ex, 'value') and ex.value is None:
++                    # If we got None value, this means we should use zero() 
++                    result = self.zero()
++                else:
++                    # Default case - re-raise if no value
++                    raise
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/result.py b/expression/effect/result.py
+--- a/expression/effect/result.py	2026-09-23 12:29:12
++++ b/expression/effect/result.py	2026-09-23 12:31:16
+@@ -62,11 +62,17 @@
+                         result = cont
+                     else:
+                         result = self.combine(result, cont)
+-            except StopIteration:
+-                # Check if we had a proper StopIteration with a value
+-                # If we got here without setting done to True, it means we had a StopIteration without a value
+-                # In that case, we should call zero()
+-                pass
++            except StopIteration as ex:
++                # Handle StopIteration properly - extract return value if available
++                if hasattr(ex, 'value') and ex.value is not None:
++                    # If we got a value, return it as Ok
++                    return self.return_(ex.value)
++                elif hasattr(ex, 'value') and ex.value is None:
++                    # If we got None value, this means we should use zero() 
++                    result = self.zero()
++                else:
++                    # Default case - re-raise if no value
++                    raise
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
+@@ -150,8 +156,10 @@
+             except AttributeError:
+                 # Handle case where StopIteration doesn't have 'value' attribute
+                 raise
+-        except RuntimeError:
++        except RuntimeError as ex:
++            # Handle RuntimeError that may occur with async generators
+             done.append(True)
++            # Convert RuntimeError to StopIteration to maintain compatibility
+             raise StopIteration
+ 
+ 
+@@ -186,11 +194,17 @@
+                         result = cont
+                     else:
+                         result = await self.combine(result, cont)
+-            except StopIteration:
+-                # Check if we had a proper StopIteration with a value
+-                # If we got here without setting done to True, it means we had a StopIteration without a value
+-                # In that case, we should call zero()
+-                pass
++            except StopIteration as ex:
++                # Handle StopIteration properly - extract return value if available
++                if hasattr(ex, 'value') and ex.value is not None:
++                    # If we got a value, return it as Ok
++                    return self.return_(ex.value)
++                elif hasattr(ex, 'value') and ex.value is None:
++                    # If we got None value, this means we should use zero() 
++                    result = self.zero()
++                else:
++                    # Default case - re-raise if no value
++                    raise
+ 
+             # If anything returns `None` (i.e raises StopIteration without a value) then
+             # we expect the effect to have a zero method implemented.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/expression/effect/seq.py b/expression/effect/seq.py
+--- a/expression/effect/seq.py	2026-09-23 12:21:12
++++ b/expression/effect/seq.py	2026-09-23 12:31:32
+@@ -123,8 +123,9 @@
+             if ex.value is not None:
+                 return self.return_(ex.value)
+             raise
+-        except RuntimeError:
++        except RuntimeError as ex:
+             done.append(True)
++            # Convert RuntimeError to StopIteration to maintain compatibility
+             raise StopIteration
+ 
+ 
