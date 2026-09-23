@@ -1,0 +1,129 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-23 11:43:36
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 11:52:23
+@@ -6,6 +6,5 @@
+   "tests/test_parsing.py": true,
+   "tests/test_text.py::Unicode::test_literal_pdfdocencoded2": true,
+   "tests/test_parsing.py::Parsing::test_multiple_comments": true,
+-  "tests/test_text.py::Unicode::test_literal_utf16be": true,
+   "tests/test_text.py::Unicode::test_hexa_utf16be": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:50:14
++++ b/pdfsyntax/objects.py	2026-09-23 11:52:32
+@@ -148,10 +148,10 @@
+             # Find the endstream marker
+             endstream_pos = text.find(b'endstream', i)
+             if endstream_pos != -1:
+-                # Return the stream content including the endstream marker
+-                return (h, endstream_pos + 9, 'STREAM')
++                # Return the stream content up to endstream marker (as per test expectation)
++                return (h, endstream_pos, 'STREAM')
+             elif i == len(text):  # Incomplete STREAM at end of input
+-                return (h, i, None)
++                return (h, i, 'STREAM')
+         elif search == "ARRAY":
+             if single == b'[':
+                 nested += 1
+@@ -160,12 +160,15 @@
+             if nested == 0:
+                 return (h, i + 1, 'ARRAY')
+             elif i == len(text):  # Incomplete ARRAY at end of input
+-                return (h, i, 'ARRAY')
+-        elif search == "COMMENT":
+-            if single in b'\r\n':
+-                return (h, i, 'COMMENT')
+-            elif i == len(text):  # Incomplete COMMENT at end of input
+                 return (h, i, None)
++        elif search == "COMMENT":
++            # Skip until end of line (or end of text)
++            while i < len(text) and text[i:i+1] not in b'\r\n':
++                i += 1
++            # Skip past the newline if present
++            if i < len(text) and text[i:i+1] in b'\r\n':
++                i += 1
++            return (h, i, 'COMMENT')
+         i += 1
+     # Handle incomplete tokens at end of text
+     if search == "TBD":
+@@ -176,9 +179,9 @@
+         if b'.' in value or b'e' in value.lower():
+             return (h, i, 'REAL')
+         else:
+-            return (h, i, None)
++            return (h, i, 'INTEGER')
+     elif search == "NAME":
+-        return (h, i, None)
++        return (h, i, 'NAME')
+     elif search == "TEXT":
+         return (h, i, 'STRING')
+     elif search == "HEX_STRING":
+@@ -186,13 +189,13 @@
+     elif search == "KEYWORD":
+         return (h, i, 'KEYWORD')
+     elif search == "COMMENT":
+-        return (h, i, None)
++        return (h, i, 'COMMENT')
+     elif search == "ARRAY":
+         return (h, i, 'ARRAY')
+     elif search == "DICT":
+         return (h, i, 'DICT')
+     elif search == "STREAM":
+-        return (h, i, None)
++        return (h, i, 'STREAM')
+     return (h, i, None)
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/text.py b/pdfsyntax/text.py
+--- a/pdfsyntax/text.py	2026-09-23 11:47:59
++++ b/pdfsyntax/text.py	2026-09-23 11:52:19
+@@ -69,23 +69,39 @@
+         # Euro sign (€) in PDFDocEncoding is represented as 0xA0
+         result = result.replace(b'\xa0', b'\xe2\x82\xac')  # Replace with UTF-8 encoding of €
+         
+-        try:
+-            return result.decode('utf-8')
+-        except UnicodeDecodeError:
+-            # Try with latin1 first for special characters like euro sign
++        # Check if this is a UTF-16BE string with BOM
++        if result.startswith(b'\xfe\xff'):
++            # UTF-16BE with BOM - skip BOM and decode the rest
+             try:
+-                return result.decode('latin1')
++                return result[2:].decode('utf-16-be')
+             except UnicodeDecodeError:
+-                # If still failing, return with error handling
+-                return result.decode('utf-8', errors='ignore')
++                # Fallback to latin1 if needed
++                return result[2:].decode('latin1', errors='ignore')
++        elif result.startswith(b'\xff\xfe'):
++            # UTF-16LE with BOM - skip BOM and decode the rest
++            try:
++                return result[2:].decode('utf-16-le')
++            except UnicodeDecodeError:
++                # Fallback to latin1 if needed
++                return result[2:].decode('latin1', errors='ignore')
++        else:
++            # Regular UTF-8 or Latin-1 handling
++            try:
++                return result.decode('utf-8')
++            except UnicodeDecodeError:
++                # Try with latin1 first for special characters like euro sign
++                try:
++                    return result.decode('latin1')
++                except UnicodeDecodeError:
++                    # If still failing, return with error handling
++                    return result.decode('utf-8', errors='ignore')
+     elif text.startswith(b'<'):
+         # Hexadecimal string
+         hex_str = text[1:-1].decode('ascii').replace(' ', '')  # Remove angle brackets and spaces
+         # Convert hex to bytes
+         byte_data = bytes.fromhex(hex_str)
+         
+-        # Try UTF-16BE decoding first (common for PDF)
+-        # Check for BOM first
++        # Handle BOM properly
+         if byte_data.startswith(b'\xfe\xff'):
+             # UTF-16BE with BOM - skip BOM and decode the rest
+             try:

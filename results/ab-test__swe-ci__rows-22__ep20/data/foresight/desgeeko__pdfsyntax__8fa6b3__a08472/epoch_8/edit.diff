@@ -1,0 +1,89 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/filestruct.py b/pdfsyntax/filestruct.py
+--- a/pdfsyntax/filestruct.py	2026-09-23 13:06:20
++++ b/pdfsyntax/filestruct.py	2026-09-23 13:08:38
+@@ -85,13 +85,21 @@
+         return []
+     if bdata[xref_pos:xref_pos+4] == XREF:
+         chrono = parse_xref_table(bdata, xref_pos)
+-        i, j, _ = next_token(bdata, chrono[0]['abs_pos'])  # b'trailer'
+-        i, j, _ = next_token(bdata, j)                     # actual trailer dict
+-        trailer = parse_obj(bdata[i:j])
++        if not chrono:
++            return []
++        try:
++            i, j, _ = next_token(bdata, chrono[0]['abs_pos'])  # b'trailer'
++            i, j, _ = next_token(bdata, j)                     # actual trailer dict
++            trailer = parse_obj(bdata[i:j])
++        except (IndexError, KeyError):
++            # Handle malformed data gracefully
++            return []
+     else: # must be a /XRef stream
+         try:
+             i = beginning_next_non_empty_line(bdata, xref_pos)
+             xref = parse_obj(bdata, i)
++            if xref is None:
++                return []
+             chrono = parse_xref_stream(xref, xref_pos)
+             trailer = xref['stream_def']
+         except Exception:
+@@ -107,16 +115,20 @@
+         if bdata[xref_pos:xref_pos+4] == XREF:
+             try:
+                 tmp_index = parse_xref_table(bdata, xref_pos)
++                if not tmp_index:
++                    break
+                 chrono = tmp_index + chrono
+                 i, j, _ = next_token(bdata, chrono[0]['abs_pos'])
+                 trailer = parse_obj(bdata[i:j])
+-            except Exception:
++            except (IndexError, KeyError):
+                 # Handle malformed data gracefully
+                 break
+         else: # must be a /XRef stream
+             try:
+                 i = beginning_next_non_empty_line(bdata, xref_pos)
+                 xref = parse_obj(bdata, i)
++                if xref is None:
++                    break
+                 chrono = parse_xref_stream(xref, xref_pos) + chrono
+                 trailer = xref['stream_def']
+             except Exception:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 13:06:40
++++ b/pdfsyntax/objects.py	2026-09-23 13:08:50
+@@ -60,7 +60,8 @@
+                 elif text[i:i+5] == b'false':
+                     return (i, i+5, 'FALSE')
+             elif single == b'%':
+-                # Skip comment
++                # Skip comment - find the actual start of the comment (skip leading whitespace)
++                # Set h to the position of the % character
+                 h = i
+                 while i < len(text) and text[i:i+1] not in b'\r\n':
+                     i += 1
+@@ -178,24 +179,11 @@
+         # Check if we have a potential reference: number 0 R
+         # Since tokens are raw bytes, we need to check for bytes objects
+         if (i < size - 2 and 
+-            isinstance(tokens[i], bytes) and 
++            isinstance(tokens[i], (bytes, str)) and 
+             tokens[i+1] == b'0' and 
+             tokens[i+2] == b'R'):
+             # Create a complex number representation for reference (as done in original)
+             # This follows the convention that 6 0 R becomes 6j
+-            try:
+-                ref_num = int(tokens[i])
+-                new_list.append(complex(0, ref_num))
+-                i += 3
+-            except (ValueError, TypeError):
+-                # If conversion fails, treat as regular token
+-                new_list.append(tokens[i])
+-                i += 1
+-        elif (i < size - 2 and 
+-              isinstance(tokens[i], (bytes, str)) and 
+-              tokens[i+1] == b'0' and 
+-              tokens[i+2] == b'R'):
+-            # Handle case where first token might be a string
+             try:
+                 ref_num = int(tokens[i])
+                 new_list.append(complex(0, ref_num))

@@ -1,0 +1,124 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/filestruct.py b/pdfsyntax/filestruct.py
+--- a/pdfsyntax/filestruct.py	2026-09-23 12:53:42
++++ b/pdfsyntax/filestruct.py	2026-09-23 13:04:50
+@@ -74,31 +74,54 @@
+     STARTXREF = b'startxref'
+     XREF = b'xref'
+     startxref_pos = bdata.rfind(STARTXREF)
++    if startxref_pos == -1:
++        # No startxref found, return empty list
++        return []
+     i, j, _ = next_token(bdata, startxref_pos + len(STARTXREF))
+-    xref_pos = int(bdata[i:j])
++    try:
++        xref_pos = int(bdata[i:j])
++    except ValueError:
++        # Invalid xref position, return empty list
++        return []
+     if bdata[xref_pos:xref_pos+4] == XREF:
+         chrono = parse_xref_table(bdata, xref_pos)
+         i, j, _ = next_token(bdata, chrono[0]['abs_pos'])  # b'trailer'
+         i, j, _ = next_token(bdata, j)                     # actual trailer dict
+         trailer = parse_obj(bdata[i:j])
+     else: # must be a /XRef stream
+-        i = beginning_next_non_empty_line(bdata, xref_pos)
+-        xref = parse_obj(bdata, i)
+-        chrono = parse_xref_stream(xref, xref_pos)
+-        trailer = xref['stream_def']
++        try:
++            i = beginning_next_non_empty_line(bdata, xref_pos)
++            xref = parse_obj(bdata, i)
++            chrono = parse_xref_stream(xref, xref_pos)
++            trailer = xref['stream_def']
++        except Exception:
++            # Handle malformed data gracefully
++            return []
+     while b'/Prev' in trailer:
+         new_xref_pos = trailer[b'/Prev']
+-        xref_pos = int(new_xref_pos)
++        try:
++            xref_pos = int(new_xref_pos)
++        except (ValueError, TypeError):
++            # Invalid xref position, break loop
++            break
+         if bdata[xref_pos:xref_pos+4] == XREF:
+-            tmp_index = parse_xref_table(bdata, xref_pos)
+-            chrono = tmp_index + chrono
+-            i, j, _ = next_token(bdata, chrono[0]['abs_pos'])
+-            trailer = parse_obj(bdata[i:j])
++            try:
++                tmp_index = parse_xref_table(bdata, xref_pos)
++                chrono = tmp_index + chrono
++                i, j, _ = next_token(bdata, chrono[0]['abs_pos'])
++                trailer = parse_obj(bdata[i:j])
++            except Exception:
++                # Handle malformed data gracefully
++                break
+         else: # must be a /XRef stream
+-            i = beginning_next_non_empty_line(bdata, xref_pos)
+-            xref = parse_obj(bdata, i)
+-            chrono = parse_xref_stream(xref, xref_pos) + chrono
+-            trailer = xref['stream_def']
++            try:
++                i = beginning_next_non_empty_line(bdata, xref_pos)
++                xref = parse_obj(bdata, i)
++                chrono = parse_xref_stream(xref, xref_pos) + chrono
++                trailer = xref['stream_def']
++            except Exception:
++                # Handle malformed data gracefully
++                break
+     return chrono
+ 
+ def build_index_from_chrono(chrono):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 13:03:24
++++ b/pdfsyntax/objects.py	2026-09-23 13:04:46
+@@ -137,8 +137,7 @@
+         i += 1
+     
+     # Handle incomplete tokens at end of string
+-    # The original implementation was already mostly correct,
+-    # but we need to make sure we return None for incomplete tokens
++    # For incomplete tokens, we return (start_index, end_index, None)
+     # Check if we have a partial token that would be incomplete
+     if search == "NAME":
+         return (h, i, None)
+@@ -155,6 +154,7 @@
+         # Incomplete ARRAY token
+         return (h, i, None)
+     
++    # For all other cases, return None for the token type (incomplete)
+     return (h, i, None)
+ 
+ 
+@@ -173,9 +173,14 @@
+             tokens[i+2] == b'R'):
+             # Create a complex number representation for reference (as done in original)
+             # This follows the convention that 6 0 R becomes 6j
+-            ref_num = int(tokens[i])
+-            new_list.append(complex(0, ref_num))
+-            i += 3
++            try:
++                ref_num = int(tokens[i])
++                new_list.append(complex(0, ref_num))
++                i += 3
++            except (ValueError, TypeError):
++                # If conversion fails, treat as regular token
++                new_list.append(tokens[i])
++                i += 1
+         else:
+             new_list.append(tokens[i])
+             i += 1
+@@ -370,8 +375,9 @@
+ def beginning_next_non_empty_line(bdata, i):
+     """ doc
+     """
+-    while bdata[i] not in EOL:
++    EOL = b'\r\n'
++    while i < len(bdata) and bdata[i:i+1] not in EOL:
+         i += 1
+-    while bdata[i] in EOL:
++    while i < len(bdata) and bdata[i:i+1] in EOL:
+         i += 1
+     return i
+\ No newline at end of file

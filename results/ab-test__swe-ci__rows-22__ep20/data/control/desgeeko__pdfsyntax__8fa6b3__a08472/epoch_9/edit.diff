@@ -1,0 +1,131 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:39:18
++++ b/pdfsyntax/objects.py	2026-09-23 11:40:40
+@@ -79,7 +79,7 @@
+             if single in b' \n\r[]/<>(':
+                 return (h, i, 'NAME')
+             elif i == len(text):  # Incomplete NAME at end of input
+-                return (h, i, None)
++                return (h, i, 'NAME')
+         elif search == "TEXT":
+             if double == b'\\(' or double == b'\\)' or double == b'\\<' or double == b'\\>':
+                 i += 1
+@@ -106,13 +106,13 @@
+             elif single in b')>':
+                 return (h, i + 1, 'STRING')
+             elif i == len(text):  # Incomplete TEXT at end of input
+-                return (h, i, None)
++                return (h, i, 'STRING')
+         elif search == "HEX_STRING":
+             # When we're in HEX_STRING state, we're looking for the closing '>'  
+-            if single in b')>':
++            if single == b'>':
+                 return (h, i + 1, 'STRING')
+             elif i == len(text):  # Incomplete HEX_STRING at end of input
+-                return (h, i, None)
++                return (h, i, 'STRING')
+         elif search == "KEYWORD":
+             if single in b' \n\r>/]':
+                 # Check for special keywords
+@@ -124,7 +124,7 @@
+                 else:
+                     return (h, i, 'KEYWORD')
+             elif i == len(text):  # Incomplete KEYWORD at end of input
+-                return (h, i, None)
++                return (h, i, 'KEYWORD')
+         elif search == "VALUE":
+             if single in b' \n\r>/]':
+                 # Determine if it's INTEGER or REAL
+@@ -153,7 +153,7 @@
+             if nested == 0:
+                 return (h, i + 1, 'ARRAY')
+             elif i == len(text):  # Incomplete ARRAY at end of input
+-                return (h, i, None)
++                return (h, i, 'ARRAY')
+         elif search == "COMMENT":
+             if single in b'\r\n':
+                 return (h, i, 'COMMENT')
+@@ -167,19 +167,19 @@
+         # For incomplete values, return None as specified in requirements
+         return (h, i, None)
+     elif search == "NAME":
+-        return (h, i, None)
++        return (h, i, 'NAME')
+     elif search == "TEXT":
+-        return (h, i, None)
++        return (h, i, 'STRING')
+     elif search == "HEX_STRING":
+-        return (h, i, None)
++        return (h, i, 'STRING')
+     elif search == "KEYWORD":
+-        return (h, i, None)
++        return (h, i, 'KEYWORD')
+     elif search == "COMMENT":
+         return (h, i, 'COMMENT')
+     elif search == "ARRAY":
+-        return (h, i, None)
++        return (h, i, 'ARRAY')
+     elif search == "DICT":
+-        return (h, i, None)
++        return (h, i, 'DICT')
+     elif search == "STREAM":
+         return (h, i, 'STREAM')
+     return (h, i, None)
+@@ -296,8 +296,8 @@
+             else:
+                 val = text[h_val:i_val].decode('utf-8')
+                 
+-            # Check if this is a reference pattern (integer 0 R)
+-            if isinstance(val, int) and i_val < len(text):
++            # Check if this is a reference pattern (integer 0 R) - for dict values
++            if t_val == 'INTEGER' and i_val < len(text):
+                 # Look ahead to see if it's followed by 0 R
+                 temp_i = i_val
+                 # Skip whitespace
+@@ -312,7 +312,11 @@
+                             hR, iR, tR = next_token(text, temp_i)
+                             if tR == 'KEYWORD' and text[hR:iR] == b'R':
+                                 # This is a reference
+-                                val = complex(val, 0)
++                                try:
++                                    num = int(text[h_val:i_val])
++                                    val = complex(num, 0)
++                                except ValueError:
++                                    pass
+             res[key] = val
+             i = i_val
+             
+@@ -355,14 +359,15 @@
+                 obj = text[h:i].decode('utf-8')
+             res.append(obj)
+         
+-        # Process references properly
++        # Process references properly - check if we have integer 0 R pattern in the array
+         processed_res = []
+         i = 0
+         while i < len(res):
+             # Check if we have an integer followed by '0' and then 'R' (reference pattern)
++            # Check if we have three consecutive elements that form a reference pattern
+             if (i + 2 < len(res) and 
+                 isinstance(res[i], (int, float)) and 
+-                res[i+1] == 0 and 
++                isinstance(res[i+1], int) and res[i+1] == 0 and 
+                 isinstance(res[i+2], str) and res[i+2] == 'R'):
+                 # Convert to complex number representation for reference
+                 processed_res.append(complex(res[i], 0))
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/text.py b/pdfsyntax/text.py
+--- a/pdfsyntax/text.py	2026-09-23 11:37:32
++++ b/pdfsyntax/text.py	2026-09-23 11:40:29
+@@ -78,7 +78,11 @@
+             return byte_data.decode('utf-16-be')
+         except UnicodeDecodeError:
+             # Fall back to Latin-1
+-            return byte_data.decode('latin1')
++            try:
++                return byte_data.decode('latin1')
++            except UnicodeDecodeError:
++                # Last resort: decode with error handling
++                return byte_data.decode('latin1', errors='ignore')
+     else:
+         try:
+             return text.decode('utf-8')

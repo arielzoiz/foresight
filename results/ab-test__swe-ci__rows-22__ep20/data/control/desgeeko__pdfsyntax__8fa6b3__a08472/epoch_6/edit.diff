@@ -1,0 +1,72 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/__init__.py b/pdfsyntax/__init__.py
+--- a/pdfsyntax/__init__.py	2026-09-23 11:33:59
++++ b/pdfsyntax/__init__.py	2026-09-23 11:36:39
+@@ -16,10 +16,19 @@
+     elif isinstance(obj, list):
+         items = []
+         for item in obj:
+-            items.append(serialize(item))
++            # Check if item is a valid name (starts with /) and serialize accordingly
++            if isinstance(item, str) and item.startswith('/'):
++                # For names, don't put in parentheses
++                items.append(item.encode('utf-8'))
++            else:
++                items.append(serialize(item))
+         return b'[ ' + b' '.join(items) + b' ]'
+     elif isinstance(obj, str):
+-        return b'(' + obj.encode('utf-8') + b')'
++        # Check if this is a name (starts with /) - if so, don't wrap in parentheses
++        if obj.startswith('/'):
++            return obj.encode('utf-8')
++        else:
++            return b'(' + obj.encode('utf-8') + b')'
+     elif isinstance(obj, bool):
+         return b'true' if obj else b'false'
+     elif isinstance(obj, int) or isinstance(obj, float):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:35:42
++++ b/pdfsyntax/objects.py	2026-09-23 11:36:36
+@@ -53,7 +53,7 @@
+                 search = "TEXT"
+                 h = i
+             elif single in b"<":
+-                search = "TEXT"
++                search = "HEX_STRING"
+                 h = i
+             elif single == b"%":
+                 search = "COMMENT"
+@@ -101,6 +101,17 @@
+                 return (h, i, 'STRING')
+             elif single in b')>':
+                 return (h, i + 1, 'TEXT')
++        elif search == "HEX_STRING":
++            if single == b'<':
++                # Handle hexadecimal string opening
++                i += 1
++                while i < len(text) and text[i:i+1] != b'>':
++                    i += 1
++                if i < len(text):
++                    i += 1
++                return (h, i, 'STRING')
++            elif single in b')>':
++                return (h, i + 1, 'HEX_STRING')
+         elif search == "KEYWORD":
+             if single in b' \n\r>/]':
+                 # Check for special keywords
+@@ -147,6 +158,8 @@
+         return (h, i, 'NAME')
+     elif search == "TEXT":
+         return (h, i, 'TEXT')
++    elif search == "HEX_STRING":
++        return (h, i, 'HEX_STRING')
+     elif search == "KEYWORD":
+         return (h, i, 'KEYWORD')
+     elif search == "COMMENT":
+@@ -360,7 +373,6 @@
+                         return complex(num, 0)
+                     except ValueError:
+                         return None
+-        return None
+         return None
+ 
+ 

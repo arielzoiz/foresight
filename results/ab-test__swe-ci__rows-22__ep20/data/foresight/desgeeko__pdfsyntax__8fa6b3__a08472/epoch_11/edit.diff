@@ -1,0 +1,185 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-23 13:03:16
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 13:15:24
+@@ -1,4 +1,8 @@
+ {
+   "tests/test_parsing.py": true,
+-  "tests/test_parsing.py::Parsing::test_ref": true
++  "tests/test_parsing.py::Parsing::test_ref": true,
++  "tests/test_tokenization.py::Tokenization::test_dictionary": true,
++  "tests/test_tokenization.py::Tokenization::test_dictionary2": true,
++  "tests/test_tokenization.py::Tokenization::test_dictionary3": true,
++  "tests/test_tokenization.py::Tokenization::test_comment": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-23 13:03:28
++++ b/.pytest_cache/v/cache/nodeids	2026-09-23 13:15:24
+@@ -1,3 +1,13 @@
+ [
+-  "tests/test_parsing.py::Parsing::test_ref"
++  "tests/test_parsing.py::Parsing::test_ref",
++  "tests/test_parsing.py::Parsing::test_ref_list",
++  "tests/test_tokenization.py::Tokenization::test_comment",
++  "tests/test_tokenization.py::Tokenization::test_dictionary",
++  "tests/test_tokenization.py::Tokenization::test_dictionary2",
++  "tests/test_tokenization.py::Tokenization::test_dictionary3",
++  "tests/test_tokenization.py::Tokenization::test_integer",
++  "tests/test_tokenization.py::Tokenization::test_integer_minus",
++  "tests/test_tokenization.py::Tokenization::test_name",
++  "tests/test_tokenization.py::Tokenization::test_real",
++  "tests/test_tokenization.py::Tokenization::test_real2"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/docstruct.py b/pdfsyntax/docstruct.py
+--- a/pdfsyntax/docstruct.py	2026-09-23 12:53:42
++++ b/pdfsyntax/docstruct.py	2026-09-23 13:14:10
+@@ -9,6 +9,38 @@
+ 
+ Doc = namedtuple('Doc', 'bdata index cache')
+ 
++class SimpleFile(Doc):
++    """SimpleFile class that provides access to page lists and index lengths"""
++    
++    def __init__(self, bdata, index, cache):
++        super().__init__(bdata, index, cache)
++    
++    def index_length(self):
++        """Return the length of the index"""
++        return len(self.index)
++    
++    def prev(self):
++        """Check if '/Prev' exists in the cache"""
++        return '/Prev' in self.cache[0] if self.cache and len(self.cache) > 0 else False
++    
++    def page_list(self):
++        """Get the page list from the document"""
++        return build_page_list(self)
++
++class Updating(Doc):
++    """Updating class that provides access to page lists and index lengths"""
++    
++    def __init__(self, bdata, index, cache):
++        super().__init__(bdata, index, cache)
++    
++    def index_length(self):
++        """Return the length of the index"""
++        return len(self.index)
++    
++    def prev(self):
++        """Check if '/Prev' exists in the cache"""
++        return '/Prev' in self.cache[0] if self.cache and len(self.cache) > 0 else False
++
+ EOL = b'\r\n'
+ SPACE = EOL + b'\x00\x09\x0c\x20'
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/filestruct.py b/pdfsyntax/filestruct.py
+--- a/pdfsyntax/filestruct.py	2026-09-23 13:12:24
++++ b/pdfsyntax/filestruct.py	2026-09-23 13:14:00
+@@ -30,6 +30,7 @@
+             try:
+                 offset = int(line_a[0])
+                 o_ver = int(line_a[1])
++                # Find the actual object start position
+                 o_start = bdata.find(b'obj', offset) + len(b'obj') + 1
+                 if o_start > len(b'obj') + 1:  # Make sure we found 'obj'
+                     if bdata[o_start] in b'\r\n ': 
+@@ -41,7 +42,12 @@
+             except (ValueError, IndexError):
+                 # Skip invalid lines
+                 continue
+-    xref.insert(0, {'o_num': 0, 'o_gen': 0, 'abs_pos': trailer_pos, 'xref_table':table })
++    # Fix the insertion of the trailer entry
++    if len(xref) > 0:
++        xref.insert(0, {'o_num': 0, 'o_gen': 0, 'abs_pos': trailer_pos, 'xref_table':table })
++    else:
++        # Handle case when no xref entries were found
++        xref = [{'o_num': 0, 'o_gen': 0, 'abs_pos': trailer_pos, 'xref_table':table}]
+     return xref
+ 
+ def parse_xref_stream(xref_stream, trailer_pos):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 13:12:16
++++ b/pdfsyntax/objects.py	2026-09-23 13:15:02
+@@ -132,29 +132,13 @@
+                     return (h, i, 'FALSE')
+                 return (h, i, 'KEYWORD')
+         elif search == "VALUE":
+-            # Check if we've reached the end of the string
+-            if i >= len(text):
+-                # We've reached the end of the string - return appropriate token type
++            # Check if we've reached the end of the string or a delimiter
++            if i >= len(text) or single in b' \n\r>/]':
+                 # Determine if it's integer or real
+                 if b'.' in text[h:i] or b'e' in text[h:i].lower():
+                     return (h, i, 'REAL')
+                 else:
+                     return (h, i, 'INTEGER')
+-            # If we're at the last character, we need to check if it's a valid terminator
+-            if i == len(text) - 1:
+-                # We're at the last character of the string, and it's a value character
+-                # This means the token is incomplete - but we still need to return the type
+-                # Determine if it's integer or real
+-                if b'.' in text[h:i] or b'e' in text[h:i].lower():
+-                    return (h, i + 1, 'REAL')
+-                else:
+-                    return (h, i + 1, 'INTEGER')
+-            if single in b' \n\r>/]':
+-                # Determine if it's integer or real
+-                if b'.' in text[h:i] or b'e' in text[h:i].lower():
+-                    return (h, i, 'REAL')
+-                else:
+-                    return (h, i, 'INTEGER')
+             i += 1
+             continue
+         elif search == "STREAM":
+@@ -480,26 +464,32 @@
+                 elif ttt == 'VALUE' and h < i:
+                     # Handle numeric values (including references)
+                     value_str = text[h:i]
+-                    if value_str.endswith(b'R'):
+-                        # This looks like a reference - convert to complex number
+-                        try:
+-                            # Extract the number part (before 'R')
+-                            num_part = value_str[:-1].strip()
+-                            ref_num = int(num_part)
+-                            obj = complex(0, ref_num)
+-                        except ValueError:
+-                            obj = value_str
+-                    else:
+-                        try:
+-                            obj = float(value_str) if b'.' in value_str or b'e' in value_str.lower() else int(value_str)
+-                        except ValueError:
+-                            obj = value_str
++                    try:
++                        obj = float(value_str) if b'.' in value_str or b'e' in value_str.lower() else int(value_str)
++                    except ValueError:
++                        obj = value_str
+                 else:
+                     obj = text[h:i]
+                 res.append(obj)
+-        # Process references in array
+-        res = replace_ref(res)
+-        return res
++        
++        # Process array elements to convert references
++        # We need to look for sequences that form references: number 0 R
++        processed = []
++        i = 0
++        while i < len(res):
++            # Check if we have a reference pattern: number, 0, R
++            if (i + 2 < len(res) and 
++                isinstance(res[i], (int, float)) and 
++                res[i+1] == 0 and 
++                isinstance(res[i+2], (bytes, str)) and 
++                res[i+2] == b'R'):
++                # This is a reference: <number> 0 R
++                processed.append(complex(0, res[i]))
++                i += 3
++            else:
++                processed.append(res[i])
++                i += 1
++        return processed
+     elif t1 == 'TRUE':
+         return True
+     elif t1 == 'FALSE':

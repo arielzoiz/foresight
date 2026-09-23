@@ -1,0 +1,90 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:48:08
++++ b/pdfsyntax/objects.py	2026-09-23 11:49:11
+@@ -40,8 +40,11 @@
+                 h = i
+             elif text[i:i+6] == b"stream":
+                 search = "STREAM"
+-                offset = 7 if text[i+6:i+7] == b'\n' else 8 # else is b'\r\n'
+-                i += offset
++                # Skip past "stream" and any following whitespace/newline
++                i += 6
++                # Skip any whitespace or newlines after "stream"
++                while i < len(text) and text[i:i+1] in b"\r\n \t":
++                    i += 1
+                 h = i
+             elif single in b"+-.0123456789":
+                 search = "VALUE"
+@@ -79,7 +82,7 @@
+             if single in b' \n\r[]/<>(':
+                 return (h, i, 'NAME')
+             elif i == len(text):  # Incomplete NAME at end of input
+-                return (h, i, 'NAME')
++                return (h, i, None)
+         elif search == "TEXT":
+             if double == b'\\(' or double == b'\\)' or double == b'\\<' or double == b'\\>':
+                 i += 1
+@@ -139,7 +142,7 @@
+                 if b'.' in value or b'e' in value.lower():
+                     return (h, i, 'REAL')
+                 else:
+-                    return (h, i, 'INTEGER')
++                    return (h, i, None)
+         elif search == "STREAM":
+             # Properly detect endstream marker regardless of line ending format
+             if (text[i:i+11] == b'\r\nendstream' or 
+@@ -147,7 +150,7 @@
+                 text[i:i+9] == b'endstream'):
+                 return (h, i + 9, 'STREAM')
+             elif i == len(text):  # Incomplete STREAM at end of input
+-                return (h, i, 'STREAM')
++                return (h, i, None)
+         elif search == "ARRAY":
+             if single == b'[':
+                 nested += 1
+@@ -161,7 +164,7 @@
+             if single in b'\r\n':
+                 return (h, i, 'COMMENT')
+             elif i == len(text):  # Incomplete COMMENT at end of input
+-                return (h, i, 'COMMENT')
++                return (h, i, None)
+         i += 1
+     # Handle incomplete tokens at end of text
+     if search == "TBD":
+@@ -172,9 +175,9 @@
+         if b'.' in value or b'e' in value.lower():
+             return (h, i, 'REAL')
+         else:
+-            return (h, i, 'INTEGER')
++            return (h, i, None)
+     elif search == "NAME":
+-        return (h, i, 'NAME')
++        return (h, i, None)
+     elif search == "TEXT":
+         return (h, i, 'STRING')
+     elif search == "HEX_STRING":
+@@ -182,13 +185,13 @@
+     elif search == "KEYWORD":
+         return (h, i, 'KEYWORD')
+     elif search == "COMMENT":
+-        return (h, i, 'COMMENT')
++        return (h, i, None)
+     elif search == "ARRAY":
+         return (h, i, 'ARRAY')
+     elif search == "DICT":
+         return (h, i, 'DICT')
+     elif search == "STREAM":
+-        return (h, i, 'STREAM')
++        return (h, i, None)
+     return (h, i, None)
+ 
+ 
+@@ -368,7 +371,7 @@
+                     obj = False
+             elif ttt == 'COMMENT':
+                 # Skip comments completely and continue parsing
+-                i = i_val
++                i = i
+                 continue
+             else:
+                 obj = text[h:i].decode('utf-8')

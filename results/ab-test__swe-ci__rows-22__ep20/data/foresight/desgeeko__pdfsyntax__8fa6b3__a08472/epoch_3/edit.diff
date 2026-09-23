@@ -1,0 +1,162 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 12:57:32
++++ b/pdfsyntax/objects.py	2026-09-23 12:58:46
+@@ -76,17 +76,37 @@
+                 i += 1
+             if nested == 0:
+                 return (h, i + 1, 'DICT')
+-            else:
+-                pass
+         elif search == "NAME":
+             if single in b' \n\r[]/<>(':
+                 return (h, i, 'NAME')
++            i += 1
++            continue
+         elif search == "TEXT":
+             if double == b'\\(' or double == b'\\)' or double == b'\\<' or double == b'\\>':
+                 i += 1
+-            else:    
+-                if single in b')>':
+-                    return (h, i + 1, 'TEXT')
++            elif single == b'(':
++                # Handle opening parenthesis in literal strings
++                paren_count = 1
++                i += 1
++                while i < len(text) and paren_count > 0:
++                    if text[i:i+1] == b'(':
++                        paren_count += 1
++                    elif text[i:i+1] == b')':
++                        paren_count -= 1
++                    i += 1
++                return (h, i, 'STRING')
++            elif single == b'<':
++                # Handle hexadecimal strings
++                i += 1
++                while i < len(text) and text[i:i+1] not in b'>':
++                    i += 1
++                if i < len(text) and text[i:i+1] == b'>':
++                    i += 1
++                return (h, i, 'STRING')
++            elif single in b')>':
++                return (h, i + 1, 'STRING')
++            i += 1
++            continue
+         elif search == "KEYWORD":
+             if single in b' \n\r>/]' or i == len(text) - 1:
+                 # Check if it's a special keyword
+@@ -114,7 +134,24 @@
+             if nested == 0:
+                 return (h, i + 1, 'ARRAY')
+         i += 1
+-    return (h, i + 1, None)
++    
++    # Handle incomplete tokens at end of string
++    if search == "NAME":
++        return (h, i, None)
++    elif search == "VALUE":
++        # Return incomplete VALUE token
++        return (h, i, None)
++    elif search == "TEXT":
++        # Incomplete TEXT token
++        return (h, i, None)
++    elif search == "DICT":
++        # Incomplete DICT token
++        return (h, i, None)
++    elif search == "ARRAY":
++        # Incomplete ARRAY token
++        return (h, i, None)
++    
++    return (h, i, None)
+ 
+ 
+ def replace_ref(tokens):
+@@ -165,54 +202,55 @@
+     """ syntax
+     """
+     h1, j1, t1 = next_token(text, start)
+-    obj = text[h1:j1]
+     if t1 == 'DICT':
+         res = {}
+-        res_array = []
+-        i = start + 2
+-        while i < j1:
+-            h, i, ttt = next_token(text, i)
+-            if i < j1 and ttt:                             # TODO ?
+-                if ttt == 'DICT' or ttt == 'ARRAY':
+-                    obj = parse_obj(text[h:i])
+-                elif ttt == 'TRUE':
++        i = h1 + 2  # Skip the << 
++        while i < j1 - 2:  # Skip the >>
++            # Parse key
++            h_key, i, t_key = next_token(text, i)
++            if t_key == 'NAME':
++                key = text[h_key:i].decode('ascii')
++            elif t_key == 'KEYWORD':
++                key = text[h_key:i].decode('ascii')
++            else:
++                # Skip invalid keys
++                continue
++                
++            # Parse value
++            h_val, i, t_val = next_token(text, i)
++            if t_val:
++                if t_val == 'DICT':
++                    obj = parse_obj(text[h_val:i])
++                elif t_val == 'ARRAY':
++                    obj = parse_obj(text[h_val:i])
++                elif t_val == 'TRUE':
+                     obj = True
+-                elif ttt == 'FALSE':
++                elif t_val == 'FALSE':
+                     obj = False
+-                elif ttt == 'NAME':
+-                    obj = text[h:i].decode('ascii')
+-                elif ttt == 'INTEGER' or ttt == 'REAL':
++                elif t_val == 'NAME':
++                    obj = text[h_val:i].decode('ascii')
++                elif t_val == 'INTEGER' or t_val == 'REAL':
+                     try:
+-                        obj = float(text[h:i]) if b'.' in text[h:i] or b'e' in text[h:i].lower() else int(text[h:i])
++                        obj = float(text[h_val:i]) if b'.' in text[h_val:i] or b'e' in text[h_val:i].lower() else int(text[h_val:i])
+                     except ValueError:
+                         # If conversion fails, treat as string
+-                        obj = text[h:i]
+-                elif ttt == 'STRING':
+-                    obj = text[h:i]
++                        obj = text[h_val:i]
++                elif t_val == 'STRING':
++                    obj = text[h_val:i]
+                 else:
+-                    obj = text[h:i]
+-                res_array.append(obj)
+-        toggle = True
+-        res_array = replace_ref(res_array)
+-        j = len(res_array) - 1
+-        while j >= 0:
+-            if toggle:
+-                val = res_array[j]
+-                toggle = False
+-            else:
+-                key = res_array[j]
+-                res[key] = val
+-                toggle = True
+-            j -= 1
++                    obj = text[h_val:i]
++                res[key] = obj
+         return res
+ 
+     elif t1 == 'ARRAY':
+         res = []
+-        i = start + 1
+-        while i < j1:
++        i = h1 + 1  # Skip the [
++        while i < j1 - 1:  # Skip the ]
+             h, i, ttt = next_token(text, i)
+             if ttt:
+-                if ttt == 'DICT' or ttt == 'ARRAY':
++                if ttt == 'DICT':
++                    obj = parse_obj(text[h:i])
++                elif ttt == 'ARRAY':
+                     obj = parse_obj(text[h:i])
+                 elif ttt == 'TRUE':
+                     obj = True

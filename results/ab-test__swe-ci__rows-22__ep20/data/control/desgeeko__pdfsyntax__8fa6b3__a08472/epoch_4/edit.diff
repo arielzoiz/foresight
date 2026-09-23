@@ -1,0 +1,65 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/__init__.py b/pdfsyntax/__init__.py
+--- a/pdfsyntax/__init__.py	2026-09-23 11:33:14
++++ b/pdfsyntax/__init__.py	2026-09-23 11:33:59
+@@ -10,7 +10,7 @@
+     if isinstance(obj, dict):
+         items = []
+         for k, v in obj.items():
+-            items.append(k)
++            items.append(k.encode('utf-8') if isinstance(k, str) else k)
+             items.append(serialize(v))
+         return b'<< ' + b' '.join(items) + b' >>'
+     elif isinstance(obj, list):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:33:31
++++ b/pdfsyntax/objects.py	2026-09-23 11:34:13
+@@ -63,7 +63,7 @@
+                 h = i
+                 continue
+             else:
+-                return (h, i + 1, '')
++                return (h, i + 1, 'UNKNOWN')
+         elif search == "DICT":
+             if double == b'<<':
+                 nested += 1
+@@ -79,9 +79,28 @@
+         elif search == "TEXT":
+             if double == b'\\(' or double == b'\\)' or double == b'\\<' or double == b'\\>':
+                 i += 1
+-            else:    
+-                if single in b')>':
+-                    return (h, i + 1, 'TEXT')
++            elif single == b'(':
++                # Handle literal string opening
++                i += 1
++                # Count nested parentheses
++                paren_count = 1
++                while i < len(text) and paren_count > 0:
++                    if text[i:i+1] == b'(':
++                        paren_count += 1
++                    elif text[i:i+1] == b')':
++                        paren_count -= 1
++                    i += 1
++                return (h, i, 'STRING')
++            elif single == b'<':
++                # Handle hexadecimal string opening
++                i += 1
++                while i < len(text) and text[i:i+1] != b'>':
++                    i += 1
++                if i < len(text):
++                    i += 1
++                return (h, i, 'STRING')
++            elif single in b')>':
++                return (h, i + 1, 'TEXT')
+         elif search == "KEYWORD":
+             if single in b' \n\r>/]':
+                 # Check for special keywords
+@@ -276,7 +295,7 @@
+                 try:
+                     obj = float(obj) if b'.' in obj else int(obj)
+                 except ValueError:
+-                    pass
++                    obj = obj.decode('utf-8')
+             elif ttt == 'TRUE':
+                 obj = True
+             elif ttt == 'FALSE':

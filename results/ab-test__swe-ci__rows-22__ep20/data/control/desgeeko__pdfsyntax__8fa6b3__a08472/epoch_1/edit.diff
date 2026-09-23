@@ -1,0 +1,261 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/__init__.py b/pdfsyntax/__init__.py
+--- a/pdfsyntax/__init__.py	2026-09-23 11:27:02
++++ b/pdfsyntax/__init__.py	2026-09-23 11:29:02
+@@ -1,5 +1,31 @@
+ """Package pdfsyntax"""
+ 
+ from .docstruct import *
++from .objects import *
+ 
+-__all__ = []
++__all__ = ['serialize']
++
++def serialize(obj):
++    """Convert Python data structures to PDF syntax format."""
++    if isinstance(obj, dict):
++        items = []
++        for k, v in obj.items():
++            items.append(k)
++            items.append(serialize(v))
++        return b'<< ' + b' '.join(items) + b' >>'
++    elif isinstance(obj, list):
++        items = []
++        for item in obj:
++            items.append(serialize(item))
++        return b'[' + b' '.join(items) + b']'
++    elif isinstance(obj, str):
++        return b'(' + obj.encode('utf-8') + b')'
++    elif isinstance(obj, bool):
++        return b'true' if obj else b'false'
++    elif isinstance(obj, int) or isinstance(obj, float):
++        return str(obj).encode('ascii')
++    elif isinstance(obj, complex):
++        # Handle reference objects (like 6j)
++        return str(int(obj.real)).encode('ascii') + b' 0 R'
++    else:
++        return str(obj).encode('ascii')
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:27:02
++++ b/pdfsyntax/objects.py	2026-09-23 11:29:31
+@@ -7,6 +7,8 @@
+ EOL = b'\r\n'
+ SPACE = EOL + b'\x00\x09\x0c\x20'
+ 
++from .text import text_string
++
+ def skip_chars(chars, text, i):
+     """ syntax
+     """
+@@ -28,21 +30,40 @@
+         if search == "TBD":
+             if double == b'<<':
+                 search = "DICT"
++                h = i
++                i += 1
+             elif single == b'[':
+                 search = "ARRAY"
++                h = i
+             elif single == b"/":
+                 search = "NAME"
++                h = i
+             elif text[i:i+6] == b"stream":
+                 search = "STREAM"
+                 offset = 7 if text[i+6:i+7] == b'\n' else 8 # else is b'\r\n'
+                 i += offset
++                h = i
+             elif single in b"+-.0123456789":
+                 search = "VALUE"
++                h = i
+             elif single in b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                 search = "KEYWORD"
+-            elif single in b"(<":
++                h = i
++            elif single in b"(":
+                 search = "TEXT"
+-            h = i
++                h = i
++            elif single in b"<":
++                search = "TEXT"
++                h = i
++            elif single == b"%":
++                search = "COMMENT"
++                h = i
++            elif single in b" \n\r\t\f":
++                i += 1
++                h = i
++                continue
++            else:
++                return (h, i + 1, '')
+         elif search == "DICT":
+             if double == b'<<':
+                 nested += 1
+@@ -52,8 +73,6 @@
+                 i += 1
+             if nested == 0:
+                 return (h, i + 1, 'DICT')
+-            else:
+-                pass
+         elif search == "NAME":
+             if single in b' \n\r[]/<>(':
+                 return (h, i, 'NAME')
+@@ -64,14 +83,26 @@
+                 if single in b')>':
+                     return (h, i + 1, 'TEXT')
+         elif search == "KEYWORD":
+-            if single in b' \n\r>/]' or i == len(text) - 1:
+-                return (h, i, 'KEYWORD')
++            if single in b' \n\r>/]':
++                # Check for special keywords
++                keyword = text[h:i]
++                if keyword == b'true':
++                    return (h, i, 'TRUE')
++                elif keyword == b'false':
++                    return (h, i, 'FALSE')
++                else:
++                    return (h, i, 'KEYWORD')
+         elif search == "VALUE":
+-            if single in b' \n\r>/]' or i == len(text) - 1:
+-                return (h, i, 'VALUE')
++            if single in b' \n\r>/]':
++                # Determine if it's INTEGER or REAL
++                value = text[h:i]
++                if b'.' in value or b'e' in value.lower():
++                    return (h, i, 'REAL')
++                else:
++                    return (h, i, 'INTEGER')
+         elif search == "STREAM":
+             if text[i:i+11] == b'\r\nendstream' or text[i:i+10] == b'\nendstream':
+-                return (h, i, 'STREAM')
++                return (h, i + 10, 'STREAM')
+         elif search == "ARRAY":
+             if single == b'[':
+                 nested += 1
+@@ -79,8 +110,11 @@
+                 nested -= 1
+             if nested == 0:
+                 return (h, i + 1, 'ARRAY')
++        elif search == "COMMENT":
++            if single in b'\r\n':
++                return (h, i, 'COMMENT')
+         i += 1
+-    return (h, i + 1, '')
++    return (h, i, '')
+ 
+ 
+ def replace_ref(tokens):
+@@ -133,20 +167,33 @@
+     if t1 == 'DICT':
+         res = {}
+         res_array = []
+-        h2, j2, t2 = next_token(text, j1)
+-        following_obj = text[h2:j2]
+-        if t2 == 'STREAM': 
+-            stream_def =  parse_obj(obj)
+-            stream_content = decode_stream(following_obj, stream_def)
+-            res = { 'stream_def': stream_def, 'stream_content': stream_content }
+-            return res
+-
+         i = start + 2
+         while i < j1:
+             h, i, ttt = next_token(text, i)
+             if i < j1 and ttt:                             # TODO ?
+                 if ttt == 'DICT' or ttt == 'ARRAY':
+-                    obj = parse_obj(text[h:i])
++                    obj = parse_obj(text, h)
++                elif ttt == 'NAME':
++                    obj = text[h:i]
++                elif ttt == 'STRING':
++                    obj = text_string(text[h:i])
++                elif ttt == 'INTEGER' or ttt == 'REAL':
++                    obj = text[h:i]
++                    try:
++                        obj = float(obj) if b'.' in obj else int(obj)
++                    except ValueError:
++                        pass
++                elif ttt == 'TRUE':
++                    obj = True
++                elif ttt == 'FALSE':
++                    obj = False
++                elif ttt == 'KEYWORD':
++                    obj = text[h:i]
++                    # Special case for boolean keywords
++                    if obj == b'true':
++                        obj = True
++                    elif obj == b'false':
++                        obj = False
+                 else:
+                     obj = text[h:i]
+                 res_array.append(obj)
+@@ -170,7 +217,31 @@
+         while i < j1:
+             h, i, ttt = next_token(text, i)
+             if ttt:
+-                obj = text[h:i]
++                if ttt == 'DICT' or ttt == 'ARRAY':
++                    obj = parse_obj(text, h)
++                elif ttt == 'NAME':
++                    obj = text[h:i]
++                elif ttt == 'STRING':
++                    obj = text_string(text[h:i])
++                elif ttt == 'INTEGER' or ttt == 'REAL':
++                    obj = text[h:i]
++                    try:
++                        obj = float(obj) if b'.' in obj else int(obj)
++                    except ValueError:
++                        pass
++                elif ttt == 'TRUE':
++                    obj = True
++                elif ttt == 'FALSE':
++                    obj = False
++                elif ttt == 'KEYWORD':
++                    obj = text[h:i]
++                    # Special case for boolean keywords
++                    if obj == b'true':
++                        obj = True
++                    elif obj == b'false':
++                        obj = False
++                else:
++                    obj = text[h:i]
+                 res.append(obj)
+         res = replace_ref(res)
+         return res
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/text.py b/pdfsyntax/text.py
+--- a/pdfsyntax/text.py	2026-09-23 11:27:02
++++ b/pdfsyntax/text.py	2026-09-23 11:29:06
+@@ -48,4 +48,36 @@
+     return res
+ 
+ 
++def text_string(text):
++    """Process PDF text strings (literal and hexadecimal formats) and convert to Python strings."""
++    if text.startswith(b'('):
++        # Literal string
++        result = text[1:-1]  # Remove parentheses
++        # Handle escape sequences
++        result = result.replace(b'\\(', b'(')
++        result = result.replace(b'\\)', b')')
++        result = result.replace(b'\\n', b'\n')
++        result = result.replace(b'\\r', b'\r')
++        result = result.replace(b'\\t', b'\t')
++        result = result.replace(b'\\b', b'\b')
++        result = result.replace(b'\\f', b'\f')
++        result = result.replace(b'\\\\', b'\\')
++        # Handle octal escape sequences
++        # This is a simplified version - in practice, more complex parsing would be needed
++        return result.decode('latin1')  # Simple decoding for now
++    elif text.startswith(b'<'):
++        # Hexadecimal string
++        hex_str = text[1:-1].decode('ascii').replace(' ', '')  # Remove angle brackets and spaces
++        # Convert hex to bytes
++        byte_data = bytes.fromhex(hex_str)
++        # Try UTF-16BE decoding first (common for PDF)
++        try:
++            return byte_data.decode('utf-16-be')
++        except UnicodeDecodeError:
++            # Fall back to Latin-1
++            return byte_data.decode('latin1')
++    else:
++        return text.decode('latin1')
++
++
+ 

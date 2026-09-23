@@ -1,0 +1,196 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-23 13:00:56
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-23 13:00:56
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-23 13:00:56
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 13:00:56
+@@ -0,0 +1,3 @@
++{
++  "tests/test_parsing.py": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-23 13:00:56
+@@ -0,0 +1 @@
++[]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 12:58:46
++++ b/pdfsyntax/objects.py	2026-09-23 13:00:44
+@@ -41,7 +41,7 @@
+                 search = "DICT"
+             elif single == b'[':
+                 search = "ARRAY"
+-            elif single == b"/":
++            elif single == b'/':
+                 search = "NAME"
+             elif text[i:i+6] == b"stream":
+                 search = "STREAM"
+@@ -61,11 +61,12 @@
+                     return (i, i+5, 'FALSE')
+             elif single == b'%':
+                 # Skip comment
++                h = i
+                 while i < len(text) and text[i:i+1] not in b'\r\n':
+                     i += 1
+                 while i < len(text) and text[i:i+1] in b'\r\n':
+                     i += 1
+-                return (i, i, 'COMMENT')
++                return (h, i, 'COMMENT')
+             h = i
+         elif search == "DICT":
+             if double == b'<<':
+@@ -165,13 +166,14 @@
+             # Create a complex number representation for reference (as done in original)
+             # This follows the convention that 6 0 R becomes 6j
+             ref_num = int(tokens[i])
+-            new_list.append(ref_num)
++            new_list.append(complex(0, ref_num))
+             i += 3
+         else:
+             new_list.append(tokens[i])
+             i += 1
+     return new_list
+ 
++
+ def decode_predictor(bdata, predictor, columns):
+     size = len(bdata)
+     res = b''
+@@ -201,11 +203,50 @@
+ def parse_obj(text, start=0):
+     """ syntax
+     """
+-    h1, j1, t1 = next_token(text, start)
++    # Skip leading whitespace and comments
++    i = start
++    while i < len(text):
++        # Skip whitespace
++        while i < len(text) and text[i:i+1] in b' \n\r\t':
++            i += 1
++        
++        # Skip comments
++        if i < len(text) and text[i:i+1] == b'%':
++            while i < len(text) and text[i:i+1] not in b'\r\n':
++                i += 1
++            while i < len(text) and text[i:i+1] in b'\r\n':
++                i += 1
++            continue
++            
++        break
++    
++    if i >= len(text):
++        return None
++        
++    h1, j1, t1 = next_token(text, i)
+     if t1 == 'DICT':
+         res = {}
+         i = h1 + 2  # Skip the << 
+         while i < j1 - 2:  # Skip the >>
++            # Skip whitespace and comments before key
++            while i < j1 - 2:
++                # Skip whitespace
++                while i < j1 - 2 and text[i:i+1] in b' \n\r\t':
++                    i += 1
++                
++                # Skip comments
++                if i < j1 - 2 and text[i:i+1] == b'%':
++                    while i < j1 - 2 and text[i:i+1] not in b'\r\n':
++                        i += 1
++                    while i < j1 - 2 and text[i:i+1] in b'\r\n':
++                        i += 1
++                    continue
++                    
++                break
++            
++            if i >= j1 - 2:
++                break
++                
+             # Parse key
+             h_key, i, t_key = next_token(text, i)
+             if t_key == 'NAME':
+@@ -216,6 +257,25 @@
+                 # Skip invalid keys
+                 continue
+                 
++            # Skip whitespace and comments after key
++            while i < j1 - 2:
++                # Skip whitespace
++                while i < j1 - 2 and text[i:i+1] in b' \n\r\t':
++                    i += 1
++                
++                # Skip comments
++                if i < j1 - 2 and text[i:i+1] == b'%':
++                    while i < j1 - 2 and text[i:i+1] not in b'\r\n':
++                        i += 1
++                    while i < j1 - 2 and text[i:i+1] in b'\r\n':
++                        i += 1
++                    continue
++                    
++                break
++            
++            if i >= j1 - 2:
++                break
++                
+             # Parse value
+             h_val, i, t_val = next_token(text, i)
+             if t_val:
+@@ -246,6 +306,25 @@
+         res = []
+         i = h1 + 1  # Skip the [
+         while i < j1 - 1:  # Skip the ]
++            # Skip whitespace and comments
++            while i < j1 - 1:
++                # Skip whitespace
++                while i < j1 - 1 and text[i:i+1] in b' \n\r\t':
++                    i += 1
++                
++                # Skip comments
++                if i < j1 - 1 and text[i:i+1] == b'%':
++                    while i < j1 - 1 and text[i:i+1] not in b'\r\n':
++                        i += 1
++                    while i < j1 - 1 and text[i:i+1] in b'\r\n':
++                        i += 1
++                    continue
++                    
++                break
++            
++            if i >= j1 - 1:
++                break
++                
+             h, i, ttt = next_token(text, i)
+             if ttt:
+                 if ttt == 'DICT':
+@@ -286,7 +365,4 @@
+         i += 1
+     while bdata[i] in EOL:
+         i += 1
+-    return i
+-
+-
+-
++    return i
+\ No newline at end of file

@@ -1,0 +1,122 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:36:36
++++ b/pdfsyntax/objects.py	2026-09-23 11:37:34
+@@ -73,9 +73,13 @@
+                 i += 1
+             if nested == 0:
+                 return (h, i + 1, 'DICT')
++            elif i == len(text):  # Incomplete DICT at end of input
++                return (h, i, 'DICT')
+         elif search == "NAME":
+             if single in b' \n\r[]/<>(':
+                 return (h, i, 'NAME')
++            elif i == len(text):  # Incomplete NAME at end of input
++                return (h, i, 'NAME')
+         elif search == "TEXT":
+             if double == b'\\(' or double == b'\\)' or double == b'\\<' or double == b'\\>':
+                 i += 1
+@@ -101,6 +105,8 @@
+                 return (h, i, 'STRING')
+             elif single in b')>':
+                 return (h, i + 1, 'TEXT')
++            elif i == len(text):  # Incomplete TEXT at end of input
++                return (h, i, 'TEXT')
+         elif search == "HEX_STRING":
+             if single == b'<':
+                 # Handle hexadecimal string opening
+@@ -112,6 +118,8 @@
+                 return (h, i, 'STRING')
+             elif single in b')>':
+                 return (h, i + 1, 'HEX_STRING')
++            elif i == len(text):  # Incomplete HEX_STRING at end of input
++                return (h, i, 'HEX_STRING')
+         elif search == "KEYWORD":
+             if single in b' \n\r>/]':
+                 # Check for special keywords
+@@ -122,6 +130,8 @@
+                     return (h, i, 'FALSE')
+                 else:
+                     return (h, i, 'KEYWORD')
++            elif i == len(text):  # Incomplete KEYWORD at end of input
++                return (h, i, 'KEYWORD')
+         elif search == "VALUE":
+             if single in b' \n\r>/]':
+                 # Determine if it's INTEGER or REAL
+@@ -130,9 +140,18 @@
+                     return (h, i, 'REAL')
+                 else:
+                     return (h, i, 'INTEGER')
++            elif i == len(text):  # Incomplete VALUE at end of input
++                # For incomplete values, return the value token with the end position
++                value = text[h:i]
++                if b'.' in value or b'e' in value.lower():
++                    return (h, i, 'REAL')
++                else:
++                    return (h, i, 'INTEGER')
+         elif search == "STREAM":
+             if text[i:i+11] == b'\r\nendstream' or text[i:i+10] == b'\nendstream':
+                 return (h, i + 10, 'STREAM')
++            elif i == len(text):  # Incomplete STREAM at end of input
++                return (h, i, 'STREAM')
+         elif search == "ARRAY":
+             if single == b'[':
+                 nested += 1
+@@ -140,9 +159,13 @@
+                 nested -= 1
+             if nested == 0:
+                 return (h, i + 1, 'ARRAY')
++            elif i == len(text):  # Incomplete ARRAY at end of input
++                return (h, i, 'ARRAY')
+         elif search == "COMMENT":
+             if single in b'\r\n':
+                 return (h, i, 'COMMENT')
++            elif i == len(text):  # Incomplete COMMENT at end of input
++                return (h, i, 'COMMENT')
+         i += 1
+     # Handle incomplete tokens at end of text
+     if search == "TBD":
+@@ -168,6 +191,8 @@
+         return (h, i, 'ARRAY')
+     elif search == "DICT":
+         return (h, i, 'DICT')
++    elif search == "STREAM":
++        return (h, i, 'STREAM')
+     return (h, i, None)
+ 
+ 
+@@ -349,7 +374,7 @@
+             if (i + 2 < len(res) and 
+                 isinstance(res[i], (int, float)) and 
+                 res[i+1] == 0 and 
+-                res[i+2] == 'R'):
++                isinstance(res[i+2], str) and res[i+2] == 'R'):
+                 # Convert to complex number representation for reference
+                 processed_res.append(complex(res[i], 0))
+                 i += 3
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/text.py b/pdfsyntax/text.py
+--- a/pdfsyntax/text.py	2026-09-23 11:29:06
++++ b/pdfsyntax/text.py	2026-09-23 11:37:32
+@@ -64,7 +64,10 @@
+         result = result.replace(b'\\\\', b'\\')
+         # Handle octal escape sequences
+         # This is a simplified version - in practice, more complex parsing would be needed
+-        return result.decode('latin1')  # Simple decoding for now
++        try:
++            return result.decode('utf-8')
++        except UnicodeDecodeError:
++            return result.decode('latin1')  # Fallback to latin1
+     elif text.startswith(b'<'):
+         # Hexadecimal string
+         hex_str = text[1:-1].decode('ascii').replace(' ', '')  # Remove angle brackets and spaces
+@@ -77,7 +80,10 @@
+             # Fall back to Latin-1
+             return byte_data.decode('latin1')
+     else:
+-        return text.decode('latin1')
++        try:
++            return text.decode('utf-8')
++        except UnicodeDecodeError:
++            return text.decode('latin1')
+ 
+ 
+ 

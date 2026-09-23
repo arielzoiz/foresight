@@ -1,0 +1,69 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:49:11
++++ b/pdfsyntax/objects.py	2026-09-23 11:50:14
+@@ -144,11 +144,12 @@
+                 else:
+                     return (h, i, None)
+         elif search == "STREAM":
+-            # Properly detect endstream marker regardless of line ending format
+-            if (text[i:i+11] == b'\r\nendstream' or 
+-                text[i:i+10] == b'\nendstream' or
+-                text[i:i+9] == b'endstream'):
+-                return (h, i + 9, 'STREAM')
++            # Look for endstream marker - we're at the start of the stream content
++            # Find the endstream marker
++            endstream_pos = text.find(b'endstream', i)
++            if endstream_pos != -1:
++                # Return the stream content including the endstream marker
++                return (h, endstream_pos + 9, 'STREAM')
+             elif i == len(text):  # Incomplete STREAM at end of input
+                 return (h, i, None)
+         elif search == "ARRAY":
+@@ -371,7 +372,12 @@
+                     obj = False
+             elif ttt == 'COMMENT':
+                 # Skip comments completely and continue parsing
+-                i = i
++                # Find the end of the comment (next newline or end of text)
++                while i < len(text) and text[i:i+1] not in b'\r\n':
++                    i += 1
++                # Skip past the newline
++                if i < len(text) and text[i:i+1] in b'\r\n':
++                    i += 1
+                 continue
+             else:
+                 obj = text[h:i].decode('utf-8')
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/test_fixes.py b/test_fixes.py
+--- a/test_fixes.py	1970-01-01 02:00:00
++++ b/test_fixes.py	2026-09-23 11:50:03
+@@ -0,0 +1,29 @@
++#!/usr/bin/env python3
++
++import sys
++sys.path.insert(0, '/app/code')
++
++from pdfsyntax.objects import next_token, parse_obj
++from pdfsyntax.text import text_string
++
++# Test the comment handling in arrays
++print("Testing comment handling in arrays...")
++result = parse_obj(b'[%a\n/abc %b %c \n 123%d\n]')
++print(f"Result: {result}")
++expected = ['/abc', 123]
++print(f"Expected: {expected}")
++print(f"Match: {result == expected}")
++
++# Test stream parsing
++print("\nTesting stream parsing...")
++result = next_token(b'stream\n xyz \nendstream ', 0)
++print(f"Stream token result: {result}")
++
++# Test UTF-16BE decoding
++print("\nTesting UTF-16BE decoding...")
++test_string = b'(\xfe\xff\x00M\x00a\x00r\x00t\x00i\x00n\x00 \x00D\x00.)'
++result = text_string(test_string)
++print(f"Decoded string: '{result}'")
++expected = 'Martin D.'
++print(f"Expected: '{expected}'")
++print(f"Match: {result == expected}")
+\ No newline at end of file

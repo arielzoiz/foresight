@@ -1,0 +1,65 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:42:54
++++ b/pdfsyntax/objects.py	2026-09-23 11:47:12
+@@ -141,8 +141,11 @@
+                 else:
+                     return (h, i, 'INTEGER')
+         elif search == "STREAM":
+-            if text[i:i+11] == b'\r\nendstream' or text[i:i+10] == b'\nendstream':
+-                return (h, i + 10, 'STREAM')
++            # Properly detect endstream marker regardless of line ending format
++            if (text[i:i+11] == b'\r\nendstream' or 
++                text[i:i+10] == b'\nendstream' or
++                text[i:i+9] == b'endstream'):
++                return (h, i + 9, 'STREAM')
+             elif i == len(text):  # Incomplete STREAM at end of input
+                 return (h, i, None)
+         elif search == "ARRAY":
+@@ -197,7 +200,7 @@
+         if (i < size - 2 and 
+             isinstance(tokens[i], (int, str, bytes)) and 
+             (isinstance(tokens[i+1], (int, bytes)) and tokens[i+1] == 0) and
+-            (isinstance(tokens[i+2], bytes) and tokens[i+2] == b'R')):
++            (isinstance(tokens[i+2], (str, bytes)) and tokens[i+2] in [b'R', 'R'])):
+             # Convert to complex number representation for reference
+             try:
+                 if isinstance(tokens[i], bytes):
+@@ -206,7 +209,7 @@
+                     num = int(tokens[i])
+                 else:
+                     num = tokens[i]
+-                new_list.append(complex(num, 0))
++                new_list.append(complex(0, num))
+             except ValueError:
+                 new_list.append(tokens[i])
+             i += 3
+@@ -294,7 +297,7 @@
+                 elif val == b'false':
+                     val = False
+             elif t_val == 'COMMENT':
+-                # Skip comments completely
++                # Skip comments completely and continue parsing
+                 i = i_val
+                 continue
+             else:
+@@ -371,7 +374,6 @@
+         processed_res = []
+         i = 0
+         while i < len(res):
+-            # Check if we have an integer followed by '0' and then 'R' (reference pattern)
+             # Check if we have three consecutive elements that form a reference pattern
+             if (i + 2 < len(res) and 
+                 isinstance(res[i], (int, float)) and 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/text.py b/pdfsyntax/text.py
+--- a/pdfsyntax/text.py	2026-09-23 11:41:24
++++ b/pdfsyntax/text.py	2026-09-23 11:46:44
+@@ -82,7 +82,8 @@
+         try:
+             return byte_data.decode('utf-16-be')
+         except UnicodeDecodeError:
+-            # Fall back to Latin-1
++            # For PDF, we need to handle special character codes like Euro sign (0xA0)
++            # Try with latin1 first for special characters
+             try:
+                 return byte_data.decode('latin1')
+             except UnicodeDecodeError:

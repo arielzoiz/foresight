@@ -1,0 +1,277 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/__init__.py b/pdfsyntax/__init__.py
+--- a/pdfsyntax/__init__.py	2026-09-23 12:53:42
++++ b/pdfsyntax/__init__.py	2026-09-23 12:55:34
+@@ -1,5 +1,7 @@
+ """Package pdfsyntax"""
+ 
+ from .docstruct import *
++from .text import text_string
++from .objects import serialize
+ 
+-__all__ = []
++__all__ = ['text_string', 'serialize']
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 12:53:42
++++ b/pdfsyntax/objects.py	2026-09-23 12:56:12
+@@ -1,21 +1,32 @@
+-"""Module pdfsyntax.objects: Parser"""
++def serialize(obj):
++    """ Serialize Python object to PDF syntax byte string """
++    if isinstance(obj, dict):
++        items = []
++        for k, v in obj.items():
++            items.append(serialize(k))
++            items.append(serialize(v))
++        return b'<< ' + b' '.join(items) + b' >>'
++    elif isinstance(obj, list):
++        items = [serialize(item) for item in obj]
++        return b'[' + b' '.join(items) + b']'
++    elif isinstance(obj, bool):
++        return b'true' if obj else b'false'
++    elif isinstance(obj, int) or isinstance(obj, float):
++        return str(obj).encode('ascii')
++    elif isinstance(obj, str):
++        # Handle string serialization (for names and literals)
++        if obj.startswith('/'):
++            return obj.encode('ascii')
++        else:
++            # For literal strings, we need to encode them properly
++            return b'(' + obj.encode('utf-8') + b')'
++    elif isinstance(obj, bytes):
++        return obj
++    else:
++        # Default to string representation
++        return str(obj).encode('ascii')
+ 
+-import re
+-import zlib
+-from collections import namedtuple
+ 
+-EOL = b'\r\n'
+-SPACE = EOL + b'\x00\x09\x0c\x20'
+-
+-def skip_chars(chars, text, i):
+-    """ syntax
+-    """
+-    while i < len(text):
+-        if text[i] not in chars: return i
+-        i += 1
+-    return None        
+-
+-
+ def next_token(text, i):
+     """ syntax Find next token in raw string starting at some index
+     """
+@@ -42,6 +53,19 @@
+                 search = "KEYWORD"
+             elif single in b"(<":
+                 search = "TEXT"
++            elif single == b't':
++                # Check for true/false keywords
++                if text[i:i+4] == b'true':
++                    return (i, i+4, 'TRUE')
++                elif text[i:i+5] == b'false':
++                    return (i, i+5, 'FALSE')
++            elif single == b'%':
++                # Skip comment
++                while i < len(text) and text[i:i+1] not in b'\r\n':
++                    i += 1
++                while i < len(text) and text[i:i+1] in b'\r\n':
++                    i += 1
++                return (i, i, 'COMMENT')
+             h = i
+         elif search == "DICT":
+             if double == b'<<':
+@@ -65,10 +89,20 @@
+                     return (h, i + 1, 'TEXT')
+         elif search == "KEYWORD":
+             if single in b' \n\r>/]' or i == len(text) - 1:
++                # Check if it's a special keyword
++                keyword = text[h:i]
++                if keyword == b'true':
++                    return (h, i, 'TRUE')
++                elif keyword == b'false':
++                    return (h, i, 'FALSE')
+                 return (h, i, 'KEYWORD')
+         elif search == "VALUE":
+             if single in b' \n\r>/]' or i == len(text) - 1:
+-                return (h, i, 'VALUE')
++                # Determine if it's integer or real
++                if b'.' in text[h:i] or b'e' in text[h:i].lower():
++                    return (h, i, 'REAL')
++                else:
++                    return (h, i, 'INTEGER')
+         elif search == "STREAM":
+             if text[i:i+11] == b'\r\nendstream' or text[i:i+10] == b'\nendstream':
+                 return (h, i, 'STREAM')
+@@ -80,7 +114,7 @@
+             if nested == 0:
+                 return (h, i + 1, 'ARRAY')
+         i += 1
+-    return (h, i + 1, '')
++    return (h, i + 1, None)
+ 
+ 
+ def replace_ref(tokens):
+@@ -90,8 +124,11 @@
+     new_list = []
+     i = 0
+     while i < size:
+-        if i < size - 2 and tokens[i + 2]  == b'R':
+-            new_list.append({'_REF': tokens[i]})
++        if i < size - 2 and tokens[i + 2] == b'R':
++            # Create a complex number representation for reference (as done in original)
++            # This follows the convention that 6 0 R becomes 6j
++            ref_num = int(tokens[i])
++            new_list.append(ref_num)
+             i += 3
+         else:
+             new_list.append(tokens[i])
+@@ -127,26 +164,27 @@
+ def parse_obj(text, start=0):
+     """ syntax
+     """
+-    ref_list = []
+     h1, j1, t1 = next_token(text, start)
+     obj = text[h1:j1]
+     if t1 == 'DICT':
+         res = {}
+         res_array = []
+-        h2, j2, t2 = next_token(text, j1)
+-        following_obj = text[h2:j2]
+-        if t2 == 'STREAM': 
+-            stream_def =  parse_obj(obj)
+-            stream_content = decode_stream(following_obj, stream_def)
+-            res = { 'stream_def': stream_def, 'stream_content': stream_content }
+-            return res
+-
+         i = start + 2
+         while i < j1:
+             h, i, ttt = next_token(text, i)
+             if i < j1 and ttt:                             # TODO ?
+                 if ttt == 'DICT' or ttt == 'ARRAY':
+                     obj = parse_obj(text[h:i])
++                elif ttt == 'TRUE':
++                    obj = True
++                elif ttt == 'FALSE':
++                    obj = False
++                elif ttt == 'NAME':
++                    obj = text[h:i].decode('ascii')
++                elif ttt == 'INTEGER' or ttt == 'REAL':
++                    obj = float(text[h:i]) if b'.' in text[h:i] or b'e' in text[h:i].lower() else int(text[h:i])
++                elif ttt == 'STRING':
++                    obj = text[h:i]
+                 else:
+                     obj = text[h:i]
+                 res_array.append(obj)
+@@ -170,10 +208,27 @@
+         while i < j1:
+             h, i, ttt = next_token(text, i)
+             if ttt:
+-                obj = text[h:i]
++                if ttt == 'DICT' or ttt == 'ARRAY':
++                    obj = parse_obj(text[h:i])
++                elif ttt == 'TRUE':
++                    obj = True
++                elif ttt == 'FALSE':
++                    obj = False
++                elif ttt == 'NAME':
++                    obj = text[h:i].decode('ascii')
++                elif ttt == 'INTEGER' or ttt == 'REAL':
++                    obj = float(text[h:i]) if b'.' in text[h:i] or b'e' in text[h:i].lower() else int(text[h:i])
++                elif ttt == 'STRING':
++                    obj = text[h:i]
++                else:
++                    obj = text[h:i]
+                 res.append(obj)
+         res = replace_ref(res)
+         return res
++    elif t1 == 'TRUE':
++        return True
++    elif t1 == 'FALSE':
++        return False
+     else:
+         return None
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/text.py b/pdfsyntax/text.py
+--- a/pdfsyntax/text.py	2026-09-23 12:53:42
++++ b/pdfsyntax/text.py	2026-09-23 12:55:50
+@@ -1,51 +1,35 @@
+-"""Should be archived: not a part of pdfsyntax"""
++"""Module for text decoding functions"""
+ 
+-from .objects import *
+ import re
+ import zlib
+ from collections import namedtuple
+ 
+-def extract_text(text):
+-    """ """
+-    l = []
+-    res = []
+-    i = 0
+-    while i < len(text) - 2:
+-        h, i, _ = next_token(text, i)
+-        obj = text[h:i]
+-        l.append(obj)
+-    for j, tok in enumerate(l):
+-        if tok == b'Tf':
+-            font = l[j-2] 
+-            fsize = float(l[j-1])
+-        elif tok == b'Td':
+-            x = float(l[j-2]) 
+-            y = float(l[j-1])
+-        elif tok == b'Tj':
+-            text = l[j-1]
+-            res.append((x, y, font, fsize, text[1:-1]))
+-    return res
+-
+-
+-def codespacerange(toUnicode):
+-    """ """
+-    re_code = re.compile(rb'beginbfrange.*?<(\w*)>.*?<(\w*)>.*?<(\w*)>.*?endbfrange', re.S)
+-    for match in re.finditer(re_code, toUnicode):
+-        print(f"{match.group(1)} {match.group(2)} {match.group(3)}")
+-
+-
+-def dec_empty(text):
+-    """ """
+-    return ''
+-
+-
+-def dec_unicode(text):
+-    """ """
+-    text = text.replace(b'\\(', b'(')
+-    text = text.replace(b'\\)', b')')
+-    ch = [text[x:x+2].decode('utf_16_be') for x in range(0,len(text),2)]
+-    res = ''.join(ch)
+-    return res
++def text_string(bstr):
++    """Decode PDF text string according to encoding standards"""
++    # Handle hexadecimal strings (starting with <)
++    if bstr.startswith(b'<'):
++        hex_str = bstr[1:-1]  # Remove < and >
++        # Convert hex string to bytes
++        hex_bytes = bytes.fromhex(hex_str.decode('ascii'))
++        # Check for UTF-16BE encoding marker
++        if hex_bytes.startswith(b'\xfe\xff'):
++            return hex_bytes[2:].decode('utf-16be')
++        else:
++            # Assume PDFDocEncoded (Latin-1)
++            return hex_bytes.decode('latin1')
++    else:
++        # Handle literal strings (starting with ()
++        if bstr.startswith(b'('):
++            literal_str = bstr[1:-1]  # Remove parentheses
++            # Check for UTF-16BE encoding marker
++            if literal_str.startswith(b'\xfe\xff'):
++                return literal_str[2:].decode('utf-16be')
++            else:
++                # Assume PDFDocEncoded (Latin-1)
++                return literal_str.decode('latin1')
++        else:
++            # Direct string, assume PDFDocEncoded
++            return bstr.decode('latin1')
+ 
+ 
+ 

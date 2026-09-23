@@ -1,0 +1,94 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:37:34
++++ b/pdfsyntax/objects.py	2026-09-23 11:39:18
+@@ -79,7 +79,7 @@
+             if single in b' \n\r[]/<>(':
+                 return (h, i, 'NAME')
+             elif i == len(text):  # Incomplete NAME at end of input
+-                return (h, i, 'NAME')
++                return (h, i, None)
+         elif search == "TEXT":
+             if double == b'\\(' or double == b'\\)' or double == b'\\<' or double == b'\\>':
+                 i += 1
+@@ -104,22 +104,15 @@
+                     i += 1
+                 return (h, i, 'STRING')
+             elif single in b')>':
+-                return (h, i + 1, 'TEXT')
++                return (h, i + 1, 'STRING')
+             elif i == len(text):  # Incomplete TEXT at end of input
+-                return (h, i, 'TEXT')
++                return (h, i, None)
+         elif search == "HEX_STRING":
+-            if single == b'<':
+-                # Handle hexadecimal string opening
+-                i += 1
+-                while i < len(text) and text[i:i+1] != b'>':
+-                    i += 1
+-                if i < len(text):
+-                    i += 1
+-                return (h, i, 'STRING')
+-            elif single in b')>':
+-                return (h, i + 1, 'HEX_STRING')
++            # When we're in HEX_STRING state, we're looking for the closing '>'  
++            if single in b')>':
++                return (h, i + 1, 'STRING')
+             elif i == len(text):  # Incomplete HEX_STRING at end of input
+-                return (h, i, 'HEX_STRING')
++                return (h, i, None)
+         elif search == "KEYWORD":
+             if single in b' \n\r>/]':
+                 # Check for special keywords
+@@ -131,7 +124,7 @@
+                 else:
+                     return (h, i, 'KEYWORD')
+             elif i == len(text):  # Incomplete KEYWORD at end of input
+-                return (h, i, 'KEYWORD')
++                return (h, i, None)
+         elif search == "VALUE":
+             if single in b' \n\r>/]':
+                 # Determine if it's INTEGER or REAL
+@@ -160,7 +153,7 @@
+             if nested == 0:
+                 return (h, i + 1, 'ARRAY')
+             elif i == len(text):  # Incomplete ARRAY at end of input
+-                return (h, i, 'ARRAY')
++                return (h, i, None)
+         elif search == "COMMENT":
+             if single in b'\r\n':
+                 return (h, i, 'COMMENT')
+@@ -171,26 +164,22 @@
+     if search == "TBD":
+         return (h, i, None)
+     elif search == "VALUE":
+-        # For incomplete values, return the value token with the end position
+-        value = text[h:i]
+-        if b'.' in value or b'e' in value.lower():
+-            return (h, i, 'REAL')
+-        else:
+-            return (h, i, 'INTEGER')
++        # For incomplete values, return None as specified in requirements
++        return (h, i, None)
+     elif search == "NAME":
+-        return (h, i, 'NAME')
++        return (h, i, None)
+     elif search == "TEXT":
+-        return (h, i, 'TEXT')
++        return (h, i, None)
+     elif search == "HEX_STRING":
+-        return (h, i, 'HEX_STRING')
++        return (h, i, None)
+     elif search == "KEYWORD":
+-        return (h, i, 'KEYWORD')
++        return (h, i, None)
+     elif search == "COMMENT":
+         return (h, i, 'COMMENT')
+     elif search == "ARRAY":
+-        return (h, i, 'ARRAY')
++        return (h, i, None)
+     elif search == "DICT":
+-        return (h, i, 'DICT')
++        return (h, i, None)
+     elif search == "STREAM":
+         return (h, i, 'STREAM')
+     return (h, i, None)

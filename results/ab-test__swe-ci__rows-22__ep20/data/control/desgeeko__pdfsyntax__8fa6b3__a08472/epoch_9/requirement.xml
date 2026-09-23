@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+    <requirement>
+        <location>/app/code/pdfsyntax/objects.py</location>
+        <description>The parse_obj function does not correctly handle references in dictionary values. The current implementation tries to detect references but fails to properly process them in all contexts, particularly in dictionaries where values are parsed individually.</description>
+        <contract>When parsing a dictionary with a reference value like << /abc 6 0 R >>, the parser should return {'/abc': 6j} where 6j represents a complex number indicating a reference to object 6. The function should correctly identify and convert the pattern integer 0 R into a complex number.</contract>
+        <acceptance>tests/test_parsing.py::Parsing::test_ref and tests/test_parsing.py::Parsing::test_ref_list should pass</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pdfsyntax/objects.py</location>
+        <description>The next_token function does not properly handle hexadecimal strings that end with a closing bracket or parenthesis. This affects parsing of hexadecimal strings in various contexts, particularly when they are part of arrays or dictionaries.</description>
+        <contract>When processing a hexadecimal string like &lt;414243&gt;, the next_token function should correctly identify it as a STRING token and return the proper start and end positions. Similarly, it should handle other string formats properly.</contract>
+        <acceptance>tests/test_tokenization.py::Tokenization::test_stream and tests/test_text.py::Unicode::test_hexa_utf16be should pass</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pdfsyntax/objects.py</location>
+        <description>The parse_obj function does not properly handle parsing of arrays containing references. The current implementation doesn't correctly convert reference patterns within arrays to complex numbers.</description>
+        <contract>When parsing an array containing references like [ 2 0 R 42 0 R ], the parser should return [2j, 42j] where each reference is converted to a complex number. The function should recognize the pattern integer 0 R within arrays and convert it appropriately.</contract>
+        <acceptance>tests/test_parsing.py::Parsing::test_ref_list should pass</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pdfsyntax/objects.py</location>
+        <description>The next_token function has issues with handling incomplete tokens at the end of input, particularly for arrays, dictionaries, and streams. This leads to incorrect parsing of certain edge cases.</description>
+        <contract>When next_token encounters incomplete tokens at the end of input (like unclosed arrays or dictionaries), it should return appropriate token types with correct boundaries instead of returning None or incorrectly formatted results.</contract>
+        <acceptance>tests/test_tokenization.py::Tokenization::test_array and tests/test_tokenization.py::Tokenization::test_dictionary should pass</acceptance>
+    </requirement>
+    <requirement>
+        <location>/app/code/pdfsyntax/text.py</location>
+        <description>The text_string function does not correctly handle certain Unicode encodings, particularly when dealing with UTF-16BE encoded strings that may not have proper byte alignment or when fallback mechanisms are not robust enough.</description>
+        <contract>When processing UTF-16BE encoded text strings, the function should correctly decode them to Unicode. For cases where UTF-16BE fails, it should fall back to Latin-1 decoding gracefully without raising exceptions.</contract>
+        <acceptance>tests/test_text.py::Unicode::test_hexa_utf16be and tests/test_text.py::Unicode::test_literal_utf16be should pass</acceptance>
+    </requirement>
+</requirements>

@@ -1,0 +1,72 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:34:13
++++ b/pdfsyntax/objects.py	2026-09-23 11:35:42
+@@ -269,6 +269,23 @@
+             else:
+                 val = text[h_val:i_val].decode('utf-8')
+                 
++            # Check if this is a reference pattern (integer 0 R)
++            if isinstance(val, int) and i_val < len(text):
++                # Look ahead to see if it's followed by 0 R
++                temp_i = i_val
++                # Skip whitespace
++                temp_i = skip_chars(SPACE, text, temp_i)
++                if temp_i is not None and temp_i < len(text):
++                    h0, i0, t0 = next_token(text, temp_i)
++                    if t0 == 'INTEGER' and text[h0:i0] == b'0':
++                        # Check for R keyword
++                        temp_i = i0
++                        temp_i = skip_chars(SPACE, text, temp_i)
++                        if temp_i is not None and temp_i < len(text):
++                            hR, iR, tR = next_token(text, temp_i)
++                            if tR == 'KEYWORD' and text[hR:iR] == b'R':
++                                # This is a reference
++                                val = complex(val, 0)
+             res[key] = val
+             i = i_val
+             
+@@ -310,11 +327,40 @@
+             else:
+                 obj = text[h:i].decode('utf-8')
+             res.append(obj)
+-        res = replace_ref(res)
+-        return res
++        
++        # Process references properly
++        processed_res = []
++        i = 0
++        while i < len(res):
++            # Check if we have an integer followed by '0' and then 'R' (reference pattern)
++            if (i + 2 < len(res) and 
++                isinstance(res[i], (int, float)) and 
++                res[i+1] == 0 and 
++                res[i+2] == 'R'):
++                # Convert to complex number representation for reference
++                processed_res.append(complex(res[i], 0))
++                i += 3
++            else:
++                processed_res.append(res[i])
++                i += 1
++        return processed_res
+     else:
+-        # For simple objects that aren't arrays or dicts, we need to check if they're references
+-        # This is a fallback - the main reference handling happens in replace_ref for arrays
++        # For simple objects that aren't arrays or dicts, check if it's a reference
++        # We need to handle references that appear alone (not in arrays)
++        h, i, t = next_token(text, start)
++        if t == 'INTEGER' and i < len(text):
++            # Check if next token is '0' and then 'R'
++            h2, i2, t2 = next_token(text, i)
++            if t2 == 'INTEGER' and text[h2:i2] == b'0':
++                h3, i3, t3 = next_token(text, i2)
++                if t3 == 'KEYWORD' and text[h3:i3] == b'R':
++                    # This is a reference: integer 0 R
++                    try:
++                        num = int(text[h:i])
++                        return complex(num, 0)
++                    except ValueError:
++                        return None
++        return None
+         return None
+ 
+ 

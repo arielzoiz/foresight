@@ -1,0 +1,71 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:40:40
++++ b/pdfsyntax/objects.py	2026-09-23 11:41:16
+@@ -164,8 +164,12 @@
+     if search == "TBD":
+         return (h, i, None)
+     elif search == "VALUE":
+-        # For incomplete values, return None as specified in requirements
+-        return (h, i, None)
++        # For incomplete values, return the appropriate type (INTEGER or REAL)
++        value = text[h:i]
++        if b'.' in value or b'e' in value.lower():
++            return (h, i, 'REAL')
++        else:
++            return (h, i, 'INTEGER')
+     elif search == "NAME":
+         return (h, i, 'NAME')
+     elif search == "TEXT":
+@@ -392,7 +396,34 @@
+                         return complex(num, 0)
+                     except ValueError:
+                         return None
+-        return None
++        # For other cases, return the parsed object normally
++        if t == 'DICT' or t == 'ARRAY':
++            return parse_obj(text, h)
++        elif t == 'NAME':
++            return text[h:i].decode('utf-8')
++        elif t == 'STRING':
++            return text_string(text[h:i])
++        elif t == 'INTEGER' or t == 'REAL':
++            val = text[h:i]
++            try:
++                val = float(val) if b'.' in val else int(val)
++            except ValueError:
++                pass
++            return val
++        elif t == 'TRUE':
++            return True
++        elif t == 'FALSE':
++            return False
++        elif t == 'KEYWORD':
++            val = text[h:i].decode('utf-8')
++            # Special case for boolean keywords
++            if val == 'true':
++                return True
++            elif val == 'false':
++                return False
++            return val
++        else:
++            return text[h:i].decode('utf-8')
+ 
+ 
+ def beginning_next_non_empty_line(bdata, i):
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/text.py b/pdfsyntax/text.py
+--- a/pdfsyntax/text.py	2026-09-23 11:40:29
++++ b/pdfsyntax/text.py	2026-09-23 11:41:24
+@@ -67,7 +67,12 @@
+         try:
+             return result.decode('utf-8')
+         except UnicodeDecodeError:
+-            return result.decode('latin1')  # Fallback to latin1
++            # Try with latin1 first for special characters like euro sign
++            try:
++                return result.decode('latin1')
++            except UnicodeDecodeError:
++                # If still failing, return with error handling
++                return result.decode('utf-8', errors='ignore')
+     elif text.startswith(b'<'):
+         # Hexadecimal string
+         hex_str = text[1:-1].decode('ascii').replace(' ', '')  # Remove angle brackets and spaces

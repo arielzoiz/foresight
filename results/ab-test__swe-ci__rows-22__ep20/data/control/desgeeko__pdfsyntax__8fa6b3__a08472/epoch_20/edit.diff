@@ -1,0 +1,253 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	2026-09-23 11:55:28
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 11:58:11
+@@ -2,16 +2,15 @@
+   "tests/test_tokenization.py::Tokenization::test_hexadecimal_string": true,
+   "tests/test_tokenization.py::Tokenization::test_literal_string": true,
+   "tests/test_tokenization.py::Tokenization::test_stream": true,
+-  "tests/test_parsing.py": true,
+-  "tests/test_text.py::Unicode::test_literal_pdfdocencoded2": true,
+   "tests/test_parsing.py::Parsing::test_multiple_comments": true,
+-  "tests/test_text.py::Unicode::test_hexa_utf16be": true,
+-  "tests/test_tokenization.py::Tokenization::test_comment": true,
+-  "tests/test_parsing.py::Parsing::test_ref": true,
+-  "tests/test_parsing.py::Parsing::test_ref_list": true,
+-  "tests/test_tokenization.py::Tokenization": true,
+   "tests/test_tokenization.py::Tokenization::test_array": true,
+-  "tests/test_tokenization.py::Tokenization::test_boolean_false": true,
+-  "tests/test_tokenization.py::Tokenization::test_boolean_true": true,
+-  "tests/test_tokenization.py::Tokenization::test_keyword": true
++  "tests/test_parsing.py::Parsing": true,
++  "tests/test_parsing.py::Parsing::test_array3": true,
++  "tests/test_parsing.py::Parsing::test_compressed": true,
++  "tests/test_parsing.py::Parsing::test_nested_dict_array": true,
++  "tests/test_simplefile.py::SimpleFile::test_index_length": true,
++  "tests/test_simplefile.py::SimpleFile::test_page_list": true,
++  "tests/test_simplefile.py::SimpleFile::test_prev": true,
++  "tests/test_updating.py::Updating::test_index_length": true,
++  "tests/test_updating.py::Updating::test_prev": true
+ }
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	2026-09-23 11:55:34
++++ b/.pytest_cache/v/cache/nodeids	2026-09-23 11:58:21
+@@ -1,11 +1,26 @@
+ [
+   "tests/test_parsing.py::Parsing::test_array",
++  "tests/test_parsing.py::Parsing::test_array2",
++  "tests/test_parsing.py::Parsing::test_array3",
++  "tests/test_parsing.py::Parsing::test_array4",
++  "tests/test_parsing.py::Parsing::test_bool_array",
++  "tests/test_parsing.py::Parsing::test_compressed",
+   "tests/test_parsing.py::Parsing::test_dictionary",
++  "tests/test_parsing.py::Parsing::test_dictionary2",
+   "tests/test_parsing.py::Parsing::test_multiple_comments",
++  "tests/test_parsing.py::Parsing::test_nested_dict_array",
++  "tests/test_parsing.py::Parsing::test_nested_dictionary",
+   "tests/test_parsing.py::Parsing::test_ref",
+   "tests/test_parsing.py::Parsing::test_ref_list",
+   "tests/test_parsing.py::Parsing::test_simple_comment",
++  "tests/test_serialization.py::Serialization::test_dict",
++  "tests/test_serialization.py::Serialization::test_list",
++  "tests/test_simplefile.py::SimpleFile::test_index_length",
++  "tests/test_simplefile.py::SimpleFile::test_page_list",
++  "tests/test_simplefile.py::SimpleFile::test_prev",
++  "tests/test_text.py::Unicode::test_hexa_pdfdocencoded",
+   "tests/test_text.py::Unicode::test_hexa_utf16be",
++  "tests/test_text.py::Unicode::test_literal_pdfdocencoded",
+   "tests/test_text.py::Unicode::test_literal_pdfdocencoded2",
+   "tests/test_text.py::Unicode::test_literal_utf16be",
+   "tests/test_tokenization.py::Tokenization::test_array",
+@@ -27,5 +42,10 @@
+   "tests/test_tokenization.py::Tokenization::test_name_incomplete",
+   "tests/test_tokenization.py::Tokenization::test_real",
+   "tests/test_tokenization.py::Tokenization::test_real2",
+-  "tests/test_tokenization.py::Tokenization::test_stream"
++  "tests/test_tokenization.py::Tokenization::test_stream",
++  "tests/test_updating.py::Updating::test_index_length",
++  "tests/test_updating.py::Updating::test_prev",
++  "tests/test_xref.py::Xref::test_xref_table",
++  "tests/test_xref.py::Xref::test_xref_table2",
++  "tests/test_xref.py::Xref::test_xref_table3"
+ ]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:55:30
++++ b/pdfsyntax/objects.py	2026-09-23 11:58:08
+@@ -94,12 +94,27 @@
+             elif i == len(text):  # Incomplete VALUE at end of input
+                 # For incomplete values, return None as token type (as per test expectation)
+                 return (h, i, None)
+-            elif i == len(text):  # Incomplete VALUE at end of input
+-                # For incomplete values, return None as token type (as per test expectation)
++        elif search == "KEYWORD":
++            # Check for boolean keywords
++            if i == len(text) or single in b' \n\r\t\f]/<>':
++                keyword = text[h:i]
++                if keyword == b'true':
++                    return (h, i, 'TRUE')
++                elif keyword == b'false':
++                    return (h, i, 'FALSE')
++                else:
++                    return (h, i, 'KEYWORD')
++            elif i == len(text):  # Incomplete KEYWORD at end of input
+                 return (h, i, None)
+-            elif i == len(text):  # Incomplete VALUE at end of input
+-                # For incomplete values, return None as token type (as per test expectation)
+-                return (h, i, None)
++        elif search == "COMMENT":
++            # Skip to end of line (newline or end of text)
++            comment_start = i
++            while i < len(text) and text[i:i+1] not in b'\r\n':
++                i += 1
++            # At this point, i points to the start of the newline or end of text
++            # But we want to return the position right after the comment text,
++            # which is the position of the newline character
++            return (h, i, 'COMMENT')
+         i += 1
+         # Handle end-of-input conditions after incrementing
+         if i == len(text):
+@@ -116,7 +131,13 @@
+             elif search == "HEX_STRING":
+                 return (h, i, 'STRING')
+             elif search == "KEYWORD":
+-                return (h, i, 'KEYWORD')
++                keyword = text[h:i]
++                if keyword == b'true':
++                    return (h, i, 'TRUE')
++                elif keyword == b'false':
++                    return (h, i, 'FALSE')
++                else:
++                    return (h, i, 'KEYWORD')
+             elif search == "COMMENT":
+                 return (h, i, 'COMMENT')
+             elif search == "ARRAY":
+@@ -138,7 +159,13 @@
+     elif search == "HEX_STRING":
+         return (h, i, 'STRING')
+     elif search == "KEYWORD":
+-        return (h, i, 'KEYWORD')
++        keyword = text[h:i]
++        if keyword == b'true':
++            return (h, i, 'TRUE')
++        elif keyword == b'false':
++            return (h, i, 'FALSE')
++        else:
++            return (h, i, 'KEYWORD')
+     elif search == "COMMENT":
+         return (h, i, 'COMMENT')
+     elif search == "ARRAY":
+@@ -254,9 +281,9 @@
+             elif t_val == 'KEYWORD':
+                 val = text[h_val:i_val].decode('utf-8')
+                 # Special case for boolean keywords
+-                if val == b'true':
++                if val == 'true':
+                     val = True
+-                elif val == b'false':
++                elif val == 'false':
+                     val = False
+             elif t_val == 'COMMENT':
+                 # Skip comments completely and continue parsing
+@@ -320,9 +347,9 @@
+             elif ttt == 'KEYWORD':
+                 obj = text[h:i].decode('utf-8')
+                 # Special case for boolean keywords
+-                if obj == b'true':
++                if obj == 'true':
+                     obj = True
+-                elif obj == b'false':
++                elif obj == 'false':
+                     obj = False
+             elif ttt == 'COMMENT':
+                 # Skip comments completely and continue parsing
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py.backup b/pdfsyntax/objects.py.backup
+--- a/pdfsyntax/objects.py.backup	2026-09-23 11:54:52
++++ b/pdfsyntax/objects.py.backup	2026-09-23 11:57:44
+@@ -94,9 +94,30 @@
+             elif i == len(text):  # Incomplete VALUE at end of input
+                 # For incomplete values, return None as token type (as per test expectation)
+                 return (h, i, None)
+-            elif i == len(text):  # Incomplete VALUE at end of input
+-                # For incomplete values, return None as token type (as per test expectation)
++        elif search == "KEYWORD":
++            # Check for boolean keywords
++            if i == len(text) or single in b' \n\r\t\f]/<>':
++                keyword = text[h:i]
++                if keyword == b'true':
++                    return (h, i, 'TRUE')
++                elif keyword == b'false':
++                    return (h, i, 'FALSE')
++                else:
++                    return (h, i, 'KEYWORD')
++            elif i == len(text):  # Incomplete KEYWORD at end of input
+                 return (h, i, None)
++        elif search == "COMMENT":
++            # Skip to end of line (newline or end of text)
++            # Find the end of the comment line
++            while i < len(text) and text[i:i+1] not in b'\r\n':
++                i += 1
++            # Skip past the newline(s) but return the position just after the comment text
++            # This is crucial - we want to return position of the start of the newline
++            # but not include the newline in the comment token itself
++            comment_end = i
++            while i < len(text) and text[i:i+1] in b'\r\n':
++                i += 1
++            return (h, comment_end, 'COMMENT')
+         i += 1
+         # Handle end-of-input conditions after incrementing
+         if i == len(text):
+@@ -113,7 +134,13 @@
+             elif search == "HEX_STRING":
+                 return (h, i, 'STRING')
+             elif search == "KEYWORD":
+-                return (h, i, 'KEYWORD')
++                keyword = text[h:i]
++                if keyword == b'true':
++                    return (h, i, 'TRUE')
++                elif keyword == b'false':
++                    return (h, i, 'FALSE')
++                else:
++                    return (h, i, 'KEYWORD')
+             elif search == "COMMENT":
+                 return (h, i, 'COMMENT')
+             elif search == "ARRAY":
+@@ -135,7 +162,13 @@
+     elif search == "HEX_STRING":
+         return (h, i, 'STRING')
+     elif search == "KEYWORD":
+-        return (h, i, 'KEYWORD')
++        keyword = text[h:i]
++        if keyword == b'true':
++            return (h, i, 'TRUE')
++        elif keyword == b'false':
++            return (h, i, 'FALSE')
++        else:
++            return (h, i, 'KEYWORD')
+     elif search == "COMMENT":
+         return (h, i, 'COMMENT')
+     elif search == "ARRAY":
+@@ -251,9 +284,9 @@
+             elif t_val == 'KEYWORD':
+                 val = text[h_val:i_val].decode('utf-8')
+                 # Special case for boolean keywords
+-                if val == b'true':
++                if val == 'true':
+                     val = True
+-                elif val == b'false':
++                elif val == 'false':
+                     val = False
+             elif t_val == 'COMMENT':
+                 # Skip comments completely and continue parsing
+@@ -317,9 +350,9 @@
+             elif ttt == 'KEYWORD':
+                 obj = text[h:i].decode('utf-8')
+                 # Special case for boolean keywords
+-                if obj == b'true':
++                if obj == 'true':
+                     obj = True
+-                elif obj == b'false':
++                elif obj == 'false':
+                     obj = False
+             elif ttt == 'COMMENT':
+                 # Skip comments completely and continue parsing

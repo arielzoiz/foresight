@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py</location>
+    <description>The parse_obj function does not properly handle reference objects like '6 0 R' which should be converted to complex numbers (e.g., 6j). Currently, the reference parsing logic in replace_ref is incomplete and doesn't correctly handle the reference format.</description>
+    <contract>When parsing PDF objects, the parse_obj function must recognize reference tokens in the format 'number 0 R' and convert them to complex numbers (e.g., 6 0 R becomes 6j). The replacement logic in replace_ref should properly identify and convert these references.</contract>
+    <acceptance>tests/test_parsing.py::Parsing::test_ref and tests/test_parsing.py::Parsing::test_ref_list</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py</location>
+    <description>The next_token function does not correctly handle incomplete tokens at the end of input. When encountering incomplete tokens like '12345' or '/abc', it should return None as the token type instead of trying to parse them as complete tokens.</description>
+    <contract>The next_token function must properly detect and return None for incomplete tokens at the end of input. Specifically, when a token is incomplete (e.g., ends abruptly), it should return (start_index, end_index, None) to indicate the token is incomplete.</contract>
+    <acceptance>tests/test_tokenization.py::Tokenization::test_integer_incomplete and tests/test_tokenization.py::Tokenization::test_name_incomplete</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py</location>
+    <description>The tokenizer does not properly handle comment parsing. Comments starting with '%' should be recognized and skipped properly during tokenization.</description>
+    <contract>The next_token function must correctly identify and process comment tokens. When a comment is encountered (starting with '%'), it should consume the entire comment line and return a COMMENT token with appropriate start/end positions.</contract>
+    <acceptance>tests/test_tokenization.py::Tokenization::test_comment</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/text.py</location>
+    <description>The text_string function does not properly handle PDFDocEncoded strings containing Unicode characters like the euro sign (€). The current implementation assumes Latin-1 encoding for all text strings.</description>
+    <contract>The text_string function must correctly decode PDFDocEncoded strings, particularly handling Unicode characters like the euro sign (€) which is represented as 0xA0 in PDFDocEncoded format. The function should properly convert these encoded sequences to their Unicode equivalents.</contract>
+    <acceptance>tests/test_text.py::Unicode::test_literal_pdfdocencoded2</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/filestruct.py</location>
+    <description>Missing sample PDF files required by several tests. The tests expect sample PDF files like 'simple_text_string.pdf' and 'add_text_annotation.pdf' to exist in the samples directory, but they are not present.</description>
+    <contract>Sample PDF files must be available for testing purposes. The following files should exist in the samples directory: 'simple_text_string.pdf' and 'add_text_annotation.pdf'. These files are needed for tests in test_simplefile.py and test_updating.py to pass.</contract>
+    <acceptance>tests/test_simplefile.py::SimpleFile::test_index_length, tests/test_simplefile.py::SimpleFile::test_prev, tests/test_simplefile.py::SimpleFile::test_page_list, tests/test_updating.py::Updating::test_index_length, tests/test_updating.py::Updating::test_prev</acceptance>
+  </requirement>
+</requirement_document>

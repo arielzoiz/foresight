@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:parse_obj</location>
+    <description>The parse_obj function incorrectly handles array parsing, particularly when parsing arrays containing references and mixed data types. The function doesn't properly convert numeric values to appropriate Python types (int/float) and doesn't correctly handle reference objects (like 6j).</description>
+    <contract>The parse_obj function should correctly parse arrays containing mixed types including integers, floats, strings, booleans, and references. References should be converted to complex numbers (e.g., 6 0 R becomes 6j). Numeric values should be parsed as int or float types based on their format. The function should properly handle edge cases like incomplete tokens.</contract>
+    <acceptance>tests/test_parsing.py::Parsing::test_ref, tests/test_parsing.py::Parsing::test_ref_list, tests/test_parsing.py::Parsing::test_array, tests/test_parsing.py::Parsing::test_array2, tests/test_parsing.py::Parsing::test_array3, tests/test_parsing.py::Parsing::test_array4, tests/test_parsing.py::Parsing::test_simple_comment, tests/test_parsing.py::Parsing::test_multiple_comments</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:next_token</location>
+    <description>The next_token function has issues with token recognition, particularly for literal strings, hexadecimal strings, and incomplete tokens. It's returning incorrect token types or positions causing parsing failures.</description>
+    <contract>The next_token function should correctly identify and return the proper token types (STRING, INTEGER, REAL, NAME, etc.) with accurate start and end positions. It should properly handle nested structures, escape sequences in strings, and incomplete tokens at the end of input.</contract>
+    <acceptance>tests/test_tokenization.py::Tokenization::test_literal_string, tests/test_tokenization.py::Tokenization::test_literal_string2, tests/test_tokenization.py::Tokenization::test_hexadecimal_string, tests/test_tokenization.py::Tokenization::test_integer_incomplete, tests/test_tokenization.py::Tokenization::test_name_incomplete, tests/test_tokenization.py::Tokenization::test_stream</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/__init__.py:serialize</location>
+    <description>The serialize function produces incorrect output for arrays containing mixed types. Specifically, it's not adding proper spacing around elements in arrays.</description>
+    <contract>The serialize function should correctly format arrays with proper spacing between elements. For example, [ /abc 123 ] should produce the byte string b'[ /abc 123 ]' with spaces around elements.</contract>
+    <acceptance>tests/test_serialization.py::Serialization::test_list</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:parse_obj</location>
+    <description>The parse_obj function doesn't correctly handle parsing of dictionaries containing nested structures. It fails to properly parse nested dictionaries and arrays within dictionaries.</description>
+    <contract>The parse_obj function should correctly parse nested dictionaries and arrays. When encountering a DICT or ARRAY token, it should recursively call parse_obj to handle nested structures.</contract>
+    <acceptance>tests/test_parsing.py::Parsing::test_dictionary, tests/test_parsing.py::Parsing::test_dictionary2, tests/test_parsing.py::Parsing::test_nested_dictionary, tests/test_parsing.py::Parsing::test_nested_dict_array, tests/test_parsing.py::Parsing::test_compressed</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:next_token</location>
+    <description>The next_token function has issues with handling of special keywords like 'true' and 'false' which should be recognized as boolean tokens rather than generic KEYWORD tokens.</description>
+    <contract>The next_token function should correctly recognize 'true' and 'false' keywords and return them as 'TRUE' and 'FALSE' token types respectively, rather than as generic 'KEYWORD' tokens.</contract>
+    <acceptance>tests/test_tokenization.py::Tokenization::test_boolean_true, tests/test_tokenization.py::Tokenization::test_boolean_false</acceptance>
+  </requirement>
+</requirements>

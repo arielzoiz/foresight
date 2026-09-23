@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirement_document>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:next_token</location>
+    <description>The next_token function has incomplete handling of various token types, particularly for incomplete tokens and edge cases. Several test cases fail because the function doesn't properly return None for incomplete tokens or doesn't correctly handle parsing of incomplete tokens like integers and comments.</description>
+    <contract>For incomplete tokens at the end of a string, the function should return (start_index, end_index, None) to indicate an incomplete token. For comments, it should properly skip to the end of the comment line and return (start_index, end_index, 'COMMENT'). For integers and real numbers, it should correctly identify and return the appropriate token type.</contract>
+    <acceptance>test_tokenization.py::Tokenization::test_integer_incomplete, test_tokenization.py::Tokenization::test_comment, test_tokenization.py::Tokenization::test_name_incomplete</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:parse_obj</location>
+    <description>The parse_obj function lacks proper handling of nested structures, especially when dealing with dictionaries containing arrays and complex nested objects. The current implementation doesn't properly parse nested structures or correctly handle the replacement of reference tokens.</description>
+    <contract>For dictionary parsing, the function should recursively parse nested dictionaries and arrays. For array parsing, it should correctly handle nested structures and convert reference tokens to complex numbers (e.g., 6 0 R becomes 6j). The function should handle all valid PDF object types including nested structures.</contract>
+    <acceptance>test_parsing.py::Parsing::test_ref, test_parsing.py::Parsing::test_ref_list, test_parsing.py::Parsing::test_nested_dictionary, test_parsing.py::Parsing::test_nested_dict_array</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:replace_ref</location>
+    <description>The replace_ref function has incorrect implementation for handling indirect object references. Currently it treats reference numbers as integers instead of converting them to Python complex numbers as expected by the tests.</description>
+    <contract>When processing a sequence of tokens ending with 'R', the function should convert the preceding number to a complex number (e.g., 6 0 R becomes 6j). The function should correctly process lists of tokens containing reference patterns and convert them appropriately.</contract>
+    <acceptance>test_parsing.py::Parsing::test_ref, test_parsing.py::Parsing::test_ref_list</acceptance>
+  </requirement>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:parse_obj</location>
+    <description>The parse_obj function has issues with comment parsing and whitespace handling when parsing objects. Comments within arrays and dictionaries are not being properly skipped during parsing.</description>
+    <contract>Comments should be properly skipped during parsing without affecting the parsing of subsequent tokens. The parser should correctly handle comments within arrays and dictionaries as demonstrated in test_simple_comment and test_multiple_comments.</contract>
+    <acceptance>test_parsing.py::Parsing::test_simple_comment, test_parsing.py::Parsing::test_multiple_comments</acceptance>
+  </requirement>
+</requirement_document>

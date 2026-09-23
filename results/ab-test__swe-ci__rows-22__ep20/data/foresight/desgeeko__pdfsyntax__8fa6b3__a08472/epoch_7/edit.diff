@@ -1,0 +1,83 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/filestruct.py b/pdfsyntax/filestruct.py
+--- a/pdfsyntax/filestruct.py	2026-09-23 13:04:50
++++ b/pdfsyntax/filestruct.py	2026-09-23 13:06:20
+@@ -126,6 +126,14 @@
+ 
+ def build_index_from_chrono(chrono):
+     """ Build a multi-dimensional array where each column represents a doc update"""
++    # Handle empty chrono list gracefully
++    if not chrono:
++        return []
++    
++    # Handle case where chrono list has no objects with 'o_num' key
++    if not any('o_num' in obj for obj in chrono):
++        return []
++        
+     nb = max(chrono, key = lambda i: i['o_num']).get('o_num') + 1
+     m = nb * [None]
+     abs_pos_array = nb * [0]
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 13:04:46
++++ b/pdfsyntax/objects.py	2026-09-23 13:06:40
+@@ -78,7 +78,7 @@
+             if nested == 0:
+                 return (h, i + 1, 'DICT')
+         elif search == "NAME":
+-            if single in b' \n\r[]/<>(':
++            if single in b' \n\r[]/<>(' or i >= len(text):
+                 return (h, i, 'NAME')
+             i += 1
+             continue
+@@ -109,7 +109,7 @@
+             i += 1
+             continue
+         elif search == "KEYWORD":
+-            if single in b' \n\r>/]' or i == len(text) - 1:
++            if single in b' \n\r>/]' or i >= len(text) or i == len(text) - 1:
+                 # Check if it's a special keyword
+                 keyword = text[h:i]
+                 if keyword == b'true':
+@@ -118,12 +118,22 @@
+                     return (h, i, 'FALSE')
+                 return (h, i, 'KEYWORD')
+         elif search == "VALUE":
+-            if single in b' \n\r>/]' or i == len(text) - 1:
++            # Check if we've reached the end of the string
++            if i >= len(text):
++                return (h, i, None)
++            # If we're at the last character, we need to check if it's a valid terminator
++            if i == len(text) - 1:
++                # We're at the last character of the string, and it's a value character
++                # This means the token is incomplete
++                return (h, i + 1, None)
++            if single in b' \n\r>/]':
+                 # Determine if it's integer or real
+                 if b'.' in text[h:i] or b'e' in text[h:i].lower():
+                     return (h, i, 'REAL')
+                 else:
+                     return (h, i, 'INTEGER')
++            i += 1
++            continue
+         elif search == "STREAM":
+             if text[i:i+11] == b'\r\nendstream' or text[i:i+10] == b'\nendstream':
+                 return (h, i, 'STREAM')
+@@ -173,6 +183,19 @@
+             tokens[i+2] == b'R'):
+             # Create a complex number representation for reference (as done in original)
+             # This follows the convention that 6 0 R becomes 6j
++            try:
++                ref_num = int(tokens[i])
++                new_list.append(complex(0, ref_num))
++                i += 3
++            except (ValueError, TypeError):
++                # If conversion fails, treat as regular token
++                new_list.append(tokens[i])
++                i += 1
++        elif (i < size - 2 and 
++              isinstance(tokens[i], (bytes, str)) and 
++              tokens[i+1] == b'0' and 
++              tokens[i+2] == b'R'):
++            # Handle case where first token might be a string
+             try:
+                 ref_num = int(tokens[i])
+                 new_list.append(complex(0, ref_num))

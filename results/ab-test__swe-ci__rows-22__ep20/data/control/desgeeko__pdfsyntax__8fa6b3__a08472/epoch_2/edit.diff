@@ -1,0 +1,288 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/.gitignore b/.pytest_cache/.gitignore
+--- a/.pytest_cache/.gitignore	1970-01-01 02:00:00
++++ b/.pytest_cache/.gitignore	2026-09-23 11:31:43
+@@ -0,0 +1,2 @@
++# Created by pytest automatically.
++*
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/CACHEDIR.TAG b/.pytest_cache/CACHEDIR.TAG
+--- a/.pytest_cache/CACHEDIR.TAG	1970-01-01 02:00:00
++++ b/.pytest_cache/CACHEDIR.TAG	2026-09-23 11:31:43
+@@ -0,0 +1,4 @@
++Signature: 8a477f597d28d172789f06886806bc55
++# This file is a cache directory tag created by pytest.
++# For information about cache directory tags, see:
++#	https://bford.info/cachedir/spec.html
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/README.md b/.pytest_cache/README.md
+--- a/.pytest_cache/README.md	1970-01-01 02:00:00
++++ b/.pytest_cache/README.md	2026-09-23 11:31:43
+@@ -0,0 +1,8 @@
++# pytest cache directory #
++
++This directory contains data from the pytest's cache plugin,
++which provides the `--lf` and `--ff` options, as well as the `cache` fixture.
++
++**Do not** commit this to version control.
++
++See [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/lastfailed b/.pytest_cache/v/cache/lastfailed
+--- a/.pytest_cache/v/cache/lastfailed	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/lastfailed	2026-09-23 11:32:17
+@@ -0,0 +1,10 @@
++{
++  "tests/test_parsing.py::Parsing::test_ref": true,
++  "tests/test_tokenization.py::Tokenization::test_hexadecimal_string": true,
++  "tests/test_tokenization.py::Tokenization::test_integer_incomplete": true,
++  "tests/test_tokenization.py::Tokenization::test_literal_string": true,
++  "tests/test_tokenization.py::Tokenization::test_literal_string2": true,
++  "tests/test_tokenization.py::Tokenization::test_name_incomplete": true,
++  "tests/test_tokenization.py::Tokenization::test_stream": true,
++  "tests/test_parsing.py::Parsing::test_ref_list": true
++}
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/.pytest_cache/v/cache/nodeids b/.pytest_cache/v/cache/nodeids
+--- a/.pytest_cache/v/cache/nodeids	1970-01-01 02:00:00
++++ b/.pytest_cache/v/cache/nodeids	2026-09-23 11:32:17
+@@ -0,0 +1,26 @@
++[
++  "tests/test_parsing.py::Parsing::test_array",
++  "tests/test_parsing.py::Parsing::test_dictionary",
++  "tests/test_parsing.py::Parsing::test_ref",
++  "tests/test_parsing.py::Parsing::test_ref_list",
++  "tests/test_tokenization.py::Tokenization::test_array",
++  "tests/test_tokenization.py::Tokenization::test_boolean_false",
++  "tests/test_tokenization.py::Tokenization::test_boolean_true",
++  "tests/test_tokenization.py::Tokenization::test_comment",
++  "tests/test_tokenization.py::Tokenization::test_dictionary",
++  "tests/test_tokenization.py::Tokenization::test_dictionary2",
++  "tests/test_tokenization.py::Tokenization::test_dictionary3",
++  "tests/test_tokenization.py::Tokenization::test_hexadecimal_string",
++  "tests/test_tokenization.py::Tokenization::test_integer",
++  "tests/test_tokenization.py::Tokenization::test_integer_incomplete",
++  "tests/test_tokenization.py::Tokenization::test_integer_minus",
++  "tests/test_tokenization.py::Tokenization::test_keyword",
++  "tests/test_tokenization.py::Tokenization::test_literal_string",
++  "tests/test_tokenization.py::Tokenization::test_literal_string2",
++  "tests/test_tokenization.py::Tokenization::test_name",
++  "tests/test_tokenization.py::Tokenization::test_name_i",
++  "tests/test_tokenization.py::Tokenization::test_name_incomplete",
++  "tests/test_tokenization.py::Tokenization::test_real",
++  "tests/test_tokenization.py::Tokenization::test_real2",
++  "tests/test_tokenization.py::Tokenization::test_stream"
++]
+\ No newline at end of file
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 11:29:31
++++ b/pdfsyntax/objects.py	2026-09-23 11:32:12
+@@ -18,7 +18,7 @@
+     return None        
+ 
+ 
+-def next_token(text, i):
++def next_token(text, i=0):
+     """ syntax Find next token in raw string starting at some index
+     """
+     search = "TBD"
+@@ -124,8 +124,24 @@
+     new_list = []
+     i = 0
+     while i < size:
+-        if i < size - 2 and tokens[i + 2]  == b'R':
+-            new_list.append({'_REF': tokens[i]})
++        # Check if we have an integer followed by '0' and then 'R' 
++        # This handles the pattern like [2, 0, 'R'] or [6, 0, 'R'] or [b'2', b'0', b'R']
++        if (i < size - 2 and 
++            isinstance(tokens[i], (int, str, bytes)) and 
++            ((isinstance(tokens[i+1], (int, bytes)) and (tokens[i+1] == b'0' or tokens[i+1] == 0)) or 
++             (isinstance(tokens[i+1], bytes) and tokens[i+1] == b'0')) and
++            (isinstance(tokens[i+2], bytes) and tokens[i+2] == b'R')):
++            # Convert to complex number representation for reference
++            try:
++                if isinstance(tokens[i], bytes):
++                    num = int(tokens[i])
++                elif isinstance(tokens[i], str):
++                    num = int(tokens[i])
++                else:
++                    num = tokens[i]
++                new_list.append(complex(num, 0))
++            except ValueError:
++                new_list.append(tokens[i])
+             i += 3
+         else:
+             new_list.append(tokens[i])
+@@ -161,91 +177,105 @@
+ def parse_obj(text, start=0):
+     """ syntax
+     """
+-    ref_list = []
+     h1, j1, t1 = next_token(text, start)
+-    obj = text[h1:j1]
+     if t1 == 'DICT':
+         res = {}
+-        res_array = []
+-        i = start + 2
+-        while i < j1:
+-            h, i, ttt = next_token(text, i)
+-            if i < j1 and ttt:                             # TODO ?
+-                if ttt == 'DICT' or ttt == 'ARRAY':
+-                    obj = parse_obj(text, h)
+-                elif ttt == 'NAME':
+-                    obj = text[h:i]
+-                elif ttt == 'STRING':
+-                    obj = text_string(text[h:i])
+-                elif ttt == 'INTEGER' or ttt == 'REAL':
+-                    obj = text[h:i]
+-                    try:
+-                        obj = float(obj) if b'.' in obj else int(obj)
+-                    except ValueError:
+-                        pass
+-                elif ttt == 'TRUE':
+-                    obj = True
+-                elif ttt == 'FALSE':
+-                    obj = False
+-                elif ttt == 'KEYWORD':
+-                    obj = text[h:i]
+-                    # Special case for boolean keywords
+-                    if obj == b'true':
+-                        obj = True
+-                    elif obj == b'false':
+-                        obj = False
+-                else:
+-                    obj = text[h:i]
+-                res_array.append(obj)
+-        toggle = True
+-        res_array = replace_ref(res_array)
+-        j = len(res_array) - 1
+-        while j >= 0:
+-            if toggle:
+-                val = res_array[j]
+-                toggle = False
++        i = h1 + 2  # Skip << 
++        while i < j1 - 2:  # Skip >>
++            # Skip whitespace
++            i = skip_chars(SPACE, text, i)
++            if i is None or i >= j1 - 2:
++                break
++                
++            # Parse key
++            h_key, i_key, t_key = next_token(text, i)
++            if t_key != 'NAME':
++                # If not a name, skip it
++                i = i_key
++                continue
++                
++            key = text[h_key:i_key].decode('utf-8')
++            
++            # Skip whitespace
++            i = skip_chars(SPACE, text, i_key)
++            if i is None or i >= j1 - 2:
++                break
++                
++            # Parse value
++            h_val, i_val, t_val = next_token(text, i)
++            if t_val == 'DICT' or t_val == 'ARRAY':
++                val = parse_obj(text, h_val)
++            elif t_val == 'NAME':
++                val = text[h_val:i_val].decode('utf-8')
++            elif t_val == 'STRING':
++                val = text_string(text[h_val:i_val])
++            elif t_val == 'INTEGER' or t_val == 'REAL':
++                val = text[h_val:i_val]
++                try:
++                    val = float(val) if b'.' in val else int(val)
++                except ValueError:
++                    pass
++            elif t_val == 'TRUE':
++                val = True
++            elif t_val == 'FALSE':
++                val = False
++            elif t_val == 'KEYWORD':
++                val = text[h_val:i_val].decode('utf-8')
++                # Special case for boolean keywords
++                if val == b'true':
++                    val = True
++                elif val == b'false':
++                    val = False
+             else:
+-                key = res_array[j]
+-                res[key] = val
+-                toggle = True
+-            j -= 1
++                val = text[h_val:i_val].decode('utf-8')
++                
++            res[key] = val
++            i = i_val
++            
+         return res
+ 
+     elif t1 == 'ARRAY':
+         res = []
+-        i = start + 1
+-        while i < j1:
++        i = h1 + 1  # Skip [
++        while i < j1 - 1:  # Skip ]
++            # Skip whitespace
++            i = skip_chars(SPACE, text, i)
++            if i is None or i >= j1 - 1:
++                break
++                
+             h, i, ttt = next_token(text, i)
+-            if ttt:
+-                if ttt == 'DICT' or ttt == 'ARRAY':
+-                    obj = parse_obj(text, h)
+-                elif ttt == 'NAME':
+-                    obj = text[h:i]
+-                elif ttt == 'STRING':
+-                    obj = text_string(text[h:i])
+-                elif ttt == 'INTEGER' or ttt == 'REAL':
+-                    obj = text[h:i]
+-                    try:
+-                        obj = float(obj) if b'.' in obj else int(obj)
+-                    except ValueError:
+-                        pass
+-                elif ttt == 'TRUE':
++            if ttt == 'DICT' or ttt == 'ARRAY':
++                obj = parse_obj(text, h)
++            elif ttt == 'NAME':
++                obj = text[h:i].decode('utf-8')
++            elif ttt == 'STRING':
++                obj = text_string(text[h:i])
++            elif ttt == 'INTEGER' or ttt == 'REAL':
++                obj = text[h:i]
++                try:
++                    obj = float(obj) if b'.' in obj else int(obj)
++                except ValueError:
++                    pass
++            elif ttt == 'TRUE':
++                obj = True
++            elif ttt == 'FALSE':
++                obj = False
++            elif ttt == 'KEYWORD':
++                obj = text[h:i].decode('utf-8')
++                # Special case for boolean keywords
++                if obj == b'true':
+                     obj = True
+-                elif ttt == 'FALSE':
++                elif obj == b'false':
+                     obj = False
+-                elif ttt == 'KEYWORD':
+-                    obj = text[h:i]
+-                    # Special case for boolean keywords
+-                    if obj == b'true':
+-                        obj = True
+-                    elif obj == b'false':
+-                        obj = False
+-                else:
+-                    obj = text[h:i]
+-                res.append(obj)
++            else:
++                obj = text[h:i].decode('utf-8')
++            res.append(obj)
+         res = replace_ref(res)
+         return res
+     else:
++        # Try to parse as reference if it's a simple number followed by '0 R'
++        # This is tricky to detect here - better handled in replace_ref
++        return None
+         return None
+ 
+ 

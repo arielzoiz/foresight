@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<requirements>
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:next_token</location>
+    <description>The next_token function incorrectly handles incomplete token detection, particularly for integers and values at the end of strings. Tests like test_integer_incomplete and test_name_incomplete are failing because the function doesn't properly return None for incomplete tokens when reaching the end of the string.</description>
+    <contract>The function must detect when a token is incomplete at the end of a string and return (start_index, end_index, None) for such cases. Specifically, when processing VALUE tokens (integers/real numbers) and NAME tokens, if the parsing reaches the end of the string without proper termination, it should return None for the token type.</contract>
+    <acceptance>tests/test_tokenization.py::Tokenization::test_integer_incomplete and tests/test_tokenization.py::Tokenization::test_name_incomplete</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pdfsyntax/filestruct.py:build_index_from_chrono</location>
+    <description>The build_index_from_chrono function fails with "ValueError: max() arg is an empty sequence" in multiple tests due to attempting to find the maximum of an empty sequence when processing document indices. This occurs when the chrono list is empty or when all objects in the list lack the 'o_num' key.</description>
+    <contract>The function must handle cases where the chrono list is empty or contains no valid objects with 'o_num' keys. It should gracefully return an empty index or handle the edge case without raising ValueError.</contract>
+    <acceptance>tests/test_simplefile.py::SimpleFile::test_index_length, tests/test_simplefile.py::SimpleFile::test_prev, tests/test_updating.py::Updating::test_prev, tests/test_simplefile.py::SimpleFile::test_page_list, tests/test_updating.py::Updating::test_index_length</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:parse_obj</location>
+    <description>The parse_obj function has issues parsing complex nested structures like dictionaries and arrays when encountering malformed or missing elements. This leads to parsing failures in test_ref_list and test_ref tests, where complex number representations (like 6j) should be generated from reference tokens.</description>
+    <contract>The function must properly parse nested structures including dictionaries and arrays, and correctly handle reference resolution to produce complex number representations for references. When parsing arrays, it should process references appropriately.</contract>
+    <acceptance>tests/test_parsing.py::Parsing::test_ref_list, tests/test_parsing.py::Parsing::test_ref</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:next_token</location>
+    <description>The comment parsing logic in next_token function fails to properly detect and return comment tokens, particularly when comments appear at the beginning of strings or in specific contexts. The test_comment test is failing because comments aren't being parsed correctly.</description>
+    <contract>The function must correctly identify and return COMMENT tokens when encountering '%' characters at the beginning of tokens, properly skipping to the end of the comment line and returning the correct token range.</contract>
+    <acceptance>tests/test_tokenization.py::Tokenization::test_comment</acceptance>
+  </requirement>
+  
+  <requirement>
+    <location>/app/code/pdfsyntax/objects.py:replace_ref</location>
+    <description>The replace_ref function has incorrect logic for converting numeric references into complex number representations. It only looks for specific patterns and doesn't properly handle all valid reference formats that should be converted to complex numbers like 6j.</description>
+    <contract>The function must properly identify reference patterns (number 0 R) and convert them to complex number representations (e.g., 6 0 R becomes 6j) as expected by the tests.</contract>
+    <acceptance>tests/test_parsing.py::Parsing::test_ref_list, tests/test_parsing.py::Parsing::test_ref</acceptance>
+  </requirement>
+</requirements>

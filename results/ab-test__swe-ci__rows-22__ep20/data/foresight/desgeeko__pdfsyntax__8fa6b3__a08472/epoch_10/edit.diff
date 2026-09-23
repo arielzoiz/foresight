@@ -1,0 +1,201 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/filestruct.py b/pdfsyntax/filestruct.py
+--- a/pdfsyntax/filestruct.py	2026-09-23 13:10:44
++++ b/pdfsyntax/filestruct.py	2026-09-23 13:12:24
+@@ -13,21 +13,34 @@
+     xref = []
+     table = []
+     trailer_pos = bdata.find(b'trailer', start_pos)
++    if trailer_pos == -1:
++        return []  # No trailer found
+     lines = bdata[start_pos:trailer_pos].splitlines()
++    o_num = 0  # Initialize object number
+     for line in lines:
+         line_a = line.strip(b'\n\r ').split()
+         if len(line_a) == 2:
+-            o_num = int(line_a[0])
+-            table.append((line, None))
++            try:
++                o_num = int(line_a[0])
++                table.append((line, None))
++            except ValueError:
++                # Skip invalid lines
++                continue
+         elif len(line_a) == 3:
+-            offset = int(line_a[0])
+-            o_ver = int(line_a[1])
+-            o_start = bdata.find(b'obj', offset) + len(b'obj') + 1
+-            if bdata[o_start] in b'\r\n ': o_start += 1
+-            if o_num != 0:
+-                xref.append({'abs_pos': offset, 'o_num': o_num, 'o_gen': o_ver})
+-            table.append((line, o_num))
+-            o_num += 1
++            try:
++                offset = int(line_a[0])
++                o_ver = int(line_a[1])
++                o_start = bdata.find(b'obj', offset) + len(b'obj') + 1
++                if o_start > len(b'obj') + 1:  # Make sure we found 'obj'
++                    if bdata[o_start] in b'\r\n ': 
++                        o_start += 1
++                if o_num != 0:
++                    xref.append({'abs_pos': offset, 'o_num': o_num, 'o_gen': o_ver})
++                table.append((line, o_num))
++                o_num += 1
++            except (ValueError, IndexError):
++                # Skip invalid lines
++                continue
+     xref.insert(0, {'o_num': 0, 'o_gen': 0, 'abs_pos': trailer_pos, 'xref_table':table })
+     return xref
+ 
+@@ -77,10 +90,10 @@
+     if startxref_pos == -1:
+         # No startxref found, return empty list
+         return []
+-    i, j, _ = next_token(bdata, startxref_pos + len(STARTXREF))
+     try:
++        i, j, _ = next_token(bdata, startxref_pos + len(STARTXREF))
+         xref_pos = int(bdata[i:j])
+-    except ValueError:
++    except (ValueError, IndexError):
+         # Invalid xref position, return empty list
+         return []
+     if bdata[xref_pos:xref_pos+4] == XREF:
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 13:10:50
++++ b/pdfsyntax/objects.py	2026-09-23 13:12:16
+@@ -35,7 +35,7 @@
+     """ syntax Find next token in raw string starting at some index
+     """
+     search = "TBD"
+-    nested = 1
++    nested = 0
+     h = i
+     while i < len(text):
+         single = text[i:i+1]
+@@ -43,20 +43,29 @@
+         if search == "TBD":
+             if double == b'<<':
+                 search = "DICT"
++                nested = 1
++                h = i
++                i += 1
+             elif single == b'[':
+                 search = "ARRAY"
++                nested = 1
++                h = i
+             elif single == b'/':
+                 search = "NAME"
++                h = i
+             elif text[i:i+6] == b"stream":
+                 search = "STREAM"
+                 offset = 7 if text[i+6:i+7] == b'\n' else 8 # else is b'\r\n'
+                 i += offset
+             elif single in b"+-.0123456789":
+                 search = "VALUE"
++                h = i
+             elif single in b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                 search = "KEYWORD"
++                h = i
+             elif single in b"(<":
+                 search = "TEXT"
++                h = i
+             elif single == b't':
+                 # Check for true/false keywords
+                 if text[i:i+4] == b'true':
+@@ -200,7 +209,9 @@
+         # Since tokens are raw bytes, we need to check for bytes objects
+         if (i < size - 2 and 
+             isinstance(tokens[i], (bytes, str)) and 
++            isinstance(tokens[i+1], (bytes, str)) and
+             tokens[i+1] == b'0' and 
++            isinstance(tokens[i+2], (bytes, str)) and
+             tokens[i+2] == b'R'):
+             # Create a complex number representation for reference (as done in original)
+             # This follows the convention that 6 0 R becomes 6j
+@@ -214,11 +225,12 @@
+                 i += 1
+         elif (i < size - 1 and 
+               isinstance(tokens[i], (bytes, str)) and 
+-              tokens[i+1] == b'R' and 
+-              isinstance(tokens[i-1], (bytes, str)) and 
++              tokens[i] == b'R' and 
++              i >= 1 and
++              isinstance(tokens[i-1], (bytes, str)) and
+               tokens[i-1] == b'0'):
+             # This is the '0 R' part of a reference, skip it as it was already processed
+-            i += 2
++            i += 1
+         else:
+             new_list.append(tokens[i])
+             i += 1
+@@ -400,6 +412,23 @@
+                         obj = text[h_val:i]
+                 elif t_val == 'STRING':
+                     obj = text[h_val:i]
++                elif t_val == 'VALUE' and h_val < i:
++                    # Handle numeric values (including references)
++                    value_str = text[h_val:i]
++                    if value_str.endswith(b'R'):
++                        # This looks like a reference - convert to complex number
++                        try:
++                            # Extract the number part (before 'R')
++                            num_part = value_str[:-1].strip()
++                            ref_num = int(num_part)
++                            obj = complex(0, ref_num)
++                        except ValueError:
++                            obj = value_str
++                    else:
++                        try:
++                            obj = float(value_str) if b'.' in value_str or b'e' in value_str.lower() else int(value_str)
++                        except ValueError:
++                            obj = value_str
+                 else:
+                     obj = text[h_val:i]
+                 res[key] = obj
+@@ -448,6 +477,23 @@
+                         obj = text[h:i]
+                 elif ttt == 'STRING':
+                     obj = text[h:i]
++                elif ttt == 'VALUE' and h < i:
++                    # Handle numeric values (including references)
++                    value_str = text[h:i]
++                    if value_str.endswith(b'R'):
++                        # This looks like a reference - convert to complex number
++                        try:
++                            # Extract the number part (before 'R')
++                            num_part = value_str[:-1].strip()
++                            ref_num = int(num_part)
++                            obj = complex(0, ref_num)
++                        except ValueError:
++                            obj = value_str
++                    else:
++                        try:
++                            obj = float(value_str) if b'.' in value_str or b'e' in value_str.lower() else int(value_str)
++                        except ValueError:
++                            obj = value_str
+                 else:
+                     obj = text[h:i]
+                 res.append(obj)
+@@ -458,6 +504,23 @@
+         return True
+     elif t1 == 'FALSE':
+         return False
++    elif t1 == 'VALUE' and h1 < j1:
++        # Handle standalone numeric values
++        value_str = text[h1:j1]
++        if value_str.endswith(b'R'):
++            # This looks like a reference - convert to complex number
++            try:
++                # Extract the number part (before 'R')
++                num_part = value_str[:-1].strip()
++                ref_num = int(num_part)
++                return complex(0, ref_num)
++            except ValueError:
++                return value_str
++        else:
++            try:
++                return float(value_str) if b'.' in value_str or b'e' in value_str.lower() else int(value_str)
++            except ValueError:
++                return value_str
+     else:
+         return None
+ 

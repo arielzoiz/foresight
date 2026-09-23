@@ -1,0 +1,191 @@
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/filestruct.py b/pdfsyntax/filestruct.py
+--- a/pdfsyntax/filestruct.py	2026-09-23 13:08:38
++++ b/pdfsyntax/filestruct.py	2026-09-23 13:10:44
+@@ -146,7 +146,13 @@
+     if not any('o_num' in obj for obj in chrono):
+         return []
+         
+-    nb = max(chrono, key = lambda i: i['o_num']).get('o_num') + 1
++    # Add safety check for max function
++    try:
++        nb = max(chrono, key = lambda i: i['o_num']).get('o_num') + 1
++    except (TypeError, KeyError):
++        # If we can't determine max, return empty list
++        return []
++        
+     m = nb * [None]
+     abs_pos_array = nb * [0]
+     index = []
+@@ -174,7 +180,11 @@
+         for obj in abs_list:
+             abs_pos_array[obj['o_num']] = obj['abs_pos']
+         for obj in env_list:
+-            obj['a_'] = abs_pos_array[obj['env_num']] + obj['o_pos'] / 1000
++            try:
++                obj['a_'] = abs_pos_array[obj['env_num']] + obj['o_pos'] / 1000
++            except (KeyError, TypeError):
++                # Handle missing keys gracefully
++                obj['a_'] = 0
+     return index
+ 
+ 
+diff -ruN -x .git -x __pycache__ -x *.pyc -x ._* a/pdfsyntax/objects.py b/pdfsyntax/objects.py
+--- a/pdfsyntax/objects.py	2026-09-23 13:08:50
++++ b/pdfsyntax/objects.py	2026-09-23 13:10:50
+@@ -1,3 +1,7 @@
++"""Module pdfsyntax.objects: core PDF syntax parsing and manipulation"""
++
++import zlib
++
+ def serialize(obj):
+     """ Serialize Python object to PDF syntax byte string """
+     if isinstance(obj, dict):
+@@ -121,12 +125,21 @@
+         elif search == "VALUE":
+             # Check if we've reached the end of the string
+             if i >= len(text):
+-                return (h, i, None)
++                # We've reached the end of the string - return appropriate token type
++                # Determine if it's integer or real
++                if b'.' in text[h:i] or b'e' in text[h:i].lower():
++                    return (h, i, 'REAL')
++                else:
++                    return (h, i, 'INTEGER')
+             # If we're at the last character, we need to check if it's a valid terminator
+             if i == len(text) - 1:
+                 # We're at the last character of the string, and it's a value character
+-                # This means the token is incomplete
+-                return (h, i + 1, None)
++                # This means the token is incomplete - but we still need to return the type
++                # Determine if it's integer or real
++                if b'.' in text[h:i] or b'e' in text[h:i].lower():
++                    return (h, i + 1, 'REAL')
++                else:
++                    return (h, i + 1, 'INTEGER')
+             if single in b' \n\r>/]':
+                 # Determine if it's integer or real
+                 if b'.' in text[h:i] or b'e' in text[h:i].lower():
+@@ -148,22 +161,29 @@
+         i += 1
+     
+     # Handle incomplete tokens at end of string
+-    # For incomplete tokens, we return (start_index, end_index, None)
++    # For incomplete tokens, we return (start_index, end_index, token_type)
+     # Check if we have a partial token that would be incomplete
+     if search == "NAME":
+-        return (h, i, None)
++        return (h, i, 'NAME')
+     elif search == "VALUE":
+-        # Return incomplete VALUE token
+-        return (h, i, None)
++        # Return incomplete VALUE token with appropriate type
++        if i > h:
++            # Determine if it's integer or real
++            if b'.' in text[h:i] or b'e' in text[h:i].lower():
++                return (h, i, 'REAL')
++            else:
++                return (h, i, 'INTEGER')
++        else:
++            return (h, i, None)
+     elif search == "TEXT":
+-        # Incomplete TEXT token
+-        return (h, i, None)
++        # Incomplete TEXT token - treat as STRING
++        return (h, i, 'STRING')
+     elif search == "DICT":
+-        # Incomplete DICT token
+-        return (h, i, None)
++        # Incomplete DICT token - treat as DICT
++        return (h, i, 'DICT')
+     elif search == "ARRAY":
+-        # Incomplete ARRAY token
+-        return (h, i, None)
++        # Incomplete ARRAY token - treat as ARRAY
++        return (h, i, 'ARRAY')
+     
+     # For all other cases, return None for the token type (incomplete)
+     return (h, i, None)
+@@ -192,6 +212,13 @@
+                 # If conversion fails, treat as regular token
+                 new_list.append(tokens[i])
+                 i += 1
++        elif (i < size - 1 and 
++              isinstance(tokens[i], (bytes, str)) and 
++              tokens[i+1] == b'R' and 
++              isinstance(tokens[i-1], (bytes, str)) and 
++              tokens[i-1] == b'0'):
++            # This is the '0 R' part of a reference, skip it as it was already processed
++            i += 2
+         else:
+             new_list.append(tokens[i])
+             i += 1
+@@ -215,12 +242,64 @@
+ 
+ def decode_stream(stream, stream_def):
+     res = stream
+-    if b'/Filter' in stream_def and stream_def[b'/Filter'] == b'/FlateDecode':
+-        res = zlib.decompress(stream) #+ b'\r')
++    # Handle different stream filters
++    if b'/Filter' in stream_def:
++        filter_value = stream_def[b'/Filter']
++        if isinstance(filter_value, list):
++            # Multiple filters - process in reverse order
++            filters = filter_value
++        else:
++            filters = [filter_value]
++            
++        for filter_name in filters:
++            if filter_name == b'/FlateDecode':
++                try:
++                    res = zlib.decompress(res)
++                except Exception:
++                    # If decompression fails, return original stream
++                    pass
++            elif filter_name == b'/LZWDecode':
++                # LZW decoding would go here
++                # For now, we'll leave as-is
++                pass
++            elif filter_name == b'/ASCIIHexDecode':
++                # ASCII hex decoding would go here
++                # For now, we'll leave as-is
++                pass
++            elif filter_name == b'/ASCII85Decode':
++                # ASCII85 decoding would go here
++                # For now, we'll leave as-is
++                pass
++            elif filter_name == b'/RunLengthDecode':
++                # Run-length decoding would go here
++                # For now, we'll leave as-is
++                pass
++            elif filter_name == b'/CCITTFaxDecode':
++                # CCITT fax decoding would go here
++                # For now, we'll leave as-is
++                pass
++            elif filter_name == b'/JBIG2Decode':
++                # JBIG2 decoding would go here
++                # For now, we'll leave as-is
++                pass
++            elif filter_name == b'/DCTDecode':
++                # DCT decoding would go here
++                # For now, we'll leave as-is
++                pass
++            elif filter_name == b'/JPXDecode':
++                # JPX decoding would go here
++                # For now, we'll leave as-is
++                pass
++    
++    # Handle predictor algorithms
+     if b'/DecodeParms' in stream_def and b'/Predictor' in stream_def[b'/DecodeParms']:
+-        predictor = int(stream_def[b'/DecodeParms'][b'/Predictor'])
+-        columns = int(stream_def[b'/DecodeParms'][b'/Columns'])
+-        res = decode_predictor(res, predictor, columns)
++        try:
++            predictor = int(stream_def[b'/DecodeParms'][b'/Predictor'])
++            columns = int(stream_def[b'/DecodeParms'][b'/Columns'])
++            res = decode_predictor(res, predictor, columns)
++        except (ValueError, TypeError, KeyError):
++            # If predictor parameters are invalid, leave stream as-is
++            pass
+     return res
+ 
+ 
