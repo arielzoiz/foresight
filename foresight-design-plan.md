@@ -1,5 +1,9 @@
 # Design: `foresight` — a caller-agnostic prompt-enhancement proxy
 
+*This is the design plan as written before implementation, kept for reference. Milestones 1–3 were
+built; milestones 4–5 (mini-SWE-agent, local agents) were not. Where this plan and the code differ,
+the code and `README.md` are authoritative.*
+
 ## Context
 
 The project ("Enhancing LLM Code Maintainability via Future-Task Prompting") tests whether forcing a coding agent to consider plausible *future* tasks produces more maintainable code.
@@ -316,8 +320,8 @@ carries no `tools`, and treating it as a task prompt wastes a whole aux run and 
 one. Default: a request is an agent turn iff it advertises a non-empty `tools` array (every
 supported caller's real turns do; the OpenAI protocol has a harness resend them every request).
 Configurable per adapter class (`require_tools_default`) and per deployment
-(`adapter.require_tools`) for a caller that legitimately never sends tools. See `README.md`,
-"Design decisions specific to this milestone", for the measurement this was built against.
+(`adapter.require_tools`) for a caller that legitimately never sends tools. See
+`results/qwen2.5-coder-7b/findings.md` for the measurement this was built against.
 
 Three implementations cover every caller:
 
@@ -709,7 +713,7 @@ first prompt the target agent gets.
    `stream: true` for SSE passthrough.
 3. **Protocol conformance** — replay a captured opencode request (system + user + tool
    definitions) and confirm the tool definitions survive untouched.
-4. **Local, real model** — vLLM on a Slurm GPU node (use the `slurm-jobs` skill). Confirm a
+4. **Local, real model** — vLLM on a Slurm GPU node. Confirm a
    multi-request session completes, aux ran **once**, the enhanced prompt is present in *every*
    outbound request of the session, and the guard reports the repo untouched.
 5. **SWE-CI, one task** — smallest splitting, `max_epoch = 1`. Confirm traces classify architect
@@ -803,8 +807,7 @@ Steps 1–3 need neither GPU nor Docker.
    - *Variance.* Agent trajectories are stochastic. The effect must exceed that spread.
 
    **Before building the enhancement layer, run baseline tasks across seeds and measure both.**
-6. **Served model not yet chosen**, pending the GPUs obtainable on Slurm (use the `slurm-jobs`
-   skill). Candidates: Qwen3-Coder-30B-A3B (MoE, ~3B active, ~60 GB bf16), Devstral-Small-24B, or
+6. **Served model not yet chosen**, pending the GPUs obtainable on Slurm. Candidates: Qwen3-Coder-30B-A3B (MoE, ~3B active, ~60 GB bf16), Devstral-Small-24B, or
    a smaller Qwen2.5-Coder for the model-size axis. Feeds risk 5.
 7. **Caller-side HTTP timeout.** The target agent's request stays open for the entire aux run —
    potentially minutes. SWE-CI gives the whole `docker exec` 3600s (`evolve.architect.timeout`),
